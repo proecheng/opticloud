@@ -1,6 +1,6 @@
 # Safety papers index
 
-更新日期：2026-05-04  
+更新日期：2026-05-04
 用途：MicroGrid Safety Edge / EdgeSentry 技术底座研究资料。重点关注微网保护、逆变器型资源、保护协调、动态状态估计、ML 故障识别、网络安全和 fail closed。
 
 ## 已下载全文或公开 PDF

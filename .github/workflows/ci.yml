@@ -95,6 +95,21 @@ jobs:
       - name: Run pre-commit
         run: uv tool run pre-commit run --all-files --show-diff-on-failure
 
+  # ===== Mypy strict (Story 0.5) — separate job so it has access to project deps =====
+  mypy:
+    needs: changes
+    if: needs.changes.outputs.shared_py == 'true' || needs.changes.outputs.python_sdk == 'true' || needs.changes.outputs.auth_service == 'true' || needs.changes.outputs.solver_orchestrator == 'true' || needs.changes.outputs.ci_or_root == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: pip install uv==${{ env.UV_VERSION }}
+      - run: uv sync --all-packages --extra dev
+      - name: Run mypy
+        run: uv run mypy apps packages
+
   # ===== Python: shared-py tests (cascade triggers many services) =====
   # Story 0.5b — property tests (Hypothesis + Schemathesis) require dev extras.
   shared-py-test:
@@ -121,7 +136,7 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
       - run: pip install uv==${{ env.UV_VERSION }}
-      - run: uv sync
+      - run: uv sync --all-packages --extra dev
       - run: uv run pytest packages/python-sdk/tests/ -v
 
   # ===== Python: per-service tests =====
@@ -134,7 +149,7 @@ jobs:
         image: postgres:16-alpine
         env:
           POSTGRES_USER: opticloud
-          POSTGRES_PASSWORD: opticloud_dev
+          POSTGRES_PASSWORD: opticloud_dev  # pragma: allowlist secret
           POSTGRES_DB: opticloud_dev
         options: >-
           --health-cmd "pg_isready -U opticloud -d opticloud_dev"
@@ -149,14 +164,14 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
       - run: pip install uv==${{ env.UV_VERSION }}
-      - run: uv sync
+      - run: uv sync --all-packages --extra dev
       - name: Apply schema
         env:
-          PGPASSWORD: opticloud_dev
+          PGPASSWORD: opticloud_dev  # pragma: allowlist secret
         run: psql -h localhost -U opticloud -d opticloud_dev -f infra/local-init/01-schema.sql
       - name: Run tests
         env:
-          DATABASE_URL: postgresql+asyncpg://opticloud:opticloud_dev@localhost:5432/opticloud_dev
+          DATABASE_URL: postgresql+asyncpg://opticloud:opticloud_dev@localhost:5432/opticloud_dev  # pragma: allowlist secret
         run: uv run pytest apps/auth-service/tests/ -v
 
   # ===== Other service stubs (will populate as services come online) =====
@@ -193,7 +208,7 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
       - run: pip install uv==${{ env.UV_VERSION }}
-      - run: uv sync
+      - run: uv sync --all-packages --extra dev
       - name: Check OpenAPI drift
         run: uv run python scripts/check_openapi_drift.py
         continue-on-error: true  # Allow until first commit of generated spec

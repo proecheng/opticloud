@@ -36,7 +36,11 @@ class OptiCloudClient:
             try:
                 body = response.json()
             except Exception:
-                body = {"title": "Unknown Error", "detail": response.text, "status": response.status_code}
+                body = {
+                    "title": "Unknown Error",
+                    "detail": response.text,
+                    "status": response.status_code,
+                }
             raise OptiCloudHTTPError.from_response(response.status_code, body)
         return response.json()  # type: ignore[no-any-return]
 

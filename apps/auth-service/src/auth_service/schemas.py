@@ -72,7 +72,9 @@ class APIKeyCreateResponse(BaseModel):
     """FR A2 api_keys.create response (full key returned ONCE)."""
 
     id: uuid.UUID
-    api_key: str = Field(..., description="Full key, e.g. 'sk-XXXXX...' — copy now, never shown again")
+    api_key: str = Field(
+        ..., description="Full key, e.g. 'sk-XXXXX...' — copy now, never shown again"
+    )
     prefix: str = Field(..., description="First 6 chars visible for identification")
     hash_preview: str = Field(..., description="SHA256 hash preview (debugging)")
     label: str

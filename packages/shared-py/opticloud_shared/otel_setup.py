@@ -66,9 +66,7 @@ def init(
     # ===== Meter =====
     try:
         metric_exporter = OTLPMetricExporter(endpoint=endpoint, insecure=True)
-        metric_reader = PeriodicExportingMetricReader(
-            metric_exporter, export_interval_millis=15000
-        )
+        metric_reader = PeriodicExportingMetricReader(metric_exporter, export_interval_millis=15000)
         meter_provider = MeterProvider(resource=resource, metric_readers=[metric_reader])
         metrics.set_meter_provider(meter_provider)
     except Exception as e:

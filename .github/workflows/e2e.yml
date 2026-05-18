@@ -24,6 +24,8 @@ env:
   NODE_VERSION: "18"
   UV_VERSION: "0.5.4"
   PNPM_VERSION: "9.12.0"
+  # No OTel collector in CI; disable SDK to skip export retries + log noise.
+  OTEL_SDK_DISABLED: "true"
 
 jobs:
   e2e:
@@ -35,7 +37,7 @@ jobs:
         image: postgres:16-alpine
         env:
           POSTGRES_USER: opticloud
-          POSTGRES_PASSWORD: opticloud_dev
+          POSTGRES_PASSWORD: opticloud_dev  # pragma: allowlist secret
           POSTGRES_DB: opticloud_dev
         options: >-
           --health-cmd "pg_isready -U opticloud -d opticloud_dev"
@@ -100,7 +102,7 @@ jobs:
       # ===== Apply DB schema =====
       - name: Apply schema
         env:
-          PGPASSWORD: opticloud_dev
+          PGPASSWORD: opticloud_dev  # pragma: allowlist secret
         run: |
           sudo apt-get install -y postgresql-client
           psql -h localhost -U opticloud -d opticloud_dev -f infra/local-init/01-schema.sql
@@ -109,7 +111,7 @@ jobs:
       # ===== Start services (background) =====
       - name: Start auth-service (background)
         env:
-          DATABASE_URL: postgresql+asyncpg://opticloud:opticloud_dev@localhost:5432/opticloud_dev
+          DATABASE_URL: postgresql+asyncpg://opticloud:opticloud_dev@localhost:5432/opticloud_dev  # pragma: allowlist secret
           PYTHONPATH: packages/shared-py:apps/auth-service/src:packages/python-sdk/src
         run: |
           nohup uv run uvicorn auth_service.main:app --host 0.0.0.0 --port 8001 > auth-service.log 2>&1 &
@@ -117,7 +119,7 @@ jobs:
 
       - name: Start solver-orchestrator (background)
         env:
-          DATABASE_URL: postgresql+asyncpg://opticloud:opticloud_dev@localhost:5432/opticloud_dev
+          DATABASE_URL: postgresql+asyncpg://opticloud:opticloud_dev@localhost:5432/opticloud_dev  # pragma: allowlist secret
           PYTHONPATH: packages/shared-py:apps/solver-orchestrator/src:packages/python-sdk/src
         run: |
           nohup uv run uvicorn solver_orchestrator.main:app --host 0.0.0.0 --port 8002 > solver.log 2>&1 &
@@ -133,8 +135,25 @@ jobs:
           echo $! > web.pid
 
       # ===== Wait for readiness =====
+      # Use 127.0.0.1 explicitly — wait-on with "localhost" can resolve to ::1
+      # while services bound to 0.0.0.0 only listen on IPv4.
       - name: Wait for all services
-        run: npx --yes wait-on http://localhost:8001/healthz http://localhost:8002/healthz http://localhost:3000 --timeout 90000
+        run: |
+          for i in $(seq 1 18); do
+            if curl -fsS http://127.0.0.1:8001/healthz > /dev/null \
+               && curl -fsS http://127.0.0.1:8002/healthz > /dev/null \
+               && curl -fsS http://127.0.0.1:3000 > /dev/null; then
+              echo "All services ready (attempt $i)"
+              exit 0
+            fi
+            echo "Waiting for services (attempt $i/18)..."
+            sleep 5
+          done
+          echo "::error::Services failed to become ready"
+          echo "=== auth-service.log ===" && cat auth-service.log
+          echo "=== solver.log ===" && cat solver.log
+          echo "=== web.log ===" && cat web.log
+          exit 1
 
       # ===== Run E2E =====
       - name: Run Playwright tests (chromium)
@@ -166,12 +185,21 @@ jobs:
           retention-days: 7
 
       # ===== Cleanup E2E test data (R1-5 fix) =====
+      # Robust against early failure (schema not applied yet) — to_regclass returns NULL if table missing.
       - name: Cleanup E2E DB rows
         if: always()
         env:
-          PGPASSWORD: opticloud_dev
+          PGPASSWORD: opticloud_dev  # pragma: allowlist secret
         run: |
-          psql -h localhost -U opticloud -d opticloud_dev -c "DELETE FROM users WHERE email LIKE 'e2e-%';"
+          psql -h localhost -U opticloud -d opticloud_dev <<'SQL'
+          DO $$
+          BEGIN
+            IF to_regclass('public.users') IS NOT NULL THEN
+              DELETE FROM users WHERE email LIKE 'e2e-%';
+            END IF;
+          END
+          $$;
+          SQL
 
       # ===== Service logs on failure (debugging) =====
       - name: Upload service logs on failure

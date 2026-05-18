@@ -9,10 +9,9 @@ from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from fastapi.responses import JSONResponse
+from opticloud_shared.schemas.errors import ErrorDetail, ErrorResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-
-from opticloud_shared.schemas.errors import ErrorDetail, ErrorResponse
 
 from solver_orchestrator import solvers
 from solver_orchestrator.auth import require_scope, verify_api_key
@@ -65,7 +64,7 @@ async def list_algorithms(task_type: str | None = None) -> list[AlgorithmSchema]
     items = CATALOG
     if task_type:
         items = [a for a in items if a["task_type"] == task_type]
-    return [AlgorithmSchema(**a) for a in items]
+    return [AlgorithmSchema.model_validate(a) for a in items]
 
 
 @router.get(
@@ -78,8 +77,10 @@ async def get_algorithm(k_algo: str) -> AlgorithmSchema:
     """FR C2 — algorithm details by k_algo."""
     algo = find_by_k_algo(k_algo)
     if algo is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"unknown k_algo: {k_algo}")
-    return AlgorithmSchema(**algo)
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"unknown k_algo: {k_algo}"
+        )
+    return AlgorithmSchema.model_validate(algo)
 
 
 # ===== Story 3.1: POST /v1/optimizations =====
@@ -141,10 +142,10 @@ async def post_optimization(
     # ----- Idempotency (P23) -----
     if idempotency_key:
         body_hash = _hash_body(body_dict)
-        result = await session.execute(
+        idem_query = await session.execute(
             select(IdempotencyKey).where(IdempotencyKey.key == idempotency_key)
         )
-        existing = result.scalar_one_or_none()
+        existing = idem_query.scalar_one_or_none()
         if existing is not None:
             if existing.user_id != user_id:
                 return _rfc7807_error(
@@ -217,7 +218,9 @@ async def post_optimization(
             request_id=request_id,
         )
 
-    result = solvers.solve_from_request(body_dict, max_solve_seconds=payload.options.max_solve_seconds)
+    result = solvers.solve_from_request(
+        body_dict, max_solve_seconds=payload.options.max_solve_seconds
+    )
     opt.solve_seconds = result.solve_seconds
     opt.model_version = dict(algo["model_version"])
 

@@ -127,9 +127,7 @@ def error_details() -> st.SearchStrategy[ErrorDetail]:
 # ===== LP inputs (Story 3.14 mock-real divergence + future solver tests) =====
 
 
-def lp_inputs(
-    n_max: int = 6, m_max: int = 6
-) -> st.SearchStrategy[dict[str, object]]:
+def lp_inputs(n_max: int = 6, m_max: int = 6) -> st.SearchStrategy[dict[str, object]]:
     """Random small LP: min c·x s.t. A·x ≤ b, x ≥ 0.
 
     Produces inputs in OptiCloud `POST /v1/optimizations` schema.
@@ -144,13 +142,17 @@ def lp_inputs(
                     "st": {"A": a, "b": b},
                 },
                 c=st.lists(
-                    st.floats(min_value=-100.0, max_value=100.0, allow_nan=False, allow_infinity=False),
+                    st.floats(
+                        min_value=-100.0, max_value=100.0, allow_nan=False, allow_infinity=False
+                    ),
                     min_size=n,
                     max_size=n,
                 ),
                 a=st.lists(
                     st.lists(
-                        st.floats(min_value=-10.0, max_value=10.0, allow_nan=False, allow_infinity=False),
+                        st.floats(
+                            min_value=-10.0, max_value=10.0, allow_nan=False, allow_infinity=False
+                        ),
                         min_size=n,
                         max_size=n,
                     ),
@@ -158,7 +160,9 @@ def lp_inputs(
                     max_size=m,
                 ),
                 b=st.lists(
-                    st.floats(min_value=-100.0, max_value=1000.0, allow_nan=False, allow_infinity=False),
+                    st.floats(
+                        min_value=-100.0, max_value=1000.0, allow_nan=False, allow_infinity=False
+                    ),
                     min_size=m,
                     max_size=m,
                 ),

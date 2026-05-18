@@ -8,19 +8,22 @@ CRG2: HiGHS pre-warm on startup → cold-start subsequent call P95 < 200ms.
 
 from __future__ import annotations
 
-import logging
-from contextlib import asynccontextmanager
-from typing import AsyncIterator
-
 import json
+import logging
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from typing import Any
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+from opticloud_shared import otel_setup
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from starlette.responses import Response
+
+from solver_orchestrator import __version__, solvers
+from solver_orchestrator.routes import health_router, router
 
 
 class UTF8JSONResponse(JSONResponse):
@@ -31,9 +34,6 @@ class UTF8JSONResponse(JSONResponse):
             content, ensure_ascii=False, allow_nan=False, indent=None, separators=(",", ":")
         ).encode("utf-8")
 
-from solver_orchestrator import __version__, solvers
-from solver_orchestrator.routes import health_router, router
-from opticloud_shared import otel_setup
 
 logger = logging.getLogger(__name__)
 

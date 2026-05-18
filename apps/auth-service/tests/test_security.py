@@ -6,7 +6,6 @@ import uuid
 from pathlib import Path
 
 import pytest
-
 from auth_service import security
 from auth_service.config import settings
 
