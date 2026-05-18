@@ -1,0 +1,19 @@
+Use case: ui-mockup
+Asset type: high-fidelity desktop website page mockup
+Primary request: Create one polished website page image for "OptiCloud 决策与预测云", based on a Chinese product plan for an AI-native optimization and forecasting SaaS. The page is the v1 main Chat console where users describe a business problem, the system builds an optimization model, runs a solver, and returns charts and natural-language interpretation.
+
+Scene/background: A full browser-window screenshot of a modern SaaS console, 1536x1024 landscape. No marketing hero. The product itself is the first-viewport signal.
+Subject: AI-native decision optimization and forecasting web app interface for logistics, energy, manufacturing, finance, and research users.
+Style/medium: Crisp high-fidelity product UI mockup, production-grade web dashboard, clean Chinese enterprise SaaS visual language, quiet and utilitarian.
+Composition/framing: 
+- Top navigation bar with brand at left: "OptiCloud 决策与预测云"; nav items: "控制台", "算法市场", "API 文档", "计费"; right side shows "12,480 Credits" and a user avatar.
+- Left sidebar for chat history, around 260px wide, with a "新对话" button and sessions: "上海冷链 VRP", "光伏出力预测", "投资组合优化", "工厂排产".
+- Center main chat area, widest column. Show a user message: "我有20台车、5个仓库、80个客户，需要降低配送成本。" Then an assistant response identifying "VRPTW 车辆路径优化", followed by a structured model card with sections "决策变量", "目标函数", "约束条件", and action buttons "运行求解器", "修改模型", "转 API".
+- Right insight panel, around 360px wide, titled "求解预览", with KPI tiles: "预估成本 ≤ 12 Credits", "预计耗时 60s", "约束满足率 98%"; include a route-map style visualization, an iteration convergence line chart, and a small "可复现凭证" block.
+- Bottom composer with attachment icon, text input placeholder "继续描述约束、上传 CSV 或追问 What-If...", and a send button.
+Lighting/mood: Bright, calm, trustworthy, academic-commercial crossover; no dramatic lighting.
+Color palette: off-white canvas, dark charcoal text, teal and blue accents, small amber warning accents, subtle green success status. Avoid a one-note purple, beige, or dark-blue theme.
+Materials/textures: flat modern UI, subtle borders, 8px radius cards, dense but readable spacing, no nested decorative cards.
+Text (verbatim): Use the Chinese labels above where possible; keep text sharp, professional, and UI-sized.
+Constraints: Must look like a real website product screenshot, not a poster. Include enough visible UI details to communicate NL→Model, Provider/Solver, Credits billing, API handoff, and results dashboard. The visible solver name must be "OR-Tools Routing" or "HiGHS", never CPLEX, Gurobi, SCIP, or MOSEK. Keep charts and map believable. No logos or trademarks from other companies. No watermark. No browser chrome text except generic controls.
+Avoid: decorative gradient orbs, bokeh blobs, oversized hero typography, cartoon style, stock photography, abstract SVG illustration, mobile layout, overlapping text, illegible tiny text, exaggerated shadows, commercial solver names.

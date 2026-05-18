@@ -63,8 +63,6 @@ jobs:
               - 'apps/api-gateway/**'
             solver_orchestrator:
               - 'apps/solver-orchestrator/**'
-            billing_service:
-              - 'apps/billing-service/**'
             chat_service:
               - 'apps/chat-service/**'
             critic_service:
