@@ -1,0 +1,37 @@
+# OptiCloud 允许的依赖 license 白名单 (Story 0.5 + Architecture NFR-PI3 + CRG9 fix)
+# Reference: PRD §6.3 算法许可白名单
+# Owner: 法务 + Architect
+
+# ----- ✅ 自由 -----
+MIT
+Apache-2.0
+Apache 2.0
+BSD-2-Clause
+BSD-3-Clause
+BSD
+ISC
+Python Software Foundation License
+PSF
+PSF-2.0
+Unlicense
+CC0-1.0
+0BSD
+
+# ----- ⚠️ 限制使用（仅调用，不允许 fork/修改）-----
+# EPL: IPOPT / Bonmin / Couenne 求解器 — 仅 import, 禁 fork 修改
+EPL-2.0
+EPL-1.0
+MPL-2.0          # 类似 EPL，file-based copyleft
+
+# ----- ⚠️ Limited-to 特定包 -----
+# GPL-3.0: 仅 ECOS 求解器（v2 法务签字后启用）
+# 检查脚本 (scripts/check_licenses.sh) 强制 GPL-3.0 只允许 package_name="ecos"
+# 其他 GPL package CI 直接拒绝
+# GPL-3.0-with-ecos-exception
+
+# ----- ❌ 拒绝 -----
+# GPL（除 ECOS exception）/ AGPL / SCIP 商用 / SSPL / 任何 strong copyleft
+# - GPL-2.0 / GPL-3.0 (除 limited-to ECOS)
+# - AGPL-3.0 / AGPL-1.0
+# - SSPL-1.0
+# - Commercial-only (Gurobi / SCIP / etc)

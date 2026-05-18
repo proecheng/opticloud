@@ -1,0 +1,19 @@
+{
+  "name": "opticloud",
+  "version": "0.0.1",
+  "private": true,
+  "description": "OptiCloud — 通用优化与预测云 (Sprint 0)",
+  "packageManager": "pnpm@9.0.0",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "dev": "echo 'use docker-compose up + uv run uvicorn in each app/'",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "pnpm -r lint",
+    "test": "pnpm -r test"
+  },
+  "devDependencies": {
+    "typescript": "5.4.5"
+  }
+}

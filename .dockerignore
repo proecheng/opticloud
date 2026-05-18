@@ -1,0 +1,65 @@
+# OptiCloud Docker build context filter
+# Keep image small + avoid leaking secrets/cache
+
+# ===== VCS =====
+.git
+.github
+.gitignore
+.gitkeep
+
+# ===== Python -- never copy bytecode/venvs =====
+.venv/
+venv/
+**/.venv/
+**/venv/
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/*.pyd
+.uv/
+.python-version
+
+# ===== Test / coverage =====
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+**/htmlcov/
+**/.coverage
+**/coverage.xml
+**/tests/
+
+# ===== Node =====
+node_modules/
+**/node_modules/
+**/dist/
+**/.next/
+**/.turbo/
+**/storybook-static/
+
+# ===== IDE / editor =====
+.idea
+.vscode
+*.swp
+*.swo
+.DS_Store
+
+# ===== Local dev artifacts -- never leak to image =====
+.env
+.env.local
+.env.*.local
+infra/local-data/
+infra/local-init/dev-jwt-ed25519.*
+
+# ===== BMad planning (huge text, not needed at runtime) =====
+_bmad/
+_bmad-output/
+docs/
+papers/
+网站方案.md
+
+# ===== Dockerfiles themselves (build context only) =====
+**/Dockerfile
+infra/docker/
+
+# ===== Secrets baseline -- exclude =====
+.secrets.baseline

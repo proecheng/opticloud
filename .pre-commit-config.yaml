@@ -1,0 +1,65 @@
+# Pre-commit hooks (Story 0.5 + Story 0.5b 兼容)
+# Install: uv run pre-commit install
+# Run all: uv run pre-commit run --all-files
+
+repos:
+  # ----- 通用 -----
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+        exclude: ^infra/local-init/
+      - id: check-json
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: ["--maxkb=500"]
+      - id: detect-private-key
+      - id: mixed-line-ending
+        args: ["--fix=lf"]
+
+  # ----- Python: ruff (lint + format) -----
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.7.4
+    hooks:
+      - id: ruff
+        args: ["--fix"]
+      - id: ruff-format
+
+  # ----- Python: mypy strict -----
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.13.0
+    hooks:
+      - id: mypy
+        additional_dependencies:
+          - pydantic>=2.7
+          - types-requests
+        args: ["--config-file=pyproject.toml"]
+
+  # ----- Python: bandit (security scan) -----
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.7.10
+    hooks:
+      - id: bandit
+        args: ["-c", "bandit.yaml"]
+        exclude: ^tests/
+
+  # ----- License check (CRG9 fix: GPL-3.0 limited-to ECOS only) -----
+  - repo: local
+    hooks:
+      - id: license-check
+        name: License check (allow MIT/Apache 2.0/BSD/EPL-2.0; GPL-3.0 limited-to ECOS)
+        entry: scripts/check_licenses.sh
+        language: script
+        pass_filenames: false
+        files: ^(pyproject\.toml|package\.json|pnpm-lock\.yaml|uv\.lock)$
+
+  # ----- Secrets (基础；详细 secret 扫描走 GitGuardian / TruffleHog CI) -----
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.5.0
+    hooks:
+      - id: detect-secrets
+        args: ["--baseline", ".secrets.baseline"]
+        exclude: ^(\.env\.example|infra/local-init/.*\.sql)$

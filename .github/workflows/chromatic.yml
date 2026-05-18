@@ -1,0 +1,48 @@
+# Chromatic visual regression — Story 0.11 + P74
+# Triggers: PR / push to main
+# Requires CHROMATIC_PROJECT_TOKEN in repo secrets
+
+name: chromatic
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'packages/ui/**'
+      - '.github/workflows/chromatic.yml'
+  pull_request:
+    paths:
+      - 'packages/ui/**'
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  chromatic:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Chromatic needs full git history
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '9.12.0'
+
+      - name: Install deps
+        run: pnpm install --frozen-lockfile
+        continue-on-error: true  # Allow until pnpm-lock.yaml is committed
+
+      - name: Run Chromatic
+        uses: chromaui/action@v11
+        with:
+          projectToken: ${{ secrets.CHROMATIC_PROJECT_TOKEN }}
+          workingDir: packages/ui
+          exitZeroOnChanges: true  # Don't fail PR on diff; require manual approval
+          onlyChanged: true  # TurboSnap — only test affected stories
+        continue-on-error: true  # Until CHROMATIC_PROJECT_TOKEN secret is set

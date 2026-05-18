@@ -1,0 +1,62 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.venv/
+venv/
+.uv/
+*.so
+
+# Node
+node_modules/
+.next/
+.turbo/
+dist/
+build/
+*.tsbuildinfo
+.eslintcache
+
+# Docker / infra
+.env
+.env.local
+.env.*.local
+infra/local-data/
+
+# Dev secrets (auth-service generates these on first run; NEVER commit)
+infra/local-init/dev-jwt-ed25519.key
+infra/local-init/dev-jwt-ed25519.pub
+infra/local-init/dev-jwt-*
+cosign.key
+cosign.key.enc
+*.pem
+*.p12
+
+# Local Postman exports
+postman_environment.json
+*.postman_collection.json
+
+# Sprint 0 SBOM history (CI-generated, kept out of repo)
+infra/sbom-history/2*/
+!infra/sbom-history/.gitkeep
+!infra/sbom-history/README.md
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Test / coverage
+.pytest_cache/
+.coverage
+coverage/
+htmlcov/
+.nyc_output/
+
+# Storybook
+storybook-static/
+
+# Postman
+postman_environment.json

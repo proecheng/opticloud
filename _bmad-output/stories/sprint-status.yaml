@@ -1,0 +1,281 @@
+# OptiCloud Sprint Status (BMad)
+# Maintained by: bmad-create-story / bmad-dev-story / bmad-code-review
+# Source: epics.md (21 Epics / 192 Stories, post AE rounds)
+# Path B unlock node sequence (5 + J1 vertical slice 4 锚点 + Critical Gaps)
+
+last_updated: 2026-05-18
+
+# ===== STATUS DEFINITIONS =====
+# backlog            — not yet started
+# ready-for-dev      — bmad-create-story has produced detailed story file
+# in-progress        — dev work started
+# code-review        — implementation done, awaiting review
+# done               — code-review approved, regression tests pass
+# blocked            — external dependency (legal / 法务 / AIGC filing)
+# ============================
+
+development_status:
+
+  # ===== Epic 0: Foundation (26 stories) =====
+  epic-0: in-progress
+
+  0-1-monorepo-scaffold: done
+  0-2-docker-compose: done
+  0-5-pre-commit-hooks: done
+  0-5b-property-test-framework: in-progress    # RE5 added (Hypothesis + Schemathesis) — bmad-dev-story 2026-05-18
+  0-6-auth-scaffold: done
+  0-7-health-otel: done
+  0-4-openapi-codegen: done
+  0-3-ci-path-filter: done
+  0-8-docker-multistage-sbom: done
+  0-9-ui-tier1-stubs: done
+  0-10-tailwind-brand-tokens: done
+  0-11-storybook-chromatic: done
+  0-12-a11y-hook-axe-core: done
+  0-13-playwright-e2e: backlog                 # Q-T2 added
+  0-0-sprint0-calibration-week: blocked        # RE2-1 (team process, deferred)
+  m0-legal-1-license-deliverable: blocked      # E9 法务 (user said skip)
+  m0-legal-status-tracking: blocked            # RE2-8 (法务 process)
+  m0-aigc-status-tracking: blocked             # CM3 (AIGC filing process)
+  m2-0-saga-spike: backlog                     # RE6 architectural spike
+  m2-1-outbox-relayer: backlog
+  m2-2a-billing-critical-tests: backlog        # RE4 (50 scenarios)
+  m2-3-cost-attribution: backlog               # G3 Critical Gap
+  m3-0-image-archival-prep: backlog            # SC8
+  m3-1-sandbox-io-pattern: backlog
+  m3-2-contract-test-framework: backlog
+  m3-3a-k8s-namespace-prod: backlog            # 标准档
+  m3-3b-docker-compose-blue-green: backlog     # 精简档
+  m3-4-aigc-watermark-module: backlog          # G12
+  m3-4b-aigc-filter-contract-test: backlog     # A-S2
+  m3-5a-critic-calibration: backlog            # G9
+  m3-5b-critic-ground-truth-annotation: backlog
+  m3-6a-chat-staging-load-test: backlog        # G6 Critical Gap
+  m3-6b-chat-single-node-baseline: backlog
+  m3-6c-chat-incident-fallback: backlog
+  m3-6d-api-gateway-perf-baseline: backlog     # Q-T3
+  m3-6e-prod-traffic-replay: backlog           # RE2-7
+  m3-7-sandbox-security-audit: backlog         # PMR3
+  m3-8-llm-provider-abstraction: backlog       # PMR8
+  m3-9-image-5y-archival: backlog              # G7 Critical Gap
+  m4-5-gtm-toolkit: backlog                    # RE2-4
+  m4-5b-gurobi-benchmark-whitepaper: backlog   # E3
+
+  # ===== Epic 1: Account & Identity (12 stories) =====
+  epic-1: in-progress
+
+  1-1a-j1-signup-api-key: done                 # J1 Vertical Slice
+  1-1b-j1-confirmation-modal-postman: done     # FG1.1
+  1-2-user-login: backlog
+  1-3-api-keys-crud-complete: backlog
+  1-4-edu-tier-email-whitelist: backlog        # FR A4 (partial in 1.1a)
+  1-5-risk-control-freeze: backlog             # FR A5
+  1-6-pipl-account-delete: backlog             # FR A6
+  1-7-account-merge-proposal: backlog          # FR A7/A8
+  1-8-onboarding-wizard-5steps: backlog        # FR A9
+  1-9-under-14-block: backlog                  # FR A10
+  1-10-language-switch-zh: backlog             # FR A3
+  1-11-geo-anomaly-risk: backlog               # NFR-S
+  1-12-j7-fraud-freeze-vertical-slice: backlog # J7
+
+  # ===== Epic 2: Algorithm Catalog (8 stories) =====
+  epic-2: in-progress
+
+  2-1-j1-algorithms-public-list: done          # J1 Vertical Slice
+  2-2-algorithm-details: backlog               # FR C2
+  2-3-tier-based-browse: backlog               # FR C3
+  2-4-solver-enum: backlog                     # FR C4
+  2-5-fallback-chain: backlog                  # FR C5
+  2-6-multi-provider-routing: backlog          # FR C6
+  2-7-fallback-execution: backlog              # FR C7
+  2-8-unaudited-block: backlog                 # FR C8
+
+  # ===== Epic 3: Execution (14 stories) =====
+  epic-3: in-progress
+
+  3-1-j1-lp-solve: done                        # J1 Vertical Slice
+  3-2-prediction-submission: backlog           # FR E2 — ARIMA / Chronos
+  3-3-sync-async-mode: backlog                 # FR E3 完整
+  3-4-max-solve-seconds-cap: backlog           # FR E4
+  3-5-top-k-alternatives: backlog              # FR E5
+  3-6-prediction-quantiles: backlog            # FR E6 P10/P50/P90
+  3-7-rfc7807-errors-detail: backlog           # FR E7 + FG1.3 (partial in 3.1)
+  3-8-cancel-refund: backlog                   # FR E8
+  3-9-status-progress-eta: backlog             # FR E9 完整
+  3-10-backtest-discount: backlog              # FR E10 (v2)
+  3-11-j2-lina-csv-vertical-slice: backlog     # J2
+  3-12-j3-sre-incident-tier3: backlog
+  3-13-batch-endpoint: backlog                 # L2 (v1 末)
+  3-14-mock-real-divergence-test: backlog      # Q-T1 (partial in 3.1)
+
+  # ===== Epic 3.E: Excel UX (9 stories) =====
+  epic-3-e: backlog
+
+  3-e-1-excel-drop-zone: backlog               # FG1.2 Critical 老张
+  3-e-2-excel-task-type-detect: backlog        # PMR6
+  3-e-3-vrptw-template: backlog
+  3-e-4-schedule-template: backlog
+  3-e-5-inventory-template: backlog
+  3-e-6-excel-result-download: backlog
+  3-e-7-excel-chart-embedding: backlog         # 老张-1 (v1 末)
+  3-e-8-zh-ux-friendly-voice: backlog          # 老张-2
+  3-e-9-laozhang-vertical-slice-e2e: backlog
+
+  # ===== Epic 4.A/B/C: Chat & NL (19 stories) — M3 AIGC gated =====
+  epic-4-a: backlog
+  epic-4-b: backlog
+  epic-4-c: backlog
+
+  4-a-1-nl-chat-input-internal-beta: backlog
+  4-a-2-router-llm-intent: backlog
+  4-a-3-formulator-extract: backlog
+  4-a-4-coder-generate: backlog
+  4-a-5-zh-en-mixed: backlog
+  4-a-6-g6-chat-latency-validation: backlog
+
+  4-b-1-critic-validate-code: backlog
+  4-b-2-sandbox-gvisor-execute: backlog
+  4-b-3-critic-confidence-escalate: backlog
+  4-b-4-confidence-label-ui: backlog
+  4-b-5-aigc-filter-invoke: backlog
+  4-b-6-sandbox-logs-stream-v1-5: backlog
+  4-b-7-critic-redteam-tests: backlog
+
+  4-c-1-preview-confirm-model: backlog
+  4-c-2-sse-streaming: backlog
+  4-c-3-file-upload-csv-excel-json: backlog
+  4-c-4-what-if-followup: backlog
+  4-c-5-partial-upload-recovery: backlog
+  4-c-6-chat-interface-tier2: backlog
+
+  # ===== Epic 5.A/B/C/D: Billing (27 stories) =====
+  epic-5-a: backlog
+  epic-5-b: backlog
+  epic-5-c: backlog
+  epic-5-d: backlog
+
+  5-a-0a-saga-state-diagram: backlog           # N5 unlock node ★
+  5-a-0b-saga-contract-fixtures: backlog
+  5-a-0c-saga-cross-epic-dryrun: backlog
+  5-a-0-saga-implementation: backlog
+  5-a-1-j1-credits-charge-modal: backlog       # J1 Vertical Slice 第 4 段
+  5-a-2-credits-balance-buckets: backlog
+  5-a-3-preview-cap-modal: backlog
+  5-a-4-per-formula-charging: backlog
+  5-a-5-p5-warning-modal: backlog
+  5-a-6-topup-never-expire: backlog
+  5-a-7-double-entry-reconciliation: backlog
+  5-a-8-cost-telemetry-hook: backlog
+  5-a-9-charge-idempotency: backlog
+
+  5-b-1-five-plans-subscription: backlog
+  5-b-2-edu-tier-starter-free: backlog
+  5-b-3-edu-pro-30d-trial: backlog
+  5-b-4-plan-upgrade-prorated: backlog
+
+  5-c-1-refund-failed-cancelled: backlog
+  5-c-2-user-cancel-refund: backlog
+  5-c-3-pipl-data-export-json: backlog
+  5-c-4-pipl-data-export-csv: backlog
+  5-c-5-pipl-self-service-portal: backlog      # E7
+
+  5-d-1-bilingual-invoices: backlog
+  5-d-2-7d-30d-sparkline-trends: backlog
+  5-d-3-job-templates-save: backlog
+  5-d-4-job-templates-version: backlog
+  5-d-5-monthly-budget-alert: backlog
+  5-d-6-notification-preferences: backlog
+  5-d-7-invoice-budget-tier2-component: backlog
+
+  # ===== Epic 6.A/B/C: Reproducibility (13 stories) =====
+  epic-6-a: backlog
+  epic-6-b: backlog
+  epic-6-c: backlog
+
+  6-a-1-citation-bibtex: backlog               # FR R5 v1 必上
+  6-a-2-bibtex-academic-page: backlog
+  6-a-3-citation-tracking: backlog
+  6-a-4-academic-onboarding-toolkit: backlog   # RE2-2
+  6-a-5-ip-attribution-tiers: backlog          # E5
+
+  6-b-1-mark-reproducible: backlog             # FR R1
+  6-b-2-voucher-unique-id: backlog             # FR R2
+  6-b-3-rerun-within-5y: backlog               # FR R3
+  6-b-4-anonymous-voucher: backlog             # FR R6
+  6-b-5-voucher-card-component: backlog
+  6-b-6-voucher-5y-sla-tracking: backlog       # TT4
+  6-b-7-bitwise-reproducibility-test: backlog  # E11
+
+  6-c-1-auto-migrate-provider: backlog         # v2
+  6-c-2-30d-exit-notification: backlog
+  6-c-3-capability-vocab-design: backlog
+  6-c-4-equivalent-matching: backlog
+
+  # ===== Epic 7.A/B: Provider (15 stories) =====
+  epic-7-a: backlog
+  epic-7-b: backlog
+
+  7-a-1-capability-registry-v1-schema: backlog
+  7-a-2-revenue-share-hook-v2-reservation: backlog
+
+  7-b-1-provider-apply-v2: backlog
+  7-b-2-shadow-validation: backlog
+  7-b-3-gradient-rollout: backlog
+  7-b-4-route-share-dashboard: backlog
+  7-b-5-provider-kpi-dashboard: backlog
+  7-b-6-revenue-payout: backlog
+  7-b-7-version-management: backlog
+  7-b-8-monthly-revenue-share: backlog
+  7-b-9-provider-console-tier3: backlog
+
+  # ===== Epic 8.A/B/C: Observability & Compliance (22 stories) =====
+  epic-8-a: backlog
+  epic-8-b: backlog
+  epic-8-c: backlog
+
+  8-a-1-public-status-page: backlog            # FR O1
+  8-a-2-incident-subscribe: backlog
+  8-a-3-24h-postmortem: backlog                # FR O2
+  8-a-4-user-audit-logs: backlog               # FR O3
+  8-a-5-audit-log-table: backlog
+  8-a-6-vuln-submission: backlog               # FR O4
+  8-a-7-j9-whitehat-vertical-slice: backlog
+
+  8-b-1-aigc-filter-invoke: backlog            # FR O5
+  8-b-2-rate-limit-per-plan: backlog           # FR O6
+  8-b-3-errors-next-action-url: backlog        # FR O7
+  8-b-4-rfc7807-error-panel: backlog
+  8-b-5-error-i18n-eslint: backlog             # FG1.3
+  8-b-6-sdk-errors-preservation: backlog
+  8-b-7-aigc-watermark-detect: backlog
+  8-b-8-redteam-tests-m5-200: backlog
+  8-b-9-aigc-filter-perf-budget: backlog
+
+  8-c-1-mode-teaching-explain: backlog         # FR O8
+  8-c-2-provider-routing-history: backlog      # FR O9 v2
+  8-c-3-legal-inquiry-sla: backlog             # FR O10
+  8-c-4-algorithm-library-browse: backlog      # FR O11 v2
+  8-c-5-algorithm-capability-card: backlog
+  8-c-6-provider-console-tier3: backlog
+  8-c-7-classroom-plan-v1-stub: backlog        # E6
+  8-c-8-algorithm-provenance-page: backlog     # E10
+  8-c-9-teaching-grading-api: backlog          # E12 v1 末
+
+  # ===== Epic 9: NFR Governance (7 stories) =====
+  epic-9: backlog
+
+  9-1-axe-core-quarterly-audit: backlog
+  9-2-prometheus-metric-audit: backlog
+  9-3-nfr-cost-alerts: backlog
+  9-4-nfr-s-p0-drills: backlog
+  9-5-wcag-2-2-upgrade-path: backlog           # FR7
+  9-6-error-i18n-audit: backlog
+  9-7-governance-dashboard: backlog
+  9-8-graded-protection-evidence: backlog      # TT7
+
+# ===== Statistics =====
+# Total stories: ~192 (per epics.md)
+# Done: 17 (Sprint 0 N1+N2+N3+N4 + J1 Vertical Slice 1.1a/b + 2.1 + 3.1)
+# Backlog: ~169
+# Blocked: 4 (legal/AIGC/calibration — user deferred)
+# Progress: ~9% (matches Carson C3 cadence: M5 末 65-80 stories goal)

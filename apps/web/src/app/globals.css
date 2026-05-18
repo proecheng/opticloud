@@ -1,0 +1,28 @@
+/* OptiCloud Web — global styles
+ * Inherits Tier 1 packages/ui tokens (Architecture P72)
+ */
+
+@import "@opticloud/ui/tokens.css";
+
+html,
+body {
+  height: 100%;
+  background: rgb(var(--color-background));
+  color: rgb(var(--color-foreground));
+  font-family:
+    "Inter Variable",
+    "Inter",
+    "思源黑体",
+    "Source Han Sans SC",
+    "PingFang SC",
+    "Microsoft YaHei",
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Reset min-h-touch helpers (UX-DR5 mobile a11y) */
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}

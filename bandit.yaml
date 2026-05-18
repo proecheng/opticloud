@@ -1,0 +1,17 @@
+# Bandit security scan config (Story 0.5)
+
+skips:
+  - B101  # assert_used (tests need assert)
+
+exclude_dirs:
+  - tests
+  - .venv
+  - venv
+  - node_modules
+
+# 关键 OptiCloud 安全规则（NFR-S 配套）
+# B201 flask_debug_true - 不允许
+# B301 pickle - 不允许（用 Pydantic / JSON）
+# B311 random - 不允许（用 secrets module）
+# B608 hardcoded_sql_expressions - 不允许（用 SQLAlchemy）
+# B701 jinja2_autoescape_false - 不允许

@@ -1,0 +1,145 @@
+# Image build + cosign sign + SBOM — Story 0.8 + CRG6 supply chain
+# Triggers: PR (build + SBOM diff gate) + push to main (full build + sign + push)
+
+name: image-build
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/**/Dockerfile'
+      - 'infra/docker/**'
+      - 'apps/**/src/**'
+      - 'packages/shared-py/**'
+      - 'packages/python-sdk/**'
+      - 'pyproject.toml'
+      - 'uv.lock'
+  pull_request:
+    paths:
+      - 'apps/**/Dockerfile'
+      - 'infra/docker/**'
+      - 'apps/**/src/**'
+      - 'packages/shared-py/**'
+      - 'packages/python-sdk/**'
+      - 'pyproject.toml'
+      - 'uv.lock'
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write  # for cosign keyless (v1.5+)
+
+jobs:
+  matrix-detect:
+    runs-on: ubuntu-latest
+    outputs:
+      services: ${{ steps.detect.outputs.services }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: detect
+        run: |
+          # Detect which services have Dockerfile + were changed
+          # For Sprint 0 we hardcode auth-service; will expand as services come online
+          echo 'services=["auth-service"]' >> $GITHUB_OUTPUT
+
+  build-and-sbom:
+    needs: matrix-detect
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service: ${{ fromJSON(needs.matrix-detect.outputs.services) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Set up syft (SBOM)
+        uses: anchore/sbom-action/download-syft@v0
+        with:
+          syft-version: v1.14.2
+
+      - name: Set up cosign
+        uses: sigstore/cosign-installer@v3
+        with:
+          cosign-release: v2.4.1
+
+      - name: Set env
+        run: |
+          echo "GIT_SHA=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+          echo "BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> $GITHUB_ENV
+          echo "TODAY=$(date -u +%Y-%m-%d)" >> $GITHUB_ENV
+
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/${{ matrix.service }}/Dockerfile
+          tags: |
+            opticloud/${{ matrix.service }}:dev
+            opticloud/${{ matrix.service }}:${{ env.GIT_SHA }}
+          build-args: |
+            GIT_SHA=${{ env.GIT_SHA }}
+            BUILD_DATE=${{ env.BUILD_DATE }}
+          load: true  # Load to local docker for SBOM + size check
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,scope=${{ matrix.service }},mode=max
+
+      - name: Image size check (Concern #14 ≤300 MB)
+        run: |
+          SIZE_MB=$(($(docker image inspect opticloud/${{ matrix.service }}:dev --format='{{.Size}}') / 1024 / 1024))
+          echo "Image size: ${SIZE_MB} MB"
+          if [ $SIZE_MB -gt 300 ]; then
+            echo "⚠️  Image size exceeds 300 MB target (Architecture Concern #14)"
+            # Don't fail yet — soft warning until we move to distroless
+          fi
+
+      - name: Generate SBOM
+        run: |
+          mkdir -p infra/sbom-history/${{ env.TODAY }}
+          syft opticloud/${{ matrix.service }}:dev -o spdx-json \
+            > infra/sbom-history/${{ env.TODAY }}/${{ matrix.service }}.spdx.json
+          PKG_COUNT=$(jq '.packages | length' infra/sbom-history/${{ env.TODAY }}/${{ matrix.service }}.spdx.json)
+          echo "SBOM packages: $PKG_COUNT (must ≥ 100 per Architecture A.18)"
+
+      - name: SBOM diff vs yesterday (RE2-9 — daily diff)
+        if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
+        run: |
+          # Find most recent prior SBOM (excluding today)
+          PRIOR_SBOM=$(find infra/sbom-history -name '${{ matrix.service }}.spdx.json' -not -path "*${{ env.TODAY }}*" | sort -r | head -1)
+          if [ -n "$PRIOR_SBOM" ]; then
+            echo "Comparing vs $PRIOR_SBOM"
+            python scripts/sbom_diff.py \
+              --old "$PRIOR_SBOM" \
+              --new infra/sbom-history/${{ env.TODAY }}/${{ matrix.service }}.spdx.json \
+              || EXIT_CODE=$?
+            if [ "${EXIT_CODE:-0}" = "1" ]; then
+              echo "::error::Major version bump or high CVE detected — block merge"
+              exit 1
+            fi
+          else
+            echo "No prior SBOM — first run. Skipping diff."
+          fi
+
+      - name: Cosign sign (push to main only)
+        if: github.ref == 'refs/heads/main'
+        env:
+          COSIGN_PRIVATE_KEY: ${{ secrets.COSIGN_PRIVATE_KEY }}
+          COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
+        run: |
+          if [ -n "$COSIGN_PRIVATE_KEY" ]; then
+            cosign sign --yes --key env://COSIGN_PRIVATE_KEY \
+              opticloud/${{ matrix.service }}:${{ env.GIT_SHA }}
+          else
+            echo "⏭  COSIGN_PRIVATE_KEY not set — signing skipped (set in repo secrets)."
+          fi
+
+      - name: Upload SBOM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-${{ matrix.service }}-${{ env.GIT_SHA }}
+          path: infra/sbom-history/${{ env.TODAY }}/${{ matrix.service }}.spdx.json
+          retention-days: 90  # Concern #14: 90d 热归档

@@ -1,0 +1,49 @@
+OptiCloud — 通用优化与预测云
+Copyright 2026 OptiCloud (TJU 课题组 — ITADN / Trust-Tech)
+
+This product includes software developed by OptiCloud (https://github.com/proecheng/opticloud).
+
+Licensed under the Apache License, Version 2.0 (see LICENSE).
+
+---
+
+## Third-party software included
+
+This project incorporates the following third-party open-source software:
+
+### Python dependencies (per service `pyproject.toml`)
+- FastAPI (MIT) — https://github.com/fastapi/fastapi
+- SQLAlchemy (MIT) — https://www.sqlalchemy.org
+- Pydantic (MIT) — https://docs.pydantic.dev
+- HiGHS (MIT) — https://highs.dev — Linear Programming solver
+- OR-Tools (Apache 2.0) — https://developers.google.com/optimization — planned (M1+)
+- Hypothesis (MPL 2.0) — https://hypothesis.readthedocs.io
+- Schemathesis (MIT) — https://schemathesis.readthedocs.io
+- OpenTelemetry SDK (Apache 2.0)
+
+### Node / Frontend dependencies (per `package.json`)
+- Next.js (MIT) — https://nextjs.org
+- React (MIT) — https://react.dev
+- Radix UI (MIT) — https://www.radix-ui.com
+- Tailwind CSS (MIT) — https://tailwindcss.com
+- shadcn/ui (MIT) — https://ui.shadcn.com
+
+### Time-series models (planned, M3+)
+- Amazon Chronos (Apache 2.0) — https://github.com/amazon-science/chronos-forecasting
+- TimesFM (Apache 2.0)
+- Lag-Llama (Apache 2.0)
+
+### Self-developed algorithms (Apache 2.0)
+- AQGS-ACOPF (Trust-Tech method) — proprietary work by TJU ITADN lab,
+  released under Apache 2.0 per project's Innovation #6.
+- ITADN-AIGC, CPSOTJUTT, TT-KMeans (all M0 wk2 ramp-up).
+
+---
+
+## Restrictions on solver dependencies (PRD §6.3 algorithm license whitelist)
+
+- **EPL-2.0** (IPOPT / Bonmin / Couenne): called as library only; NO modification or fork.
+- **GPL-3.0** (ECOS): **NOT enabled until M0 wk2 legal sign-off**. SCS (MIT) is preferred fallback.
+- **Commercial** (Gurobi / SCIP): NOT used in this project.
+
+See `license-allowed.txt` and `scripts/check_licenses.sh` for CI enforcement.

@@ -1,0 +1,199 @@
+# OptiCloud CI Pipeline — Story 0.3 + C5 path-filter
+# Constraint C5: CI must use path-based filtering (dorny/paths-filter)
+# Goal: changing 1 service triggers only that service's tests (~3 min vs ~15 min full)
+
+name: ci
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+
+env:
+  PYTHON_VERSION: "3.12"
+  NODE_VERSION: "18"
+  UV_VERSION: "0.5.4"
+  PNPM_VERSION: "9.12.0"
+
+jobs:
+  # ===== Path filter — determines which jobs to run =====
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      shared_py: ${{ steps.filter.outputs.shared_py }}
+      shared_ts: ${{ steps.filter.outputs.shared_ts }}
+      ui: ${{ steps.filter.outputs.ui }}
+      python_sdk: ${{ steps.filter.outputs.python_sdk }}
+      auth_service: ${{ steps.filter.outputs.auth_service }}
+      api_gateway: ${{ steps.filter.outputs.api_gateway }}
+      solver_orchestrator: ${{ steps.filter.outputs.solver_orchestrator }}
+      billing_service: ${{ steps.filter.outputs.billing_service }}
+      chat_service: ${{ steps.filter.outputs.chat_service }}
+      critic_service: ${{ steps.filter.outputs.critic_service }}
+      sandbox_runner: ${{ steps.filter.outputs.sandbox_runner }}
+      capability_registry: ${{ steps.filter.outputs.capability_registry }}
+      repro_service: ${{ steps.filter.outputs.repro_service }}
+      web: ${{ steps.filter.outputs.web }}
+      ci_or_root: ${{ steps.filter.outputs.ci_or_root }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            # Shared packages trigger ALL services
+            shared_py:
+              - 'packages/shared-py/**'
+              - 'pyproject.toml'
+              - '.python-version'
+            shared_ts:
+              - 'packages/shared-ts/**'
+            ui:
+              - 'packages/ui/**'
+            python_sdk:
+              - 'packages/python-sdk/**'
+            # Per-service: only its dir
+            auth_service:
+              - 'apps/auth-service/**'
+            api_gateway:
+              - 'apps/api-gateway/**'
+            solver_orchestrator:
+              - 'apps/solver-orchestrator/**'
+            billing_service:
+              - 'apps/billing-service/**'
+            chat_service:
+              - 'apps/chat-service/**'
+            critic_service:
+              - 'apps/critic-service/**'
+            sandbox_runner:
+              - 'apps/sandbox-runner/**'
+            capability_registry:
+              - 'apps/capability-registry/**'
+            repro_service:
+              - 'apps/repro-service/**'
+            web:
+              - 'apps/web/**'
+            # CI or root config — re-run everything
+            ci_or_root:
+              - '.github/workflows/**'
+              - '.pre-commit-config.yaml'
+              - 'docker-compose.yml'
+
+  # ===== Lint + format (always run, fast) =====
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install uv
+        run: pip install uv==${{ env.UV_VERSION }}
+      - name: Install pre-commit
+        run: uv tool install pre-commit
+      - name: Run pre-commit
+        run: uv tool run pre-commit run --all-files --show-diff-on-failure
+
+  # ===== Python: shared-py tests (cascade triggers many services) =====
+  # Story 0.5b — property tests (Hypothesis + Schemathesis) require dev extras.
+  shared-py-test:
+    needs: changes
+    if: needs.changes.outputs.shared_py == 'true' || needs.changes.outputs.ci_or_root == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: pip install uv==${{ env.UV_VERSION }}
+      - run: uv sync --all-packages --extra dev
+      - run: uv run pytest packages/shared-py/tests/ -v
+
+  # ===== Python: python-sdk tests (FG1.3 error.locate() + parity) =====
+  python-sdk-test:
+    needs: changes
+    if: needs.changes.outputs.python_sdk == 'true' || needs.changes.outputs.shared_py == 'true' || needs.changes.outputs.ci_or_root == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: pip install uv==${{ env.UV_VERSION }}
+      - run: uv sync
+      - run: uv run pytest packages/python-sdk/tests/ -v
+
+  # ===== Python: per-service tests =====
+  auth-service-test:
+    needs: changes
+    if: needs.changes.outputs.auth_service == 'true' || needs.changes.outputs.shared_py == 'true' || needs.changes.outputs.ci_or_root == 'true'
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: opticloud
+          POSTGRES_PASSWORD: opticloud_dev
+          POSTGRES_DB: opticloud_dev
+        options: >-
+          --health-cmd "pg_isready -U opticloud -d opticloud_dev"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: pip install uv==${{ env.UV_VERSION }}
+      - run: uv sync
+      - name: Apply schema
+        env:
+          PGPASSWORD: opticloud_dev
+        run: psql -h localhost -U opticloud -d opticloud_dev -f infra/local-init/01-schema.sql
+      - name: Run tests
+        env:
+          DATABASE_URL: postgresql+asyncpg://opticloud:opticloud_dev@localhost:5432/opticloud_dev
+        run: uv run pytest apps/auth-service/tests/ -v
+
+  # ===== Other service stubs (will populate as services come online) =====
+  # api-gateway-test, solver-orchestrator-test, ...
+
+  # ===== TypeScript: web + ui + shared-ts typecheck =====
+  ts-typecheck:
+    needs: changes
+    if: needs.changes.outputs.web == 'true' || needs.changes.outputs.ui == 'true' || needs.changes.outputs.shared_ts == 'true' || needs.changes.outputs.ci_or_root == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - run: pnpm install --frozen-lockfile
+        continue-on-error: true
+      - run: pnpm -r typecheck
+        continue-on-error: true  # Allow until ts files populate
+
+  # ===== OpenAPI drift check (P64 + Story 0.4) =====
+  openapi-drift:
+    needs: changes
+    if: needs.changes.outputs.auth_service == 'true' || needs.changes.outputs.shared_py == 'true' || needs.changes.outputs.ci_or_root == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: pip install uv==${{ env.UV_VERSION }}
+      - run: uv sync
+      - name: Check OpenAPI drift
+        run: uv run python scripts/check_openapi_drift.py
+        continue-on-error: true  # Allow until first commit of generated spec

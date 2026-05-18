@@ -1,0 +1,65 @@
+/* OptiCloud UI Design Tokens — Story 0.10 + UX-DR3/DR4
+ * Single source of truth — packages/ui (Architecture P72)
+ * v1: Tailwind v3 + CSS variables; v1.5+ migrate to Tailwind v4 @theme directive (P77/C22) */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Brand */
+    --color-primary: 45 91 168; /* #2D5BA8 Olympics Winner */
+    --color-primary-foreground: 255 255 255;
+
+    /* Semantic */
+    --color-success: 15 157 88;
+    --color-warning: 244 180 0;
+    --color-danger: 219 68 55;
+
+    /* Confidence (CRG14) */
+    --color-confidence-high: 15 157 88;
+    --color-confidence-mid: 244 180 0;
+    --color-confidence-low: 219 68 55;
+
+    /* Neutral */
+    --color-background: 255 255 255;
+    --color-foreground: 17 24 39;
+    --color-muted: 243 244 246;
+    --color-muted-foreground: 107 114 128;
+    --color-border: 229 231 235;
+  }
+
+  .dark {
+    /* GitHub-aligned dark mode #0D1117 (UX Spec Step 8) */
+    --color-background: 13 17 23;
+    --color-foreground: 230 237 243;
+    --color-muted: 22 27 34;
+    --color-muted-foreground: 156 163 175;
+    --color-border: 48 54 61;
+    --color-primary: 74 119 187; /* #4A77BB Dark Primary */
+  }
+
+  /* a11y focus ring (UX-DR5 + Story 0.12) */
+  *:focus-visible {
+    outline: 2px solid rgb(var(--color-primary));
+    outline-offset: 2px;
+  }
+
+  /* Motion safe (Story 0.12 + UX Spec Step 8 Animation Discipline) */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}

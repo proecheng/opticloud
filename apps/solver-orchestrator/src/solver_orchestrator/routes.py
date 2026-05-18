@@ -1,0 +1,370 @@
+"""Endpoints — FR C1-C8 + E1-E10 (Sprint 0 subset: Story 2.1 + 3.1)."""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import uuid
+from datetime import UTC, datetime, timedelta
+
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
+from fastapi.responses import JSONResponse
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from opticloud_shared.schemas.errors import ErrorDetail, ErrorResponse
+
+from solver_orchestrator import solvers
+from solver_orchestrator.auth import require_scope, verify_api_key
+from solver_orchestrator.catalog import CATALOG, find_by_k_algo, find_by_task_type
+from solver_orchestrator.db import get_session
+from solver_orchestrator.models import IdempotencyKey, Optimization
+from solver_orchestrator.schemas import (
+    AlgorithmSchema,
+    OptimizationRequest,
+    OptimizationResponse,
+)
+
+router = APIRouter(prefix="/v1")
+health_router = APIRouter()
+
+
+# ===== Story 0.7: Health =====
+
+
+@health_router.get("/healthz")
+async def healthz() -> dict[str, str]:
+    return {"status": "ok"}
+
+
+@health_router.get("/readyz")
+async def readyz(session: AsyncSession = Depends(get_session)) -> dict[str, object]:
+    try:
+        await session.execute(select(1))
+        return {"status": "ready", "deps": {"db": "ok"}}
+    except Exception as e:
+        return {"status": "not-ready", "deps": {"db": f"error: {type(e).__name__}"}}
+
+
+# ===== Story 2.1: Algorithms catalog (FR C1, no auth) =====
+
+
+@router.get(
+    "/algorithms",
+    response_model=list[AlgorithmSchema],
+    tags=["catalog"],
+    summary="列出所有支持的算法（公开免鉴权 FR C1）",
+    description=(
+        "FR C1: 任何访客 can list algorithms via `GET /v1/algorithms` 公开免鉴权.\n\n"
+        "Source: Story 2.1 + Architecture B1 boundary "
+        "(M1-M2: static catalog; M3+: capability-registry service)."
+    ),
+)
+async def list_algorithms(task_type: str | None = None) -> list[AlgorithmSchema]:
+    """FR C1 + C3 — public algorithm list, optional task_type filter (FR C3)."""
+    items = CATALOG
+    if task_type:
+        items = [a for a in items if a["task_type"] == task_type]
+    return [AlgorithmSchema(**a) for a in items]
+
+
+@router.get(
+    "/algorithms/{k_algo}",
+    response_model=AlgorithmSchema,
+    tags=["catalog"],
+    summary="算法详情 (FR C2)",
+)
+async def get_algorithm(k_algo: str) -> AlgorithmSchema:
+    """FR C2 — algorithm details by k_algo."""
+    algo = find_by_k_algo(k_algo)
+    if algo is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"unknown k_algo: {k_algo}")
+    return AlgorithmSchema(**algo)
+
+
+# ===== Story 3.1: POST /v1/optimizations =====
+
+
+def _hash_body(body: dict) -> str:  # type: ignore[type-arg]
+    canon = json.dumps(body, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(canon.encode("utf-8")).hexdigest()
+
+
+def _rfc7807_error(
+    *,
+    title: str,
+    status_code: int,
+    detail: str,
+    errors: list[ErrorDetail] | None = None,
+    next_action: str | None = None,
+    request_id: str | None = None,
+) -> JSONResponse:
+    """Build RFC 7807 + errors[] response (FG1.3)."""
+    body = ErrorResponse(
+        type=f"https://api.opticloud.cn/errors/{title.lower().replace(' ', '_')}",
+        title=title,
+        status=status_code,
+        detail=detail,
+        errors=errors or [],
+        next_action_url=next_action,
+        request_id=request_id,
+    )
+    return JSONResponse(content=body.model_dump(), status_code=status_code)
+
+
+@router.post(
+    "/optimizations",
+    tags=["execution"],
+    summary="提交优化任务 (FR E1, E3, E7, E9)",
+    description=(
+        "FR E1 + E3 + E7 + E9 + Story 3.1 J1 Vertical Slice.\n\n"
+        "Auth: `Authorization: Bearer sk-xxx` (FR A2 scoped — requires `optimize:write`).\n"
+        "Idempotency: `Idempotency-Key` header (P23, 24h dedup).\n"
+        "Errors: RFC 7807 + errors[] (FG1.3) + next_action_url (FR O7).\n\n"
+        "**CRG2 Performance**: cold-start P95 < 5s; warm-start P95 < 200ms."
+    ),
+)
+async def post_optimization(
+    payload: OptimizationRequest,
+    request: Request,
+    authorization: str | None = Header(default=None),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+    session: AsyncSession = Depends(get_session),
+) -> JSONResponse:
+    # ----- AuthN + scope -----
+    user_id, api_key_id, scopes = await verify_api_key(authorization, session)
+    require_scope("optimize:write", scopes)
+
+    body_dict = payload.model_dump(by_alias=True)
+    request_id = request.headers.get("x-request-id") or str(uuid.uuid4())
+
+    # ----- Idempotency (P23) -----
+    if idempotency_key:
+        body_hash = _hash_body(body_dict)
+        result = await session.execute(
+            select(IdempotencyKey).where(IdempotencyKey.key == idempotency_key)
+        )
+        existing = result.scalar_one_or_none()
+        if existing is not None:
+            if existing.user_id != user_id:
+                return _rfc7807_error(
+                    title="Idempotency Conflict",
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="idempotency key in use by a different user",
+                    request_id=request_id,
+                )
+            if existing.request_body_hash != body_hash:
+                return _rfc7807_error(
+                    title="Idempotency Conflict",
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="same idempotency key with different request body (P23)",
+                    errors=[
+                        ErrorDetail(
+                            field_path="header.Idempotency-Key",
+                            value=idempotency_key,
+                            constraint="reused with different body",
+                            remediation_hint_key="errors.409.idempotency_body_mismatch",
+                        )
+                    ],
+                    request_id=request_id,
+                )
+            # Return cached result
+            opt = await session.get(Optimization, existing.optimization_id)
+            if opt is not None and opt.status == "completed":
+                return _build_success_response(opt)
+
+    # ----- Lookup algorithm catalog (Story 2.1 integration) -----
+    algo = find_by_task_type(payload.task_type)
+    if algo is None:
+        return _rfc7807_error(
+            title="Unsupported Task Type",
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"task_type '{payload.task_type}' not in catalog",
+            errors=[
+                ErrorDetail(
+                    field_path="task_type",
+                    value=payload.task_type,
+                    constraint="must be one of catalog k_algo.task_type",
+                    remediation_hint_key="errors.422.unsupported_task_type",
+                )
+            ],
+            next_action="https://api.opticloud.cn/v1/algorithms",
+            request_id=request_id,
+        )
+
+    # ----- Persist input -----
+    opt = Optimization(
+        user_id=user_id,
+        api_key_id=api_key_id,
+        task_type=payload.task_type,
+        status="in_progress",
+        input_payload=body_dict,
+        idempotency_key=idempotency_key,
+    )
+    session.add(opt)
+    await session.flush()
+
+    # ----- Solve (sync mode) -----
+    # Sprint 0: only LP supported; other types return 501 stub.
+    if payload.task_type != "lp":
+        opt.status = "failed"
+        opt.error = {"title": "Not Implemented", "detail": f"{payload.task_type} planned in M2-M5"}
+        opt.completed_at = datetime.now(UTC)
+        return _rfc7807_error(
+            title="Not Implemented",
+            status_code=status.HTTP_501_NOT_IMPLEMENTED,
+            detail=f"task_type '{payload.task_type}' planned in M2-M5; Sprint 0 supports 'lp' only",
+            request_id=request_id,
+        )
+
+    result = solvers.solve_from_request(body_dict, max_solve_seconds=payload.options.max_solve_seconds)
+    opt.solve_seconds = result.solve_seconds
+    opt.model_version = dict(algo["model_version"])
+
+    if result.status == "optimal":
+        opt.status = "completed"
+        opt.solution = result.solution
+        opt.objective = result.objective
+        opt.completed_at = datetime.now(UTC)
+    elif result.status in ("infeasible", "unbounded"):
+        opt.status = "failed"
+        opt.completed_at = datetime.now(UTC)
+        opt.error = {
+            "title": "Solver Result",
+            "detail": result.error_constraint or result.status,
+            "errors": [
+                {
+                    "field_path": result.error_field_path or "st",
+                    "value": None,
+                    "constraint": result.error_constraint or result.status,
+                    "remediation_hint_key": f"errors.422.{result.status}",
+                }
+            ],
+        }
+        # Persist + return error
+        if idempotency_key:
+            session.add(
+                IdempotencyKey(
+                    key=idempotency_key,
+                    user_id=user_id,
+                    optimization_id=opt.id,
+                    request_body_hash=_hash_body(body_dict),
+                    expires_at=datetime.now(UTC) + timedelta(hours=24),
+                )
+            )
+        return _rfc7807_error(
+            title=f"LP {result.status.capitalize()}",
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=result.error_constraint or result.status,
+            errors=[
+                ErrorDetail(
+                    field_path=result.error_field_path or "st",
+                    value=None,
+                    constraint=result.error_constraint or result.status,
+                    remediation_hint_key=f"errors.422.{result.status}",
+                )
+            ],
+            next_action=f"https://docs.opticloud.cn/troubleshoot/{result.status}",
+            request_id=request_id,
+        )
+    elif result.status == "timeout":
+        opt.status = "timeout"
+        opt.completed_at = datetime.now(UTC)
+        opt.error = {"detail": result.error_constraint}
+        return _rfc7807_error(
+            title="Solver Timeout",
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            detail=result.error_constraint or "solver exceeded max_solve_seconds",
+            errors=[
+                ErrorDetail(
+                    field_path=result.error_field_path or "options.max_solve_seconds",
+                    value=payload.options.max_solve_seconds,
+                    constraint=result.error_constraint or "timeout",
+                    remediation_hint_key="errors.504.solver_timeout",
+                )
+            ],
+            request_id=request_id,
+        )
+    else:  # error
+        opt.status = "failed"
+        opt.completed_at = datetime.now(UTC)
+        opt.error = {"detail": result.error_constraint}
+        return _rfc7807_error(
+            title="Validation Error",
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=result.error_constraint or "invalid LP input",
+            errors=[
+                ErrorDetail(
+                    field_path=result.error_field_path or "$",
+                    value=None,
+                    constraint=result.error_constraint or "invalid input",
+                    remediation_hint_key="errors.422.invalid_lp_input",
+                )
+            ],
+            request_id=request_id,
+        )
+
+    # ----- Persist idempotency mapping (after success) -----
+    if idempotency_key:
+        session.add(
+            IdempotencyKey(
+                key=idempotency_key,
+                user_id=user_id,
+                optimization_id=opt.id,
+                request_body_hash=_hash_body(body_dict),
+                expires_at=datetime.now(UTC) + timedelta(hours=24),
+            )
+        )
+
+    return _build_success_response(opt)
+
+
+def _build_success_response(opt: Optimization) -> JSONResponse:
+    """FR E1 + E9 — success response."""
+    payload = OptimizationResponse(
+        optimization_id=opt.id,
+        status="completed",
+        solution=opt.solution,
+        objective=float(opt.objective) if opt.objective is not None else None,
+        model_version=opt.model_version,  # type: ignore[arg-type]
+        solve_seconds=float(opt.solve_seconds) if opt.solve_seconds is not None else 0.0,
+        created_at=opt.created_at,
+        completed_at=opt.completed_at or opt.created_at,
+    )
+    return JSONResponse(
+        content=json.loads(payload.model_dump_json()),
+        status_code=status.HTTP_200_OK,
+    )
+
+
+@router.get(
+    "/optimizations/{optimization_id}",
+    tags=["execution"],
+    summary="查 optimization 状态 (FR E9)",
+)
+async def get_optimization(
+    optimization_id: uuid.UUID,
+    authorization: str | None = Header(default=None),
+    session: AsyncSession = Depends(get_session),
+) -> JSONResponse:
+    user_id, _api_key_id, _scopes = await verify_api_key(authorization, session)
+    opt = await session.get(Optimization, optimization_id)
+    if opt is None or opt.user_id != user_id:
+        return _rfc7807_error(
+            title="Not Found",
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"optimization {optimization_id} not found",
+        )
+    if opt.status == "completed":
+        return _build_success_response(opt)
+    return JSONResponse(
+        content={
+            "optimization_id": str(opt.id),
+            "status": opt.status,
+            "error": opt.error,
+            "model_version": opt.model_version,
+            "created_at": opt.created_at.isoformat() if opt.created_at else None,
+            "completed_at": opt.completed_at.isoformat() if opt.completed_at else None,
+        },
+        status_code=status.HTTP_200_OK,
+    )
