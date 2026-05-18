@@ -154,7 +154,7 @@ development_status:
   epic-5-c: backlog
   epic-5-d: backlog
 
-  5-a-0a-saga-state-diagram: backlog           # N5 unlock node ★
+  5-a-0a-saga-implementation: done             # N5 unlock — 2026-05-18 (16 tests; 4 invariants; 7-state machine wired to DB; outbox emit; idempotent)
   5-a-0b-saga-contract-fixtures: backlog
   5-a-0c-saga-cross-epic-dryrun: backlog
   5-a-0-saga-implementation: backlog
@@ -275,7 +275,7 @@ development_status:
 
 # ===== Statistics =====
 # Total stories: ~192 (per epics.md)
-# Done: 18 (Sprint 0 N1+N2+N3+N4 + 0.5b + 0.13 + J1 Vertical Slice 1.1a/b + 2.1 + 3.1 + M2.0 spike)
-# Backlog: ~168
+# Done: 19 (Sprint 0 N1+N2+N3+N4 + 0.5b + 0.13 + J1 Vertical Slice 1.1a/b + 2.1 + 3.1 + M2.0 spike + 5.A.0a Saga impl)
+# Backlog: ~167
 # Blocked: 4 (legal/AIGC/calibration — user deferred)
-# Progress: ~9.4% (matches Carson C3 cadence: M5 末 65-80 stories goal)
+# Progress: ~9.9% (matches Carson C3 cadence: M5 末 65-80 stories goal)

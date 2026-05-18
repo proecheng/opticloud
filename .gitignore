@@ -65,3 +65,7 @@ postman_environment.json
 e2e/playwright-report/
 e2e/test-results/
 e2e/node_modules/
+
+# Local artifact dirs (not for repo)
+output/
+tmp/

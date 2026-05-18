@@ -107,6 +107,7 @@ jobs:
           sudo apt-get install -y postgresql-client
           psql -h localhost -U opticloud -d opticloud_dev -f infra/local-init/01-schema.sql
           psql -h localhost -U opticloud -d opticloud_dev -f infra/local-init/02-solver-schema.sql
+          psql -h localhost -U opticloud -d opticloud_dev -f infra/local-init/03-billing-schema.sql
 
       # ===== Start services (background) =====
       - name: Start auth-service (background)

@@ -11,6 +11,7 @@ requires-python = ">=3.11,<3.13"
 # Only members with pyproject.toml; other services added as they come online.
 members = [
   "apps/auth-service",
+  "apps/billing-service",
   "apps/solver-orchestrator",
   "packages/shared-py",
   "packages/python-sdk",
