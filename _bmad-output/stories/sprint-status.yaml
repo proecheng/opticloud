@@ -37,7 +37,7 @@ development_status:
   m0-legal-1-license-deliverable: blocked      # E9 法务 (user said skip)
   m0-legal-status-tracking: blocked            # RE2-8 (法务 process)
   m0-aigc-status-tracking: blocked             # CM3 (AIGC filing process)
-  m2-0-saga-spike: backlog                     # RE6 architectural spike
+  m2-0-saga-spike: done                        # RE6 — 2026-05-18 (ADR-0001 Hybrid Saga + ADR-0002 K8s sidecar; 8 state-machine tests; 33 total regression OK)
   m2-1-outbox-relayer: backlog
   m2-2a-billing-critical-tests: backlog        # RE4 (50 scenarios)
   m2-3-cost-attribution: backlog               # G3 Critical Gap
@@ -275,7 +275,7 @@ development_status:
 
 # ===== Statistics =====
 # Total stories: ~192 (per epics.md)
-# Done: 17 (Sprint 0 N1+N2+N3+N4 + J1 Vertical Slice 1.1a/b + 2.1 + 3.1)
-# Backlog: ~169
+# Done: 18 (Sprint 0 N1+N2+N3+N4 + 0.5b + 0.13 + J1 Vertical Slice 1.1a/b + 2.1 + 3.1 + M2.0 spike)
+# Backlog: ~168
 # Blocked: 4 (legal/AIGC/calibration — user deferred)
-# Progress: ~9% (matches Carson C3 cadence: M5 末 65-80 stories goal)
+# Progress: ~9.4% (matches Carson C3 cadence: M5 末 65-80 stories goal)
