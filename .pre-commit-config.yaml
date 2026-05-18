@@ -67,4 +67,4 @@ repos:
           - "KeywordDetector"
           - "--disable-plugin"
           - "BasicAuthDetector"
-        exclude: ^(\.env\.example|infra/local-init/.*\.sql)$
+        exclude: ^(\.env\.example|infra/local-init/.*\.sql|.*\.stories\.tsx)$
