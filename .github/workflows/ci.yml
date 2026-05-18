@@ -95,6 +95,21 @@ jobs:
       - name: Run pre-commit
         run: uv tool run pre-commit run --all-files --show-diff-on-failure
 
+  # ===== Mypy strict (Story 0.5) — separate job so it has access to project deps =====
+  mypy:
+    needs: changes
+    if: needs.changes.outputs.shared_py == 'true' || needs.changes.outputs.python_sdk == 'true' || needs.changes.outputs.auth_service == 'true' || needs.changes.outputs.solver_orchestrator == 'true' || needs.changes.outputs.ci_or_root == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: pip install uv==${{ env.UV_VERSION }}
+      - run: uv sync --all-packages --extra dev
+      - name: Run mypy
+        run: uv run mypy apps packages
+
   # ===== Python: shared-py tests (cascade triggers many services) =====
   # Story 0.5b — property tests (Hypothesis + Schemathesis) require dev extras.
   shared-py-test:

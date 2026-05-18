@@ -135,8 +135,25 @@ jobs:
           echo $! > web.pid
 
       # ===== Wait for readiness =====
+      # Use 127.0.0.1 explicitly — wait-on with "localhost" can resolve to ::1
+      # while services bound to 0.0.0.0 only listen on IPv4.
       - name: Wait for all services
-        run: npx --yes wait-on http://localhost:8001/healthz http://localhost:8002/healthz http://localhost:3000 --timeout 90000
+        run: |
+          for i in $(seq 1 18); do
+            if curl -fsS http://127.0.0.1:8001/healthz > /dev/null \
+               && curl -fsS http://127.0.0.1:8002/healthz > /dev/null \
+               && curl -fsS http://127.0.0.1:3000 > /dev/null; then
+              echo "All services ready (attempt $i)"
+              exit 0
+            fi
+            echo "Waiting for services (attempt $i/18)..."
+            sleep 5
+          done
+          echo "::error::Services failed to become ready"
+          echo "=== auth-service.log ===" && cat auth-service.log
+          echo "=== solver.log ===" && cat solver.log
+          echo "=== web.log ===" && cat web.log
+          exit 1
 
       # ===== Run E2E =====
       - name: Run Playwright tests (chromium)

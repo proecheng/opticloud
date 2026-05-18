@@ -64,7 +64,7 @@ async def list_algorithms(task_type: str | None = None) -> list[AlgorithmSchema]
     items = CATALOG
     if task_type:
         items = [a for a in items if a["task_type"] == task_type]
-    return [AlgorithmSchema(**a) for a in items]
+    return [AlgorithmSchema.model_validate(a) for a in items]
 
 
 @router.get(
@@ -80,7 +80,7 @@ async def get_algorithm(k_algo: str) -> AlgorithmSchema:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=f"unknown k_algo: {k_algo}"
         )
-    return AlgorithmSchema(**algo)
+    return AlgorithmSchema.model_validate(algo)
 
 
 # ===== Story 3.1: POST /v1/optimizations =====
@@ -142,10 +142,10 @@ async def post_optimization(
     # ----- Idempotency (P23) -----
     if idempotency_key:
         body_hash = _hash_body(body_dict)
-        result = await session.execute(
+        idem_query = await session.execute(
             select(IdempotencyKey).where(IdempotencyKey.key == idempotency_key)
         )
-        existing = result.scalar_one_or_none()
+        existing = idem_query.scalar_one_or_none()
         if existing is not None:
             if existing.user_id != user_id:
                 return _rfc7807_error(
