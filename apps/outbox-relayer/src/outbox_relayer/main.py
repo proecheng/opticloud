@@ -24,7 +24,7 @@ async def _run() -> None:
     app = make_app(state)
     config = uvicorn.Config(
         app,
-        host="0.0.0.0",  # noqa: S104 — sidecar binds 0.0.0.0; K8s service exposes selectively
+        host="0.0.0.0",  # noqa: S104  # nosec B104 — sidecar binds 0.0.0.0; K8s service exposes
         port=settings.health_port,
         log_level="warning",
     )

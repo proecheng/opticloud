@@ -78,7 +78,7 @@ async def _listener_loop(state: RelayerState) -> None:
             if listen_conn is not None:
                 try:
                     await listen_conn.close()
-                except Exception:  # noqa: BLE001, S110
+                except Exception:  # noqa: BLE001, S110  # nosec B110 — cleanup best-effort
                     pass
 
 
@@ -156,12 +156,12 @@ async def run_poll_loop(state: RelayerState) -> None:
             if main_conn is not None:
                 try:
                     await main_conn.close()
-                except Exception:  # noqa: BLE001, S110
+                except Exception:  # noqa: BLE001, S110  # nosec B110 — cleanup best-effort
                     pass
             if redis_client is not None:
                 try:
                     await redis_client.aclose()  # type: ignore[attr-defined]
-                except Exception:  # noqa: BLE001, S110
+                except Exception:  # noqa: BLE001, S110  # nosec B110 — cleanup best-effort
                     pass
 
 
