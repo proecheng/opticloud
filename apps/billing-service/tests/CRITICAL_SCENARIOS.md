@@ -1,6 +1,6 @@
-# Billing Critical Scenarios Inventory (Story M2.2a)
+# Billing Critical Scenarios Inventory (Story M2.2a + 5.A.4)
 
-55 hand-written scenarios covering the Saga orchestrator. NFR-R4 v1.5 hard-gate evidence.
+58 hand-written scenarios covering the Saga orchestrator. NFR-R4 v1.5 hard-gate evidence.
 
 Verification: `pytest apps/billing-service/tests/test_critical_*.py --collect-only -q | tail -1`
 
@@ -13,7 +13,16 @@ Verification: `pytest apps/billing-service/tests/test_critical_*.py --collect-on
 | test_critical_concurrency.py | 8 | Race conditions |
 | test_critical_invariants.py | 8 | DB-level invariants |
 | test_critical_audit.py | 6 | Outbox structure verification |
-| **Total** | **55** | |
+| test_critical_pricing.py | 3 | Per-formula amount math (5.A.4) |
+| **Total** | **58** | |
+
+### test_critical_pricing.py (3) — Story 5.A.4
+
+| # | Test | AC | Traceability |
+|---:|---|---|---|
+| T-PRICING-001 | test_pricing_001_elapsed_zero_floors_to_min | 5.A.4 AC3+AC4 | floor to 0.01 + partial refund row |
+| T-PRICING-002 | test_pricing_002_elapsed_at_cap_no_refund_partial | 5.A.4 AC3 | exact at-cap no partial refund |
+| T-PRICING-003 | test_pricing_003_elapsed_over_cap_clamped_to_reserved | 5.A.4 AC3 | over-cap defensive clamp |
 
 ## Detailed inventory
 

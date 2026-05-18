@@ -2,10 +2,16 @@
 
 Uses the shared verifier in opticloud_shared.auth. User ID always comes from
 the JWT `sub` claim (S2 lock — never from path/query/body).
+
+Story 5.A.4: optionally also accepts an internal-service header pair
+(X-Internal-Service-Auth + X-Internal-User-Id) when enabled. Solver-orchestrator
+uses this to call billing on behalf of a verified API-Key holder. Constant-time
+comparison via hmac.compare_digest (S1).
 """
 
 from __future__ import annotations
 
+import hmac
 import uuid
 
 from fastapi import Header, HTTPException, status
@@ -17,8 +23,32 @@ from billing_service.config import settings
 _loader = PublicKeyLoader(settings.jwt_public_key_path)
 
 
-async def require_user(authorization: str | None = Header(default=None)) -> uuid.UUID:
-    """Extract user_id from Bearer JWT. Raises 401/503 on failure."""
+async def require_user(
+    authorization: str | None = Header(default=None),
+    x_internal_service_auth: str | None = Header(default=None, alias="X-Internal-Service-Auth"),
+    x_internal_user_id: str | None = Header(default=None, alias="X-Internal-User-Id"),
+) -> uuid.UUID:
+    """Extract user_id from Bearer JWT, OR from internal-service bridge (5.A.4).
+
+    Order: internal-service first (cheaper, no key load), then JWT fallback.
+    Returns the trusted user_id UUID.
+    """
+    if settings.internal_service_auth_enabled and x_internal_service_auth is not None:
+        expected = settings.internal_service_secret.get_secret_value()
+        if expected and hmac.compare_digest(x_internal_service_auth, expected):
+            if not x_internal_user_id:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="X-Internal-User-Id required with X-Internal-Service-Auth",
+                )
+            try:
+                return uuid.UUID(x_internal_user_id)
+            except ValueError as e:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="X-Internal-User-Id is not a UUID",
+                ) from e
+
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
