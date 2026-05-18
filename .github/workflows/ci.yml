@@ -23,6 +23,7 @@ jobs:
     outputs:
       shared_py: ${{ steps.filter.outputs.shared_py }}
       shared_ts: ${{ steps.filter.outputs.shared_ts }}
+      outbox_relayer: ${{ steps.filter.outputs.outbox_relayer }}
       ui: ${{ steps.filter.outputs.ui }}
       python_sdk: ${{ steps.filter.outputs.python_sdk }}
       auth_service: ${{ steps.filter.outputs.auth_service }}
@@ -59,6 +60,9 @@ jobs:
             billing_service:
               - 'apps/billing-service/**'
               - 'infra/local-init/03-billing-schema.sql'
+            outbox_relayer:
+              - 'apps/outbox-relayer/**'
+              - 'infra/local-init/04-outbox-trigger.sql'
             api_gateway:
               - 'apps/api-gateway/**'
             solver_orchestrator:
@@ -209,10 +213,59 @@ jobs:
         run: |
           psql -h localhost -U opticloud -d opticloud_dev -f infra/local-init/01-schema.sql
           psql -h localhost -U opticloud -d opticloud_dev -f infra/local-init/03-billing-schema.sql
+          psql -h localhost -U opticloud -d opticloud_dev -f infra/local-init/04-outbox-trigger.sql
       - name: Run tests
         env:
           DATABASE_URL: postgresql+asyncpg://opticloud:opticloud_dev@localhost:5432/opticloud_dev  # pragma: allowlist secret
         run: uv run pytest apps/billing-service/tests/ -v
+
+  # ===== outbox-relayer tests (Story M2.1) =====
+  outbox-relayer-test:
+    needs: changes
+    if: needs.changes.outputs.outbox_relayer == 'true' || needs.changes.outputs.shared_py == 'true' || needs.changes.outputs.ci_or_root == 'true'
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: opticloud
+          POSTGRES_PASSWORD: opticloud_dev  # pragma: allowlist secret
+          POSTGRES_DB: opticloud_dev
+        options: >-
+          --health-cmd "pg_isready -U opticloud -d opticloud_dev"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 5
+        ports:
+          - 6379:6379
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: pip install uv==${{ env.UV_VERSION }}
+      - run: uv sync --all-packages --extra dev
+      - name: Apply schema
+        env:
+          PGPASSWORD: opticloud_dev  # pragma: allowlist secret
+        run: |
+          psql -h localhost -U opticloud -d opticloud_dev -f infra/local-init/01-schema.sql
+          psql -h localhost -U opticloud -d opticloud_dev -f infra/local-init/03-billing-schema.sql
+          psql -h localhost -U opticloud -d opticloud_dev -f infra/local-init/04-outbox-trigger.sql
+      - name: Run tests
+        env:
+          DATABASE_URL: postgresql://opticloud:opticloud_dev@localhost:5432/opticloud_dev  # pragma: allowlist secret
+          REDIS_URL: redis://localhost:6379
+        run: uv run pytest apps/outbox-relayer/tests/ -v
 
   # ===== Other service stubs (will populate as services come online) =====
   # api-gateway-test, solver-orchestrator-test, ...
