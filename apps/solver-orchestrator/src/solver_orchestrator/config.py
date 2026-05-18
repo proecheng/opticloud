@@ -14,7 +14,7 @@ class SolverSettings(BaseSettings):
     )
 
     database_url: str = Field(
-        default="postgresql+asyncpg://opticloud:opticloud_dev@localhost:5432/opticloud_dev",  # pragma: allowlist secret
+        default="postgresql+asyncpg://opticloud:opticloud_dev@localhost:5432/opticloud_dev",
         alias="DATABASE_URL",
     )
 
