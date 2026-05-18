@@ -1115,12 +1115,15 @@ name = "opticloud-shared"
 version = "0.0.1"
 source = { editable = "packages/shared-py" }
 dependencies = [
+    { name = "cryptography" },
+    { name = "fastapi" },
     { name = "opentelemetry-api" },
     { name = "opentelemetry-exporter-otlp" },
     { name = "opentelemetry-instrumentation-fastapi" },
     { name = "opentelemetry-sdk" },
     { name = "prometheus-client" },
     { name = "pydantic" },
+    { name = "pyjwt", extra = ["crypto"] },
     { name = "structlog" },
 ]
 
@@ -1137,6 +1140,8 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "cryptography", specifier = ">=43.0" },
+    { name = "fastapi", specifier = ">=0.115" },
     { name = "httpx", marker = "extra == 'dev'", specifier = ">=0.27" },
     { name = "hypothesis", marker = "extra == 'dev'", specifier = ">=6.115" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.13" },
@@ -1146,6 +1151,7 @@ requires-dist = [
     { name = "opentelemetry-sdk", specifier = ">=1.28" },
     { name = "prometheus-client", specifier = ">=0.21" },
     { name = "pydantic", specifier = ">=2.7" },
+    { name = "pyjwt", extras = ["crypto"], specifier = ">=2.10" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3" },
     { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.24" },
     { name = "schemathesis", marker = "extra == 'dev'", specifier = ">=3.36" },

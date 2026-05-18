@@ -9,6 +9,9 @@ const AUTH_SERVICE_URL =
 const SOLVER_SERVICE_URL =
   process.env.NEXT_PUBLIC_SOLVER_SERVICE_URL ?? "http://localhost:8002";
 
+const BILLING_SERVICE_URL =
+  process.env.NEXT_PUBLIC_BILLING_SERVICE_URL ?? "http://localhost:8003";
+
 export interface SignupRequest {
   phone: string;
   email: string;
@@ -174,6 +177,71 @@ export interface OptimizationResponse {
   created_at: string;
   completed_at: string;
 }
+
+// ===== Billing (Story 5.A.1) =====
+
+export interface BalanceResponse {
+  user_id: string;
+  balance: string;
+  currency: string;
+  last_transaction_at: string | null;
+}
+
+export interface ChargeResponse {
+  charge_id: string;
+  current_state: string;
+  amount: string;
+  currency: string;
+  balance_before: string;
+  balance_after: string;
+}
+
+export async function getBalance(jwtAccess: string): Promise<BalanceResponse> {
+  return request<BalanceResponse>(
+    "/v1/billing/balance",
+    { headers: { Authorization: `Bearer ${jwtAccess}` } },
+    BILLING_SERVICE_URL,
+  );
+}
+
+export async function createCharge(
+  jwtAccess: string,
+  body: {
+    amount: string;
+    purpose: "solve" | "predict" | "chat" | "demo";
+    reference_id: string;
+  },
+  idempotencyKey: string,
+): Promise<ChargeResponse> {
+  return request<ChargeResponse>(
+    "/v1/billing/charges",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${jwtAccess}`,
+        "Idempotency-Key": idempotencyKey,
+      },
+      body: JSON.stringify({ ...body, currency: "CNY" }),
+    },
+    BILLING_SERVICE_URL,
+  );
+}
+
+export async function confirmCharge(
+  jwtAccess: string,
+  chargeId: string,
+): Promise<ChargeResponse> {
+  return request<ChargeResponse>(
+    `/v1/billing/charges/${chargeId}/confirm`,
+    {
+      method: "POST",
+      headers: { Authorization: `Bearer ${jwtAccess}` },
+    },
+    BILLING_SERVICE_URL,
+  );
+}
+
+// ===== Optimizations (Story 3.1) =====
 
 export async function postOptimization(
   apiKey: string,

@@ -13,6 +13,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from billing_service import __version__
+from billing_service.routes import billing_router
 
 
 @asynccontextmanager
@@ -29,6 +30,9 @@ app = FastAPI(
     openapi_url="/openapi.json",
     lifespan=lifespan,
 )
+
+
+app.include_router(billing_router)
 
 
 @app.get("/healthz", include_in_schema=False)
