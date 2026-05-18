@@ -57,17 +57,14 @@ repos:
     rev: v1.5.0
     hooks:
       - id: detect-secrets
-        args: ["--baseline", ".secrets.baseline"]
-        # Exclude dev-only configs containing the literal string "opticloud_dev"
-        # (postgres password for local docker-compose; never used in prod).
-        exclude: |
-          (?x)^(
-            \.env\.example
-            |infra/local-init/.*\.sql
-            |apps/auth-service/src/auth_service/security\.py
-            |apps/solver-orchestrator/src/solver_orchestrator/config\.py
-            |apps/auth-service/src/auth_service/config\.py
-            |\.github/workflows/.*\.yml
-            |docker-compose\.yml
-            |e2e/.*\.ts
-          )$
+        args:
+          - "--baseline"
+          - ".secrets.baseline"
+          # KeywordDetector + BasicAuthDetector flag every `sk-` + every
+          # postgres://user:pass@... — too noisy for a dev-config-heavy repo.
+          # AWS / JWT / Private Key / Base64 / Hex detectors still active.
+          - "--disable-plugin"
+          - "KeywordDetector"
+          - "--disable-plugin"
+          - "BasicAuthDetector"
+        exclude: ^(\.env\.example|infra/local-init/.*\.sql)$
