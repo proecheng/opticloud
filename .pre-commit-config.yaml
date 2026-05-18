@@ -22,7 +22,7 @@ repos:
 
   # ----- Python: ruff (lint + format) -----
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.7.4
+    rev: v0.8.6
     hooks:
       - id: ruff
         args: ["--fix"]
@@ -36,7 +36,10 @@ repos:
         additional_dependencies:
           - pydantic>=2.7
           - types-requests
-        args: ["--config-file=pyproject.toml"]
+        args:
+          - "--config-file=pyproject.toml"
+          - "--explicit-package-bases"
+          - "--namespace-packages"
 
   # ----- Python: bandit (security scan) -----
   - repo: https://github.com/PyCQA/bandit
@@ -63,3 +66,5 @@ repos:
       - id: detect-secrets
         args: ["--baseline", ".secrets.baseline"]
         exclude: ^(\.env\.example|infra/local-init/.*\.sql)$
+        additional_dependencies:
+          - gibberish-detector
