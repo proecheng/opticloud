@@ -67,7 +67,9 @@ show_error_codes = true
 explicit_package_bases = true
 namespace_packages = true
 exclude = [
-  "^scripts/",       # operator scripts (subprocess + print by design)
+  "^scripts/",                # operator scripts (subprocess + print by design)
+  "^apps/.*/tests/",          # per-service tests share "tests" module name
+  "^packages/.*/tests/",      # ditto
 ]
 
 [[tool.mypy.overrides]]

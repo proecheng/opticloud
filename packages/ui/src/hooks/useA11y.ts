@@ -40,7 +40,7 @@ export interface UseA11yResult {
   /** Spread onto wrapper element for ARIA attributes. */
   attrs: Record<string, string | boolean | undefined>;
   /** Ref to attach to focusable container (focus trap target). */
-  ref: React.RefObject<HTMLDivElement | null>;
+  ref: React.RefObject<HTMLDivElement>;
   /** Stable ID for label/described-by linking. */
   id: string;
 }
@@ -58,7 +58,7 @@ export function useA11y(options: UseA11yOptions): UseA11yResult {
 
   // Stable ID for ARIA linking
   const id = useId();
-  const containerRef = useRef<HTMLDivElement | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
 
   // Save previously focused element on mount; restore on unmount
