@@ -124,9 +124,7 @@ def solve_lp(
     lp.a_matrix_.index_ = np.array(a_index, dtype=np.int32)
     lp.a_matrix_.value_ = np.array(a_flat, dtype=float)
 
-    lp.sense_ = (
-        highspy.ObjSense.kMinimize if sense == "minimize" else highspy.ObjSense.kMaximize
-    )
+    lp.sense_ = highspy.ObjSense.kMinimize if sense == "minimize" else highspy.ObjSense.kMaximize
 
     h.passModel(lp)
     run_status = h.run()

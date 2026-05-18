@@ -11,18 +11,18 @@ Prometheus metrics: http://localhost:8001/metrics
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import AsyncIterator
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+from opticloud_shared import otel_setup
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from starlette.responses import Response
 
 from auth_service import __version__
 from auth_service.routes import health_router, router
-from opticloud_shared import otel_setup
 
 
 @asynccontextmanager

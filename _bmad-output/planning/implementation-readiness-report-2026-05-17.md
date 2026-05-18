@@ -420,4 +420,3 @@ PRD-only readiness 模式下，Epic 文档不存在。本步骤记录 PRD 77 FR 
 | 5 | 单 Story 实现 | `bmad-create-story` + `bmad-dev-story` |
 
 **Workflow status**: ✅ **Implementation Readiness Assessment Complete**（PRD-only mode）
-

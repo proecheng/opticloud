@@ -24,7 +24,6 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import (
 
 from auth_service.config import settings
 
-
 # ===== API Key Generation (FR A2 + D7) =====
 
 API_KEY_PREFIX = "sk-"

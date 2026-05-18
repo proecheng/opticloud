@@ -2401,14 +2401,14 @@ graph TD
     R --> S
     S --> T[钉钉/Slack 粘贴]
     T --> U[M5 First-Time Win Modal + Shareable Card]
-    
+
     %% Chaos Monkey 失败 paths
     J -->|网络断 CS1.1| ER1[API timeout 60s + **不扣 Credits**]
     J -->|API Key 失效 CS1.2| ER2[401 detail: 'API Key 已被吊销于...<br/>+ 生成新 key 引导']
     N3 -.SSE 断 CS1.3.-> SR[3 次重连失败 → 仅看 Raw JSON]
     O -.Critic timeout CS1.4.-> OT[Critic 60s timeout → 暂时不可用]
     L -.关闭 tab CS1.5.-> H[Console Recent Optimizations 永久保留]
-    
+
     %% 422/402/429
     J -->|422 schema| ER3[Retry Inline + RFC 7807 + 模板下载]
     J -->|402 Credits| ER4[Modal: 加油包 ¥10 / 切 P3 LSTM]
@@ -2455,7 +2455,7 @@ graph TD
     P --> Q[导出 PPT 一键 FG9]
     P --> R[A/B compare SKU FG11]
     P --> S[历史预测准确率 retrospective FG10]
-    
+
     %% Chaos
     D -.>|>100MB CS2.1| BIG[S3 预签名 URL P42]
 ```
@@ -2501,7 +2501,7 @@ graph TD
     A[小张 第 4 次注册] --> B[风控规则检测 FR A5]
     B --> C{触发条件 任 2 项}
     C --> D{设备/IP/频次 ...}
-    
+
     %% Tree of Thoughts: 多 user context TT5-7
     D -->|真冒名注册| E[拦截 + 友好提示]
     D -->|真用户多账号 CS4.1| E2[拦截 + **1 min 自助申诉 + 24h auto review**]
@@ -2511,7 +2511,7 @@ graph TD
     F1 --> H[允许或软提示]
     F2 --> H
     F3 --> H
-    
+
     E --> G[申诉表单]
     E2 --> G
     G --> H1{团队规模}
@@ -2522,7 +2522,7 @@ graph TD
     K -->|通过| L[账号解封]
     K -->|维持原判| M[账号合并提议]
     M --> N[小张 接受合并 → Starter ¥39]
-    
+
     %% Email link tracking CS4.2
     G -.->|提交后| K2[Email link 跟踪状态 不需登录]
 ```
@@ -2538,7 +2538,7 @@ graph TD
     A[阿七 扫到 /api/v1/*] --> B[查看 security.txt]
     B --> C[查披露邮箱 security@opticloud.cn]
     C --> D[发现 endpoint 漏洞]
-    
+
     %% Tree of Thoughts: 多披露通道 TT8-10
     D --> E{披露类型}
     E -->|安全研究者负责任披露| F[发邮件 + PoC + CVSS]
@@ -2546,12 +2546,12 @@ graph TD
     E -->|学者/学生学术披露 TT9| F3[学术联盟 v2+ 通道]
     E -->|国安级 / APT TT10| F4[必须 escalate 网信办 SOP]
     E -->|Hackerone-like 平台 v2+| F5[v2+ 集成]
-    
+
     F --> G[48h SLA 自动 ticket]
     F2 --> G2[24h 致谢 不奖励]
     F3 --> G3[特殊通道处理]
     F4 --> G4[安全 SOP runbook]
-    
+
     G --> H{Email 收到？}
     H -->|否 CS5.1| HF[PGP key 备用 + 48h 自动告警内部 telegram bot]
     H -->|是| I[安全团队回邮 致谢 + 确认]
@@ -2807,7 +2807,7 @@ type ThreePanelResultProps = {
 
 **User Pref Sync**：localStorage + backend `user.preferences.result_layout` dual sync（AR_CC19_2）
 
-#### `<FirstTimeTour>` 
+#### `<FirstTimeTour>`
 
 ```typescript
 type TourStep = {

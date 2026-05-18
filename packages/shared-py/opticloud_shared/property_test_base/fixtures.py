@@ -18,7 +18,9 @@ if TYPE_CHECKING:
     import schemathesis
 
 
-def schemathesis_from_url(base_url: str, *, openapi_path: str = "/openapi.json") -> "schemathesis.BaseSchema":
+def schemathesis_from_url(
+    base_url: str, *, openapi_path: str = "/openapi.json"
+) -> schemathesis.BaseSchema:
     """Load OpenAPI schema from a running service.
 
     Args:
@@ -36,7 +38,7 @@ def schemathesis_from_url(base_url: str, *, openapi_path: str = "/openapi.json")
     return schemathesis.openapi.from_url(f"{base_url.rstrip('/')}{openapi_path}")
 
 
-def schemathesis_from_path(spec_path: str | Path) -> "schemathesis.BaseSchema":
+def schemathesis_from_path(spec_path: str | Path) -> schemathesis.BaseSchema:
     """Load OpenAPI schema from a static file (CI-friendly, no running service).
 
     Args:

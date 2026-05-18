@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "description": "OptiCloud — 通用优化与预测云 (Sprint 0)",
-  "packageManager": "pnpm@9.0.0",
+  "packageManager": "pnpm@9.12.0",
   "engines": {
     "node": ">=18"
   },

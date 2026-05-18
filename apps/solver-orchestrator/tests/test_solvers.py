@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import pytest
-
 from solver_orchestrator.solvers import prewarm, solve_from_request, solve_lp
 
 
@@ -68,7 +67,7 @@ def test_warm_start_faster_than_cold(benchmark_runs: int = 3) -> None:
 
     # warm-start should be < 200ms per AC (CRG2)
     avg = sum(times) / len(times)
-    assert avg < 0.5, f"warm-start avg {avg*1000:.1f}ms > 500ms (CRG2 budget 200ms)"
+    assert avg < 0.5, f"warm-start avg {avg * 1000:.1f}ms > 500ms (CRG2 budget 200ms)"
 
 
 def test_mock_real_divergence_lp_schema() -> None:

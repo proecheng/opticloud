@@ -99,7 +99,9 @@ class OptiCloudHTTPError(OptiCloudError):
 
     def remediation_keys(self) -> list[str]:
         """Return all i18n remediation_hint_key values (FG1.3)."""
-        return [d.get("remediation_hint_key", "") for d in self.errors if d.get("remediation_hint_key")]
+        return [
+            d.get("remediation_hint_key", "") for d in self.errors if d.get("remediation_hint_key")
+        ]
 
     @classmethod
     def from_response(cls, status: int, body: dict[str, Any]) -> OptiCloudHTTPError:

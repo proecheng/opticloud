@@ -121,7 +121,7 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
       - run: pip install uv==${{ env.UV_VERSION }}
-      - run: uv sync
+      - run: uv sync --all-packages --extra dev
       - run: uv run pytest packages/python-sdk/tests/ -v
 
   # ===== Python: per-service tests =====
@@ -149,7 +149,7 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
       - run: pip install uv==${{ env.UV_VERSION }}
-      - run: uv sync
+      - run: uv sync --all-packages --extra dev
       - name: Apply schema
         env:
           PGPASSWORD: opticloud_dev
@@ -193,7 +193,7 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
       - run: pip install uv==${{ env.UV_VERSION }}
-      - run: uv sync
+      - run: uv sync --all-packages --extra dev
       - name: Check OpenAPI drift
         run: uv run python scripts/check_openapi_drift.py
         continue-on-error: true  # Allow until first commit of generated spec

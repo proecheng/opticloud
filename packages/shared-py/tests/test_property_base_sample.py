@@ -11,7 +11,6 @@ import uuid
 
 import pytest
 from hypothesis import HealthCheck, given, settings
-
 from opticloud_shared.property_test_base.strategies import (
     api_key_prefixes,
     error_details,

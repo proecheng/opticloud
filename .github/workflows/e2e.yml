@@ -166,12 +166,21 @@ jobs:
           retention-days: 7
 
       # ===== Cleanup E2E test data (R1-5 fix) =====
+      # Robust against early failure (schema not applied yet) — to_regclass returns NULL if table missing.
       - name: Cleanup E2E DB rows
         if: always()
         env:
           PGPASSWORD: opticloud_dev
         run: |
-          psql -h localhost -U opticloud -d opticloud_dev -c "DELETE FROM users WHERE email LIKE 'e2e-%';"
+          psql -h localhost -U opticloud -d opticloud_dev <<'SQL'
+          DO $$
+          BEGIN
+            IF to_regclass('public.users') IS NOT NULL THEN
+              DELETE FROM users WHERE email LIKE 'e2e-%';
+            END IF;
+          END
+          $$;
+          SQL
 
       # ===== Service logs on failure (debugging) =====
       - name: Upload service logs on failure

@@ -9,10 +9,8 @@
 
 from __future__ import annotations
 
-import pytest
 from hypothesis import given
 from hypothesis import strategies as st
-
 from opticloud_shared.property_test_base.strategies import monetary_amounts, uuids
 from opticloud_shared.saga import (
     TERMINAL_STATES,
@@ -21,7 +19,6 @@ from opticloud_shared.saga import (
     is_terminal,
     next_states,
 )
-
 
 # ===== Invariant 1: No dangling state =====
 
@@ -90,6 +87,7 @@ def test_idempotency_simulation(key: str, amount: float) -> None:
     the idempotency invariant. The real implementation must back this
     with a DB-backed idempotency table (P23) consulted in PENDING.
     """
+
     def simulate(idem_key: str, charge_amount: float) -> State:
         # Deterministic given (idem_key, amount) — simulates the cached result
         if charge_amount <= 0:

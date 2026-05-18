@@ -9,10 +9,9 @@ from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from fastapi.responses import JSONResponse
+from opticloud_shared.schemas.errors import ErrorDetail, ErrorResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-
-from opticloud_shared.schemas.errors import ErrorDetail, ErrorResponse
 
 from solver_orchestrator import solvers
 from solver_orchestrator.auth import require_scope, verify_api_key
@@ -78,7 +77,9 @@ async def get_algorithm(k_algo: str) -> AlgorithmSchema:
     """FR C2 — algorithm details by k_algo."""
     algo = find_by_k_algo(k_algo)
     if algo is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"unknown k_algo: {k_algo}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"unknown k_algo: {k_algo}"
+        )
     return AlgorithmSchema(**algo)
 
 
@@ -217,7 +218,9 @@ async def post_optimization(
             request_id=request_id,
         )
 
-    result = solvers.solve_from_request(body_dict, max_solve_seconds=payload.options.max_solve_seconds)
+    result = solvers.solve_from_request(
+        body_dict, max_solve_seconds=payload.options.max_solve_seconds
+    )
     opt.solve_seconds = result.solve_seconds
     opt.model_version = dict(algo["model_version"])
 

@@ -1,6 +1,6 @@
 # Optimization papers index
 
-更新日期：2026-05-04  
+更新日期：2026-05-04
 用途：MicroGrid 优化技术底座研究资料。优先围绕 Hsiao-Dong Chiang / 江晓东、Trust-Tech、SuperOPF、OPF/SOR，以及天津大学合作线索。
 
 ## 已下载全文或公开 PDF

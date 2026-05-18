@@ -8,7 +8,6 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field, model_validator
 
-
 # ===== Story 2.1: GET /v1/algorithms =====
 
 

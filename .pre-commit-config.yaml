@@ -44,7 +44,7 @@ repos:
     hooks:
       - id: bandit
         args: ["-c", "bandit.yaml"]
-        exclude: ^tests/
+        exclude: ^(tests/|scripts/)  # scripts/ uses subprocess by design (operator tooling)
 
   # ----- License check (CRG9 fix: GPL-3.0 limited-to ECOS only) -----
   - repo: local
