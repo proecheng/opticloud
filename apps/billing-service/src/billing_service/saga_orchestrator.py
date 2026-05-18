@@ -44,6 +44,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from billing_service.config import settings
 from billing_service.exceptions import (
+    CrossTenantKeyError,
     IdempotencyConflictError,
     InvalidSagaTransitionError,
     SagaNotFoundError,
@@ -108,6 +109,9 @@ class SagaOrchestrator:
         existing_key = await self.session.get(IdempotencyKeyRow, idempotency_key)
         now = datetime.now(UTC)
         if existing_key is not None and existing_key.expires_at > now:
+            # S1 security fix (M2.2a): prevent cross-tenant key reuse
+            if existing_key.user_id != user_id:
+                raise CrossTenantKeyError(idempotency_key, existing_key.user_id, user_id)
             if existing_key.request_body_hash != body_hash:
                 raise IdempotencyConflictError(
                     idempotency_key, existing_key.request_body_hash, body_hash

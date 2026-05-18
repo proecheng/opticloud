@@ -22,6 +22,7 @@ from billing_service.auth_dep import require_user
 from billing_service.config import settings
 from billing_service.db import get_session
 from billing_service.exceptions import (
+    CrossTenantKeyError,
     IdempotencyConflictError,
     InvalidSagaTransitionError,
     SagaNotFoundError,
@@ -139,6 +140,13 @@ async def create_charge(
             idempotency_key=idempotency_key,
             payload={"reference_id": body.reference_id, "purpose": body.purpose},
             amount=body.amount,
+        )
+    except CrossTenantKeyError as e:
+        await session.rollback()
+        return rfc7807_error(
+            title="Cross-tenant key reuse forbidden",
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(e),
         )
     except IdempotencyConflictError as e:
         await session.rollback()

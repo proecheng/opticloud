@@ -53,3 +53,16 @@ class SagaNotFoundError(SagaError):
     def __init__(self, saga_id: UUID) -> None:
         self.saga_id = saga_id
         super().__init__(f"saga {saga_id} not found")
+
+
+class CrossTenantKeyError(SagaError):
+    """Idempotency key was created by a different user (M2.2a S1 fix)."""
+
+    def __init__(self, key: str, owner_user_id: UUID, requesting_user_id: UUID) -> None:
+        self.key = key
+        self.owner_user_id = owner_user_id
+        self.requesting_user_id = requesting_user_id
+        super().__init__(
+            f"idempotency key {key!r} belongs to user {owner_user_id}, "
+            f"cannot be reused by user {requesting_user_id}"
+        )

@@ -39,7 +39,7 @@ development_status:
   m0-aigc-status-tracking: blocked             # CM3 (AIGC filing process)
   m2-0-saga-spike: done                        # RE6 — 2026-05-18 (ADR-0001 Hybrid Saga + ADR-0002 K8s sidecar; 8 state-machine tests; 33 total regression OK)
   m2-1-outbox-relayer: done                    # 2026-05-18 — sidecar relayer (asyncpg + Redis pub + LISTEN/NOTIFY); 8 integration tests; P95 lag < 500ms verified
-  m2-2a-billing-critical-tests: backlog        # RE4 (50 scenarios)
+  m2-2a-billing-critical-tests: done           # 2026-05-18 — 55 critical scenarios + S1 cross-tenant security fix; NFR-R4 v1.5 hard-gate evidence
   m2-3-cost-attribution: backlog               # G3 Critical Gap
   m3-0-image-archival-prep: backlog            # SC8
   m3-1-sandbox-io-pattern: backlog
@@ -275,7 +275,7 @@ development_status:
 
 # ===== Statistics =====
 # Total stories: ~192 (per epics.md)
-# Done: 21 (J1 vert slice complete + Saga + Outbox loop now closed)
-# Backlog: ~165
+# Done: 22 (J1 vert slice + Saga + Outbox loop + 55 critical scenarios)
+# Backlog: ~164
 # Blocked: 4 (legal/AIGC/calibration — user deferred)
-# Progress: ~10.9% — P33 Outbox Pattern fully operational (producer + relayer)
+# Progress: ~11.5% — Saga engine proven to NFR-R4 v1.5 hard-gate level
