@@ -28,6 +28,9 @@ export type { ConfidenceLabelProps } from "./components/ConfidenceLabel";
 export { ConfirmationModal } from "./components/ConfirmationModal";
 export type { ConfirmationModalProps, ConfirmationVariant } from "./components/ConfirmationModal";
 
+export { ChargeModal } from "./components/ChargeModal";
+export type { ChargeModalProps } from "./components/ChargeModal";
+
 export { CreditsBalanceBucket } from "./components/CreditsBalanceBucket";
 export type { CreditsBalanceBucketProps, CreditsBucket } from "./components/CreditsBalanceBucket";
 
