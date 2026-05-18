@@ -24,6 +24,8 @@ env:
   NODE_VERSION: "18"
   UV_VERSION: "0.5.4"
   PNPM_VERSION: "9.12.0"
+  # No OTel collector in CI; disable SDK to skip export retries + log noise.
+  OTEL_SDK_DISABLED: "true"
 
 jobs:
   e2e:
