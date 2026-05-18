@@ -22,7 +22,7 @@ development_status:
   0-1-monorepo-scaffold: done
   0-2-docker-compose: done
   0-5-pre-commit-hooks: done
-  0-5b-property-test-framework: in-progress    # RE5 added (Hypothesis + Schemathesis) — bmad-dev-story 2026-05-18
+  0-5b-property-test-framework: done           # RE5 — 2026-05-18 (9 property tests, 17 review modifications)
   0-6-auth-scaffold: done
   0-7-health-otel: done
   0-4-openapi-codegen: done
@@ -32,7 +32,7 @@ development_status:
   0-10-tailwind-brand-tokens: done
   0-11-storybook-chromatic: done
   0-12-a11y-hook-axe-core: done
-  0-13-playwright-e2e: backlog                 # Q-T2 added
+  0-13-playwright-e2e: done                    # Q-T2 — 2026-05-18 (3 E2E tests pass, 28 total regression OK)
   0-0-sprint0-calibration-week: blocked        # RE2-1 (team process, deferred)
   m0-legal-1-license-deliverable: blocked      # E9 法务 (user said skip)
   m0-legal-status-tracking: blocked            # RE2-8 (法务 process)

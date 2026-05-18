@@ -27,7 +27,7 @@ dependencies:
 
 # Story 0.5b: Hypothesis + Schemathesis Property-Test 框架基础
 
-Status: **review**
+Status: **done**
 
 ## Story
 

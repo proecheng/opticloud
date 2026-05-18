@@ -60,3 +60,8 @@ storybook-static/
 
 # Postman
 postman_environment.json
+
+# Playwright (Story 0.13)
+e2e/playwright-report/
+e2e/test-results/
+e2e/node_modules/

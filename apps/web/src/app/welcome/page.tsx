@@ -182,7 +182,6 @@ export default function WelcomePage(): JSX.Element {
             onClick={handleSolve}
             disabled={solving}
             className="mt-3 min-h-touch rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary-600 disabled:opacity-50"
-            aria-label="welcome.solve_lp"
           >
             {solving ? "⏳ 求解中..." : "🧪 试跑 LP 求解"}
           </button>
@@ -260,7 +259,6 @@ export default function WelcomePage(): JSX.Element {
                   type="button"
                   onClick={handleCopy}
                   className="min-h-touch rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-primary-600"
-                  aria-label="modal.signup.copy_curl"
                 >
                   {copied ? "✓ 已复制" : "复制 cURL"}
                 </button>
@@ -268,7 +266,6 @@ export default function WelcomePage(): JSX.Element {
                   type="button"
                   onClick={handlePostman}
                   className="min-h-touch rounded-md border border-primary bg-background px-4 py-2 text-sm text-primary hover:bg-primary/5"
-                  aria-label="modal.signup.import_postman"
                 >
                   📥 导入 Postman
                 </button>

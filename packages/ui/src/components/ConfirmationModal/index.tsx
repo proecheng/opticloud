@@ -13,7 +13,7 @@
  *   - generic: fallback
  */
 
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@radix-ui/react-dialog";
+import * as DialogPrimitive from "@radix-ui/react-dialog";
 import type { ReactNode } from "react";
 
 import { useA11y } from "../../hooks/useA11y";
@@ -72,44 +72,51 @@ export function ConfirmationModal({
   if (!open) return null;
 
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent asChild>
-        <div
-          {...a11y.attrs}
-          ref={a11y.ref}
-          className={cn(
-            "fixed left-1/2 top-1/2 z-50 max-w-md -translate-x-1/2 -translate-y-1/2",
-            "rounded-lg border-2 bg-background p-6 shadow-lg animate-fade-in",
-            variantStyles[variant],
-          )}
-          data-testid="confirmation-modal"
-          data-variant={variant}
-        >
-          <DialogHeader>
-            <DialogTitle className="text-lg font-semibold">{title}</DialogTitle>
-            {description && (
-              <p className="mt-2 text-sm text-muted-foreground">{description}</p>
+    <DialogPrimitive.Root open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Overlay className="fixed inset-0 z-40 bg-black/50 animate-fade-in" />
+        <DialogPrimitive.Content asChild>
+          <div
+            {...a11y.attrs}
+            ref={a11y.ref}
+            className={cn(
+              "fixed left-1/2 top-1/2 z-50 w-[90vw] max-w-md -translate-x-1/2 -translate-y-1/2",
+              "rounded-lg border-2 bg-background p-6 shadow-lg animate-fade-in",
+              variantStyles[variant],
             )}
-          </DialogHeader>
-          {body && <div className="mt-4">{body}</div>}
-          <div className="mt-6 flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="min-h-touch min-w-touch rounded-md border border-border px-4 py-2 hover:bg-muted"
-            >
-              {cancelLabel}
-            </button>
-            <button
-              type="button"
-              onClick={onConfirm}
-              className="min-h-touch min-w-touch rounded-md bg-primary px-4 py-2 text-primary-foreground hover:bg-primary-600"
-            >
-              {confirmLabel}
-            </button>
+            data-testid="confirmation-modal"
+            data-variant={variant}
+          >
+            <div>
+              <DialogPrimitive.Title className="text-lg font-semibold">
+                {title}
+              </DialogPrimitive.Title>
+              {description && (
+                <DialogPrimitive.Description className="mt-2 text-sm text-muted-foreground">
+                  {description}
+                </DialogPrimitive.Description>
+              )}
+            </div>
+            {body && <div className="mt-4">{body}</div>}
+            <div className="mt-6 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="min-h-touch min-w-touch rounded-md border border-border px-4 py-2 hover:bg-muted"
+              >
+                {cancelLabel}
+              </button>
+              <button
+                type="button"
+                onClick={onConfirm}
+                className="min-h-touch min-w-touch rounded-md bg-primary px-4 py-2 text-primary-foreground hover:bg-primary-600"
+              >
+                {confirmLabel}
+              </button>
+            </div>
           </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
   );
 }

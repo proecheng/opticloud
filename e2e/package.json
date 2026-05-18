@@ -1,0 +1,21 @@
+{
+  "name": "@opticloud/e2e",
+  "version": "0.0.1",
+  "private": true,
+  "description": "OptiCloud End-to-End test suite (Playwright) — Story 0.13",
+  "type": "module",
+  "scripts": {
+    "test": "playwright test",
+    "test:ui": "playwright test --ui",
+    "test:headed": "playwright test --headed",
+    "test:chromium": "playwright test --project=chromium",
+    "report": "playwright show-report",
+    "cleanup": "bash scripts/cleanup.sh",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.0",
+    "@types/node": "^22.9.0",
+    "typescript": "5.4.5"
+  }
+}
