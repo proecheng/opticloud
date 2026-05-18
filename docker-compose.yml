@@ -36,6 +36,29 @@ services:
       timeout: 3s
       retries: 5
 
+  outbox-relayer:
+    build:
+      context: .
+      dockerfile: apps/outbox-relayer/Dockerfile
+    container_name: opticloud-outbox-relayer
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://opticloud:opticloud_dev@postgres:5432/opticloud_dev  # pragma: allowlist secret
+      REDIS_URL: redis://redis:6379
+      HEALTH_PORT: 9101
+    ports:
+      - "9101:9101"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:9101/healthz', timeout=2).status==200 else 1)"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
   vault:
     image: hashicorp/vault:1.18
     container_name: opticloud-vault

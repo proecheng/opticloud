@@ -108,6 +108,7 @@ jobs:
           psql -h localhost -U opticloud -d opticloud_dev -f infra/local-init/01-schema.sql
           psql -h localhost -U opticloud -d opticloud_dev -f infra/local-init/02-solver-schema.sql
           psql -h localhost -U opticloud -d opticloud_dev -f infra/local-init/03-billing-schema.sql
+          psql -h localhost -U opticloud -d opticloud_dev -f infra/local-init/04-outbox-trigger.sql
 
       # ===== Start services (background) =====
       - name: Start auth-service (background)
