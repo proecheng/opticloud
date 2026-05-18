@@ -26,7 +26,7 @@ from auth_service.config import settings
 
 # ===== API Key Generation (FR A2 + D7) =====
 
-API_KEY_PREFIX = "sk-"
+API_KEY_PREFIX = "sk-"  # pragma: allowlist secret
 API_KEY_PREFIX_VISIBLE_LEN = 6  # PRD §1079 前缀 6 位可见
 
 

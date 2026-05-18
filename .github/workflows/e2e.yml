@@ -37,7 +37,7 @@ jobs:
         image: postgres:16-alpine
         env:
           POSTGRES_USER: opticloud
-          POSTGRES_PASSWORD: opticloud_dev
+          POSTGRES_PASSWORD: opticloud_dev  # pragma: allowlist secret
           POSTGRES_DB: opticloud_dev
         options: >-
           --health-cmd "pg_isready -U opticloud -d opticloud_dev"
@@ -102,7 +102,7 @@ jobs:
       # ===== Apply DB schema =====
       - name: Apply schema
         env:
-          PGPASSWORD: opticloud_dev
+          PGPASSWORD: opticloud_dev  # pragma: allowlist secret
         run: |
           sudo apt-get install -y postgresql-client
           psql -h localhost -U opticloud -d opticloud_dev -f infra/local-init/01-schema.sql
@@ -111,7 +111,7 @@ jobs:
       # ===== Start services (background) =====
       - name: Start auth-service (background)
         env:
-          DATABASE_URL: postgresql+asyncpg://opticloud:opticloud_dev@localhost:5432/opticloud_dev
+          DATABASE_URL: postgresql+asyncpg://opticloud:opticloud_dev@localhost:5432/opticloud_dev  # pragma: allowlist secret
           PYTHONPATH: packages/shared-py:apps/auth-service/src:packages/python-sdk/src
         run: |
           nohup uv run uvicorn auth_service.main:app --host 0.0.0.0 --port 8001 > auth-service.log 2>&1 &
@@ -119,7 +119,7 @@ jobs:
 
       - name: Start solver-orchestrator (background)
         env:
-          DATABASE_URL: postgresql+asyncpg://opticloud:opticloud_dev@localhost:5432/opticloud_dev
+          DATABASE_URL: postgresql+asyncpg://opticloud:opticloud_dev@localhost:5432/opticloud_dev  # pragma: allowlist secret
           PYTHONPATH: packages/shared-py:apps/solver-orchestrator/src:packages/python-sdk/src
         run: |
           nohup uv run uvicorn solver_orchestrator.main:app --host 0.0.0.0 --port 8002 > solver.log 2>&1 &
@@ -189,7 +189,7 @@ jobs:
       - name: Cleanup E2E DB rows
         if: always()
         env:
-          PGPASSWORD: opticloud_dev
+          PGPASSWORD: opticloud_dev  # pragma: allowlist secret
         run: |
           psql -h localhost -U opticloud -d opticloud_dev <<'SQL'
           DO $$
