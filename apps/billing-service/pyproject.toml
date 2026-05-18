@@ -1,0 +1,38 @@
+[project]
+name = "opticloud-billing-service"
+version = "0.0.1"
+description = "OptiCloud Billing Service — Credits ledger + Saga orchestrator (Story 5.A.0a)"
+requires-python = ">=3.11,<3.13"
+dependencies = [
+  "opticloud-shared",
+  "sqlalchemy[asyncio]>=2.0.30",
+  "asyncpg>=0.29",
+  "fastapi>=0.115",
+  "pydantic>=2.7",
+  "pydantic-settings>=2.5",
+  "uvicorn[standard]>=0.30",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.3",
+  "pytest-asyncio>=0.24",
+  "hypothesis>=6.115",
+  "httpx>=0.27",
+]
+
+[tool.uv.sources]
+opticloud-shared = { workspace = true }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/billing_service"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
+
