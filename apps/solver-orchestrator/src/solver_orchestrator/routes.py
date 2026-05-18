@@ -6,6 +6,7 @@ import hashlib
 import json
 import uuid
 from datetime import UTC, datetime, timedelta
+from typing import Literal
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from fastapi.responses import JSONResponse
@@ -13,7 +14,7 @@ from opticloud_shared.schemas.errors import ErrorDetail, ErrorResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from solver_orchestrator import solvers
+from solver_orchestrator import billing_client, solvers
 from solver_orchestrator.auth import require_scope, verify_api_key
 from solver_orchestrator.catalog import CATALOG, find_by_k_algo, find_by_task_type
 from solver_orchestrator.db import get_session
@@ -130,6 +131,7 @@ async def post_optimization(
     request: Request,
     authorization: str | None = Header(default=None),
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+    billing_charge_id: str | None = Header(default=None, alias="X-Billing-Charge-Id"),
     session: AsyncSession = Depends(get_session),
 ) -> JSONResponse:
     # ----- AuthN + scope -----
@@ -138,6 +140,43 @@ async def post_optimization(
 
     body_dict = payload.model_dump(by_alias=True)
     request_id = request.headers.get("x-request-id") or str(uuid.uuid4())
+
+    # ----- Story 5.A.4 — pre-solve billing reserve (opt-in via X-Billing-Charge-Id) -----
+    billing_uuid: uuid.UUID | None = None
+    if billing_charge_id:
+        try:
+            billing_uuid = uuid.UUID(billing_charge_id)
+        except ValueError:
+            return _rfc7807_error(
+                title="Invalid X-Billing-Charge-Id",
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="X-Billing-Charge-Id must be a UUID",
+                errors=[
+                    ErrorDetail(
+                        field_path="header.X-Billing-Charge-Id",
+                        value=billing_charge_id,
+                        constraint="must be a UUID",
+                        remediation_hint_key="errors.422.invalid_uuid",
+                    )
+                ],
+                request_id=request_id,
+            )
+        reserve_result = await billing_client.reserve(billing_uuid, user_id)
+        if not reserve_result.ok:
+            return _rfc7807_error(
+                title="Billing Reserve Failed",
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=reserve_result.error_message or "billing reserve declined",
+                errors=[
+                    ErrorDetail(
+                        field_path="header.X-Billing-Charge-Id",
+                        value=billing_charge_id,
+                        constraint=f"billing returned {reserve_result.status_code}",
+                        remediation_hint_key="errors.422.billing_reserve_failed",
+                    )
+                ],
+                request_id=request_id,
+            )
 
     # ----- Idempotency (P23) -----
     if idempotency_key:
@@ -223,6 +262,27 @@ async def post_optimization(
     )
     opt.solve_seconds = result.solve_seconds
     opt.model_version = dict(algo["model_version"])
+
+    # ----- Story 5.A.4 — post-solve billing finalize (single attempt, no retry per Q4) -----
+    if billing_uuid is not None:
+        finalize_status: Literal["success", "failure"]
+        finalize_status = "success" if result.status == "optimal" else "failure"
+        failure_reason: str | None = (
+            None if finalize_status == "success" else (result.error_constraint or result.status)
+        )
+        finalize_outcome = await billing_client.finalize(
+            billing_uuid,
+            user_id,
+            elapsed_seconds=result.solve_seconds,
+            status=finalize_status,
+            failure_reason=failure_reason,
+        )
+        if not finalize_outcome.ok:
+            # Q4 — solve result is NOT held hostage by billing; mark + log + continue.
+            existing_error = opt.error or {}
+            existing_error["billing_finalize_failed"] = True
+            existing_error["billing_finalize_error"] = finalize_outcome.error_message
+            opt.error = existing_error
 
     if result.status == "optimal":
         opt.status = "completed"

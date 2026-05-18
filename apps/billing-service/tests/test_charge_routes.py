@@ -253,3 +253,129 @@ async def test_insufficient_balance_returns_422(
     body = response.json()
     assert body["title"] == "Insufficient balance"
     assert body["errors"][0]["constraint"] == "amount > balance"
+
+
+# ===== Story 5.A.4 — split-phase reserve + finalize (AC7 rows 10-14) =====
+
+
+async def _create_charge(
+    http_client: AsyncClient, auth_headers: dict[str, str], *, amount: str = "6.00"
+) -> str:
+    """Helper: POST /charges and return charge_id."""
+    r = await http_client.post(
+        "/v1/billing/charges",
+        json={
+            "amount": amount,
+            "currency": "CNY",
+            "purpose": "solve",
+            "reference_id": str(uuid.uuid4()),
+        },
+        headers={**auth_headers, "Idempotency-Key": str(uuid.uuid4())},
+    )
+    assert r.status_code == 201, r.text
+    return r.json()["charge_id"]
+
+
+async def test_reserve_happy_path(http_client: AsyncClient, auth_headers: dict[str, str]) -> None:
+    """AC7 row 10: POST /reserve → state=reserved, balance unchanged."""
+    charge_id = await _create_charge(http_client, auth_headers)
+    bal_before = (await http_client.get("/v1/billing/balance", headers=auth_headers)).json()[
+        "balance"
+    ]
+
+    r = await http_client.post(f"/v1/billing/charges/{charge_id}/reserve", headers=auth_headers)
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["current_state"] == "reserved"
+    assert body["amount_reserved"] == "6.00"
+    assert body["balance_after_reserve"] == bal_before
+
+
+async def test_reserve_on_missing_charge_returns_404(
+    http_client: AsyncClient, auth_headers: dict[str, str]
+) -> None:
+    """AC7 row 11: POST /reserve on non-existent charge → 404 RFC 7807."""
+    r = await http_client.post(f"/v1/billing/charges/{uuid.uuid4()}/reserve", headers=auth_headers)
+    assert r.status_code == 404, r.text
+    assert r.json()["title"] == "Charge Not Found"
+
+
+async def test_finalize_success_5s_writes_charge_and_refund_partial(
+    http_client: AsyncClient, auth_headers: dict[str, str]
+) -> None:
+    """AC7 row 12: finalize success elapsed=5s → -0.50 charge + +5.50 refund_partial; net -0.50."""
+    charge_id = await _create_charge(http_client, auth_headers)
+    await http_client.post(f"/v1/billing/charges/{charge_id}/reserve", headers=auth_headers)
+    bal_before = float(
+        (await http_client.get("/v1/billing/balance", headers=auth_headers)).json()["balance"]
+    )
+
+    r = await http_client.post(
+        f"/v1/billing/charges/{charge_id}/finalize",
+        headers=auth_headers,
+        json={"elapsed_seconds": 5.0, "status": "success", "failure_reason": None},
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["current_state"] == "charged"
+    assert body["reserved_amount"] == "6.00"
+    assert body["actual_amount"] == "0.50"
+    assert body["refund_partial_amount"] == "5.50"
+    bal_after = float(body["balance_after"])
+    # Net effect: -0.50 (charge) + 5.50 (refund_partial) − 6.00 (apply writes -reserved) wait...
+    # Apply writes -saga.amount = -6.00 row (kind=charge). Then route writes +5.50 (refund_partial).
+    # Net change to balance = -6.00 + 5.50 = -0.50. ✅
+    assert abs(bal_after - (bal_before - 0.50)) < 1e-6
+
+
+async def test_finalize_failure_writes_net_zero_ledger(
+    http_client: AsyncClient, auth_headers: dict[str, str]
+) -> None:
+    """AC7 row 13: finalize failure → +amount refund + -amount refund_reversal; balance unchanged."""
+    charge_id = await _create_charge(http_client, auth_headers)
+    await http_client.post(f"/v1/billing/charges/{charge_id}/reserve", headers=auth_headers)
+    bal_before = float(
+        (await http_client.get("/v1/billing/balance", headers=auth_headers)).json()["balance"]
+    )
+
+    r = await http_client.post(
+        f"/v1/billing/charges/{charge_id}/finalize",
+        headers=auth_headers,
+        json={"elapsed_seconds": 3.0, "status": "failure", "failure_reason": "infeasible"},
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["current_state"] == "refunded"
+    assert body["actual_amount"] == "0.00"
+    assert body["refund_partial_amount"] == "0.00"
+    bal_after = float(body["balance_after"])
+    # +6 refund (from apply user_cancel) + -6 refund_reversal (R1.1) = 0 net
+    assert abs(bal_after - bal_before) < 1e-6
+
+
+async def test_finalize_idempotent_replay_returns_same_response(
+    http_client: AsyncClient, auth_headers: dict[str, str]
+) -> None:
+    """AC7 row 14: replay finalize on already-CHARGED saga returns rebuilt response, no dup rows."""
+    charge_id = await _create_charge(http_client, auth_headers)
+    await http_client.post(f"/v1/billing/charges/{charge_id}/reserve", headers=auth_headers)
+
+    body = {"elapsed_seconds": 5.0, "status": "success", "failure_reason": None}
+    r1 = await http_client.post(
+        f"/v1/billing/charges/{charge_id}/finalize", headers=auth_headers, json=body
+    )
+    assert r1.status_code == 200, r1.text
+    bal_after_first = float(r1.json()["balance_after"])
+
+    # Replay — same body, state already terminal
+    r2 = await http_client.post(
+        f"/v1/billing/charges/{charge_id}/finalize", headers=auth_headers, json=body
+    )
+    assert r2.status_code == 200, r2.text
+    body2 = r2.json()
+    assert body2["current_state"] == "charged"
+    assert body2["actual_amount"] == "0.50"
+    assert body2["refund_partial_amount"] == "5.50"
+    bal_after_second = float(body2["balance_after"])
+    # No duplicate ledger rows means balance unchanged across replays
+    assert abs(bal_after_second - bal_after_first) < 1e-6

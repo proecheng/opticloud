@@ -32,5 +32,22 @@ class SolverSettings(BaseSettings):
     highs_prewarm: bool = Field(default=True, description="Pre-warm HiGHS at startup")
     sync_max_seconds: float = Field(default=5.0, description="FR E3 sync mode threshold")
 
+    # Story 5.A.4 — cross-service billing
+    billing_base_url: str = Field(
+        default="http://localhost:8003",
+        alias="BILLING_BASE_URL",
+        description="Billing-service base URL (host:port; no trailing slash)",
+    )
+    billing_service_shared_secret: str = Field(
+        default="",
+        alias="BILLING_SERVICE_SHARED_SECRET",
+        description="Shared secret for X-Internal-Service-Auth (R1.2); empty disables integration",
+    )
+    billing_callback_timeout_seconds: float = Field(
+        default=2.0,
+        alias="BILLING_CALLBACK_TIMEOUT_SECONDS",
+        description="Single-attempt timeout per billing call (Q4)",
+    )
+
 
 settings = SolverSettings()
