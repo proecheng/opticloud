@@ -3,7 +3,7 @@
 # Source: epics.md (21 Epics / 192 Stories, post AE rounds)
 # Path B unlock node sequence (5 + J1 vertical slice 4 锚点 + Critical Gaps)
 
-last_updated: 2026-05-19i
+last_updated: 2026-05-19j
 
 # ===== STATUS DEFINITIONS =====
 # backlog            — not yet started
@@ -117,7 +117,7 @@ development_status:
   3-e-1-excel-drop-zone: done                  # 2026-05-19 — /console/excel + ExcelDropZone refactor (alert→onReject) + actionable hint + 教程 stub + 9 Vitest + 5 Playwright; FG1.2 老张 surface 入口
   3-e-2-excel-task-type-detect: done           # 2026-05-19 — browser-side parse (read-excel-file) + heuristic detect + ConfirmationModal w/ manual override + 50K-row cap + parse-error path; apps/web Vitest setup added; +9 Vitest + 4 Playwright; PMR6 ship
   3-e-3-vrptw-template: done                   # 2026-05-19 — VRPTW schema mapper + /v1/optimizations/demo unauth route + 501 graceful card; parseExcel extended w/ includeRows; +6 web Vitest + 3 backend tests + 1 Playwright; PMR6
-  3-e-4-schedule-template: backlog
+  3-e-4-schedule-template: done             # 2026-05-19 — Schedule mapper (apps/web/src/lib/schedule-template.ts) + SchedulePreviewCard + /demo schedule 501 test; +8 Vitest, +1 solver test, +1 Playwright; existing override E2E re-pointed schedule→inventory (3.E.5 will repeat for inventory)
   3-e-5-inventory-template: backlog
   3-e-6-excel-result-download: backlog
   3-e-7-excel-chart-embedding: backlog         # 老张-1 (v1 末)

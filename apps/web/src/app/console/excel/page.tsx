@@ -34,6 +34,7 @@ import {
 } from "@/lib/task-type-detect";
 import { OptiCloudClientError, submitOptimizationDemo } from "@/lib/api";
 import { buildVrptwPayload } from "@/lib/vrptw-template";
+import { buildSchedulePayload } from "@/lib/schedule-template";
 
 const MAX_DATA_ROWS = 50_000;
 
@@ -403,6 +404,230 @@ function VrptwPreviewCard({
   );
 }
 
+function SchedulePreviewCard({
+  file,
+  onReset,
+}: {
+  file: File;
+  onReset: () => void;
+}): JSX.Element {
+  const [state, setState] = useState<
+    | { kind: "parsing" }
+    | { kind: "mapped"; result: ReturnType<typeof buildSchedulePayload> }
+    | { kind: "error"; message: string }
+  >({ kind: "parsing" });
+  const [submitState, setSubmitState] = useState<SubmitState>({ kind: "idle" });
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const summary = await parseExcel(file, { includeRows: true });
+        if (cancelled) return;
+        const result = buildSchedulePayload(summary);
+        setState({ kind: "mapped", result });
+      } catch (err) {
+        if (cancelled) return;
+        setState({ kind: "error", message: (err as Error).message });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [file]);
+
+  const handleSubmit = async (): Promise<void> => {
+    if (state.kind !== "mapped" || !state.result.ok) return;
+    setSubmitState({ kind: "loading" });
+    try {
+      const resp = await submitOptimizationDemo(state.result.payload);
+      setSubmitState({
+        kind: "solved",
+        objective: resp.objective,
+        solveSeconds: resp.solve_seconds,
+      });
+    } catch (err) {
+      if (err instanceof OptiCloudClientError && err.status === 501) {
+        setSubmitState({ kind: "not_implemented", detail: err.detail });
+      } else {
+        setSubmitState({
+          kind: "error",
+          message:
+            err instanceof OptiCloudClientError
+              ? `${err.title}: ${err.detail}`
+              : String((err as Error).message),
+        });
+      }
+    }
+  };
+
+  if (state.kind === "parsing") {
+    return (
+      <div className="space-y-3" data-testid="schedule-preview-card">
+        <div className="text-sm text-muted-foreground">正在读取数据行...</div>
+        <LoadingShimmer variant="card" />
+      </div>
+    );
+  }
+
+  if (state.kind === "error") {
+    return (
+      <div className="space-y-3" data-testid="schedule-preview-card">
+        <StatusCard
+          variant="error"
+          title="读取失败"
+          description={state.message}
+          ariaLabel="console.excel.schedule.parse_error"
+          icon="🚫"
+        />
+        <button
+          type="button"
+          onClick={onReset}
+          className="min-h-touch rounded-md border border-border px-4 py-2 text-sm hover:bg-muted"
+          data-testid="excel-reset-button"
+        >
+          重新选择文件
+        </button>
+      </div>
+    );
+  }
+
+  const result = state.result;
+  if (!result.ok) {
+    return (
+      <div className="space-y-3" data-testid="schedule-preview-card">
+        <StatusCard
+          variant="error"
+          title="Schedule 数据校验失败"
+          description={`发现 ${result.errors.length} 个问题，请在 Excel 中修正后重试`}
+          ariaLabel="console.excel.schedule.invalid"
+          icon="⚠️"
+        />
+        <div className="rounded-md border border-border bg-muted/30 p-4 text-sm">
+          <ul className="ml-4 list-disc space-y-1 text-muted-foreground">
+            {result.errors.map((e, i) => (
+              <li key={i}>
+                <code className="font-mono text-xs">{e.sheet}</code>
+                {e.field && (
+                  <>
+                    {" · "}
+                    <code className="font-mono text-xs">{e.field}</code>
+                  </>
+                )}
+                {" — "}
+                {e.message}
+              </li>
+            ))}
+          </ul>
+        </div>
+        <button
+          type="button"
+          onClick={onReset}
+          className="min-h-touch rounded-md border border-border px-4 py-2 text-sm hover:bg-muted"
+          data-testid="excel-reset-button"
+        >
+          重新选择文件
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3" data-testid="schedule-preview-card">
+      <StatusCard
+        variant="ok"
+        title={`✅ 已构建求解请求 — ${result.task_count} 任务 / ${result.resource_count} 资源 / ${result.precedence_count} 前驱后继`}
+        description="数据已通过格式校验。可点击 试跑 提交到求解器。"
+        ariaLabel="console.excel.schedule.ready"
+        icon="🎯"
+      />
+
+      {result.warnings.length > 0 && (
+        <div className="rounded-md border border-warning/30 bg-warning/5 p-3 text-xs text-warning">
+          {result.warnings.map((w, i) => (
+            <div key={i}>⚠ {w}</div>
+          ))}
+        </div>
+      )}
+
+      <details className="rounded-md border border-border bg-muted/30">
+        <summary className="cursor-pointer px-4 py-2 text-sm font-medium">
+          📋 查看构建的 JSON 请求
+        </summary>
+        <pre
+          className="overflow-x-auto p-3 font-mono text-xs"
+          data-testid="schedule-payload-json"
+        >
+          {JSON.stringify(result.payload, null, 2)}
+        </pre>
+      </details>
+
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={() => void handleSubmit()}
+          disabled={submitState.kind === "loading"}
+          data-testid="schedule-submit-button"
+          className="min-h-touch rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-primary-600 disabled:opacity-50"
+        >
+          {submitState.kind === "loading" ? "求解中..." : "🚀 试跑"}
+        </button>
+        <button
+          type="button"
+          onClick={onReset}
+          className="min-h-touch rounded-md border border-border px-4 py-2 text-sm hover:bg-muted"
+          data-testid="excel-reset-button"
+        >
+          重新选择文件
+        </button>
+      </div>
+
+      {submitState.kind === "not_implemented" && (
+        <div data-testid="schedule-501-card" className="space-y-2">
+          <StatusCard
+            variant="info"
+            title="Schedule 求解器即将上线 (M2-M3)"
+            description={
+              `您的数据已通过格式校验（${result.task_count} 任务 / ${result.resource_count} 资源）。` +
+              " 求解器将在后续版本上线，届时本页面将直接返回结果。"
+            }
+            ariaLabel="console.excel.schedule.not_implemented"
+            icon="🚧"
+          />
+          <p className="text-sm text-muted-foreground">
+            <Link
+              href="/algorithms?task_type=schedule"
+              className="text-primary hover:underline"
+            >
+              → 看其它 Schedule 求解器
+            </Link>
+          </p>
+        </div>
+      )}
+
+      {submitState.kind === "solved" && (
+        <StatusCard
+          variant="ok"
+          title="✅ 求解完成"
+          description={`耗时 ${submitState.solveSeconds.toFixed(2)}s · 目标值 ${submitState.objective ?? "(N/A)"}`}
+          ariaLabel="console.excel.schedule.solved"
+          icon="🎉"
+        />
+      )}
+
+      {submitState.kind === "error" && (
+        <StatusCard
+          variant="error"
+          title="提交失败"
+          description={submitState.message}
+          ariaLabel="console.excel.schedule.submit_error"
+          icon="🚫"
+        />
+      )}
+    </div>
+  );
+}
+
 function ConfirmedCard({
   file,
   taskType,
@@ -417,6 +642,9 @@ function ConfirmedCard({
   if (taskType === "vrptw") {
     return <VrptwPreviewCard file={file} onReset={onReset} />;
   }
+  if (taskType === "schedule") {
+    return <SchedulePreviewCard file={file} onReset={onReset} />;
+  }
 
   return (
     <div className="space-y-3" data-testid="excel-confirmed-card">
@@ -426,13 +654,13 @@ function ConfirmedCard({
         description={
           overrodeFrom
             ? `您选择了 ${TASK_LABEL[taskType]}，覆盖系统推荐 ${TASK_LABEL[overrodeFrom]}`
-            : "下一步由后续 story (3.E.4 / 3.E.5) 接管 — 将路由到对应业务模板。"
+            : "下一步由后续 story (3.E.5) 接管 — 将路由到对应业务模板。"
         }
         ariaLabel="console.excel.confirmed"
         icon="🎯"
       />
       <div className="rounded-md border border-border bg-muted/30 p-4 text-sm text-muted-foreground">
-        📋 下一步：3.E.4 (Schedule) / 3.E.5 (Inventory) 将在 PR #22+ 接管 — VRPTW 已在 3.E.3 落地。
+        📋 下一步：3.E.5 (Inventory) 将在 PR #23+ 接管 — VRPTW (3.E.3) + Schedule (3.E.4) 已落地。
       </div>
       <button
         type="button"
