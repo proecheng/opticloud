@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import re
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from typing import Literal
 
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 
 PHONE_PATTERN = re.compile(r"^\+\d{6,15}$")  # E.164 international format
 
@@ -97,12 +97,17 @@ VALID_SCOPES = {
 
 
 class APIKeyCreateRequest(BaseModel):
-    """FR A2 api_keys.create body."""
+    """FR A2 api_keys.create body.
+
+    Story 1.3: `expires_in_days` is a convenience that resolves server-side to
+    `expires_at = NOW + days`. Sending both → 422.
+    """
 
     label: str = Field(..., min_length=1, max_length=255)
     description: str | None = None
     scope: list[str] = Field(default_factory=list)
-    expires_at: datetime | None = None  # FR A2 optional expiration
+    expires_at: datetime | None = None
+    expires_in_days: int | None = Field(default=None, ge=1, le=3650)
 
     @field_validator("scope")
     @classmethod
@@ -111,6 +116,14 @@ class APIKeyCreateRequest(BaseModel):
         if invalid:
             raise ValueError(f"invalid scopes: {invalid}; allowed: {sorted(VALID_SCOPES)}")
         return v
+
+    @model_validator(mode="after")
+    def _resolve_expiration(self) -> APIKeyCreateRequest:
+        if self.expires_in_days is not None and self.expires_at is not None:
+            raise ValueError("set either expires_at OR expires_in_days, not both")
+        if self.expires_in_days is not None:
+            self.expires_at = datetime.now(UTC) + timedelta(days=self.expires_in_days)
+        return self
 
 
 class APIKeyCreateResponse(BaseModel):

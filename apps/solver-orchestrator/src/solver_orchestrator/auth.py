@@ -80,6 +80,11 @@ async def verify_api_key(
             continue
         computed = _hmac_sha256(full_key, pepper_version)
         if hmac.compare_digest(computed, key_hash):
+            # Story 1.3 — track last_used_at; same session, rolls back if request fails downstream
+            await session.execute(
+                text("UPDATE api_keys SET last_used_at = NOW() WHERE id = :id"),
+                {"id": key_id},
+            )
             return user_id_val, key_id, list(scope or [])
 
     raise HTTPException(
