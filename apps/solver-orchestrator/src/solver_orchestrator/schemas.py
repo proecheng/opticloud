@@ -29,6 +29,7 @@ class AlgorithmSchema(BaseModel):
     description_zh: str
     description_en: str
     examples: list[dict[str, Any]] = []
+    supported_solvers: list[str]  # Story 2.4 — FR C4
 
 
 # ===== Story 3.1: POST /v1/optimizations =====
