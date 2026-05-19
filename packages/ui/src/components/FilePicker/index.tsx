@@ -3,10 +3,20 @@
  *
  * Generic file input — used by Chat (N8) + Console Excel (E11).
  * packages/ui 单源 (Sally S3 fix).
+ *
+ * Story 3.E.1 (2026-05-19): added `onReject` callback so callers can render
+ * proper UI instead of `alert()`. Fallback to `console.warn` when omitted.
  */
 import { type ChangeEvent, useRef } from "react";
 
 import { useA11y } from "../../hooks/useA11y";
+
+export interface FilePickerRejectReason {
+  code: "too_large";
+  sizeMB: string;
+  maxMB: string;
+  message: string;
+}
 
 export interface FilePickerProps {
   /** Allowed MIME types or extensions (e.g. ".csv,.xlsx,application/json"). */
@@ -14,6 +24,8 @@ export interface FilePickerProps {
   /** Max size in bytes (default 5 MB per FR E11 + FR N8). */
   maxSizeBytes?: number;
   onFile: (file: File) => void;
+  /** Story 3.E.1 — caller-controlled rejection handler. If omitted, console.warn fallback. */
+  onReject?: (reason: FilePickerRejectReason) => void;
   /** Multi-file? (FR N8 v1 stub: single). */
   multiple?: boolean;
   ariaLabel: string;
@@ -26,6 +38,7 @@ export function FilePicker({
   accept = ".csv,.xlsx,.json",
   maxSizeBytes = DEFAULT_MAX_SIZE_BYTES,
   onFile,
+  onReject,
   multiple = false,
   ariaLabel,
   label = "选择文件",
@@ -37,14 +50,22 @@ export function FilePicker({
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > maxSizeBytes) {
-      // CRG13 actionable hint
       const sizeMB = (file.size / 1024 / 1024).toFixed(1);
       const maxMB = (maxSizeBytes / 1024 / 1024).toFixed(0);
-      // biome-ignore lint/suspicious/noConsole: dev-only stub; real UI shows Modal hint
-      console.warn(
-        `[FilePicker] 文件 ${sizeMB}MB > ${maxMB}MB 上限。请：① 删除多余 sheet ② 拆分为 2 个文件 ③ 转 CSV (≤10MB)`,
-      );
-      alert(`文件过大 (${sizeMB}MB > ${maxMB}MB)`);
+      const reason: FilePickerRejectReason = {
+        code: "too_large",
+        sizeMB,
+        maxMB,
+        message: `文件 ${sizeMB}MB 超过 ${maxMB}MB 上限。`,
+      };
+      if (onReject) {
+        onReject(reason);
+      } else {
+        // biome-ignore lint/suspicious/noConsole: fallback when caller omits onReject
+        console.warn(`[FilePicker] rejected (too_large): ${reason.message}`);
+      }
+      // Reset input so the same file can be re-selected after fixing.
+      if (inputRef.current) inputRef.current.value = "";
       return;
     }
     onFile(file);
