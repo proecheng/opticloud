@@ -9,7 +9,13 @@
  * shared `lib/excel-helpers.ts`).
  */
 
-import type { ExcelSheetSummary, ExcelWorkbookSummary } from "./excel";
+import type { ExcelWorkbookSummary } from "./excel";
+import {
+  findColumn,
+  findSheet,
+  toCellString,
+  toNumber,
+} from "./excel-helpers";
 
 export interface ScheduleTask {
   id: string;
@@ -73,44 +79,6 @@ const SIGNALS = {
   predecessor: ["前驱", "predecessor", "from"],
   successor: ["后继", "successor", "to"],
 };
-
-function lower(s: string): string {
-  return s.toLowerCase();
-}
-
-function findSheet(
-  summary: ExcelWorkbookSummary,
-  tokens: string[],
-): ExcelSheetSummary | null {
-  const lowered = tokens.map(lower);
-  return (
-    summary.sheets.find((s) =>
-      lowered.some((t) => lower(s.name).includes(t)),
-    ) ?? null
-  );
-}
-
-function findColumn(headers: string[], tokens: string[]): number {
-  const loweredHeaders = headers.map(lower);
-  for (const t of tokens) {
-    const tLower = lower(t);
-    const idx = loweredHeaders.findIndex((h) => h.includes(tLower));
-    if (idx !== -1) return idx;
-  }
-  return -1;
-}
-
-function toNumber(cell: unknown): number | null {
-  if (cell === null || cell === undefined || cell === "") return null;
-  const n = typeof cell === "number" ? cell : Number(String(cell).trim());
-  return Number.isFinite(n) ? n : null;
-}
-
-function toCellString(cell: unknown): string | null {
-  if (cell === null || cell === undefined) return null;
-  const s = String(cell).trim();
-  return s === "" ? null : s;
-}
 
 export function buildSchedulePayload(
   summary: ExcelWorkbookSummary,

@@ -3,7 +3,7 @@
 # Source: epics.md (21 Epics / 192 Stories, post AE rounds)
 # Path B unlock node sequence (5 + J1 vertical slice 4 锚点 + Critical Gaps)
 
-last_updated: 2026-05-19j
+last_updated: 2026-05-19l
 
 # ===== STATUS DEFINITIONS =====
 # backlog            — not yet started
@@ -118,7 +118,7 @@ development_status:
   3-e-2-excel-task-type-detect: done           # 2026-05-19 — browser-side parse (read-excel-file) + heuristic detect + ConfirmationModal w/ manual override + 50K-row cap + parse-error path; apps/web Vitest setup added; +9 Vitest + 4 Playwright; PMR6 ship
   3-e-3-vrptw-template: done                   # 2026-05-19 — VRPTW schema mapper + /v1/optimizations/demo unauth route + 501 graceful card; parseExcel extended w/ includeRows; +6 web Vitest + 3 backend tests + 1 Playwright; PMR6
   3-e-4-schedule-template: done             # 2026-05-19 — Schedule mapper (apps/web/src/lib/schedule-template.ts) + SchedulePreviewCard + /demo schedule 501 test; +8 Vitest, +1 solver test, +1 Playwright; existing override E2E re-pointed schedule→inventory (3.E.5 will repeat for inventory)
-  3-e-5-inventory-template: backlog
+  3-e-5-inventory-template: done            # 2026-05-19 — Inventory mapper + InventoryPreviewCard + /demo inventory 501 test + excel-helpers extraction (rule-of-three); +8 Vitest (31 total), +1 solver, +1 Playwright; closes PMR6 trilogy
   3-e-6-excel-result-download: backlog
   3-e-7-excel-chart-embedding: backlog         # 老张-1 (v1 末)
   3-e-8-zh-ux-friendly-voice: backlog          # 老张-2

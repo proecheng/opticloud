@@ -9,7 +9,8 @@
  * → returns ok=false with field-level errors.
  */
 
-import type { ExcelSheetSummary, ExcelWorkbookSummary } from "./excel";
+import type { ExcelWorkbookSummary } from "./excel";
+import { findColumn, findSheet, toNumber } from "./excel-helpers";
 
 export interface VRPTWCustomer {
   id: string;
@@ -66,38 +67,6 @@ const SIGNALS = {
   twStart: ["开始", "start"],
   twEnd: ["结束", "end"],
 };
-
-function lower(s: string): string {
-  return s.toLowerCase();
-}
-
-function findSheet(
-  summary: ExcelWorkbookSummary,
-  tokens: string[],
-): ExcelSheetSummary | null {
-  const lowered = tokens.map(lower);
-  return (
-    summary.sheets.find((s) =>
-      lowered.some((t) => lower(s.name).includes(t)),
-    ) ?? null
-  );
-}
-
-function findColumn(headers: string[], tokens: string[]): number {
-  const loweredHeaders = headers.map(lower);
-  for (const t of tokens) {
-    const tLower = lower(t);
-    const idx = loweredHeaders.findIndex((h) => h.includes(tLower));
-    if (idx !== -1) return idx;
-  }
-  return -1;
-}
-
-function toNumber(cell: unknown): number | null {
-  if (cell === null || cell === undefined || cell === "") return null;
-  const n = typeof cell === "number" ? cell : Number(String(cell).trim());
-  return Number.isFinite(n) ? n : null;
-}
 
 function toTimeString(cell: unknown): string | null {
   if (cell === null || cell === undefined || cell === "") return null;
