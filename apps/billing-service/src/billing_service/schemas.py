@@ -127,17 +127,29 @@ class FinalizeChargeResponse(BaseModel):
     currency: str = "CNY"
 
 
+class BucketBalance(BaseModel):
+    """One per-bucket entry in BalanceResponse.buckets[] (Story 5.A.2 FR B1)."""
+
+    name: Literal["monthly", "signup", "edu", "topup"]
+    label_zh: str
+    balance: str  # Decimal as str, 2 decimals
+    expires_hint: str | None = None
+
+
 class BalanceResponse(BaseModel):
     """GET /v1/billing/balance response."""
 
     user_id: str
-    balance: str  # Decimal as str
+    balance: str  # Decimal as str — total across all buckets
     currency: str = "CNY"
     last_transaction_at: datetime | None = None
+    # Story 5.A.2 — always exactly 4 entries in canonical order; missing buckets get 0.00
+    buckets: list[BucketBalance] = Field(default_factory=list)
 
 
 __all__ = [
     "BalanceResponse",
+    "BucketBalance",
     "ChargeCreateRequest",
     "ChargeResponse",
     "EstimateRequest",

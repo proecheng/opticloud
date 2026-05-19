@@ -23,6 +23,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import Response
 
 from billing_service.auth_dep import require_user
+from billing_service.buckets import (
+    ALL_BUCKETS,
+    BUCKET_EXPIRES_HINT_ZH,
+    BUCKET_LABELS_ZH,
+    BUCKET_SIGNUP,
+)
 from billing_service.config import settings
 from billing_service.db import get_session
 from billing_service.exceptions import (
@@ -37,6 +43,7 @@ from billing_service.pricing import classify_warnings, compute_charge_amount
 from billing_service.saga_orchestrator import SagaOrchestrator
 from billing_service.schemas import (
     BalanceResponse,
+    BucketBalance,
     ChargeCreateRequest,
     ChargeResponse,
     EstimateRequest,
@@ -68,6 +75,21 @@ async def _balance_for(session: AsyncSession, user_id: uuid.UUID) -> Decimal:
     return Decimal(str(total)).quantize(Decimal("0.0001"))
 
 
+async def _balance_buckets_for(session: AsyncSession, user_id: uuid.UUID) -> dict[str, Decimal]:
+    """Per-bucket balance for a user (Story 5.A.2 FR B1).
+
+    Always returns all 4 canonical bucket names; buckets with no rows get 0.
+    """
+    stmt = (
+        select(CreditTransaction.bucket, func.sum(CreditTransaction.amount))
+        .where(CreditTransaction.user_id == user_id)
+        .group_by(CreditTransaction.bucket)
+    )
+    rows = (await session.execute(stmt)).all()
+    by_bucket: dict[str, Decimal] = {row[0]: Decimal(str(row[1])) for row in rows}
+    return {name: by_bucket.get(name, Decimal("0")) for name in ALL_BUCKETS}
+
+
 async def _has_any_transactions(session: AsyncSession, user_id: uuid.UUID) -> bool:
     stmt = (
         select(func.count())
@@ -79,7 +101,11 @@ async def _has_any_transactions(session: AsyncSession, user_id: uuid.UUID) -> bo
 
 
 async def _seed_demo_balance(session: AsyncSession, user_id: uuid.UUID) -> None:
-    """A2: lazy-seed first-time user with J1 demo balance (POST only)."""
+    """A2: lazy-seed first-time user with J1 demo balance (POST only).
+
+    Story 5.A.2: tagged as bucket="signup" so the dashboard shows the
+    starter ¥50 in the 注册 bucket (not 月度).
+    """
     seed_amount = Decimal(settings.j1_demo_seed_amount)
     session.add(
         CreditTransaction(
@@ -87,6 +113,7 @@ async def _seed_demo_balance(session: AsyncSession, user_id: uuid.UUID) -> None:
             saga_id=None,
             amount=seed_amount,
             kind="topup",
+            bucket=BUCKET_SIGNUP,
             currency="CNY",
             metadata_json={"source": "j1_demo_seed"},
             created_at=datetime.now(UTC),
@@ -152,8 +179,12 @@ async def get_balance(
     user_id: uuid.UUID = Depends(require_user),
     session: AsyncSession = Depends(get_session),
 ) -> BalanceResponse:
-    """AC2: pure read — no seeding side effect."""
+    """Story 5.A.1 AC2 + 5.A.2 FR B1: pure read — no seeding side effect.
+
+    Returns total balance + 4-bucket breakdown (always all 4 buckets, zero if empty).
+    """
     balance = await _balance_for(session, user_id)
+    by_bucket = await _balance_buckets_for(session, user_id)
     last_stmt = (
         select(CreditTransaction.created_at)
         .where(CreditTransaction.user_id == user_id)
@@ -161,11 +192,22 @@ async def get_balance(
         .limit(1)
     )
     last = (await session.execute(last_stmt)).scalar_one_or_none()
+
+    buckets_resp = [
+        BucketBalance(
+            name=name,  # type: ignore[arg-type]
+            label_zh=BUCKET_LABELS_ZH[name],
+            balance=f"{by_bucket[name]:.2f}",
+            expires_hint=BUCKET_EXPIRES_HINT_ZH[name],
+        )
+        for name in ALL_BUCKETS
+    ]
     return BalanceResponse(
         user_id=str(user_id),
         balance=f"{balance:.2f}",
         currency="CNY",
         last_transaction_at=last,
+        buckets=buckets_resp,
     )
 
 

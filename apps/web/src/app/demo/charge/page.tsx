@@ -12,9 +12,15 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-import { ChargeModal, ConfirmationModal, type ConfirmationVariant } from "@opticloud/ui";
+import {
+  ChargeModal,
+  ConfirmationModal,
+  CreditsBalanceBucket,
+  type ConfirmationVariant,
+} from "@opticloud/ui";
 
 import {
+  type BalanceResponse,
   type EstimateResponse,
   OptiCloudClientError,
   type WarningResponse,
@@ -44,6 +50,7 @@ function variantFor(warnings: WarningResponse[]): ConfirmationVariant {
 export default function DemoChargePage(): JSX.Element {
   const [jwt, setJwt] = useState<string | null>(null);
   const [balance, setBalance] = useState<number | null>(null);
+  const [balanceFull, setBalanceFull] = useState<BalanceResponse | null>(null);
   const [open, setOpen] = useState(false);
   const [warningOpen, setWarningOpen] = useState(false);
   const [estimate, setEstimate] = useState<EstimateResponse | null>(null);
@@ -62,6 +69,7 @@ export default function DemoChargePage(): JSX.Element {
     try {
       const b = await getBalance(jwt);
       setBalance(Number(b.balance));
+      setBalanceFull(b);
     } catch (e) {
       if (e instanceof OptiCloudClientError) {
         setError(`Cannot fetch balance: ${e.detail}`);
@@ -154,18 +162,28 @@ export default function DemoChargePage(): JSX.Element {
         first if needed.
       </p>
 
-      <section className="mt-6 rounded-md border border-border p-4">
-        <h2 className="font-semibold">Your balance</h2>
+      <section className="mt-6">
         {jwt === null ? (
-          <p className="mt-2 text-sm text-warning">
-            Not signed in — balance unavailable.
-          </p>
-        ) : balance === null ? (
-          <p className="mt-2 text-sm text-muted-foreground">Loading…</p>
+          <div className="rounded-md border border-border p-4">
+            <h2 className="font-semibold">Your balance</h2>
+            <p className="mt-2 text-sm text-warning">
+              Not signed in — balance unavailable.
+            </p>
+          </div>
+        ) : balanceFull === null ? (
+          <div className="rounded-md border border-border p-4">
+            <p className="mt-2 text-sm text-muted-foreground">Loading…</p>
+          </div>
         ) : (
-          <p className="mt-2 text-3xl font-bold" data-testid="demo-balance">
-            ¥{balance.toFixed(2)}
-          </p>
+          <CreditsBalanceBucket
+            ariaLabel="demo.balance.buckets"
+            buckets={balanceFull.buckets.map((b) => ({
+              name: b.name,
+              labelZh: b.label_zh,
+              balance: Number(b.balance),
+              expiresHint: b.expires_hint ?? undefined,
+            }))}
+          />
         )}
       </section>
 

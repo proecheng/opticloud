@@ -180,11 +180,19 @@ export interface OptimizationResponse {
 
 // ===== Billing (Story 5.A.1) =====
 
+export interface BucketBalance {
+  name: "monthly" | "signup" | "edu" | "topup";
+  label_zh: string;
+  balance: string;
+  expires_hint: string | null;
+}
+
 export interface BalanceResponse {
   user_id: string;
   balance: string;
   currency: string;
   last_transaction_at: string | null;
+  buckets: BucketBalance[];
 }
 
 export interface ChargeResponse {
