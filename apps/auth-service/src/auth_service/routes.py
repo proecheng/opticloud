@@ -10,12 +10,12 @@ import uuid
 from datetime import UTC, datetime, timedelta
 
 import structlog
-from fastapi import APIRouter, Depends, Header, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from sqlalchemy import and_, select, text, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from auth_service import security
+from auth_service import risk, security
 from auth_service.config import settings
 from auth_service.db import get_session
 from auth_service.models import APIKey, AuditLog, User, UserOTP
@@ -76,6 +76,7 @@ async def readyz(session: AsyncSession = Depends(get_session)) -> dict[str, obje
 )
 async def signup(
     body: SignupRequest,
+    request: Request,
     session: AsyncSession = Depends(get_session),
 ) -> SignupResponse:
     # FR A4: .edu / .ac.cn 邮箱自动激活教育版
@@ -113,7 +114,8 @@ async def signup(
             },
         )
 
-    # Audit log (FR O3 + C3)
+    # Audit log (FR O3 + C3). ip_address feeds Story 1.5's R3 ip_24_share detector.
+    signup_ip = request.client.host if request.client else None
     session.add(
         AuditLog(
             user_id=user.id,
@@ -121,12 +123,21 @@ async def signup(
             action="auth.signup",
             resource_type="user",
             resource_id=user.id,
+            ip_address=signup_ip,
             audit_metadata={
                 "edu_tier": edu_tier,
                 "edu_signup_seed_amount": edu_seed_amount,
             },
         )
     )
+    await session.flush()  # AuditLog must be queryable by risk.evaluate_signup below
+
+    # FR A5 — risk evaluation. With only ip_24_share enabled in v1 a single
+    # signup never freezes (count<2); admin manual flag is the v1 second slot.
+    triggered = await risk.evaluate_signup(session, user.id, signup_ip)
+    if triggered:
+        new_flags = [(code, "auto", {"signup_ip": signup_ip}) for code in triggered]
+        await risk.apply_flags_and_maybe_freeze(session, user.id, new_flags)
 
     access = security.create_access_token(user.id)
     refresh = security.create_refresh_token(user.id)

@@ -22,6 +22,7 @@ from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from starlette.responses import Response
 
 from auth_service import __version__
+from auth_service.admin_routes import admin_router
 from auth_service.routes import health_router, router
 
 
@@ -59,6 +60,7 @@ FastAPIInstrumentor.instrument_app(app)
 
 app.include_router(health_router)
 app.include_router(router)
+app.include_router(admin_router)
 
 
 @app.get("/", include_in_schema=False)

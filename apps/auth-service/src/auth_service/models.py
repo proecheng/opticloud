@@ -98,6 +98,52 @@ class UserOTP(Base):
     )
 
 
+class RiskRule(Base):
+    """Story 1.5 — FR A5 registry of NFR-S6 risk-detection rules.
+
+    v1 seeds 5 rules but only `ip_24_share` is enabled — the other 4 graduate
+    to enabled=true as their signal sources land (FE fingerprint, solver
+    telemetry, billing payment data, phone-reuse detection).
+    """
+
+    __tablename__ = "risk_rules"
+
+    code: Mapped[str] = mapped_column(String(32), primary_key=True)
+    label_zh: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class RiskFlag(Base):
+    """Story 1.5 — FR A5 per-event log of rule triggers.
+
+    ≥2 DISTINCT enabled rule_codes for a user → freeze. Disabled rules can
+    still record flags (audit trail) but don't count toward the threshold.
+    """
+
+    __tablename__ = "risk_flags"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    rule_code: Mapped[str] = mapped_column(
+        String(32), ForeignKey("risk_rules.code"), nullable=False
+    )
+    source: Mapped[str] = mapped_column(String(16), nullable=False)  # 'auto' | 'admin'
+    flag_metadata: Mapped[dict[str, Any]] = mapped_column(
+        "metadata", JSONB, nullable=False, default=dict
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
 class AuditLog(Base):
     """FR O3 + C3 audit_logs (v1 单表)."""
 

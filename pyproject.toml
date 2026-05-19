@@ -48,6 +48,7 @@ ignore = [
 "tests/**/*.py" = ["S", "T20"]
 # FastAPI requires Depends() / Header() / Query() / Body() in default args (idiomatic DI).
 "apps/*/src/**/routes.py" = ["B008"]
+"apps/*/src/**/admin_routes.py" = ["B008"]
 "apps/*/src/**/main.py" = ["B008"]
 
 [tool.ruff.format]
