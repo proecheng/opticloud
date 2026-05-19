@@ -1,0 +1,62 @@
+"""Story 3.E.3 AC7 — /v1/optimizations/demo unauthenticated tests."""
+
+from __future__ import annotations
+
+import asyncio
+import sys
+
+import pytest_asyncio
+from httpx import ASGITransport, AsyncClient
+from solver_orchestrator.main import app
+
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
+
+@pytest_asyncio.fixture(loop_scope="session")
+async def client():
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        yield ac
+
+
+async def test_demo_lp_solves_without_auth(client: AsyncClient) -> None:
+    """AC7 #1 — LP via /demo returns 200 + solution without Authorization header."""
+    resp = await client.post(
+        "/v1/optimizations/demo",
+        json={
+            "task_type": "lp",
+            "minimize": {"c": [1.0, 1.0]},
+            "st": {"A": [[1.0, 1.0]], "b": [10.0]},
+        },
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["status"] == "completed"
+    assert "objective" in body
+    assert body["demo"] is True
+
+
+async def test_demo_vrptw_returns_501(client: AsyncClient) -> None:
+    """AC7 #2 — VRPTW returns 501 with friendly 'M2-M3' detail."""
+    resp = await client.post(
+        "/v1/optimizations/demo",
+        json={
+            "task_type": "vrptw",
+            "minimize": {"c": [1.0]},
+            "st": {"A": [[1.0]], "b": [1.0]},
+        },
+    )
+    assert resp.status_code == 501
+    body = resp.json()
+    assert "M2-M3" in body["detail"]
+    assert "vrptw" in body["detail"]
+
+
+async def test_demo_with_invalid_lp_body_returns_422(client: AsyncClient) -> None:
+    """AC7 #3 — Pydantic catches malformed bodies → 422."""
+    resp = await client.post(
+        "/v1/optimizations/demo",
+        json={"task_type": "lp"},  # missing required minimize/maximize + st
+    )
+    assert resp.status_code == 422

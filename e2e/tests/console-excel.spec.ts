@@ -204,6 +204,33 @@ test.describe("Console Excel surface (3.E.1)", () => {
     await expect(handoff).toContainText(/覆盖系统推荐/);
   });
 
+  test("VRPTW confirm → 试跑 → 501 friendly card + JSON preview", async ({ page }) => {
+    await page.goto("/console/excel");
+    await page.locator('input[type="file"]').setInputFiles({
+      name: "vrptw.xlsx",
+      mimeType: XLSX_MIME,
+      buffer: VRPTW_BUFFER,
+    });
+
+    await expect(page.getByTestId("confirmation-modal")).toBeVisible({ timeout: 10_000 });
+    await page.getByRole("button", { name: "确认" }).click();
+
+    const preview = page.getByTestId("vrptw-preview-card");
+    await expect(preview).toBeVisible({ timeout: 10_000 });
+    await expect(preview).toContainText(/客户/);
+    await expect(preview).toContainText(/车辆/);
+
+    // JSON preview should contain task_type=vrptw
+    const jsonBlock = page.getByTestId("vrptw-payload-json");
+    await expect(jsonBlock).toContainText('"task_type": "vrptw"');
+
+    // Submit → backend returns 501
+    await page.getByTestId("vrptw-submit-button").click();
+    const stub = page.getByTestId("vrptw-501-card");
+    await expect(stub).toBeVisible({ timeout: 10_000 });
+    await expect(stub).toContainText(/M2-M3/);
+  });
+
   test("解析失败的文件显示 parse-error 卡", async ({ page }) => {
     await page.goto("/console/excel");
     // 200B garbage with .xlsx suffix — passes 3.E.1 size + suffix checks,

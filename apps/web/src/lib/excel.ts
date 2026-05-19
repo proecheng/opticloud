@@ -16,12 +16,20 @@ export interface ExcelSheetSummary {
   headers: string[];
   /** Total rows in this sheet, including the header row. */
   rowCount: number;
+  /** Story 3.E.3 — full rows (including header row at index 0), only present
+   * when `parseExcel(file, {includeRows: true})` was called. */
+  rows?: unknown[][];
 }
 
 export interface ExcelWorkbookSummary {
   sheets: ExcelSheetSummary[];
   /** Sum across sheets, EXCLUDING header rows (FR E11 50K-row cap is "data rows"). */
   totalRows: number;
+}
+
+export interface ParseExcelOptions {
+  /** Story 3.E.3 — when true, ExcelSheetSummary.rows is populated. Default false. */
+  includeRows?: boolean;
 }
 
 function firstNonEmptyRow(rows: unknown[][]): string[] {
@@ -42,7 +50,10 @@ interface RawSheet {
   data?: unknown[][];
 }
 
-export async function parseExcel(file: File): Promise<ExcelWorkbookSummary> {
+export async function parseExcel(
+  file: File,
+  options: ParseExcelOptions = {},
+): Promise<ExcelWorkbookSummary> {
   // `read-excel-file` returns Sheet[] = [{sheet: name, data: Row[]}] when called
   // without a `sheet` option. One round-trip; no second pass needed.
   const rawSheets = (await (readXlsxFile as unknown as (
@@ -58,11 +69,15 @@ export async function parseExcel(file: File): Promise<ExcelWorkbookSummary> {
   for (const raw of rawSheets) {
     const data = raw.data ?? [];
     const headers = firstNonEmptyRow(data);
-    sheets.push({
+    const summary: ExcelSheetSummary = {
       name: raw.sheet ?? "",
       headers,
       rowCount: data.length,
-    });
+    };
+    if (options.includeRows) {
+      summary.rows = data;
+    }
+    sheets.push(summary);
     totalRows += Math.max(0, data.length - 1);
   }
 

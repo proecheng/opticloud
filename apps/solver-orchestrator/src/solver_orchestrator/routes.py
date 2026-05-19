@@ -415,6 +415,75 @@ def _build_success_response(opt: Optimization) -> JSONResponse:
     )
 
 
+@router.post(
+    "/optimizations/demo",
+    tags=["execution"],
+    summary="无鉴权 demo solve（Story 3.E.3 — Console 老张 surface）",
+    description=(
+        "Story 3.E.3: 老张 Console 入口的 demo solve 路径。\n\n"
+        "- 不需要 Authorization（公开 /console/excel 入口）\n"
+        "- 不计费 / 不存 DB（纯无状态）\n"
+        "- 对 LP: 正常求解返回结果\n"
+        "- 对其它 task_type（vrptw / schedule / forecast 等）: 仍返回 501\n"
+        "  直到对应求解器在 M2-M3 落地\n\n"
+        "Rate limit: M3 内按 IP 限流；v1 无限制（无敏感数据暴露）"
+    ),
+)
+async def post_optimization_demo(payload: OptimizationRequest, request: Request) -> JSONResponse:
+    """Story 3.E.3 — unauthenticated marketing-demo solve."""
+    request_id = request.headers.get("x-request-id") or str(uuid.uuid4())
+
+    if payload.task_type != "lp":
+        return _rfc7807_error(
+            title="Not Implemented",
+            status_code=status.HTTP_501_NOT_IMPLEMENTED,
+            detail=(
+                f"task_type '{payload.task_type}' 求解器将在 M2-M3 落地。 您的数据已通过格式校验。"
+            ),
+            request_id=request_id,
+        )
+
+    body_dict = payload.model_dump(by_alias=True)
+    algo = find_by_task_type("lp")
+    if algo is None:
+        return _rfc7807_error(
+            title="Catalog Error",
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="LP algorithm missing from catalog",
+            request_id=request_id,
+        )
+
+    result = solvers.solve_from_request(
+        body_dict, max_solve_seconds=payload.options.max_solve_seconds
+    )
+
+    if result.status == "optimal":
+        return JSONResponse(
+            content={
+                "status": "completed",
+                "solution": result.solution,
+                "objective": result.objective,
+                "model_version": dict(algo["model_version"]),
+                "solve_seconds": result.solve_seconds,
+                "demo": True,
+            },
+            status_code=status.HTTP_200_OK,
+        )
+    if result.status in ("infeasible", "unbounded"):
+        return _rfc7807_error(
+            title=f"LP {result.status.capitalize()}",
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=result.error_constraint or result.status,
+            request_id=request_id,
+        )
+    return _rfc7807_error(
+        title="Solver Error",
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        detail=result.error_constraint or "solve failed",
+        request_id=request_id,
+    )
+
+
 @router.get(
     "/optimizations/{optimization_id}",
     tags=["execution"],

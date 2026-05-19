@@ -368,6 +368,27 @@ export async function confirmCharge(
   );
 }
 
+// ===== Optimizations demo (Story 3.E.3 — no auth) =====
+
+export interface DemoOptimizationResponse {
+  status: "completed";
+  solution: { x: number[] } | null;
+  objective: number | null;
+  model_version: ModelVersion;
+  solve_seconds: number;
+  demo: true;
+}
+
+export async function submitOptimizationDemo<TBody extends { task_type: string }>(
+  body: TBody,
+): Promise<DemoOptimizationResponse> {
+  return request<DemoOptimizationResponse>(
+    "/v1/optimizations/demo",
+    { method: "POST", body: JSON.stringify(body) },
+    SOLVER_SERVICE_URL,
+  );
+}
+
 // ===== Optimizations (Story 3.1) =====
 
 export async function postOptimization(
