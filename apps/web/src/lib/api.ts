@@ -196,6 +196,36 @@ export interface ChargeResponse {
   balance_after: string;
 }
 
+// Story 5.A.5 — pre-charge guard preview
+export interface WarningResponse {
+  kind: "balance_low" | "p5_call" | "p5_call_and_balance_low";
+  message: string;
+  remediation_hint_key: string;
+}
+
+export interface EstimateResponse {
+  estimated_amount: string;
+  currency: string;
+  balance: string;
+  warnings: WarningResponse[];
+  requires_explicit_confirm: boolean;
+}
+
+export async function estimateCharge(
+  jwtAccess: string,
+  body: { purpose: "solve" | "predict" | "chat" | "demo"; max_solve_seconds: number },
+): Promise<EstimateResponse> {
+  return request<EstimateResponse>(
+    "/v1/billing/charges/estimate",
+    {
+      method: "POST",
+      headers: { Authorization: `Bearer ${jwtAccess}` },
+      body: JSON.stringify(body),
+    },
+    BILLING_SERVICE_URL,
+  );
+}
+
 export async function getBalance(jwtAccess: string): Promise<BalanceResponse> {
   return request<BalanceResponse>(
     "/v1/billing/balance",
@@ -210,6 +240,7 @@ export async function createCharge(
     amount: string;
     purpose: "solve" | "predict" | "chat" | "demo";
     reference_id: string;
+    confirmed?: boolean; // 5.A.5 — required true when /estimate had requires_explicit_confirm=true
   },
   idempotencyKey: string,
 ): Promise<ChargeResponse> {

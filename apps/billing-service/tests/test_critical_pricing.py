@@ -95,6 +95,7 @@ async def _do_charge_reserve_finalize(
             "purpose": "solve",
             "reference_id": str(uuid.uuid4()),
             "max_solve_seconds": max_secs,
+            "confirmed": True,  # 5.A.5 pre-charge guard
         },
         headers={**headers, "Idempotency-Key": str(uuid.uuid4())},
     )

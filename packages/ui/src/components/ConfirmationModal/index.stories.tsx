@@ -54,6 +54,51 @@ export const P5Alert: Story = {
   },
 };
 
+/** Story 5.A.5 — 余额不足预警 (post-/estimate gate, body shows estimated vs balance). */
+export const BalanceLowWarning_5A5: Story = {
+  args: {
+    variant: "balance_warn",
+    ariaLabel: "modal.balance.low.5a5",
+    title: "⚠ 余额不足提示 / Balance warning",
+    description: "Balance ¥3.50 is below estimated max charge ¥6.00",
+    body: (
+      <div className="rounded-md bg-muted/30 p-3 text-sm">
+        <div>
+          Estimated max charge: <strong>¥6.00</strong>
+        </div>
+        <div>
+          Current balance: <strong>¥3.50</strong>
+        </div>
+      </div>
+    ),
+    confirmLabel: "我已理解，继续扣费 / Proceed",
+    cancelLabel: "取消 / Cancel",
+  },
+};
+
+/** Story 5.A.5 — 高额扣费警示 (estimated >= p5_call_threshold ¥3). */
+export const P5HighCostWarning_5A5: Story = {
+  args: {
+    variant: "p5_alert",
+    ariaLabel: "modal.p5.highcost.5a5",
+    title: "⚠ 高额扣费确认 / High-cost charge confirmation",
+    description:
+      "Estimated max charge ¥6.00 exceeds the high-cost threshold ¥3.00",
+    body: (
+      <div className="rounded-md bg-muted/30 p-3 text-sm">
+        <div>
+          Estimated max charge: <strong>¥6.00</strong>
+        </div>
+        <div>
+          Current balance: <strong>¥50.00</strong>
+        </div>
+      </div>
+    ),
+    confirmLabel: "我已理解，继续扣费 / Proceed",
+    cancelLabel: "取消 / Cancel",
+  },
+};
+
 /** FR A6 destructive — 账户删除. */
 export const Destructive: Story = {
   args: {

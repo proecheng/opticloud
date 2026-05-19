@@ -1,20 +1,17 @@
-"""Per-formula charging math — Story 5.A.4 (B4).
+"""Per-formula charging math — Story 5.A.4 (B4) + 5.A.5 (B6).
 
 Pure functions only — no DB, no side effects, no logging. Easy to unit test
-deterministically across the boundary cases described in AC7.
+deterministically across the boundary cases described in AC7 / 5.A.5 AC8.
 
-Reading order:
-- `compute_charge_amount` is the single public entry point
-- All inputs are normalised to Decimal early via `Decimal(str(float))` to dodge
-  binary-rep noise (D2 fix from review round 2)
-
-Reasoning behind the per-second rate (¥0.10/sec for LP):
-  0.10 ¥/sec × 60s = ¥6.00 — exactly the 5.A.1 demo hardcoded amount, so the
-  existing /demo/charge UI keeps working with no change.
+Public surface:
+- `compute_charge_amount`  — per-formula amount math (5.A.4)
+- `classify_warnings`      — pre-charge guard rules (5.A.5)
+- `Warning`                — dataclass returned by classify_warnings
 """
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from decimal import ROUND_HALF_UP, Decimal
 
 
@@ -57,4 +54,59 @@ def compute_charge_amount(
     return quantised
 
 
-__all__ = ["compute_charge_amount"]
+@dataclass(frozen=True)
+class Warning:
+    """Pre-charge guard warning — surfaces in /estimate response (Story 5.A.5)."""
+
+    kind: str  # "balance_low" | "p5_call" | "p5_call_and_balance_low"
+    message: str
+    remediation_hint_key: str  # "warnings.{kind}"
+
+
+_MESSAGE_TEMPLATES: dict[str, str] = {
+    "balance_low": "Balance ¥{balance:.2f} is below estimated max charge ¥{estimated:.2f}",
+    "p5_call": (
+        "Estimated max charge ¥{estimated:.2f} exceeds the high-cost threshold ¥{threshold:.2f}"
+    ),
+    "p5_call_and_balance_low": (
+        "Estimated max charge ¥{estimated:.2f} exceeds the high-cost threshold ¥{threshold:.2f} "
+        "AND your balance ¥{balance:.2f} is insufficient"
+    ),
+}
+
+
+def classify_warnings(
+    estimated_amount: Decimal,
+    balance: Decimal,
+    *,
+    p5_call_threshold: Decimal,
+    balance_low_ratio: Decimal,
+) -> list[Warning]:
+    """Pre-charge guard classifier (Story 5.A.5 AC2).
+
+    Returns 0 or 1 Warnings (never 2 — combined case is merged into a single
+    `p5_call_and_balance_low` warning so the UI shows one warning row).
+
+    Conditions:
+      - p5_call:    estimated >= p5_call_threshold (inclusive)
+      - balance_low: balance < (estimated × balance_low_ratio) (exclusive)
+    """
+    is_p5 = estimated_amount >= p5_call_threshold
+    is_low = balance < (estimated_amount * balance_low_ratio)
+
+    if is_p5 and is_low:
+        kind = "p5_call_and_balance_low"
+    elif is_p5:
+        kind = "p5_call"
+    elif is_low:
+        kind = "balance_low"
+    else:
+        return []
+
+    message = _MESSAGE_TEMPLATES[kind].format(
+        balance=balance, estimated=estimated_amount, threshold=p5_call_threshold
+    )
+    return [Warning(kind=kind, message=message, remediation_hint_key=f"warnings.{kind}")]
+
+
+__all__ = ["Warning", "classify_warnings", "compute_charge_amount"]

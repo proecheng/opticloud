@@ -26,6 +26,7 @@ class ChargeCreateRequest(BaseModel):
 
     amount comes in as STRING (D3) for decimal precision; stored as Decimal.
     Story 5.A.4 — added max_solve_seconds so finalize can cap actual amount.
+    Story 5.A.5 — added `confirmed` for pre-charge guard explicit opt-in.
     """
 
     amount: Decimal = Field(..., gt=0, description='Amount in CNY, string "6.00"')
@@ -38,6 +39,14 @@ class ChargeCreateRequest(BaseModel):
         le=600.0,
         description="Cap for per-formula charging (5.A.4); matches solver options.max_solve_seconds",
     )
+    confirmed: bool = Field(
+        default=False,
+        description=(
+            "User has seen pre-charge warning Modal and confirmed (Story 5.A.5). "
+            "MUST be true when the prior /estimate response had requires_explicit_confirm=true; "
+            "ignored otherwise."
+        ),
+    )
 
     @field_validator("amount", mode="before")
     @classmethod
@@ -45,6 +54,31 @@ class ChargeCreateRequest(BaseModel):
         if isinstance(v, Decimal):
             return v
         return Decimal(str(v))
+
+
+class WarningResponse(BaseModel):
+    """One pre-charge warning, returned by /estimate (Story 5.A.5)."""
+
+    kind: Literal["balance_low", "p5_call", "p5_call_and_balance_low"]
+    message: str
+    remediation_hint_key: str
+
+
+class EstimateRequest(BaseModel):
+    """POST /v1/billing/charges/estimate body (Story 5.A.5)."""
+
+    purpose: Literal["solve", "predict", "chat", "demo"] = "demo"
+    max_solve_seconds: float = Field(default=60.0, ge=0.1, le=600.0)
+
+
+class EstimateResponse(BaseModel):
+    """POST /v1/billing/charges/estimate response (Story 5.A.5)."""
+
+    estimated_amount: str
+    currency: str = "CNY"
+    balance: str
+    warnings: list[WarningResponse]
+    requires_explicit_confirm: bool
 
 
 class ChargeResponse(BaseModel):
@@ -106,8 +140,11 @@ __all__ = [
     "BalanceResponse",
     "ChargeCreateRequest",
     "ChargeResponse",
+    "EstimateRequest",
+    "EstimateResponse",
     "FinalizeChargeRequest",
     "FinalizeChargeResponse",
     "ReserveChargeResponse",
+    "WarningResponse",
     "validate_idempotency_key",
 ]

@@ -3,7 +3,7 @@
 # Source: epics.md (21 Epics / 192 Stories, post AE rounds)
 # Path B unlock node sequence (5 + J1 vertical slice 4 锚点 + Critical Gaps)
 
-last_updated: 2026-05-18b
+last_updated: 2026-05-19
 
 # ===== STATUS DEFINITIONS =====
 # backlog            — not yet started
@@ -162,7 +162,7 @@ development_status:
   5-a-2-credits-balance-buckets: backlog
   5-a-3-preview-cap-modal: backlog
   5-a-4-per-formula-charging-capped: done             # 2026-05-18 — 2-phase reserve/finalize + per-second pricing; +24 tests; cross-service Saga wired
-  5-a-5-p5-warning-modal: backlog
+  5-a-5-p5-warning-modal: done             # 2026-05-19 — /estimate endpoint + pre-charge guard on /charges + ConfirmationModal wiring in /demo/charge; +10 tests; FR B6 v1 ship
   5-a-6-topup-never-expire: backlog
   5-a-7-double-entry-reconciliation: backlog
   5-a-8-cost-telemetry-hook: backlog
