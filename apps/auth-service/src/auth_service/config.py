@@ -51,5 +51,12 @@ class AuthSettings(BaseSettings):
     otp_dev_mode_return: bool = Field(default=True, alias="OTP_DEV_MODE_RETURN")
     otp_ttl_seconds: int = Field(default=300, alias="OTP_TTL_SECONDS")
 
+    # ----- Story 1.4 — edu tier auto-activation (FR A4 + B8) -----
+    edu_signup_seed_amount: str = Field(
+        default="2000.00",
+        alias="EDU_SIGNUP_SEED_AMOUNT",
+        description="CNY credited to bucket='edu' on .edu/.ac.cn signup",
+    )
+
 
 settings = AuthSettings()

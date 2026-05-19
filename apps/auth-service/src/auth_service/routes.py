@@ -11,7 +11,7 @@ from datetime import UTC, datetime, timedelta
 
 import structlog
 from fastapi import APIRouter, Depends, Header, HTTPException, status
-from sqlalchemy import and_, select, update
+from sqlalchemy import and_, select, text, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -93,6 +93,26 @@ async def signup(
             detail="phone or email already registered",
         ) from e
 
+    # Story 1.4 — FR A4: seed edu bucket on edu_tier=true signup.
+    # Raw SQL because auth-service doesn't import billing's ORM models (clean service
+    # boundary). Same session as the user INSERT → transactional atomicity.
+    edu_seed_amount: str | None = None
+    if edu_tier:
+        edu_seed_amount = settings.edu_signup_seed_amount
+        await session.execute(
+            text(
+                "INSERT INTO credit_transactions "
+                "(user_id, saga_id, amount, kind, bucket, currency, metadata, created_at) "
+                "VALUES (:uid, NULL, :amt, 'topup', 'edu', 'CNY', "
+                "CAST(:meta AS jsonb), NOW())"
+            ),
+            {
+                "uid": user.id,
+                "amt": edu_seed_amount,
+                "meta": '{"source": "edu_tier_signup"}',
+            },
+        )
+
     # Audit log (FR O3 + C3)
     session.add(
         AuditLog(
@@ -101,7 +121,10 @@ async def signup(
             action="auth.signup",
             resource_type="user",
             resource_id=user.id,
-            audit_metadata={"edu_tier": edu_tier},
+            audit_metadata={
+                "edu_tier": edu_tier,
+                "edu_signup_seed_amount": edu_seed_amount,
+            },
         )
     )
 
