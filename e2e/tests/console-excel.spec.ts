@@ -168,7 +168,9 @@ test.describe("Console Excel surface (3.E.1)", () => {
     await expect(page.getByTestId("detection-confidence")).toContainText(/可信度/);
   });
 
-  test("点击确认 → 展示 placeholder handoff card", async ({ page }) => {
+  test("点击确认 VRPTW → 展示 vrptw-preview-card (3.E.3 takeover)", async ({ page }) => {
+    // 3.E.2 originally asserted the placeholder excel-confirmed-card here;
+    // 3.E.3 specialised VRPTW to render VrptwPreviewCard instead.
     await page.goto("/console/excel");
     await page.locator('input[type="file"]').setInputFiles({
       name: "vrptw.xlsx",
@@ -179,9 +181,9 @@ test.describe("Console Excel surface (3.E.1)", () => {
     await expect(page.getByTestId("confirmation-modal")).toBeVisible({ timeout: 10_000 });
     await page.getByRole("button", { name: "确认" }).click();
 
-    const handoff = page.getByTestId("excel-confirmed-card");
-    await expect(handoff).toBeVisible();
-    await expect(handoff).toContainText(/VRPTW/);
+    const preview = page.getByTestId("vrptw-preview-card");
+    await expect(preview).toBeVisible({ timeout: 10_000 });
+    await expect(preview).toContainText(/客户/);
   });
 
   test("'其它' 切换为 schedule → 确认后 handoff 展示 schedule + 覆盖说明", async ({ page }) => {
@@ -202,6 +204,33 @@ test.describe("Console Excel surface (3.E.1)", () => {
     await expect(handoff).toBeVisible();
     await expect(handoff).toContainText(/Schedule/);
     await expect(handoff).toContainText(/覆盖系统推荐/);
+  });
+
+  test("VRPTW confirm → 试跑 → 501 friendly card + JSON preview", async ({ page }) => {
+    await page.goto("/console/excel");
+    await page.locator('input[type="file"]').setInputFiles({
+      name: "vrptw.xlsx",
+      mimeType: XLSX_MIME,
+      buffer: VRPTW_BUFFER,
+    });
+
+    await expect(page.getByTestId("confirmation-modal")).toBeVisible({ timeout: 10_000 });
+    await page.getByRole("button", { name: "确认" }).click();
+
+    const preview = page.getByTestId("vrptw-preview-card");
+    await expect(preview).toBeVisible({ timeout: 10_000 });
+    await expect(preview).toContainText(/客户/);
+    await expect(preview).toContainText(/车辆/);
+
+    // JSON preview should contain task_type=vrptw
+    const jsonBlock = page.getByTestId("vrptw-payload-json");
+    await expect(jsonBlock).toContainText('"task_type": "vrptw"');
+
+    // Submit → backend returns 501
+    await page.getByTestId("vrptw-submit-button").click();
+    const stub = page.getByTestId("vrptw-501-card");
+    await expect(stub).toBeVisible({ timeout: 10_000 });
+    await expect(stub).toContainText(/M2-M3/);
   });
 
   test("解析失败的文件显示 parse-error 卡", async ({ page }) => {
