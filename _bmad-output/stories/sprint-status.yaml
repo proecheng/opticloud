@@ -3,7 +3,7 @@
 # Source: epics.md (21 Epics / 192 Stories, post AE rounds)
 # Path B unlock node sequence (5 + J1 vertical slice 4 锚点 + Critical Gaps)
 
-last_updated: 2026-05-19l
+last_updated: 2026-05-19m
 
 # ===== STATUS DEFINITIONS =====
 # backlog            — not yet started
@@ -87,7 +87,7 @@ development_status:
   2-1-j1-algorithms-public-list: done          # J1 Vertical Slice
   2-2-algorithm-details: done                  # 2026-05-19 — /algorithms/[k_algo] FE detail page + Python/cURL snippets + 4 E2E + 3 backend tests; FR C2
   2-3-tier-based-browse: done                  # 2026-05-19 — backend `?tier=T1,P2` filter + FE chip group + URL sync + Suspense wrapper; +5 solver tests + 3 Playwright; FR C3
-  2-4-solver-enum: backlog                     # FR C4
+  2-4-solver-enum: done                        # 2026-05-19 — FR C4 ship: catalog supported_solvers field + find_by_task_type_and_solver helper + 400 RFC 7807 on bad solver + AlgorithmSchema/TS Algorithm interface aligned; +6 backend tests
   2-5-fallback-chain: backlog                  # FR C5
   2-6-multi-provider-routing: backlog          # FR C6
   2-7-fallback-execution: backlog              # FR C7

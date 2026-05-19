@@ -16,7 +16,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from solver_orchestrator import billing_client, solvers
 from solver_orchestrator.auth import require_scope, verify_api_key
-from solver_orchestrator.catalog import CATALOG, find_by_k_algo, find_by_task_type
+from solver_orchestrator.catalog import (
+    CATALOG,
+    find_by_k_algo,
+    find_by_task_type_and_solver,
+)
 from solver_orchestrator.db import get_session
 from solver_orchestrator.models import IdempotencyKey, Optimization
 from solver_orchestrator.schemas import (
@@ -222,9 +226,10 @@ async def post_optimization(
             if opt is not None and opt.status == "completed":
                 return _build_success_response(opt)
 
-    # ----- Lookup algorithm catalog (Story 2.1 integration) -----
-    algo = find_by_task_type(payload.task_type)
-    if algo is None:
+    # ----- Lookup algorithm catalog (Story 2.1 + 2.4 integration) -----
+    algo, supported_solvers = find_by_task_type_and_solver(payload.task_type, payload.solver)
+    if algo is None and not supported_solvers:
+        # task_type itself unknown
         return _rfc7807_error(
             title="Unsupported Task Type",
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -240,6 +245,30 @@ async def post_optimization(
             next_action="https://api.opticloud.cn/v1/algorithms",
             request_id=request_id,
         )
+    if algo is None:
+        # task_type known but solver not in any matching algorithm — Story 2.4 FR C4
+        return _rfc7807_error(
+            title="Unsupported Solver",
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"solver '{payload.solver}' is not supported for task_type "
+                f"'{payload.task_type}'. Supported: {', '.join(supported_solvers)}"
+            ),
+            errors=[
+                ErrorDetail(
+                    field_path="solver",
+                    value=payload.solver,
+                    constraint=f"must be one of: {', '.join(supported_solvers)}",
+                    remediation_hint_key="errors.400.unsupported_solver",
+                )
+            ],
+            next_action="https://api.opticloud.cn/v1/algorithms",
+            request_id=request_id,
+        )
+
+    # Story 2.4 — solver-routing logic deferred (FR C6 / Story 2.6).
+    # v1 catalog has 1 primary solver per algorithm; multi-solver routing is M2-M3.
+    # Validation above ensures only allowed solver names reach here.
 
     # ----- Persist input -----
     opt = Optimization(
@@ -478,12 +507,32 @@ async def post_optimization_demo(request: Request) -> JSONResponse:
         )
 
     body_dict = payload.model_dump(by_alias=True)
-    algo = find_by_task_type("lp")
-    if algo is None:
+    # Story 2.4 — solver validation (FR C4) on /demo as well
+    algo, supported_solvers = find_by_task_type_and_solver("lp", payload.solver)
+    if algo is None and not supported_solvers:
         return _rfc7807_error(
             title="Catalog Error",
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="LP algorithm missing from catalog",
+            request_id=request_id,
+        )
+    if algo is None:
+        return _rfc7807_error(
+            title="Unsupported Solver",
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"solver '{payload.solver}' is not supported for task_type 'lp'. "
+                f"Supported: {', '.join(supported_solvers)}"
+            ),
+            errors=[
+                ErrorDetail(
+                    field_path="solver",
+                    value=payload.solver,
+                    constraint=f"must be one of: {', '.join(supported_solvers)}",
+                    remediation_hint_key="errors.400.unsupported_solver",
+                )
+            ],
+            next_action="https://api.opticloud.cn/v1/algorithms",
             request_id=request_id,
         )
 

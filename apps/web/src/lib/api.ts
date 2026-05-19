@@ -152,6 +152,8 @@ export interface Algorithm {
     input: Record<string, unknown>;
     description: string;
   }>;
+  /** Story 2.4 — FR C4 solver enum names valid for this algorithm. */
+  supported_solvers: string[];
 }
 
 export interface ListAlgorithmsOptions {

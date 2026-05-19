@@ -27,6 +27,9 @@ class Algorithm(TypedDict):
     description_zh: str
     description_en: str
     examples: list[dict[str, object]]
+    supported_solvers: list[
+        str
+    ]  # Story 2.4 — FR C4 (enum of solver names valid for this algorithm)
 
 
 CATALOG: list[Algorithm] = [
@@ -54,6 +57,7 @@ CATALOG: list[Algorithm] = [
                 "description": "最小化 x₁+x₂ 满足 x₁+x₂ ≤ 10, x ≥ 0",
             }
         ],
+        "supported_solvers": ["highs"],
     },
     {
         "k_algo": "highs-milp",
@@ -69,6 +73,7 @@ CATALOG: list[Algorithm] = [
         "description_zh": "HiGHS 混合整数线性规划 (MILP) — 整数变量约束",
         "description_en": "HiGHS Mixed Integer Linear Programming",
         "examples": [],
+        "supported_solvers": ["highs"],
     },
     {
         "k_algo": "or-tools-vrptw",
@@ -84,6 +89,7 @@ CATALOG: list[Algorithm] = [
         "description_zh": "OR-Tools 带时间窗的车辆路径规划 (VRPTW)",
         "description_en": "OR-Tools Vehicle Routing with Time Windows",
         "examples": [],
+        "supported_solvers": ["or-tools"],
     },
     {
         "k_algo": "or-tools-cp-sat",
@@ -99,6 +105,7 @@ CATALOG: list[Algorithm] = [
         "description_zh": "OR-Tools CP-SAT — 约束规划求解器 (排班 / 调度)",
         "description_en": "OR-Tools CP-SAT — Constraint Programming",
         "examples": [],
+        "supported_solvers": ["or-tools-cp-sat", "or-tools"],
     },
     {
         "k_algo": "chronos-t5-forecast",
@@ -114,6 +121,7 @@ CATALOG: list[Algorithm] = [
         "description_zh": "Chronos-T5 时序基础模型 — 销量 / 流量 / 风光出力预测",
         "description_en": "Chronos-T5 time-series foundation model",
         "examples": [],
+        "supported_solvers": ["chronos-t5"],
     },
     {
         "k_algo": "arima-forecast",
@@ -129,6 +137,7 @@ CATALOG: list[Algorithm] = [
         "description_zh": "ARIMA 时序预测 — 经典 P/D/Q 模型",
         "description_en": "ARIMA classical time-series forecasting",
         "examples": [],
+        "supported_solvers": ["statsmodels-arima", "arima"],
     },
     {
         "k_algo": "lstm-forecast",
@@ -144,6 +153,7 @@ CATALOG: list[Algorithm] = [
         "description_zh": "LSTM 神经网络 — 长序列 / 多变量预测",
         "description_en": "LSTM neural network — long-sequence / multivariate forecasting",
         "examples": [],
+        "supported_solvers": ["tensorflow-lstm", "lstm"],
     },
     {
         "k_algo": "aqgs-acopf",
@@ -159,6 +169,7 @@ CATALOG: list[Algorithm] = [
         "description_zh": "自研 AQGS-ACOPF — 交流最优潮流求解 (Innovation #6, Apache 2.0)",
         "description_en": "AQGS-ACOPF — proprietary AC Optimal Power Flow (Innovation #6)",
         "examples": [],
+        "supported_solvers": ["aqgs"],
     },
 ]
 
@@ -176,3 +187,39 @@ def find_by_k_algo(k_algo: str) -> Algorithm | None:
         if algo["k_algo"] == k_algo:
             return algo
     return None
+
+
+def find_by_task_type_and_solver(
+    task_type: str, solver: str | None
+) -> tuple[Algorithm | None, list[str]]:
+    """Story 2.4 — FR C4 solver-aware algorithm lookup.
+
+    Returns (matching_algo, all_supported_solvers_for_this_task_type).
+
+    - When `solver is None`: returns (first algorithm matching task_type, its supported_solvers)
+    - When `solver` is provided: scans ALL algorithms with matching task_type and
+      returns the first whose supported_solvers contains `solver`. If none match
+      but task_type exists, returns (None, union_of_all_supported_for_this_task_type)
+      so the caller can render a useful 400 error.
+    - When `task_type` itself is unknown: returns (None, []).
+
+    This handles the forecast case (3 algorithms share task_type=forecast: chronos / arima / lstm).
+    """
+    matches = [a for a in CATALOG if a["task_type"] == task_type]
+    if not matches:
+        return None, []
+
+    union_supported: list[str] = []
+    for a in matches:
+        for s in a["supported_solvers"]:
+            if s not in union_supported:
+                union_supported.append(s)
+
+    if solver is None:
+        return matches[0], union_supported
+
+    for a in matches:
+        if solver in a["supported_solvers"]:
+            return a, union_supported
+
+    return None, union_supported
