@@ -32,6 +32,9 @@ importers:
       read-excel-file:
         specifier: ^9.0.9
         version: 9.0.9
+      xlsx:
+        specifier: ^0.18.5
+        version: 0.18.5
     devDependencies:
       '@testing-library/react':
         specifier: ^16.0.1
@@ -66,9 +69,6 @@ importers:
       vitest:
         specifier: ^2.1.5
         version: 2.1.9(@types/node@22.19.19)(happy-dom@15.11.7)
-      xlsx:
-        specifier: ^0.18.5
-        version: 0.18.5
 
   e2e:
     devDependencies:

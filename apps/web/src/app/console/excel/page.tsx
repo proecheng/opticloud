@@ -36,6 +36,12 @@ import { OptiCloudClientError, submitOptimizationDemo } from "@/lib/api";
 import { buildVrptwPayload } from "@/lib/vrptw-template";
 import { buildSchedulePayload } from "@/lib/schedule-template";
 import { buildInventoryPayload } from "@/lib/inventory-template";
+import {
+  buildResultWorkbook,
+  type ExportablePayload,
+  type ExportRequest,
+  type ExportResultStatus,
+} from "@/lib/excel-export";
 
 const MAX_DATA_ROWS = 50_000;
 
@@ -184,6 +190,76 @@ type SubmitState =
   | { kind: "not_implemented"; detail: string }
   | { kind: "error"; message: string };
 
+function DownloadResultCard({
+  taskType,
+  source,
+  payload,
+  status,
+  realResult,
+  sourceFilename,
+  dataTestId,
+}: {
+  taskType: "vrptw" | "schedule" | "inventory";
+  source: ExcelWorkbookSummary;
+  payload: ExportablePayload;
+  status: ExportResultStatus;
+  realResult?: ExportRequest["realResult"];
+  sourceFilename: string;
+  dataTestId: string;
+}): JSX.Element {
+  const [genState, setGenState] = useState<
+    { kind: "idle" } | { kind: "generating" } | { kind: "error"; message: string }
+  >({ kind: "idle" });
+
+  const handleDownload = async (): Promise<void> => {
+    setGenState({ kind: "generating" });
+    try {
+      const { blob, filename } = await buildResultWorkbook({
+        source,
+        payload,
+        status,
+        realResult,
+        sourceFilename,
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      setGenState({ kind: "idle" });
+    } catch (err) {
+      setGenState({
+        kind: "error",
+        message: (err as Error).message || "下载失败",
+      });
+    }
+  };
+
+  // Discourage taskType prop from going unused after refactor (kept for downstream filters).
+  void taskType;
+
+  return (
+    <div className="space-y-2">
+      <button
+        type="button"
+        onClick={() => void handleDownload()}
+        disabled={genState.kind === "generating"}
+        data-testid={dataTestId}
+        aria-label="下载 Excel 结果"
+        className="min-h-touch rounded-md border border-primary px-4 py-2 text-sm text-primary hover:bg-primary/5 disabled:opacity-50"
+      >
+        {genState.kind === "generating" ? "生成中..." : "📥 下载 Excel 结果"}
+      </button>
+      {genState.kind === "error" && (
+        <p className="text-xs text-red-600">{genState.message}</p>
+      )}
+    </div>
+  );
+}
+
 function VrptwPreviewCard({
   file,
   onReset,
@@ -193,7 +269,11 @@ function VrptwPreviewCard({
 }): JSX.Element {
   const [state, setState] = useState<
     | { kind: "parsing" }
-    | { kind: "mapped"; result: ReturnType<typeof buildVrptwPayload> }
+    | {
+        kind: "mapped";
+        result: ReturnType<typeof buildVrptwPayload>;
+        summary: ExcelWorkbookSummary;
+      }
     | { kind: "error"; message: string }
   >({ kind: "parsing" });
   const [submitState, setSubmitState] = useState<SubmitState>({ kind: "idle" });
@@ -205,7 +285,7 @@ function VrptwPreviewCard({
         const summary = await parseExcel(file, { includeRows: true });
         if (cancelled) return;
         const result = buildVrptwPayload(summary);
-        setState({ kind: "mapped", result });
+        setState({ kind: "mapped", result, summary });
       } catch (err) {
         if (cancelled) return;
         setState({ kind: "error", message: (err as Error).message });
@@ -379,17 +459,39 @@ function VrptwPreviewCard({
               → 看其它 T4 求解器
             </Link>
           </p>
+          <DownloadResultCard
+            taskType="vrptw"
+            source={state.summary}
+            payload={result.payload}
+            status="demo"
+            sourceFilename={file.name}
+            dataTestId="vrptw-download-button"
+          />
         </div>
       )}
 
       {submitState.kind === "solved" && (
-        <StatusCard
-          variant="ok"
-          title="✅ 求解完成"
-          description={`耗时 ${submitState.solveSeconds.toFixed(2)}s · 目标值 ${submitState.objective ?? "(N/A)"}`}
-          ariaLabel="console.excel.vrptw.solved"
-          icon="🎉"
-        />
+        <div className="space-y-2">
+          <StatusCard
+            variant="ok"
+            title="✅ 求解完成"
+            description={`耗时 ${submitState.solveSeconds.toFixed(2)}s · 目标值 ${submitState.objective ?? "(N/A)"}`}
+            ariaLabel="console.excel.vrptw.solved"
+            icon="🎉"
+          />
+          <DownloadResultCard
+            taskType="vrptw"
+            source={state.summary}
+            payload={result.payload}
+            status="solved"
+            realResult={{
+              objective: submitState.objective,
+              solveSeconds: submitState.solveSeconds,
+            }}
+            sourceFilename={file.name}
+            dataTestId="vrptw-download-button"
+          />
+        </div>
       )}
 
       {submitState.kind === "error" && (
@@ -414,7 +516,11 @@ function SchedulePreviewCard({
 }): JSX.Element {
   const [state, setState] = useState<
     | { kind: "parsing" }
-    | { kind: "mapped"; result: ReturnType<typeof buildSchedulePayload> }
+    | {
+        kind: "mapped";
+        result: ReturnType<typeof buildSchedulePayload>;
+        summary: ExcelWorkbookSummary;
+      }
     | { kind: "error"; message: string }
   >({ kind: "parsing" });
   const [submitState, setSubmitState] = useState<SubmitState>({ kind: "idle" });
@@ -426,7 +532,7 @@ function SchedulePreviewCard({
         const summary = await parseExcel(file, { includeRows: true });
         if (cancelled) return;
         const result = buildSchedulePayload(summary);
-        setState({ kind: "mapped", result });
+        setState({ kind: "mapped", result, summary });
       } catch (err) {
         if (cancelled) return;
         setState({ kind: "error", message: (err as Error).message });
@@ -603,17 +709,39 @@ function SchedulePreviewCard({
               → 看其它 Schedule 求解器
             </Link>
           </p>
+          <DownloadResultCard
+            taskType="schedule"
+            source={state.summary}
+            payload={result.payload}
+            status="demo"
+            sourceFilename={file.name}
+            dataTestId="schedule-download-button"
+          />
         </div>
       )}
 
       {submitState.kind === "solved" && (
-        <StatusCard
-          variant="ok"
-          title="✅ 求解完成"
-          description={`耗时 ${submitState.solveSeconds.toFixed(2)}s · 目标值 ${submitState.objective ?? "(N/A)"}`}
-          ariaLabel="console.excel.schedule.solved"
-          icon="🎉"
-        />
+        <div className="space-y-2">
+          <StatusCard
+            variant="ok"
+            title="✅ 求解完成"
+            description={`耗时 ${submitState.solveSeconds.toFixed(2)}s · 目标值 ${submitState.objective ?? "(N/A)"}`}
+            ariaLabel="console.excel.schedule.solved"
+            icon="🎉"
+          />
+          <DownloadResultCard
+            taskType="schedule"
+            source={state.summary}
+            payload={result.payload}
+            status="solved"
+            realResult={{
+              objective: submitState.objective,
+              solveSeconds: submitState.solveSeconds,
+            }}
+            sourceFilename={file.name}
+            dataTestId="schedule-download-button"
+          />
+        </div>
       )}
 
       {submitState.kind === "error" && (
@@ -638,7 +766,11 @@ function InventoryPreviewCard({
 }): JSX.Element {
   const [state, setState] = useState<
     | { kind: "parsing" }
-    | { kind: "mapped"; result: ReturnType<typeof buildInventoryPayload> }
+    | {
+        kind: "mapped";
+        result: ReturnType<typeof buildInventoryPayload>;
+        summary: ExcelWorkbookSummary;
+      }
     | { kind: "error"; message: string }
   >({ kind: "parsing" });
   const [submitState, setSubmitState] = useState<SubmitState>({ kind: "idle" });
@@ -650,7 +782,7 @@ function InventoryPreviewCard({
         const summary = await parseExcel(file, { includeRows: true });
         if (cancelled) return;
         const result = buildInventoryPayload(summary);
-        setState({ kind: "mapped", result });
+        setState({ kind: "mapped", result, summary });
       } catch (err) {
         if (cancelled) return;
         setState({ kind: "error", message: (err as Error).message });
@@ -827,17 +959,39 @@ function InventoryPreviewCard({
               → 看其它预测算法
             </Link>
           </p>
+          <DownloadResultCard
+            taskType="inventory"
+            source={state.summary}
+            payload={result.payload}
+            status="demo"
+            sourceFilename={file.name}
+            dataTestId="inventory-download-button"
+          />
         </div>
       )}
 
       {submitState.kind === "solved" && (
-        <StatusCard
-          variant="ok"
-          title="✅ 预测完成"
-          description={`耗时 ${submitState.solveSeconds.toFixed(2)}s · 目标值 ${submitState.objective ?? "(N/A)"}`}
-          ariaLabel="console.excel.inventory.solved"
-          icon="🎉"
-        />
+        <div className="space-y-2">
+          <StatusCard
+            variant="ok"
+            title="✅ 预测完成"
+            description={`耗时 ${submitState.solveSeconds.toFixed(2)}s · 目标值 ${submitState.objective ?? "(N/A)"}`}
+            ariaLabel="console.excel.inventory.solved"
+            icon="🎉"
+          />
+          <DownloadResultCard
+            taskType="inventory"
+            source={state.summary}
+            payload={result.payload}
+            status="solved"
+            realResult={{
+              objective: submitState.objective,
+              solveSeconds: submitState.solveSeconds,
+            }}
+            sourceFilename={file.name}
+            dataTestId="inventory-download-button"
+          />
+        </div>
       )}
 
       {submitState.kind === "error" && (
@@ -888,7 +1042,7 @@ function ConfirmedCard({
         icon="🎯"
       />
       <div className="rounded-md border border-border bg-muted/30 p-4 text-sm text-muted-foreground">
-        📋 下一步：3.E.6 (结果下载) 将在 PR #24+ 接管 — VRPTW / Schedule / Inventory 三大模板已落地。
+        📋 通用 LP / 未知 task_type 暂未接入模板。VRPTW / Schedule / Inventory 走自动映射 + 试跑 + 下载结果，请回到上一步选其它 task_type。
       </div>
       <button
         type="button"
