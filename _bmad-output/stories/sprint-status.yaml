@@ -85,7 +85,7 @@ development_status:
   epic-2: in-progress
 
   2-1-j1-algorithms-public-list: done          # J1 Vertical Slice
-  2-2-algorithm-details: backlog               # FR C2
+  2-2-algorithm-details: done                  # 2026-05-19 — /algorithms/[k_algo] FE detail page + Python/cURL snippets + 4 E2E + 3 backend tests; FR C2
   2-3-tier-based-browse: backlog               # FR C3
   2-4-solver-enum: backlog                     # FR C4
   2-5-fallback-chain: backlog                  # FR C5

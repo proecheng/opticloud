@@ -158,6 +158,14 @@ export async function listAlgorithms(): Promise<Algorithm[]> {
   return request<Algorithm[]>("/v1/algorithms", {}, SOLVER_SERVICE_URL);
 }
 
+export async function getAlgorithm(kAlgo: string): Promise<Algorithm> {
+  return request<Algorithm>(
+    `/v1/algorithms/${encodeURIComponent(kAlgo)}`,
+    {},
+    SOLVER_SERVICE_URL,
+  );
+}
+
 // ===== Optimizations (Story 3.1) =====
 
 export interface LPRequest {

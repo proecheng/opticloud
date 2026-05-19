@@ -152,44 +152,54 @@ export default function AlgorithmsPage(): JSX.Element {
                 className="rounded-lg border border-border bg-background p-5"
                 data-testid="algorithm-card"
               >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <code className="font-mono font-semibold">
-                        {algo.k_algo}
-                      </code>
-                      <span
-                        className={
-                          "rounded-md border px-2 py-0.5 text-xs font-medium " +
-                          (TIER_COLOR[algo.tier] ?? "border-border")
-                        }
-                      >
-                        {algo.tier}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        {STATUS_LABEL[algo.status] ?? algo.status}
+                <Link
+                  href={`/algorithms/${algo.k_algo}`}
+                  aria-label={`查看 ${algo.k_algo} 详情`}
+                  className="block rounded transition hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-primary/40"
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <code className="font-mono font-semibold">
+                          {algo.k_algo}
+                        </code>
+                        <span
+                          className={
+                            "rounded-md border px-2 py-0.5 text-xs font-medium " +
+                            (TIER_COLOR[algo.tier] ?? "border-border")
+                          }
+                        >
+                          {algo.tier}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {STATUS_LABEL[algo.status] ?? algo.status}
+                        </span>
+                        <span className="ml-auto text-xs text-primary">详情 →</span>
+                      </div>
+                      <p className="mt-2 text-sm">{algo.description_zh}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {algo.description_en}
+                      </p>
+                    </div>
+                    <div className="text-right text-xs">
+                      <span className="rounded bg-muted px-2 py-1 font-mono">
+                        task_type: {algo.task_type}
                       </span>
                     </div>
-                    <p className="mt-2 text-sm">{algo.description_zh}</p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {algo.description_en}
-                    </p>
                   </div>
-                  <div className="text-right text-xs">
-                    <span className="rounded bg-muted px-2 py-1 font-mono">
-                      task_type: {algo.task_type}
-                    </span>
-                  </div>
-                </div>
 
-                <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border pt-3 text-xs text-muted-foreground">
-                  <span className="font-medium">Provider:</span>
-                  <code className="font-mono">{algo.model_version.provider_id}</code>
-                  <span>·</span>
-                  <span>{algo.model_version.kind}</span>
-                  <span>·</span>
-                  <span>v{algo.model_version.version}</span>
-                  <span>·</span>
+                  <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border pt-3 text-xs text-muted-foreground">
+                    <span className="font-medium">Provider:</span>
+                    <code className="font-mono">{algo.model_version.provider_id}</code>
+                    <span>·</span>
+                    <span>{algo.model_version.kind}</span>
+                    <span>·</span>
+                    <span>v{algo.model_version.version}</span>
+                  </div>
+                </Link>
+
+                {/* Provider URL link kept outside the card-Link so users can click through to the source without navigating away. */}
+                <div className="mt-2 text-xs">
                   <a
                     href={algo.model_version.provider_url}
                     target="_blank"
