@@ -1,28 +1,37 @@
-"""Auth endpoints — signup / api_keys CRUD / login (future) / health.
+"""Auth endpoints — signup / login (Story 1.2) / api_keys CRUD / health.
 
-FR A1 / A2 implementation (Story 0.6).
+FR A1 / A2 implementation (Story 0.6 + 1.2).
 """
 
 from __future__ import annotations
 
+import secrets
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
+import structlog
 from fastapi import APIRouter, Depends, Header, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import and_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from auth_service import security
+from auth_service.config import settings
 from auth_service.db import get_session
-from auth_service.models import APIKey, AuditLog, User
+from auth_service.models import APIKey, AuditLog, User, UserOTP
 from auth_service.schemas import (
     APIKeyCreateRequest,
     APIKeyCreateResponse,
     APIKeyListItem,
+    LoginRequest,
+    LoginResponse,
+    OTPRequestBody,
+    OTPRequestResponse,
     SignupRequest,
     SignupResponse,
 )
+
+_log = structlog.get_logger("auth_service.routes")
 
 router = APIRouter(prefix="/v1/auth", tags=["auth"])
 
@@ -104,6 +113,180 @@ async def signup(
         jwt_access=access,
         jwt_refresh=refresh,
         edu_tier=edu_tier,
+    )
+
+
+# ===== Story 1.2: OTP login (FR A1 双因素) =====
+
+
+async def _lookup_user(session: AsyncSession, phone: str, email: str) -> User | None:
+    stmt = select(User).where(and_(User.phone == phone, User.email == email))
+    return (await session.execute(stmt)).scalar_one_or_none()
+
+
+def _generate_otp() -> str:
+    """6-digit numeric OTP, zero-padded."""
+    return f"{secrets.randbelow(1_000_000):06d}"
+
+
+async def _invalidate_unused_otps(session: AsyncSession, user_id: uuid.UUID) -> None:
+    now = datetime.now(UTC)
+    await session.execute(
+        update(UserOTP)
+        .where(and_(UserOTP.user_id == user_id, UserOTP.used_at.is_(None)))
+        .values(used_at=now)
+    )
+
+
+@router.post(
+    "/otp/request",
+    response_model=OTPRequestResponse,
+    summary="请求登录 OTP 双因素验证码",
+    description=(
+        "FR A1: 请求登录所需的双 OTP（phone + email）。每个 factor 一个 6 位数字 OTP，"
+        "TTL 5 分钟。响应中 `dev_phone_otp` / `dev_email_otp` 仅在 `OTP_DEV_MODE_RETURN=true` "
+        "（local dev 默认）时返回；生产环境通过 logs 派发到 SMS/Email provider（M3 集成）。"
+    ),
+)
+async def request_otp(
+    body: OTPRequestBody,
+    session: AsyncSession = Depends(get_session),
+) -> OTPRequestResponse:
+    user = await _lookup_user(session, body.phone, body.email)
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="user not found",
+        )
+    if user.is_frozen:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="account frozen",
+        )
+
+    await _invalidate_unused_otps(session, user.id)
+
+    now = datetime.now(UTC)
+    expires_at = now + timedelta(seconds=settings.otp_ttl_seconds)
+    phone_otp = _generate_otp()
+    email_otp = _generate_otp()
+    session.add_all(
+        [
+            UserOTP(
+                user_id=user.id,
+                factor="phone",
+                code=phone_otp,
+                expires_at=expires_at,
+                used_at=None,
+                created_at=now,
+            ),
+            UserOTP(
+                user_id=user.id,
+                factor="email",
+                code=email_otp,
+                expires_at=expires_at,
+                used_at=None,
+                created_at=now,
+            ),
+        ]
+    )
+    await session.commit()
+
+    _log.info(
+        "auth.otp.requested",
+        user_id=str(user.id),
+        factors=["phone", "email"],
+        ttl_s=settings.otp_ttl_seconds,
+    )
+
+    return OTPRequestResponse(
+        expires_in_seconds=settings.otp_ttl_seconds,
+        factors=["phone", "email"],
+        dev_phone_otp=phone_otp if settings.otp_dev_mode_return else None,
+        dev_email_otp=email_otp if settings.otp_dev_mode_return else None,
+    )
+
+
+async def _verify_otp(
+    session: AsyncSession, user_id: uuid.UUID, factor: str, provided_code: str
+) -> bool:
+    """Return True iff a valid unused-and-unexpired OTP for (user, factor) matches."""
+    now = datetime.now(UTC)
+    stmt = (
+        select(UserOTP)
+        .where(
+            and_(
+                UserOTP.user_id == user_id,
+                UserOTP.factor == factor,
+                UserOTP.used_at.is_(None),
+                UserOTP.expires_at > now,
+            )
+        )
+        .order_by(UserOTP.created_at.desc())
+        .limit(1)
+    )
+    row = (await session.execute(stmt)).scalar_one_or_none()
+    if row is None:
+        return False
+    return secrets.compare_digest(row.code, provided_code)
+
+
+@router.post(
+    "/login",
+    response_model=LoginResponse,
+    summary="OTP 双因素登录",
+    description=(
+        "FR A1: 已注册用户用 phone + email + 两个 6 位 OTP 登录。两个 OTP 任一错误 / 过期 / 已使用 "
+        "→ 401 且 detail 不指明哪个 factor（防 enumeration）。"
+    ),
+)
+async def login(
+    body: LoginRequest,
+    session: AsyncSession = Depends(get_session),
+) -> LoginResponse:
+    user = await _lookup_user(session, body.phone, body.email)
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="user not found",
+        )
+    if user.is_frozen:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="account frozen",
+        )
+
+    # Verify BOTH OTPs without short-circuit (S1 — don't leak which failed first via timing).
+    phone_ok = await _verify_otp(session, user.id, "phone", body.phone_otp)
+    email_ok = await _verify_otp(session, user.id, "email", body.email_otp)
+    if not (phone_ok and email_ok):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="invalid or expired OTP",
+        )
+
+    # Both verified — invalidate ALL unused OTPs for this user (prevents replay).
+    await _invalidate_unused_otps(session, user.id)
+
+    session.add(
+        AuditLog(
+            user_id=user.id,
+            actor="user",
+            action="auth.login",
+            resource_type="user",
+            resource_id=user.id,
+            audit_metadata={"factors": ["phone", "email"]},
+        )
+    )
+    await session.commit()
+
+    _log.info("auth.login.success", user_id=str(user.id))
+
+    return LoginResponse(
+        user_id=user.id,
+        jwt_access=security.create_access_token(user.id),
+        jwt_refresh=security.create_refresh_token(user.id),
+        edu_tier=user.edu_tier,
     )
 
 

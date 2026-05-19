@@ -178,6 +178,41 @@ export interface OptimizationResponse {
   completed_at: string;
 }
 
+// ===== Login (Story 1.2 — OTP 2FA) =====
+
+export interface OTPRequestBody {
+  phone: string;
+  email: string;
+}
+
+export interface OTPRequestResponse {
+  expires_in_seconds: number;
+  factors: ("phone" | "email")[];
+  dev_phone_otp: string | null;
+  dev_email_otp: string | null;
+}
+
+export interface LoginRequest extends OTPRequestBody {
+  phone_otp: string;
+  email_otp: string;
+}
+
+export async function requestOTP(body: OTPRequestBody): Promise<OTPRequestResponse> {
+  return request<OTPRequestResponse>(
+    "/v1/auth/otp/request",
+    { method: "POST", body: JSON.stringify(body) },
+    AUTH_SERVICE_URL,
+  );
+}
+
+export async function login(body: LoginRequest): Promise<SignupResponse> {
+  return request<SignupResponse>(
+    "/v1/auth/login",
+    { method: "POST", body: JSON.stringify(body) },
+    AUTH_SERVICE_URL,
+  );
+}
+
 // ===== Billing (Story 5.A.1) =====
 
 export interface BucketBalance {
