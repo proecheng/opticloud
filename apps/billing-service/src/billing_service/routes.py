@@ -1,8 +1,9 @@
-"""Billing HTTP routes (Story 5.A.1 + 5.A.4).
+"""Billing HTTP routes (Story 5.A.1 + 5.A.4 + 5.A.5).
 
 Endpoints (all require Bearer JWT or X-Internal-Service-Auth):
 - GET  /v1/billing/balance               — read current credits balance (pure)
-- POST /v1/billing/charges               — create a Saga + lazy-seed if first call
+- POST /v1/billing/charges/estimate      — 5.A.5: pre-charge guard preview
+- POST /v1/billing/charges               — create a Saga + lazy-seed if first call (5.A.5: gates on `confirmed` when warnings exist)
 - POST /v1/billing/charges/{id}/reserve  — 5.A.4: PENDING → RESERVED only
 - POST /v1/billing/charges/{id}/finalize — 5.A.4: RESERVED → CHARGED (per-formula) or REFUNDED
 - POST /v1/billing/charges/{id}/confirm  — DEPRECATED 5.A.1 (reserve + service_success in one)
@@ -16,6 +17,7 @@ from decimal import Decimal
 
 from fastapi import APIRouter, Depends, Header, HTTPException, status
 from opticloud_shared.errors import ErrorDetail, rfc7807_error
+from prometheus_client import Counter
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import Response
@@ -31,19 +33,29 @@ from billing_service.exceptions import (
     SagaTerminalError,
 )
 from billing_service.models import CreditTransaction, SagaInstance
-from billing_service.pricing import compute_charge_amount
+from billing_service.pricing import classify_warnings, compute_charge_amount
 from billing_service.saga_orchestrator import SagaOrchestrator
 from billing_service.schemas import (
     BalanceResponse,
     ChargeCreateRequest,
     ChargeResponse,
+    EstimateRequest,
+    EstimateResponse,
     FinalizeChargeRequest,
     FinalizeChargeResponse,
     ReserveChargeResponse,
+    WarningResponse,
     validate_idempotency_key,
 )
 
 billing_router = APIRouter(prefix="/v1/billing", tags=["billing"])
+
+# SRE1 — Story 5.A.5: pre-charge guard observability
+ESTIMATE_TOTAL: Counter = Counter(
+    "billing_estimate_total",
+    "POST /v1/billing/charges/estimate calls labelled by warning shape",
+    ["warnings_kind"],
+)
 
 
 async def _balance_for(session: AsyncSession, user_id: uuid.UUID) -> Decimal:
@@ -81,6 +93,58 @@ async def _seed_demo_balance(session: AsyncSession, user_id: uuid.UUID) -> None:
         )
     )
     await session.flush()
+
+
+def _classify_with_settings(estimated: Decimal, balance: Decimal) -> list[WarningResponse]:
+    """Run classify_warnings with current config thresholds; convert to response shape."""
+    warnings = classify_warnings(
+        estimated_amount=estimated,
+        balance=balance,
+        p5_call_threshold=settings.p5_call_threshold,
+        balance_low_ratio=settings.balance_low_ratio,
+    )
+    return [
+        WarningResponse(
+            kind=w.kind,  # type: ignore[arg-type]
+            message=w.message,
+            remediation_hint_key=w.remediation_hint_key,
+        )
+        for w in warnings
+    ]
+
+
+@billing_router.post(
+    "/charges/estimate",
+    response_model=EstimateResponse,
+)
+async def estimate_charge(
+    body: EstimateRequest,
+    user_id: uuid.UUID = Depends(require_user),
+    session: AsyncSession = Depends(get_session),
+) -> EstimateResponse:
+    """Story 5.A.5 — pre-charge guard preview.
+
+    Pure read: no Saga, no seeding, no ledger write. Returns the estimated max
+    amount, current balance, and 0-1 warnings based on the pre-charge guard
+    rules in config (p5_call_threshold + balance_low_ratio).
+
+    `purpose` is ignored for amount computation in v1 (LP-only pricing) but
+    persisted in the metric label so M3 analytics can split by call type.
+    """
+    estimated = Decimal(str(body.max_solve_seconds)) * settings.lp_rate_per_second
+    balance = await _balance_for(session, user_id)
+    warnings = _classify_with_settings(estimated, balance)
+
+    metric_label = warnings[0].kind if warnings else "none"
+    ESTIMATE_TOTAL.labels(warnings_kind=metric_label).inc()
+
+    return EstimateResponse(
+        estimated_amount=f"{estimated:.2f}",
+        currency="CNY",
+        balance=f"{balance:.2f}",
+        warnings=warnings,
+        requires_explicit_confirm=bool(warnings),
+    )
 
 
 @billing_router.get("/balance", response_model=BalanceResponse)
@@ -138,6 +202,30 @@ async def create_charge(
             ],
         )
 
+    # Story 5.A.5 — pre-charge guard (FR B6): require explicit confirm when warnings exist
+    warnings = _classify_with_settings(body.amount, balance_before)
+    if warnings and not body.confirmed:
+        await session.commit()
+        return rfc7807_error(
+            title="Explicit Confirmation Required",
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=warnings[0].message,
+            errors=[
+                ErrorDetail(
+                    field_path="body.confirmed",
+                    value="false",
+                    constraint="warnings exist, confirmed must be true",
+                    remediation_hint_key=warnings[0].remediation_hint_key,
+                )
+            ],
+        )
+
+    # 5.A.5 — audit trail: deterministic flag (boolean, not timestamp, so idempotent replays
+    # produce the same body hash). The "when" is saga.created_at; the user_id is saga.user_id.
+    confirm_payload: dict[str, bool] = {}
+    if warnings and body.confirmed:
+        confirm_payload["user_explicitly_confirmed"] = True
+
     orch = SagaOrchestrator(session)
     try:
         saga = await orch.start(
@@ -150,6 +238,8 @@ async def create_charge(
                 # Story 5.A.4 (AC6) — finalize reads max from here to compute capped amount
                 "max_solve_seconds": body.max_solve_seconds,
                 "rate_per_second": str(settings.lp_rate_per_second),
+                # Story 5.A.5 — audit trail for pre-charge guard explicit confirm
+                **confirm_payload,
             },
             amount=body.amount,
         )

@@ -116,6 +116,7 @@ async def test_create_charge_seeds_balance_then_charges(
             "currency": "CNY",
             "purpose": "demo",
             "reference_id": str(uuid.uuid4()),
+            "confirmed": True,  # 5.A.5 pre-charge guard (6.00 ≥ p5_threshold 3.00)
         },
         headers={**auth_headers, "Idempotency-Key": str(uuid.uuid4())},
     )
@@ -149,6 +150,7 @@ async def test_idempotent_create_returns_same_charge(
         "currency": "CNY",
         "purpose": "demo",
         "reference_id": ref_id,
+        "confirmed": True,  # 5.A.5 pre-charge guard
     }
     r1 = await http_client.post(
         "/v1/billing/charges", json=body, headers={**auth_headers, "Idempotency-Key": key}
@@ -172,6 +174,7 @@ async def test_idempotency_conflict_on_body_change(
             "currency": "CNY",
             "purpose": "demo",
             "reference_id": str(uuid.uuid4()),
+            "confirmed": True,  # 5.A.5
         },
         headers={**auth_headers, "Idempotency-Key": key},
     )
@@ -183,6 +186,7 @@ async def test_idempotency_conflict_on_body_change(
             "currency": "CNY",
             "purpose": "demo",
             "reference_id": str(uuid.uuid4()),
+            "confirmed": True,  # 5.A.5
         },
         headers={**auth_headers, "Idempotency-Key": key},
     )
@@ -200,6 +204,7 @@ async def test_invalid_idempotency_key_format(
             "currency": "CNY",
             "purpose": "demo",
             "reference_id": str(uuid.uuid4()),
+            "confirmed": True,
         },
         headers={**auth_headers, "Idempotency-Key": "not-a-uuid"},
     )
@@ -217,6 +222,7 @@ async def test_confirm_charge_transitions_to_charged(
             "currency": "CNY",
             "purpose": "demo",
             "reference_id": str(uuid.uuid4()),
+            "confirmed": True,
         },
         headers={**auth_headers, "Idempotency-Key": str(uuid.uuid4())},
     )
@@ -261,7 +267,7 @@ async def test_insufficient_balance_returns_422(
 async def _create_charge(
     http_client: AsyncClient, auth_headers: dict[str, str], *, amount: str = "6.00"
 ) -> str:
-    """Helper: POST /charges and return charge_id."""
+    """Helper: POST /charges and return charge_id. confirmed=True so the 5.A.5 guard accepts."""
     r = await http_client.post(
         "/v1/billing/charges",
         json={
@@ -269,6 +275,7 @@ async def _create_charge(
             "currency": "CNY",
             "purpose": "solve",
             "reference_id": str(uuid.uuid4()),
+            "confirmed": True,
         },
         headers={**auth_headers, "Idempotency-Key": str(uuid.uuid4())},
     )
@@ -379,3 +386,106 @@ async def test_finalize_idempotent_replay_returns_same_response(
     bal_after_second = float(body2["balance_after"])
     # No duplicate ledger rows means balance unchanged across replays
     assert abs(bal_after_second - bal_after_first) < 1e-6
+
+
+# ===== Story 5.A.5 — pre-charge guard (AC8 rows 7-10) =====
+
+
+async def test_estimate_no_warnings_with_high_balance(
+    http_client: AsyncClient, auth_headers: dict[str, str]
+) -> None:
+    """AC8 row 7: estimate happy path, no warnings, requires_explicit_confirm=false."""
+    # Seed the user first via a tiny charge so balance is healthy
+    await _create_charge(http_client, auth_headers, amount="0.50")
+
+    r = await http_client.post(
+        "/v1/billing/charges/estimate",
+        json={"purpose": "demo", "max_solve_seconds": 5.0},
+        headers=auth_headers,
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["estimated_amount"] == "0.50"  # 5s × 0.10/s
+    assert body["warnings"] == []
+    assert body["requires_explicit_confirm"] is False
+
+
+async def test_estimate_low_balance_returns_warning(
+    http_client: AsyncClient, auth_headers: dict[str, str], token_factory
+) -> None:
+    """AC8 row 8: estimate with insufficient balance → balance_low warning, no error."""
+    # Fresh user (no seed) — balance is 0.00, estimate is 6.00 → both p5_call + balance_low
+    _, token_for = token_factory
+    fresh_user = uuid.uuid4()
+    fresh_headers = {"Authorization": f"Bearer {token_for(fresh_user)}"}
+
+    r = await http_client.post(
+        "/v1/billing/charges/estimate",
+        json={"purpose": "solve", "max_solve_seconds": 60.0},
+        headers=fresh_headers,
+    )
+    assert r.status_code == 200, r.text  # Pure preview — NEVER errors on balance
+    body = r.json()
+    assert body["estimated_amount"] == "6.00"
+    assert body["balance"] == "0.00"
+    assert body["requires_explicit_confirm"] is True
+    assert len(body["warnings"]) == 1
+    # 6.00 >= 3.00 AND 0.00 < 6.00 → both → merged
+    assert body["warnings"][0]["kind"] == "p5_call_and_balance_low"
+
+
+async def test_create_charge_blocked_when_confirmed_false_with_warnings(
+    http_client: AsyncClient, auth_headers: dict[str, str]
+) -> None:
+    """AC8 row 9: POST /charges with warnings + confirmed=false → 422 explicit confirmation required."""
+    # Default amount=6.00 with seed balance=50.00 → estimate 6.00 ≥ 3.00 → p5_call warning
+    r = await http_client.post(
+        "/v1/billing/charges",
+        json={
+            "amount": "6.00",
+            "currency": "CNY",
+            "purpose": "solve",
+            "reference_id": str(uuid.uuid4()),
+            "max_solve_seconds": 60.0,
+            # confirmed defaults to False
+        },
+        headers={**auth_headers, "Idempotency-Key": str(uuid.uuid4())},
+    )
+    assert r.status_code == 422, r.text
+    body = r.json()
+    assert body["title"] == "Explicit Confirmation Required"
+    assert body["errors"][0]["field_path"] == "body.confirmed"
+    assert body["errors"][0]["constraint"] == "warnings exist, confirmed must be true"
+
+
+async def test_create_charge_accepts_confirmed_true_with_warnings(
+    http_client: AsyncClient, auth_headers: dict[str, str], engine
+) -> None:
+    """AC8 row 10: POST /charges with confirmed=true → 201 + payload_ref.user_explicitly_confirmed_at persisted."""
+    ref_id = str(uuid.uuid4())
+    r = await http_client.post(
+        "/v1/billing/charges",
+        json={
+            "amount": "6.00",
+            "currency": "CNY",
+            "purpose": "solve",
+            "reference_id": ref_id,
+            "max_solve_seconds": 60.0,
+            "confirmed": True,
+        },
+        headers={**auth_headers, "Idempotency-Key": str(uuid.uuid4())},
+    )
+    assert r.status_code == 201, r.text
+    charge_id = uuid.UUID(r.json()["charge_id"])
+
+    # Verify payload_ref has the flag (R1.3 — read SagaInstance, not credit_transactions)
+    # 5.A.5 uses a boolean flag (not a timestamp) so idempotent body-hashes still match.
+    # The "when" comes from saga.created_at.
+    from billing_service.models import SagaInstance  # local import keeps top tidy
+
+    maker = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
+    async with maker() as s:
+        saga = await s.get(SagaInstance, charge_id)
+        assert saga is not None
+        assert saga.payload_ref.get("user_explicitly_confirmed") is True
+        assert saga.created_at is not None

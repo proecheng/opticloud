@@ -49,6 +49,18 @@ class Settings(BaseSettings):
         description="Fallback when saga.payload_ref lacks max_solve_seconds (DR1)",
     )
 
+    # Story 5.A.5 — pre-charge guard thresholds (FR B6)
+    p5_call_threshold: Decimal = Field(
+        default=Decimal("3.00"),
+        alias="P5_CALL_THRESHOLD",
+        description="Estimated max charge >= this triggers p5_call warning (¥)",
+    )
+    balance_low_ratio: Decimal = Field(
+        default=Decimal("1.00"),
+        alias="BALANCE_LOW_RATIO",
+        description="balance < (estimated × ratio) triggers balance_low warning",
+    )
+
     # Story 5.A.4 — internal service auth (R1.2)
     # Solver→billing call uses constant-time-compared shared secret + user_id header.
     # If empty AND internal_service_auth_enabled=True at startup, billing fails fast.

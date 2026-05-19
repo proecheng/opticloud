@@ -1,23 +1,31 @@
 "use client";
-/** Demo: charge confirmation modal (Story 5.A.1 J1 anchor #4).
+/** Demo: charge confirmation modal (Story 5.A.1 J1 anchor #4 + 5.A.5 pre-charge guard).
  *
- * Sales-demo flow: sign up first, then click "Try a ¥6 charge". The modal
- * shows current balance + cost + post-charge balance; on confirm the
- * billing-service creates and finalizes the Saga.
+ * Sales-demo flow:
+ * 1. Sign up → page loads balance
+ * 2. Click "Try a ¥6 charge" → app calls POST /charges/estimate
+ * 3. If warnings → show ConfirmationModal (variant=p5_alert or balance_warn)
+ *    - User confirms → close warning, open ChargeModal with confirmed=true threaded through
+ *    - User cancels → back to idle
+ * 4. ChargeModal shows balance recap → user clicks Confirm → POST /charges + /confirm
  */
 
 import { useCallback, useEffect, useState } from "react";
 
-import { ChargeModal } from "@opticloud/ui";
+import { ChargeModal, ConfirmationModal, type ConfirmationVariant } from "@opticloud/ui";
 
 import {
+  type EstimateResponse,
   OptiCloudClientError,
+  type WarningResponse,
   confirmCharge,
   createCharge,
+  estimateCharge,
   getBalance,
 } from "@/lib/api";
 
 const CHARGE_AMOUNT = "6.00";
+const CHARGE_MAX_SECONDS = 60;
 
 function randomUUID(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
@@ -26,10 +34,19 @@ function randomUUID(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
+function variantFor(warnings: WarningResponse[]): ConfirmationVariant {
+  if (warnings.length === 0) return "generic";
+  const kinds = new Set(warnings.map((w) => w.kind));
+  if (kinds.has("p5_call") || kinds.has("p5_call_and_balance_low")) return "p5_alert";
+  return "balance_warn";
+}
+
 export default function DemoChargePage(): JSX.Element {
   const [jwt, setJwt] = useState<string | null>(null);
   const [balance, setBalance] = useState<number | null>(null);
   const [open, setOpen] = useState(false);
+  const [warningOpen, setWarningOpen] = useState(false);
+  const [estimate, setEstimate] = useState<EstimateResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | undefined>();
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -56,10 +73,34 @@ export default function DemoChargePage(): JSX.Element {
     void refreshBalance();
   }, [refreshBalance]);
 
-  const startCharge = useCallback(() => {
+  const startCharge = useCallback(async () => {
+    if (!jwt) return;
     setError(undefined);
     setSuccessMsg(null);
+    try {
+      const est = await estimateCharge(jwt, {
+        purpose: "demo",
+        max_solve_seconds: CHARGE_MAX_SECONDS,
+      });
+      setEstimate(est);
+      if (est.requires_explicit_confirm) {
+        setWarningOpen(true);
+      } else {
+        setOpen(true);
+      }
+    } catch (e) {
+      setError(e instanceof OptiCloudClientError ? `${e.title}: ${e.detail}` : String(e));
+    }
+  }, [jwt]);
+
+  const handleWarningConfirm = useCallback(() => {
+    setWarningOpen(false);
     setOpen(true);
+  }, []);
+
+  const handleWarningCancel = useCallback(() => {
+    setWarningOpen(false);
+    setEstimate(null);
   }, []);
 
   const handleConfirm = useCallback(async () => {
@@ -71,16 +112,17 @@ export default function DemoChargePage(): JSX.Element {
     setError(undefined);
     try {
       const idempotencyKey = randomUUID();
+      // 5.A.5 — thread confirmed=true ONLY when the prior estimate had warnings
+      const confirmed = estimate?.requires_explicit_confirm ?? false;
       const charge = await createCharge(
         jwt,
-        { amount: CHARGE_AMOUNT, purpose: "demo", reference_id: referenceId },
+        { amount: CHARGE_AMOUNT, purpose: "demo", reference_id: referenceId, confirmed },
         idempotencyKey,
       );
       const finalized = await confirmCharge(jwt, charge.charge_id);
-      setSuccessMsg(
-        `Charged ¥${finalized.amount}. New balance: ¥${finalized.balance_after}`,
-      );
+      setSuccessMsg(`Charged ¥${finalized.amount}. New balance: ¥${finalized.balance_after}`);
       setOpen(false);
+      setEstimate(null);
       void refreshBalance();
     } catch (e) {
       if (e instanceof OptiCloudClientError) {
@@ -91,14 +133,21 @@ export default function DemoChargePage(): JSX.Element {
     } finally {
       setIsLoading(false);
     }
-  }, [jwt, referenceId, refreshBalance]);
+  }, [jwt, referenceId, refreshBalance, estimate]);
+
+  const warningVariant = estimate ? variantFor(estimate.warnings) : "generic";
+  const warningTitle =
+    warningVariant === "p5_alert"
+      ? "⚠ 高额扣费确认 / High-cost charge confirmation"
+      : "⚠ 余额不足提示 / Balance warning";
+  const warningMessage = estimate?.warnings[0]?.message ?? "";
 
   return (
     <main className="container mx-auto max-w-2xl p-8">
       <h1 className="text-2xl font-bold">Demo: charge confirmation</h1>
       <p className="mt-2 text-sm text-muted-foreground">
-        J1 Vertical Slice anchor #4. Click the button to see the charge modal.
-        Requires a signed-in session — visit{" "}
+        J1 Vertical Slice anchor #4 + 5.A.5 pre-charge guard. Click the button to see the
+        full flow. Requires a signed-in session — visit{" "}
         <a href="/auth/signup" className="text-primary underline">
           /auth/signup
         </a>{" "}
@@ -122,7 +171,7 @@ export default function DemoChargePage(): JSX.Element {
 
       <button
         type="button"
-        onClick={startCharge}
+        onClick={() => void startCharge()}
         disabled={!jwt}
         className="mt-6 rounded-md bg-primary px-6 py-3 text-white hover:bg-primary/90 disabled:opacity-50"
         data-testid="start-charge"
@@ -130,7 +179,7 @@ export default function DemoChargePage(): JSX.Element {
         Try a ¥{CHARGE_AMOUNT} charge
       </button>
 
-      {error && !open && (
+      {error && !open && !warningOpen && (
         <div className="mt-4 rounded-md border border-danger/40 bg-danger/10 p-3 text-sm text-danger">
           {error}
         </div>
@@ -144,12 +193,36 @@ export default function DemoChargePage(): JSX.Element {
         </div>
       )}
 
+      <ConfirmationModal
+        open={warningOpen}
+        onClose={handleWarningCancel}
+        onConfirm={handleWarningConfirm}
+        variant={warningVariant}
+        ariaLabel="Pre-charge warning"
+        title={warningTitle}
+        description={warningMessage}
+        body={
+          estimate ? (
+            <div className="rounded-md bg-muted/30 p-3 text-sm">
+              <div>
+                Estimated max charge: <strong>¥{estimate.estimated_amount}</strong>
+              </div>
+              <div>
+                Current balance: <strong>¥{estimate.balance}</strong>
+              </div>
+            </div>
+          ) : null
+        }
+        confirmLabel="我已理解，继续扣费 / Proceed"
+        cancelLabel="取消 / Cancel"
+      />
+
       <ChargeModal
         open={open}
         amount={Number(CHARGE_AMOUNT)}
         currency="CNY"
         balance={balance ?? 0}
-        purpose="Demo charge (Story 5.A.1)"
+        purpose="Demo charge (Story 5.A.1 + 5.A.5)"
         referenceId={referenceId}
         onConfirm={handleConfirm}
         onCancel={() => setOpen(false)}
