@@ -139,6 +139,16 @@ export interface ModelVersion {
   provider_url: string;
 }
 
+/** Story 6.A.1 — FR R5 academic citation (BibTeX + UI hints). */
+export interface Citation {
+  bibtex: string;
+  authors_label_zh: string;
+  year: number;
+  venue: string;
+  doi: string | null;
+  url: string | null;
+}
+
 export interface Algorithm {
   k_algo: string;
   task_type: string;
@@ -154,6 +164,8 @@ export interface Algorithm {
   }>;
   /** Story 2.4 — FR C4 solver enum names valid for this algorithm. */
   supported_solvers: string[];
+  /** Story 6.A.1 — FR R5 academic citation; null reserved for commercial-only SKUs. */
+  citation: Citation | null;
 }
 
 export interface ListAlgorithmsOptions {

@@ -3,7 +3,7 @@
 # Source: epics.md (21 Epics / 192 Stories, post AE rounds)
 # Path B unlock node sequence (5 + J1 vertical slice 4 锚点 + Critical Gaps)
 
-last_updated: 2026-05-19p
+last_updated: 2026-05-20
 
 # ===== STATUS DEFINITIONS =====
 # backlog            — not yet started
@@ -191,11 +191,11 @@ development_status:
   5-d-7-invoice-budget-tier2-component: backlog
 
   # ===== Epic 6.A/B/C: Reproducibility (13 stories) =====
-  epic-6-a: backlog
+  epic-6-a: in-progress
   epic-6-b: backlog
   epic-6-c: backlog
 
-  6-a-1-citation-bibtex: backlog               # FR R5 v1 必上
+  6-a-1-citation-bibtex: review                # FR R5 v1 必上 — dev complete 2026-05-20, awaiting code review
   6-a-2-bibtex-academic-page: backlog
   6-a-3-citation-tracking: backlog
   6-a-4-academic-onboarding-toolkit: backlog   # RE2-2

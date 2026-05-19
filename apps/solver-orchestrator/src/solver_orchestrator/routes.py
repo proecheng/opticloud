@@ -25,6 +25,7 @@ from solver_orchestrator.db import get_session
 from solver_orchestrator.models import IdempotencyKey, Optimization
 from solver_orchestrator.schemas import (
     AlgorithmSchema,
+    CitationSchema,
     OptimizationRequest,
     OptimizationResponse,
 )
@@ -453,7 +454,16 @@ async def post_optimization(
 
 
 def _build_success_response(opt: Optimization) -> JSONResponse:
-    """FR E1 + E9 — success response."""
+    """FR E1 + E9 — success response, with FR R5 citation (Story 6.A.1)."""
+    algo_citation: dict[str, object] | None = None
+    if isinstance(opt.model_version, dict):
+        provider_id = opt.model_version.get("provider_id")
+        if isinstance(provider_id, str):
+            for a in CATALOG:
+                if a["model_version"]["provider_id"] == provider_id:
+                    algo_citation = a.get("citation")  # type: ignore[assignment]
+                    break
+
     payload = OptimizationResponse(
         optimization_id=opt.id,
         status="completed",
@@ -463,6 +473,7 @@ def _build_success_response(opt: Optimization) -> JSONResponse:
         solve_seconds=float(opt.solve_seconds) if opt.solve_seconds is not None else 0.0,
         created_at=opt.created_at,
         completed_at=opt.completed_at or opt.created_at,
+        citation=CitationSchema.model_validate(algo_citation) if algo_citation else None,
     )
     return JSONResponse(
         content=json.loads(payload.model_dump_json()),
@@ -599,6 +610,7 @@ async def post_optimization_demo(request: Request) -> JSONResponse:
                 "model_version": dict(algo["model_version"]),
                 "solve_seconds": result.solve_seconds,
                 "demo": True,
+                "citation": algo.get("citation"),  # Story 6.A.1 — FR R5
             },
             status_code=status.HTTP_200_OK,
         )

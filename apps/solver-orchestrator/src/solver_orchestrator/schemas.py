@@ -20,6 +20,17 @@ class ModelVersionSchema(BaseModel):
     provider_url: str = Field(..., description="Provider transparency (A-S1 fix)")
 
 
+class CitationSchema(BaseModel):
+    """Story 6.A.1 — FR R5 academic citation."""
+
+    bibtex: str
+    authors_label_zh: str
+    year: int
+    venue: str
+    doi: str | None = None
+    url: str | None = None
+
+
 class AlgorithmSchema(BaseModel):
     k_algo: str
     task_type: str
@@ -30,6 +41,7 @@ class AlgorithmSchema(BaseModel):
     description_en: str
     examples: list[dict[str, Any]] = []
     supported_solvers: list[str]  # Story 2.4 — FR C4
+    citation: CitationSchema | None = None  # Story 6.A.1 — FR R5
 
 
 # ===== Story 3.1: POST /v1/optimizations =====
@@ -95,3 +107,4 @@ class OptimizationResponse(BaseModel):
     solve_seconds: float
     created_at: datetime
     completed_at: datetime
+    citation: CitationSchema | None = None  # Story 6.A.1 — FR R5

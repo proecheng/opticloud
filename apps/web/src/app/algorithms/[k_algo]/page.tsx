@@ -51,10 +51,16 @@ function CodeBlock({
   lang,
   code,
   testId,
+  label,
+  ariaLabel,
 }: {
   lang: "python" | "bash";
   code: string;
   testId: string;
+  /** Story 6.A.1 — optional override for the upper-left label (default: Python / cURL). */
+  label?: string;
+  /** Story 6.A.1 — optional override for the copy-button aria-label. */
+  ariaLabel?: string;
 }): JSX.Element {
   const [copied, setCopied] = useState(false);
 
@@ -68,17 +74,20 @@ function CodeBlock({
     }
   };
 
+  const computedLabel = label ?? (lang === "python" ? "Python" : "cURL");
+  const computedAriaLabel = ariaLabel ?? `复制 ${computedLabel} 代码`;
+
   return (
     <div className="relative rounded-md border border-border bg-muted/30" data-testid={testId}>
       <div className="flex items-center justify-between border-b border-border px-3 py-1.5">
         <span className="font-mono text-xs uppercase text-muted-foreground">
-          {lang === "python" ? "Python" : "cURL"}
+          {computedLabel}
         </span>
         <button
           type="button"
           onClick={() => void handleCopy()}
           className="min-h-touch rounded px-2 py-1 text-xs text-primary hover:bg-primary/10"
-          aria-label={`复制${lang === "python" ? " Python" : " cURL"}代码`}
+          aria-label={computedAriaLabel}
         >
           {copied ? "✅ 已复制" : "📋 复制"}
         </button>
@@ -302,6 +311,58 @@ export default function AlgorithmDetailPage(): JSX.Element {
                 </div>
               )}
             </section>
+
+            {algo.citation && (
+              <section data-testid="citation-block" aria-labelledby="citation-heading">
+                <h2
+                  id="citation-heading"
+                  className="mb-2 text-lg font-semibold"
+                >
+                  📚 引用本算法
+                </h2>
+                <p className="mb-3 text-sm text-muted-foreground">
+                  <span data-testid="citation-authors">{algo.citation.authors_label_zh}</span>
+                  <span className="px-1">·</span>
+                  <span>{algo.citation.venue}</span>
+                  <span className="px-1">·</span>
+                  <span>{algo.citation.year}</span>
+                </p>
+                {algo.citation.doi && (
+                  <p className="mb-3 text-sm">
+                    DOI:{" "}
+                    <a
+                      href={`https://doi.org/${algo.citation.doi}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary hover:underline"
+                      data-testid="citation-doi"
+                    >
+                      {algo.citation.doi}
+                    </a>
+                  </p>
+                )}
+                {!algo.citation.doi && algo.citation.url && (
+                  <p className="mb-3 text-sm">
+                    <a
+                      href={algo.citation.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary hover:underline"
+                      data-testid="citation-url"
+                    >
+                      ↗ 查看出处
+                    </a>
+                  </p>
+                )}
+                <CodeBlock
+                  lang="bash"
+                  code={algo.citation.bibtex}
+                  testId="citation-bibtex"
+                  label="BibTeX"
+                  ariaLabel="复制 BibTeX 代码"
+                />
+              </section>
+            )}
 
             <section>
               <h2 className="mb-3 text-lg font-semibold">Example input JSON</h2>
