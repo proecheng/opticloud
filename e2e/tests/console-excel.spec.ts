@@ -59,19 +59,31 @@ const VRPTW_BUFFER = buildXlsxBuffer([
   },
 ]);
 
+// 3.E.4 — full mappable schedule workbook (任务 + 资源 + 工序 sheets).
 const SCHEDULE_BUFFER = buildXlsxBuffer([
   {
     name: "任务",
     rows: [
-      ["任务名", "工期", "截止"],
-      ["T1", 4, "2026-06-01"],
+      ["任务名", "工期", "截止", "资源"],
+      ["T1", 4, "2026-06-01", "机床A"],
+      ["T2", 2, "2026-06-02", "机床A"],
+      ["T3", 6, "2026-06-03", "机床B"],
     ],
   },
   {
     name: "资源",
     rows: [
-      ["资源", "数量"],
-      ["机床A", 2],
+      ["编号", "容量", "类型"],
+      ["机床A", 2, "机器"],
+      ["机床B", 1, "机器"],
+    ],
+  },
+  {
+    name: "工序",
+    rows: [
+      ["前驱", "后继"],
+      ["T1", "T2"],
+      ["T2", "T3"],
     ],
   },
 ]);
@@ -186,7 +198,12 @@ test.describe("Console Excel surface (3.E.1)", () => {
     await expect(preview).toContainText(/客户/);
   });
 
-  test("'其它' 切换为 schedule → 确认后 handoff 展示 schedule + 覆盖说明", async ({ page }) => {
+  test("'其它' 切换为 inventory → 确认后 handoff 展示 inventory + 覆盖说明", async ({
+    page,
+  }) => {
+    // 3.E.4 — was 'schedule' previously; switched to 'inventory' because
+    // schedule now routes to SchedulePreviewCard, not the fallback handoff card.
+    // Inventory still falls through until 3.E.5 ships its own preview card.
     await page.goto("/console/excel");
     await page.locator('input[type="file"]').setInputFiles({
       name: "vrptw.xlsx",
@@ -197,12 +214,12 @@ test.describe("Console Excel surface (3.E.1)", () => {
     await expect(page.getByTestId("confirmation-modal")).toBeVisible({ timeout: 10_000 });
     await page
       .getByTestId("detection-override-select")
-      .selectOption({ value: "schedule" });
+      .selectOption({ value: "inventory" });
     await page.getByRole("button", { name: "确认" }).click();
 
     const handoff = page.getByTestId("excel-confirmed-card");
     await expect(handoff).toBeVisible();
-    await expect(handoff).toContainText(/Schedule/);
+    await expect(handoff).toContainText(/Inventory/);
     await expect(handoff).toContainText(/覆盖系统推荐/);
   });
 
@@ -229,6 +246,43 @@ test.describe("Console Excel surface (3.E.1)", () => {
     // Submit → backend returns 501
     await page.getByTestId("vrptw-submit-button").click();
     const stub = page.getByTestId("vrptw-501-card");
+    await expect(stub).toBeVisible({ timeout: 10_000 });
+    await expect(stub).toContainText(/M2-M3/);
+  });
+
+  test("Schedule confirm → 试跑 → 501 friendly card + JSON preview", async ({
+    page,
+  }) => {
+    // 3.E.4 — drops a real Schedule workbook (任务/资源/工序), confirms the
+    // detected 'schedule' task_type (or overrides if detector picks wrong),
+    // then submits → backend short-circuits to 501.
+    await page.goto("/console/excel");
+    await page.locator('input[type="file"]').setInputFiles({
+      name: "schedule.xlsx",
+      mimeType: XLSX_MIME,
+      buffer: SCHEDULE_BUFFER,
+    });
+
+    await expect(page.getByTestId("confirmation-modal")).toBeVisible({ timeout: 10_000 });
+    // Force schedule explicitly to keep this test deterministic even if the
+    // detector's tie-break changes between versions.
+    await page
+      .getByTestId("detection-override-select")
+      .selectOption({ value: "schedule" });
+    await page.getByRole("button", { name: "确认" }).click();
+
+    const preview = page.getByTestId("schedule-preview-card");
+    await expect(preview).toBeVisible({ timeout: 10_000 });
+    await expect(preview).toContainText(/任务/);
+    await expect(preview).toContainText(/资源/);
+
+    // JSON preview should contain task_type=schedule
+    const jsonBlock = page.getByTestId("schedule-payload-json");
+    await expect(jsonBlock).toContainText('"task_type": "schedule"');
+
+    // Submit → backend returns 501
+    await page.getByTestId("schedule-submit-button").click();
+    const stub = page.getByTestId("schedule-501-card");
     await expect(stub).toBeVisible({ timeout: 10_000 });
     await expect(stub).toContainText(/M2-M3/);
   });

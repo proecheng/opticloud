@@ -60,3 +60,20 @@ async def test_demo_with_invalid_lp_body_returns_422(client: AsyncClient) -> Non
         json={"task_type": "lp"},  # missing required minimize/maximize + st
     )
     assert resp.status_code == 422
+
+
+async def test_demo_schedule_returns_501(client: AsyncClient) -> None:
+    """Story 3.E.4 — schedule body returns 501 with friendly 'M2-M3' detail."""
+    resp = await client.post(
+        "/v1/optimizations/demo",
+        json={
+            "task_type": "schedule",
+            "tasks": [{"id": "T1", "duration": 4}],
+            "resources": [{"id": "R1", "capacity": 1}],
+            "precedences": [],
+        },
+    )
+    assert resp.status_code == 501
+    body = resp.json()
+    assert "M2-M3" in body["detail"]
+    assert "schedule" in body["detail"]
