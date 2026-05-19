@@ -379,8 +379,9 @@ async def test_admin_list_flags_returns_history(
     assert r2.status_code == 200, r2.text
     body = r2.json()
     assert len(body) == 2
-    # DESC order — the second-inserted (fingerprint_high) comes first
-    assert body[0]["rule_code"] == "fingerprint_high"
+    # Same-transaction inserts share NOW() timestamp → ORDER BY created_at ties
+    # are non-deterministic. Assert set membership rather than position.
+    assert {row["rule_code"] for row in body} == {"ip_24_share", "fingerprint_high"}
 
 
 # ===== AC7 #10 =====
