@@ -3,7 +3,7 @@
 # Source: epics.md (21 Epics / 192 Stories, post AE rounds)
 # Path B unlock node sequence (5 + J1 vertical slice 4 锚点 + Critical Gaps)
 
-last_updated: 2026-05-19m
+last_updated: 2026-05-19n
 
 # ===== STATUS DEFINITIONS =====
 # backlog            — not yet started
@@ -88,7 +88,7 @@ development_status:
   2-2-algorithm-details: done                  # 2026-05-19 — /algorithms/[k_algo] FE detail page + Python/cURL snippets + 4 E2E + 3 backend tests; FR C2
   2-3-tier-based-browse: done                  # 2026-05-19 — backend `?tier=T1,P2` filter + FE chip group + URL sync + Suspense wrapper; +5 solver tests + 3 Playwright; FR C3
   2-4-solver-enum: done                        # 2026-05-19 — FR C4 ship: catalog supported_solvers field + find_by_task_type_and_solver helper + 400 RFC 7807 on bad solver + AlgorithmSchema/TS Algorithm interface aligned; +6 backend tests
-  2-5-fallback-chain: backlog                  # FR C5
+  2-5-fallback-chain: done                     # 2026-05-19 — FR C5 ship: OptimizationRequest.fallback_chain (≤3 cap, 422) + per-element validation (400 RFC 7807 "Unsupported Fallback Solver" with fallback_chain[i] field_path) on both /v1/optimizations + /demo; primary-solver ordering locked; chain stored only (execution = 2.7); +8 backend tests; TS LPRequest gains solver? + fallback_chain?
   2-6-multi-provider-routing: backlog          # FR C6
   2-7-fallback-execution: backlog              # FR C7
   2-8-unaudited-block: backlog                 # FR C8
