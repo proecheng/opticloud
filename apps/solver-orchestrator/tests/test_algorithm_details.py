@@ -109,3 +109,30 @@ async def test_list_with_empty_tier_param_returns_all(client: AsyncClient) -> No
     # Catalog currently has 8 SKUs (see catalog.py); use >= 1 to stay resilient
     # if catalog grows during M2.
     assert len(body) >= 8
+
+
+async def test_algorithm_detail_includes_citation(client: AsyncClient) -> None:
+    """Story 6.A.1 AC8 #8 — GET /v1/algorithms/{k_algo} returns citation."""
+    resp = await client.get("/v1/algorithms/highs-lp")
+    assert resp.status_code == 200
+    body = resp.json()
+    citation = body.get("citation")
+    assert citation is not None
+    assert citation["bibtex"].startswith("@article{huangfu2018parallelizing,")
+    assert citation["year"] == 2018
+    assert citation["doi"] == "10.1007/s12532-017-0130-5"
+    assert citation["authors_label_zh"] == "Huangfu & Hall (2018)"
+
+
+async def test_algorithm_list_includes_citation_for_every_row(client: AsyncClient) -> None:
+    """Story 6.A.1 AC8 #9 — every list row has citation populated."""
+    resp = await client.get("/v1/algorithms")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert len(body) >= 8
+    for item in body:
+        assert item.get("citation") is not None, (
+            f"{item['k_algo']} missing citation in list response"
+        )
+    # at least one recent paper (Chronos / OR-Tools 2024)
+    assert any(item["citation"]["year"] >= 2024 for item in body)

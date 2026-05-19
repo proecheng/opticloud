@@ -18,6 +18,21 @@ class ModelVersion(TypedDict):
     provider_url: str
 
 
+class Citation(TypedDict):
+    """Story 6.A.1 — FR R5 academic citation for an algorithm.
+
+    `bibtex` is the canonical copy-paste artifact (single-source-of-truth);
+    structured fields are UI hints.
+    """
+
+    bibtex: str
+    authors_label_zh: str
+    year: int
+    venue: str
+    doi: str | None
+    url: str | None
+
+
 class Algorithm(TypedDict):
     k_algo: str
     task_type: str
@@ -30,6 +45,7 @@ class Algorithm(TypedDict):
     supported_solvers: list[
         str
     ]  # Story 2.4 — FR C4 (enum of solver names valid for this algorithm)
+    citation: Citation | None  # Story 6.A.1 — FR R5 (None reserved for future commercial-only SKUs)
 
 
 CATALOG: list[Algorithm] = [
@@ -58,6 +74,25 @@ CATALOG: list[Algorithm] = [
             }
         ],
         "supported_solvers": ["highs"],
+        "citation": {
+            "bibtex": (
+                "@article{huangfu2018parallelizing,\n"
+                "  author = {Huangfu, Q. and Hall, J. A. J.},\n"
+                "  title = {Parallelizing the dual revised simplex method},\n"
+                "  journal = {Mathematical Programming Computation},\n"
+                "  volume = {10},\n"
+                "  number = {1},\n"
+                "  pages = {119--142},\n"
+                "  year = {2018},\n"
+                "  doi = {10.1007/s12532-017-0130-5}\n"
+                "}"
+            ),
+            "authors_label_zh": "Huangfu & Hall (2018)",
+            "year": 2018,
+            "venue": "Mathematical Programming Computation",
+            "doi": "10.1007/s12532-017-0130-5",
+            "url": "https://doi.org/10.1007/s12532-017-0130-5",
+        },
     },
     {
         "k_algo": "highs-milp",
@@ -74,6 +109,25 @@ CATALOG: list[Algorithm] = [
         "description_en": "HiGHS Mixed Integer Linear Programming",
         "examples": [],
         "supported_solvers": ["highs"],
+        "citation": {
+            "bibtex": (
+                "@article{huangfu2018parallelizing,\n"
+                "  author = {Huangfu, Q. and Hall, J. A. J.},\n"
+                "  title = {Parallelizing the dual revised simplex method},\n"
+                "  journal = {Mathematical Programming Computation},\n"
+                "  volume = {10},\n"
+                "  number = {1},\n"
+                "  pages = {119--142},\n"
+                "  year = {2018},\n"
+                "  doi = {10.1007/s12532-017-0130-5}\n"
+                "}"
+            ),
+            "authors_label_zh": "Huangfu & Hall (2018)",
+            "year": 2018,
+            "venue": "Mathematical Programming Computation",
+            "doi": "10.1007/s12532-017-0130-5",
+            "url": "https://doi.org/10.1007/s12532-017-0130-5",
+        },
     },
     {
         "k_algo": "or-tools-vrptw",
@@ -90,6 +144,23 @@ CATALOG: list[Algorithm] = [
         "description_en": "OR-Tools Vehicle Routing with Time Windows",
         "examples": [],
         "supported_solvers": ["or-tools"],
+        "citation": {
+            "bibtex": (
+                "@software{perron2024ortools,\n"
+                "  author = {Perron, Laurent and Furnon, Vincent},\n"
+                "  title = {OR-Tools},\n"
+                "  organization = {Google},\n"
+                "  year = {2024},\n"
+                "  version = {9.10.0},\n"
+                "  url = {https://developers.google.com/optimization}\n"
+                "}"
+            ),
+            "authors_label_zh": "Perron & Furnon · Google (2024)",
+            "year": 2024,
+            "venue": "Software",
+            "doi": None,
+            "url": "https://developers.google.com/optimization",
+        },
     },
     {
         "k_algo": "or-tools-cp-sat",
@@ -106,6 +177,25 @@ CATALOG: list[Algorithm] = [
         "description_en": "OR-Tools CP-SAT — Constraint Programming",
         "examples": [],
         "supported_solvers": ["or-tools-cp-sat", "or-tools"],
+        "citation": {
+            "bibtex": (
+                "@inproceedings{perron2011constraint,\n"
+                "  author = {Perron, Laurent},\n"
+                "  title = {Operations Research and Constraint Programming at Google},\n"
+                "  booktitle = {Principles and Practice of Constraint Programming (CP 2011)},\n"
+                "  series = {Lecture Notes in Computer Science},\n"
+                "  volume = {6876},\n"
+                "  pages = {2},\n"
+                "  year = {2011},\n"
+                "  doi = {10.1007/978-3-642-23786-7_2}\n"
+                "}"
+            ),
+            "authors_label_zh": "Perron · Google (2011)",
+            "year": 2011,
+            "venue": "Principles and Practice of Constraint Programming (CP)",
+            "doi": "10.1007/978-3-642-23786-7_2",
+            "url": "https://doi.org/10.1007/978-3-642-23786-7_2",
+        },
     },
     {
         "k_algo": "chronos-t5-forecast",
@@ -122,6 +212,27 @@ CATALOG: list[Algorithm] = [
         "description_en": "Chronos-T5 time-series foundation model",
         "examples": [],
         "supported_solvers": ["chronos-t5"],
+        "citation": {
+            "bibtex": (
+                "@article{ansari2024chronos,\n"
+                "  author = {Ansari, Abdul Fatir and Stella, Lorenzo and Turkmen, Caner and "
+                "Zhang, Xiyuan and Mercado, Pedro and Shen, Huibin and Shchur, Oleksandr and "
+                "Rangapuram, Syama Sundar and Pineda Arango, Sebastian and Kapoor, Shubham "
+                "and Zschiegner, Jasper and Maddix, Danielle C. and Mahoney, Michael W. and "
+                "Torkkola, Kari and Wilson, Andrew Gordon and Bohlke-Schneider, Michael and "
+                "Wang, Yuyang},\n"
+                "  title = {Chronos: Learning the Language of Time Series},\n"
+                "  journal = {arXiv preprint},\n"
+                "  year = {2024},\n"
+                "  doi = {10.48550/arXiv.2403.07815}\n"
+                "}"
+            ),
+            "authors_label_zh": "Ansari et al. · Amazon Science (2024)",
+            "year": 2024,
+            "venue": "arXiv preprint",
+            "doi": "10.48550/arXiv.2403.07815",
+            "url": "https://doi.org/10.48550/arXiv.2403.07815",
+        },
     },
     {
         "k_algo": "arima-forecast",
@@ -138,6 +249,23 @@ CATALOG: list[Algorithm] = [
         "description_en": "ARIMA classical time-series forecasting",
         "examples": [],
         "supported_solvers": ["statsmodels-arima", "arima"],
+        "citation": {
+            "bibtex": (
+                "@book{box1976time,\n"
+                "  author = {Box, George E. P. and Jenkins, Gwilym M.},\n"
+                "  title = {Time Series Analysis: Forecasting and Control},\n"
+                "  publisher = {Holden-Day},\n"
+                "  address = {San Francisco},\n"
+                "  year = {1976},\n"
+                "  edition = {Revised}\n"
+                "}"
+            ),
+            "authors_label_zh": "Box & Jenkins (1976)",
+            "year": 1976,
+            "venue": "Holden-Day",
+            "doi": None,
+            "url": None,
+        },
     },
     {
         "k_algo": "lstm-forecast",
@@ -154,6 +282,25 @@ CATALOG: list[Algorithm] = [
         "description_en": "LSTM neural network — long-sequence / multivariate forecasting",
         "examples": [],
         "supported_solvers": ["tensorflow-lstm", "lstm"],
+        "citation": {
+            "bibtex": (
+                "@article{hochreiter1997long,\n"
+                '  author = {Hochreiter, Sepp and Schmidhuber, J\\"{u}rgen},\n'
+                "  title = {Long Short-Term Memory},\n"
+                "  journal = {Neural Computation},\n"
+                "  volume = {9},\n"
+                "  number = {8},\n"
+                "  pages = {1735--1780},\n"
+                "  year = {1997},\n"
+                "  doi = {10.1162/neco.1997.9.8.1735}\n"
+                "}"
+            ),
+            "authors_label_zh": "Hochreiter & Schmidhuber (1997)",
+            "year": 1997,
+            "venue": "Neural Computation",
+            "doi": "10.1162/neco.1997.9.8.1735",
+            "url": "https://doi.org/10.1162/neco.1997.9.8.1735",
+        },
     },
     {
         "k_algo": "aqgs-acopf",
@@ -170,6 +317,23 @@ CATALOG: list[Algorithm] = [
         "description_en": "AQGS-ACOPF — proprietary AC Optimal Power Flow (Innovation #6)",
         "examples": [],
         "supported_solvers": ["aqgs"],
+        "citation": {
+            "bibtex": (
+                "@software{aqgs2025opticloud,\n"
+                "  author = {{OptiCloud Team}},\n"
+                "  title = {AQGS-ACOPF: Augmented Quotient-Gradient System for AC Optimal Power Flow},\n"
+                "  year = {2025},\n"
+                "  version = {0.1.0},\n"
+                "  license = {Apache-2.0},\n"
+                "  url = {https://github.com/opticloud/aqgs}\n"
+                "}"
+            ),
+            "authors_label_zh": "OptiCloud / Trust-Tech 团队 (2025)",
+            "year": 2025,
+            "venue": "Software (Apache 2.0)",
+            "doi": None,
+            "url": "https://github.com/opticloud/aqgs",
+        },
     },
 ]
 

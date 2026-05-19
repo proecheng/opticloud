@@ -18,6 +18,7 @@ from solver_orchestrator import billing_client, solvers
 from solver_orchestrator.auth import require_scope, verify_api_key
 from solver_orchestrator.catalog import (
     CATALOG,
+    Citation,
     find_by_k_algo,
     find_by_task_type_and_solver,
 )
@@ -25,6 +26,7 @@ from solver_orchestrator.db import get_session
 from solver_orchestrator.models import IdempotencyKey, Optimization
 from solver_orchestrator.schemas import (
     AlgorithmSchema,
+    CitationSchema,
     OptimizationRequest,
     OptimizationResponse,
 )
@@ -453,7 +455,30 @@ async def post_optimization(
 
 
 def _build_success_response(opt: Optimization) -> JSONResponse:
-    """FR E1 + E9 — success response."""
+    """FR E1 + E9 — success response, with FR R5 citation (Story 6.A.1)."""
+    algo_citation: Citation | None = None
+    if isinstance(opt.model_version, dict):
+        provider_id = opt.model_version.get("provider_id")
+        if isinstance(provider_id, str):
+            # Story 6.A.1 review patch — disambiguate by (provider_id, task_type)
+            # because highs-lp and highs-milp both have provider_id="highs".
+            for a in CATALOG:
+                if (
+                    a["model_version"]["provider_id"] == provider_id
+                    and a["task_type"] == opt.task_type
+                ):
+                    algo_citation = a.get("citation")
+                    break
+
+    citation_payload: CitationSchema | None = None
+    if algo_citation is not None:
+        # Defensive guard: a malformed catalog row degrades to citation=None
+        # rather than blowing up the entire success response with a 500.
+        try:
+            citation_payload = CitationSchema.model_validate(algo_citation)
+        except Exception:
+            citation_payload = None
+
     payload = OptimizationResponse(
         optimization_id=opt.id,
         status="completed",
@@ -463,6 +488,7 @@ def _build_success_response(opt: Optimization) -> JSONResponse:
         solve_seconds=float(opt.solve_seconds) if opt.solve_seconds is not None else 0.0,
         created_at=opt.created_at,
         completed_at=opt.completed_at or opt.created_at,
+        citation=citation_payload,
     )
     return JSONResponse(
         content=json.loads(payload.model_dump_json()),
@@ -591,6 +617,17 @@ async def post_optimization_demo(request: Request) -> JSONResponse:
     )
 
     if result.status == "optimal":
+        # Story 6.A.1 review patch — route demo citation through CitationSchema
+        # for byte-identical shape with the authenticated route.
+        demo_citation_raw = algo.get("citation")
+        demo_citation: dict[str, object] | None = None
+        if demo_citation_raw is not None:
+            try:
+                demo_citation = json.loads(
+                    CitationSchema.model_validate(demo_citation_raw).model_dump_json()
+                )
+            except Exception:
+                demo_citation = None
         return JSONResponse(
             content={
                 "status": "completed",
@@ -599,6 +636,7 @@ async def post_optimization_demo(request: Request) -> JSONResponse:
                 "model_version": dict(algo["model_version"]),
                 "solve_seconds": result.solve_seconds,
                 "demo": True,
+                "citation": demo_citation,
             },
             status_code=status.HTTP_200_OK,
         )
