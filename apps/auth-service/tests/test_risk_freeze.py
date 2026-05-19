@@ -17,7 +17,7 @@ def _phone() -> str:
 
 
 def _email() -> str:
-    return f"u-{uuid.uuid4().hex[:10]}@example.test"
+    return f"u-{uuid.uuid4().hex[:10]}@example.com"
 
 
 @pytest_asyncio.fixture
@@ -44,7 +44,8 @@ async def _seed_prior_signup(
             text(
                 "INSERT INTO audit_logs (user_id, actor, action, resource_type, "
                 "resource_id, ip_address, metadata) "
-                "VALUES (:uid, 'user', 'auth.signup', 'user', :uid, :ip::inet, '{}'::jsonb)"
+                "VALUES (:uid, 'user', 'auth.signup', 'user', :uid, "
+                "CAST(:ip AS inet), CAST('{}' AS jsonb))"
             ),
             {"uid": user_id, "ip": ip},
         )
@@ -386,7 +387,7 @@ async def test_r3_ip24_share_triggers_when_3_priors_same_24(
             engine,
             uuid.uuid4(),
             f"+8613{uuid.uuid4().int % 10**10:010d}",
-            f"prior-{uuid.uuid4().hex[:10]}@example.test",
+            f"prior-{uuid.uuid4().hex[:10]}@example.com",
             f"198.51.100.{i + 1}",
         )
 
