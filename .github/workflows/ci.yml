@@ -214,6 +214,7 @@ jobs:
           psql -h localhost -U opticloud -d opticloud_dev -f infra/local-init/01-schema.sql
           psql -h localhost -U opticloud -d opticloud_dev -f infra/local-init/03-billing-schema.sql
           psql -h localhost -U opticloud -d opticloud_dev -f infra/local-init/04-outbox-trigger.sql
+          psql -h localhost -U opticloud -d opticloud_dev -f infra/local-init/05-bucket-backfill.sql
       - name: Run tests
         env:
           DATABASE_URL: postgresql+asyncpg://opticloud:opticloud_dev@localhost:5432/opticloud_dev  # pragma: allowlist secret
