@@ -53,18 +53,27 @@ async def readyz(session: AsyncSession = Depends(get_session)) -> dict[str, obje
     "/algorithms",
     response_model=list[AlgorithmSchema],
     tags=["catalog"],
-    summary="列出所有支持的算法（公开免鉴权 FR C1）",
+    summary="列出所有支持的算法（公开免鉴权 FR C1 + C3）",
     description=(
-        "FR C1: 任何访客 can list algorithms via `GET /v1/algorithms` 公开免鉴权.\n\n"
-        "Source: Story 2.1 + Architecture B1 boundary "
-        "(M1-M2: static catalog; M3+: capability-registry service)."
+        "FR C1 + C3: 任何访客 can list algorithms via `GET /v1/algorithms`.\n\n"
+        "Optional filters (combinable):\n"
+        "- `task_type=lp` — exact match\n"
+        "- `tier=T1` or `tier=T1,P2` — comma-separated multi-tier OR\n\n"
+        "Unknown filter values return an empty list (permissive, no 422)."
     ),
 )
-async def list_algorithms(task_type: str | None = None) -> list[AlgorithmSchema]:
-    """FR C1 + C3 — public algorithm list, optional task_type filter (FR C3)."""
+async def list_algorithms(
+    task_type: str | None = None,
+    tier: str | None = None,
+) -> list[AlgorithmSchema]:
+    """FR C1 + C3 — public algorithm list, optional task_type + tier filters."""
     items = CATALOG
     if task_type:
         items = [a for a in items if a["task_type"] == task_type]
+    if tier:
+        wanted = {t.strip() for t in tier.split(",") if t.strip()}
+        if wanted:
+            items = [a for a in items if a["tier"] in wanted]
     return [AlgorithmSchema.model_validate(a) for a in items]
 
 

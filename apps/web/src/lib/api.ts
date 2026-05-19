@@ -154,8 +154,23 @@ export interface Algorithm {
   }>;
 }
 
-export async function listAlgorithms(): Promise<Algorithm[]> {
-  return request<Algorithm[]>("/v1/algorithms", {}, SOLVER_SERVICE_URL);
+export interface ListAlgorithmsOptions {
+  taskType?: string;
+  /** Story 2.3 — comma-joined server-side; FR C3 OR semantics across tiers. */
+  tier?: string[];
+}
+
+export async function listAlgorithms(
+  options: ListAlgorithmsOptions = {},
+): Promise<Algorithm[]> {
+  const params = new URLSearchParams();
+  if (options.taskType) params.set("task_type", options.taskType);
+  if (options.tier && options.tier.length > 0) {
+    params.set("tier", options.tier.join(","));
+  }
+  const qs = params.toString();
+  const path = qs ? `/v1/algorithms?${qs}` : "/v1/algorithms";
+  return request<Algorithm[]>(path, {}, SOLVER_SERVICE_URL);
 }
 
 export async function getAlgorithm(kAlgo: string): Promise<Algorithm> {

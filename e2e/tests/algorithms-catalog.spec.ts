@@ -26,19 +26,41 @@ test.describe("Algorithms catalog (public)", () => {
     expect(href).toMatch(/^https?:\/\//);
   });
 
-  test("Tier filter 切换 — 只显示 T-tier 算法", async ({ page }) => {
+  // Story 2.3 — per-tier chip filtering (replaces the old optimization/prediction button)
+  test("点击 T1 chip 只显示 T1 SKU", async ({ page }) => {
     await page.goto("/algorithms");
+    await page.getByTestId("tier-chip-T1").click();
 
-    // Click "优化 (T1-T6)" tab
-    await page.getByRole("button", { name: /优化/ }).click();
-
-    // After filter: cards should show T-tier only (not P-tier)
     const cards = page.getByTestId("algorithm-card");
-    await expect(cards.first()).toBeVisible();
+    await expect(cards).toHaveCount(1, { timeout: 10_000 });
+    await expect(cards.first()).toContainText("highs-lp");
+  });
 
-    // Verify at least one T-tier visible
-    const tierBadges = cards.locator("text=/^T[1-6]$/");
-    const tierCount = await tierBadges.count();
-    expect(tierCount).toBeGreaterThanOrEqual(1);
+  test("点击 T1 + P1 chip 显示两个 SKU", async ({ page }) => {
+    await page.goto("/algorithms");
+    await page.getByTestId("tier-chip-T1").click();
+    await page.getByTestId("tier-chip-P1").click();
+
+    const cards = page.getByTestId("algorithm-card");
+    await expect(cards).toHaveCount(2, { timeout: 10_000 });
+    const allText = (await cards.allTextContents()).join(" ");
+    expect(allText).toContain("highs-lp");
+    expect(allText).toContain("arima-forecast");
+  });
+
+  test("URL ?tier=T1,P1 hydrates 初始 chip 选中状态", async ({ page }) => {
+    await page.goto("/algorithms?tier=T1,P1");
+
+    // Chips reflect URL state (aria-pressed=true)
+    await expect(page.getByTestId("tier-chip-T1")).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByTestId("tier-chip-P1")).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByTestId("tier-chip-T2")).toHaveAttribute("aria-pressed", "false");
+
+    // Cards match the filter
+    const cards = page.getByTestId("algorithm-card");
+    await expect(cards).toHaveCount(2, { timeout: 10_000 });
+
+    // URL kept stable after settle
+    await expect(page).toHaveURL(/tier=P1%2CT1|tier=T1%2CP1|tier=T1,P1|tier=P1,T1/);
   });
 });
