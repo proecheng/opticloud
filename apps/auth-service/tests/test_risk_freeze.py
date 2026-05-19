@@ -30,6 +30,22 @@ async def admin_secret() -> AsyncIterator[str]:
     settings.admin_secret = original
 
 
+async def _seed_user(engine: AsyncEngine) -> uuid.UUID:
+    """Create a user via raw INSERT — bypasses /v1/auth/signup so no signup-time
+    auto-flag (R3 ip_24_share) fires from the shared CI 127.0.0.1 IP. Tests that
+    don't specifically exercise the signup wiring should use this for isolation
+    against test execution order."""
+    user_id = uuid.uuid4()
+    maker = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
+    async with maker() as s:
+        await s.execute(
+            text("INSERT INTO users (id, phone, email) VALUES (:id, :p, :e)"),
+            {"id": user_id, "p": _phone(), "e": _email()},
+        )
+        await s.commit()
+    return user_id
+
+
 async def _seed_prior_signup(
     engine: AsyncEngine, user_id: uuid.UUID, phone: str, email: str, ip: str
 ) -> None:
@@ -111,12 +127,10 @@ async def test_signup_alone_does_not_freeze(http_client: AsyncClient, engine: As
 async def test_signup_then_admin_flag_freezes(
     http_client: AsyncClient, engine: AsyncEngine, admin_secret: str
 ) -> None:
-    """AC7 #3 — signup (R3 may or may not auto-fire) + admin flag of a different enabled rule
-    pushes count to 2 → user frozen + login 403."""
-    # Step 1: real signup so we have a user
-    r = await http_client.post("/v1/auth/signup", json={"phone": _phone(), "email": _email()})
-    assert r.status_code == 201
-    user_id = uuid.UUID(r.json()["user_id"])
+    """AC7 #3 — user with a seeded R3 flag + admin flag of a 2nd enabled rule
+    pushes distinct-enabled count to 2 → user frozen + login 403."""
+    # Use _seed_user (bypasses /signup) for test isolation — see helper docstring.
+    user_id = await _seed_user(engine)
 
     # Step 2: directly seed an ip_24_share flag (simulating R3 having fired on a prior signup)
     maker = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
@@ -124,7 +138,7 @@ async def test_signup_then_admin_flag_freezes(
         await s.execute(
             text(
                 "INSERT INTO risk_flags (user_id, rule_code, source, metadata) "
-                "VALUES (:uid, 'ip_24_share', 'auto', '{}'::jsonb)"
+                "VALUES (:uid, 'ip_24_share', 'auto', CAST('{}' AS jsonb))"
             ),
             {"uid": user_id},
         )
@@ -222,8 +236,7 @@ async def test_admin_flag_disabled_rule_does_not_count_toward_freeze(
     http_client: AsyncClient, engine: AsyncEngine, admin_secret: str
 ) -> None:
     """AC7 #6 — flag for a DISABLED rule is recorded but doesn't push toward freeze."""
-    r = await http_client.post("/v1/auth/signup", json={"phone": _phone(), "email": _email()})
-    user_id = uuid.UUID(r.json()["user_id"])
+    user_id = await _seed_user(engine)  # bypass /signup for test isolation
 
     # Seed an enabled flag first (ip_24_share)
     maker = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
@@ -231,7 +244,7 @@ async def test_admin_flag_disabled_rule_does_not_count_toward_freeze(
         await s.execute(
             text(
                 "INSERT INTO risk_flags (user_id, rule_code, source, metadata) "
-                "VALUES (:uid, 'ip_24_share', 'auto', '{}'::jsonb)"
+                "VALUES (:uid, 'ip_24_share', 'auto', CAST('{}' AS jsonb))"
             ),
             {"uid": user_id},
         )
@@ -265,8 +278,7 @@ async def test_admin_unfreeze_clears_is_frozen(
 ) -> None:
     """AC7 #7 — unfreeze clears the flag and login is no longer 403."""
     # Setup: frozen user
-    r = await http_client.post("/v1/auth/signup", json={"phone": _phone(), "email": _email()})
-    user_id = uuid.UUID(r.json()["user_id"])
+    user_id = await _seed_user(engine)  # bypass /signup for test isolation
     maker = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
     async with maker() as s:
         await s.execute(
@@ -305,14 +317,13 @@ async def test_admin_unfreeze_preserves_risk_flags(
     http_client: AsyncClient, engine: AsyncEngine, admin_secret: str
 ) -> None:
     """AC7 #8 — unfreeze does NOT delete risk_flags rows (audit preserved)."""
-    r = await http_client.post("/v1/auth/signup", json={"phone": _phone(), "email": _email()})
-    user_id = uuid.UUID(r.json()["user_id"])
+    user_id = await _seed_user(engine)  # bypass /signup for test isolation
     maker = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
     async with maker() as s:
         await s.execute(
             text(
                 "INSERT INTO risk_flags (user_id, rule_code, source, metadata) "
-                "VALUES (:uid, 'ip_24_share', 'auto', '{}'::jsonb)"
+                "VALUES (:uid, 'ip_24_share', 'auto', CAST('{}' AS jsonb))"
             ),
             {"uid": user_id},
         )
@@ -341,22 +352,21 @@ async def test_admin_list_flags_returns_history(
     http_client: AsyncClient, engine: AsyncEngine, admin_secret: str
 ) -> None:
     """AC7 #9 — GET /v1/admin/risk-flags?user_id=X returns rows DESC."""
-    r = await http_client.post("/v1/auth/signup", json={"phone": _phone(), "email": _email()})
-    user_id = uuid.UUID(r.json()["user_id"])
+    user_id = await _seed_user(engine)  # bypass /signup for test isolation
 
     maker = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
     async with maker() as s:
         await s.execute(
             text(
                 "INSERT INTO risk_flags (user_id, rule_code, source, metadata) "
-                "VALUES (:uid, 'ip_24_share', 'auto', '{}'::jsonb)"
+                "VALUES (:uid, 'ip_24_share', 'auto', CAST('{}' AS jsonb))"
             ),
             {"uid": user_id},
         )
         await s.execute(
             text(
                 "INSERT INTO risk_flags (user_id, rule_code, source, metadata) "
-                "VALUES (:uid, 'fingerprint_high', 'admin', '{}'::jsonb)"
+                "VALUES (:uid, 'fingerprint_high', 'admin', CAST('{}' AS jsonb))"
             ),
             {"uid": user_id},
         )

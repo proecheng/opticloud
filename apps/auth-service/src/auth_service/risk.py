@@ -143,20 +143,22 @@ async def apply_flags_and_maybe_freeze(
     on an already-frozen user is a no-op UPDATE).
 
     Returns True iff the user transitioned to frozen by this call.
-    """
-    if not new_flags:
-        return False
 
-    for rule_code, source, metadata in new_flags:
-        session.add(
-            RiskFlag(
-                user_id=user_id,
-                rule_code=rule_code,
-                source=source,
-                flag_metadata=metadata,
+    Empty `new_flags` is supported: the admin endpoint inserts its own flag
+    before calling here (so it can return the new flag's id), then passes
+    `[]` to share this same freeze code-path.
+    """
+    if new_flags:
+        for rule_code, source, metadata in new_flags:
+            session.add(
+                RiskFlag(
+                    user_id=user_id,
+                    rule_code=rule_code,
+                    source=source,
+                    flag_metadata=metadata,
+                )
             )
-        )
-    await session.flush()  # ensures the new flags are visible to the count below
+        await session.flush()  # ensures the new flags are visible to the count below
 
     distinct_enabled = await _distinct_enabled_triggers(session, user_id)
     if len(distinct_enabled) < FREEZE_THRESHOLD:
