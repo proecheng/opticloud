@@ -3,7 +3,7 @@
 # Source: epics.md (21 Epics / 192 Stories, post AE rounds)
 # Path B unlock node sequence (5 + J1 vertical slice 4 锚点 + Critical Gaps)
 
-last_updated: 2026-05-19
+last_updated: 2026-05-19a
 
 # ===== STATUS DEFINITIONS =====
 # backlog            — not yet started
@@ -40,6 +40,8 @@ development_status:
   m2-0-saga-spike: done                        # RE6 — 2026-05-18 (ADR-0001 Hybrid Saga + ADR-0002 K8s sidecar; 8 state-machine tests; 33 total regression OK)
   m2-1-outbox-relayer: done                    # 2026-05-18 — sidecar relayer (asyncpg + Redis pub + LISTEN/NOTIFY); 8 integration tests; P95 lag < 500ms verified
   m2-2a-billing-critical-tests: done           # 2026-05-18 — 55 critical scenarios + S1 cross-tenant security fix; NFR-R4 v1.5 hard-gate evidence
+  m2-2b-saga-property-tests: done              # 2026-05-19 — 8 Hypothesis property tests pass (P1-P7 + trigger-list meta); 5s wall-time; found orchestrator quirk re user_cancel ledger row
+  m2-2c-billing-reconciler-job: backlog        # 2026-05-19 NEW — retry finalize for billing_finalize_failed=true rows (5.A.4 Q4 tech-debt)
   m2-3-cost-attribution: backlog               # G3 Critical Gap
   m3-0-image-archival-prep: backlog            # SC8
   m3-1-sandbox-io-pattern: backlog
