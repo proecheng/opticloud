@@ -3,7 +3,7 @@ story_key: 6-a-1-citation-bibtex
 epic_num: 6.A
 epic_name: Reproducibility — BibTeX Academic v1 必上 (M3)
 story_num: 6.A.1
-status: review
+status: done
 priority: 🟠 High (FR R5 — v1 必上 标注; opens Epic 6.A — Innovation #3 学界变现飞轮基础)
 sizing: M (~3-4 hours; backend catalog enrich + response wiring + FE detail-page citation block + tests; no migrations)
 type: implementation
@@ -667,7 +667,7 @@ One small additive design refinement from spec: `CodeBlock` gained two optional 
 
 ### Completion Notes
 
-- All 9 ACs satisfied:
+- All 10 ACs satisfied:
   - AC1 ✅ — `Citation` TypedDict added; 8 catalog rows populated with hand-curated BibTeX entries (huangfu2018 × 2, perron2024ortools, perron2011constraint, ansari2024chronos, box1976time, hochreiter1997long, aqgs2025opticloud)
   - AC2 ✅ — `CitationSchema` + `AlgorithmSchema.citation` + `OptimizationResponse.citation` (all default `None`)
   - AC3 ✅ — `_build_success_response` does catalog-lookup-by-provider_id at response time
@@ -686,19 +686,54 @@ One small additive design refinement from spec: `CodeBlock` gained two optional 
 ### File List
 
 **Created:**
-- `apps/solver-orchestrator/tests/test_citation.py` (146 lines, 7 cases)
-- `e2e/tests/algorithm-citation.spec.ts` (84 lines, 2 cases)
+- `apps/solver-orchestrator/tests/test_citation.py` (~260 lines, 11 cases including 4 review-patch additions)
+- `e2e/tests/algorithm-citation.spec.ts` (87 lines, 2 cases)
+- `_bmad-output/stories/6-a-1-citation-bibtex.md` (this file — story spec + Dev Agent Record + Review Findings)
+- `_bmad-output/deferred-work.md` (review-deferred items log)
 
 **Modified:**
 - `apps/solver-orchestrator/src/solver_orchestrator/catalog.py` (+ Citation TypedDict; + 8 citation blocks on existing rows)
 - `apps/solver-orchestrator/src/solver_orchestrator/schemas.py` (+ CitationSchema; + AlgorithmSchema.citation; + OptimizationResponse.citation)
-- `apps/solver-orchestrator/src/solver_orchestrator/routes.py` (+ CitationSchema import; + citation lookup in `_build_success_response`; + citation field in `/demo` LP-optimal response)
+- `apps/solver-orchestrator/src/solver_orchestrator/routes.py` (+ CitationSchema + Citation imports; + (provider_id, task_type)-keyed citation lookup with try/except guard in `_build_success_response`; + CitationSchema-routed citation in `/demo` LP-optimal response)
 - `apps/solver-orchestrator/tests/test_algorithm_details.py` (+ 2 cases at end)
 - `apps/web/src/lib/api.ts` (+ Citation TS interface; + Algorithm.citation field)
-- `apps/web/src/app/algorithms/[k_algo]/page.tsx` (+ 2 optional props on CodeBlock; + citation `<section>` between Try-It-Now and Example-Input-JSON)
-- `_bmad-output/stories/sprint-status.yaml` (epic-6-a backlog → in-progress; 6-a-1-citation-bibtex backlog → review; last_updated 2026-05-20)
-- `_bmad-output/stories/6-a-1-citation-bibtex.md` (this file; status ready-for-dev → review; Dev Agent Record + File List + Change Log added)
+- `apps/web/src/app/algorithms/[k_algo]/page.tsx` (+ 2 optional props on CodeBlock; + citation `<section>` with `encodeURI`-wrapped DOI/URL hrefs between Try-It-Now and Example-Input-JSON)
+- `_bmad-output/stories/sprint-status.yaml` (epic-6-a backlog → in-progress; 6-a-1-citation-bibtex backlog → done)
 
 ### Change Log
 
 - 2026-05-20 — Story 6.A.1 implementation: catalog citation field + 2 response surfaces + FE detail-page citation block + 9 backend tests + 2 Playwright tests. Opens Epic 6.A. FR R5 v1 必上 ships.
+- 2026-05-20 — Code review patches (3 reviewer layers: Blind Hunter / Edge Case Hunter / Acceptance Auditor): 11 patches applied addressing provider_id collision in citation lookup, schema-validate guard, DOI URL encoding, test strengthening, mypy narrowing, doc fixes. 3 defers logged to deferred-work.md. 6 dismissals (false positives / intentional design).
+
+### Review Findings
+
+Triaged from parallel adversarial review (2026-05-20). Statuses below reflect final state after patches.
+
+**Patches applied:**
+
+- [x] [Review][Patch] Provider_id collision in citation lookup — highs-lp and highs-milp both have `provider_id="highs"`; lookup returns first match (LP) for MILP responses. Disambiguate by `(provider_id, task_type)`. [apps/solver-orchestrator/src/solver_orchestrator/routes.py:457-465]
+- [x] [Review][Patch] `CitationSchema.model_validate` unguarded → 500 risk on future catalog drift. Wrap in try/except so a malformed row degrades to `citation: null`. [apps/solver-orchestrator/src/solver_orchestrator/routes.py:476]
+- [x] [Review][Patch] DOI URL interpolation without encoding — bare template literal in `href`. Wrap with `encodeURI` to handle future DOIs containing `?`, `#`, etc. [apps/web/src/app/algorithms/[k_algo]/page.tsx:334]
+- [x] [Review][Patch] Demo route bypasses `CitationSchema.model_validate` — auth + demo paths diverge on field defaults. Align by routing demo through Pydantic too. [apps/solver-orchestrator/src/solver_orchestrator/routes.py:613]
+- [x] [Review][Patch] `test_failed_lp_demo_does_not_include_citation` is tautological — 422 body never has citation key. Replace with a positive auth-route test that asserts citation surfaces on completed `/v1/optimizations` and verifies the failed-status branch on `GET /v1/optimizations/{id}`. [apps/solver-orchestrator/tests/test_citation.py:132-147]
+- [x] [Review][Patch] Missing authenticated-route LP citation test (spec AC8 #5 silently swapped) — add focused test covering `_build_success_response` citation field on a real auth flow. [apps/solver-orchestrator/tests/test_citation.py — new test]
+- [x] [Review][Patch] Key uniqueness test allows any 2-share, not just intentional `huangfu2018` × {LP, MILP}. Pin invariant with `Counter` check that names the deliberately-shared key. [apps/solver-orchestrator/tests/test_citation.py:60-79]
+- [x] [Review][Patch] No test enforces BibTeX `\&` escaping despite spec AC1 claim. Add regex check that any literal `&` in title/journal/booktitle/author fields is escaped. [apps/solver-orchestrator/tests/test_citation.py — new test]
+- [x] [Review][Patch] `algo_citation: dict[str, object] | None` widens TypedDict to `dict[str, object]`. Narrow to `Citation | None` and drop `# type: ignore`. [apps/solver-orchestrator/src/solver_orchestrator/routes.py:458]
+- [x] [Review][Patch] Dev Agent Record says "9 ACs satisfied" — spec defines 10. Correct to 10. [_bmad-output/stories/6-a-1-citation-bibtex.md Dev Agent Record]
+- [x] [Review][Patch] File List bottom of story marks the story file as "Modified" but it was newly created in this PR. Re-label as Created. [_bmad-output/stories/6-a-1-citation-bibtex.md File List]
+
+**Deferred** (real but not addressed in this PR — see `_bmad-output/deferred-work.md`):
+
+- [x] [Review][Defer] Cached idempotency replay returns stale citation if provider_id is renamed [routes.py:226-228] — deferred, documented risk in story Risk Mitigations table; v1 stance preserved
+- [x] [Review][Defer] Clipboard `catch` branch in `handleCopy` is uncovered by any test [apps/web/src/app/algorithms/[k_algo]/page.tsx:75-83] — deferred, headless-Chromium permission setup expansion is M3 scope per existing risk-table entry
+- [x] [Review][Defer] Catalog invariant tests import full `main.py` (drags FastAPI app init) [apps/solver-orchestrator/tests/test_citation.py:13-14] — deferred, matches existing test-file pattern; refactor across all solver tests is its own ticket
+
+**Dismissed** (noise / false positive / intentional):
+
+- or-tools-cp-sat DOI mismatch — implemented citation is academically correct (Perron 2011 invited paper IS LNCS 6876); spec table had the typo. Update spec only.
+- `loop_scope="session"` + Windows event-loop policy — matches existing pattern (test_demo_optimizations.py L13-21); not regressive.
+- DOI testid collision on empty-string DOI — defensive nitpick; catalog contract is doi non-empty-string or null.
+- Sprint-status `review` vs story-status semantics — intentional bracketing per BMad cycle; resolved by section 6 status flip.
+- 0 Vitest cases vs spec's 4 — acknowledged in Dev Agent Record; consolidated to Playwright per existing apps/web pattern.
+- Sprint-status terminal `review` not `done` — correct BMad workflow; advanced to `done` after this review.

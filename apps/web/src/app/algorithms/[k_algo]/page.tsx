@@ -331,7 +331,7 @@ export default function AlgorithmDetailPage(): JSX.Element {
                   <p className="mb-3 text-sm">
                     DOI:{" "}
                     <a
-                      href={`https://doi.org/${algo.citation.doi}`}
+                      href={encodeURI(`https://doi.org/${algo.citation.doi}`)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-primary hover:underline"
@@ -344,7 +344,7 @@ export default function AlgorithmDetailPage(): JSX.Element {
                 {!algo.citation.doi && algo.citation.url && (
                   <p className="mb-3 text-sm">
                     <a
-                      href={algo.citation.url}
+                      href={encodeURI(algo.citation.url)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-primary hover:underline"
