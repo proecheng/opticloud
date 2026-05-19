@@ -347,6 +347,45 @@ test.describe("Console Excel surface (3.E.1)", () => {
     await expect(stub).toContainText(/预测引擎/);
   });
 
+  test("Inventory: 501 → 下载 Excel 结果 → 文件触发下载 (3.E.6)", async ({
+    page,
+  }) => {
+    // 3.E.6 — end-to-end download arc on Inventory (largest payload of the trilogy).
+    await page.goto("/console/excel");
+    await page.locator('input[type="file"]').setInputFiles({
+      name: "inventory.xlsx",
+      mimeType: XLSX_MIME,
+      buffer: INVENTORY_BUFFER,
+    });
+
+    await expect(page.getByTestId("confirmation-modal")).toBeVisible({
+      timeout: 10_000,
+    });
+    await page
+      .getByTestId("detection-override-select")
+      .selectOption({ value: "inventory" });
+    await page.getByRole("button", { name: "确认" }).click();
+
+    await expect(page.getByTestId("inventory-preview-card")).toBeVisible({
+      timeout: 10_000,
+    });
+    await page.getByTestId("inventory-submit-button").click();
+    await expect(page.getByTestId("inventory-501-card")).toBeVisible({
+      timeout: 10_000,
+    });
+
+    const downloadBtn = page.getByTestId("inventory-download-button");
+    await expect(downloadBtn).toBeVisible();
+
+    const [download] = await Promise.all([
+      page.waitForEvent("download"),
+      downloadBtn.click(),
+    ]);
+    expect(download.suggestedFilename()).toMatch(
+      /^opticloud_inventory_\d{8}T\d{6}Z\.xlsx$/,
+    );
+  });
+
   test("解析失败的文件显示 parse-error 卡", async ({ page }) => {
     await page.goto("/console/excel");
     // 200B garbage with .xlsx suffix — passes 3.E.1 size + suffix checks,
