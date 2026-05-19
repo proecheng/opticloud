@@ -64,6 +64,13 @@ class OptimizationRequest(BaseModel):
     st: LPConstraints
     options: OptimizationOptions = Field(default_factory=OptimizationOptions)
     solver: str | None = Field(default=None, description="FR C4 explicit solver enum")
+    fallback_chain: list[str] | None = Field(
+        default=None,
+        description=(
+            "FR C5 ordered list of solvers to try after `solver` fails "
+            "(≤3 elements; execution in Story 2.7)"
+        ),
+    )
 
     @model_validator(mode="after")
     def check_objective(self) -> OptimizationRequest:
@@ -71,6 +78,9 @@ class OptimizationRequest(BaseModel):
             raise ValueError("must specify either 'minimize' or 'maximize'")
         if self.minimize is not None and self.maximize is not None:
             raise ValueError("cannot specify both 'minimize' and 'maximize'")
+        # Story 2.5 — FR C5 length cap aligned to FR C7 (≤3 retries)
+        if self.fallback_chain is not None and len(self.fallback_chain) > 3:
+            raise ValueError("fallback_chain length must be ≤3 (FR C7)")
         return self
 
 

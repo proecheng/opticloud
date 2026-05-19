@@ -270,6 +270,32 @@ async def post_optimization(
     # v1 catalog has 1 primary solver per algorithm; multi-solver routing is M2-M3.
     # Validation above ensures only allowed solver names reach here.
 
+    # ----- Story 2.5 — FR C5 fallback_chain per-element validation -----
+    # Chain is stored in input_payload (via model_dump) only; actual fallback
+    # execution (try chain[0] → chain[1] on failure, ≤3 retries) is Story 2.7.
+    if payload.fallback_chain:
+        for idx, candidate in enumerate(payload.fallback_chain):
+            if candidate not in supported_solvers:
+                return _rfc7807_error(
+                    title="Unsupported Fallback Solver",
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=(
+                        f"fallback_chain[{idx}]='{candidate}' is not supported for "
+                        f"task_type '{payload.task_type}'. "
+                        f"Supported: {', '.join(supported_solvers)}"
+                    ),
+                    errors=[
+                        ErrorDetail(
+                            field_path=f"fallback_chain[{idx}]",
+                            value=candidate,
+                            constraint=f"must be one of: {', '.join(supported_solvers)}",
+                            remediation_hint_key="errors.400.unsupported_fallback_solver",
+                        )
+                    ],
+                    next_action="https://api.opticloud.cn/v1/algorithms",
+                    request_id=request_id,
+                )
+
     # ----- Persist input -----
     opt = Optimization(
         user_id=user_id,
@@ -535,6 +561,30 @@ async def post_optimization_demo(request: Request) -> JSONResponse:
             next_action="https://api.opticloud.cn/v1/algorithms",
             request_id=request_id,
         )
+
+    # Story 2.5 — FR C5 fallback_chain per-element validation (mirror of authenticated route).
+    # Chain is data-only on /demo today; actual fallback execution is Story 2.7.
+    if payload.fallback_chain:
+        for idx, candidate in enumerate(payload.fallback_chain):
+            if candidate not in supported_solvers:
+                return _rfc7807_error(
+                    title="Unsupported Fallback Solver",
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=(
+                        f"fallback_chain[{idx}]='{candidate}' is not supported for "
+                        f"task_type 'lp'. Supported: {', '.join(supported_solvers)}"
+                    ),
+                    errors=[
+                        ErrorDetail(
+                            field_path=f"fallback_chain[{idx}]",
+                            value=candidate,
+                            constraint=f"must be one of: {', '.join(supported_solvers)}",
+                            remediation_hint_key="errors.400.unsupported_fallback_solver",
+                        )
+                    ],
+                    next_action="https://api.opticloud.cn/v1/algorithms",
+                    request_id=request_id,
+                )
 
     result = solvers.solve_from_request(
         body_dict, max_solve_seconds=payload.options.max_solve_seconds
