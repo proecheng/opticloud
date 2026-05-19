@@ -53,7 +53,11 @@ class SagaInstance(Base):
 
 
 class CreditTransaction(Base):
-    """Double-entry credit ledger (NFR-R4 = 0 source of truth)."""
+    """Double-entry credit ledger (NFR-R4 = 0 source of truth).
+
+    Story 5.A.2: `bucket` tags each ledger row with one of 4 categories
+    (monthly / signup / edu / topup) for FR B1 per-bucket display.
+    """
 
     __tablename__ = "credit_transactions"
 
@@ -62,6 +66,7 @@ class CreditTransaction(Base):
     saga_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
     amount: Mapped[Decimal] = mapped_column(Numeric(12, 4), nullable=False)
     kind: Mapped[str] = mapped_column(String(32), nullable=False)
+    bucket: Mapped[str] = mapped_column(String(32), nullable=False, default="monthly")
     currency: Mapped[str] = mapped_column(String(3), nullable=False, default="CNY")
     metadata_json: Mapped[dict] = mapped_column(  # type: ignore[type-arg]
         "metadata", JSONB, nullable=False, default=dict

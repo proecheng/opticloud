@@ -489,3 +489,137 @@ async def test_create_charge_accepts_confirmed_true_with_warnings(
         assert saga is not None
         assert saga.payload_ref.get("user_explicitly_confirmed") is True
         assert saga.created_at is not None
+
+
+# ===== Story 5.A.2 — Credits balance buckets (FR B1) =====
+
+
+def _buckets_by_name(body: dict) -> dict[str, dict]:
+    return {b["name"]: b for b in body["buckets"]}
+
+
+async def _create_user_row(engine, user_id: uuid.UUID) -> None:
+    """Insert a fresh user row so credit_transactions FK passes."""
+    from sqlalchemy import text
+
+    maker = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
+    async with maker() as s:
+        await s.execute(
+            text(
+                "INSERT INTO users (id, phone, email, created_at, updated_at) "
+                "VALUES (:id, :phone, :email, NOW(), NOW()) "
+                "ON CONFLICT (id) DO NOTHING"
+            ),
+            {
+                "id": user_id,
+                "phone": f"+86b{user_id.hex[:12]}",  # ≤20 chars
+                "email": f"bucket-{user_id.hex[:10]}@opticloud.test",
+            },
+        )
+        await s.commit()
+
+
+async def test_balance_returns_all_four_buckets_zero_for_new_user(
+    http_client: AsyncClient, token_factory
+) -> None:
+    """5.A.2 AC10 #1: fresh user → 4 buckets all zero, total 0.00."""
+    _, token_for = token_factory
+    fresh_user = uuid.uuid4()
+    r = await http_client.get(
+        "/v1/billing/balance",
+        headers={"Authorization": f"Bearer {token_for(fresh_user)}"},
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["balance"] == "0.00"
+    by_name = _buckets_by_name(body)
+    assert set(by_name) == {"monthly", "signup", "edu", "topup"}
+    for name in ("monthly", "signup", "edu", "topup"):
+        assert by_name[name]["balance"] == "0.00", f"bucket {name} not zero"
+
+
+async def test_balance_after_seed_signup_bucket_50_others_zero(
+    http_client: AsyncClient, token_factory, engine
+) -> None:
+    """5.A.2 AC10 #2: lazy-seed lands in signup; monthly/edu/topup stay zero."""
+    _, token_for = token_factory
+    fresh_user = uuid.uuid4()
+    await _create_user_row(engine, fresh_user)
+    headers = {"Authorization": f"Bearer {token_for(fresh_user)}"}
+
+    # Trigger lazy-seed via POST /charges (estimate is too cheap to warn)
+    await http_client.post(
+        "/v1/billing/charges",
+        json={
+            "amount": "1.00",  # below p5 threshold (3.00) → no warning gate
+            "currency": "CNY",
+            "purpose": "demo",
+            "reference_id": str(uuid.uuid4()),
+        },
+        headers={**headers, "Idempotency-Key": str(uuid.uuid4())},
+    )
+
+    r = await http_client.get("/v1/billing/balance", headers=headers)
+    body = r.json()
+    by_name = _buckets_by_name(body)
+    # Seed wrote +50 to signup; monthly stayed at 0 (charge is still PENDING — debit happens on /confirm)
+    assert by_name["signup"]["balance"] == "50.00"
+    assert by_name["monthly"]["balance"] == "0.00"
+    assert by_name["edu"]["balance"] == "0.00"
+    assert by_name["topup"]["balance"] == "0.00"
+    assert body["balance"] == "50.00"
+
+
+async def test_balance_after_confirm_signup_50_monthly_minus6(
+    http_client: AsyncClient, token_factory, engine
+) -> None:
+    """5.A.2 AC10 #3: after seed + charge confirm, signup=50, monthly=-6, total=44."""
+    _, token_for = token_factory
+    fresh_user = uuid.uuid4()
+    await _create_user_row(engine, fresh_user)
+    headers = {"Authorization": f"Bearer {token_for(fresh_user)}"}
+
+    create = await http_client.post(
+        "/v1/billing/charges",
+        json={
+            "amount": "6.00",
+            "currency": "CNY",
+            "purpose": "demo",
+            "reference_id": str(uuid.uuid4()),
+            "confirmed": True,  # 5.A.5 — amount 6 ≥ p5 threshold 3, need explicit confirm
+        },
+        headers={**headers, "Idempotency-Key": str(uuid.uuid4())},
+    )
+    assert create.status_code == 201, create.text
+    charge_id = create.json()["charge_id"]
+
+    confirm = await http_client.post(f"/v1/billing/charges/{charge_id}/confirm", headers=headers)
+    assert confirm.status_code == 200, confirm.text
+
+    r = await http_client.get("/v1/billing/balance", headers=headers)
+    body = r.json()
+    by_name = _buckets_by_name(body)
+    assert by_name["signup"]["balance"] == "50.00"
+    assert by_name["monthly"]["balance"] == "-6.00"
+    assert by_name["edu"]["balance"] == "0.00"
+    assert by_name["topup"]["balance"] == "0.00"
+    assert body["balance"] == "44.00"
+
+
+async def test_bucket_labels_zh_and_topup_never_expire(
+    http_client: AsyncClient, token_factory
+) -> None:
+    """5.A.2 AC10 #4: response carries correct zh labels + FR B9 commitment."""
+    _, token_for = token_factory
+    fresh_user = uuid.uuid4()
+    r = await http_client.get(
+        "/v1/billing/balance",
+        headers={"Authorization": f"Bearer {token_for(fresh_user)}"},
+    )
+    by_name = _buckets_by_name(r.json())
+    assert by_name["monthly"]["label_zh"] == "月度"
+    assert by_name["signup"]["label_zh"] == "注册"
+    assert by_name["edu"]["label_zh"] == "教育"
+    assert by_name["topup"]["label_zh"] == "加油包"
+    # FR B9 visible commitment — topup bucket carries 永不过期 hint
+    assert by_name["topup"]["expires_hint"] == "永不过期"
