@@ -61,3 +61,51 @@ async def test_get_algorithm_empty_examples_still_200(client: AsyncClient) -> No
     assert body["k_algo"] == "highs-milp"
     assert body["task_type"] == "milp"
     assert body["examples"] == []
+
+
+# ===== Story 2.3 — list filter by ?tier= (FR C3) =====
+
+
+async def test_list_filters_by_single_tier(client: AsyncClient) -> None:
+    """Story 2.3 AC2 #1 — `?tier=T1` 仅返回 T1 SKU."""
+    resp = await client.get("/v1/algorithms?tier=T1")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert len(body) == 1
+    assert body[0]["k_algo"] == "highs-lp"
+    assert body[0]["tier"] == "T1"
+
+
+async def test_list_filters_by_comma_separated_tiers(client: AsyncClient) -> None:
+    """Story 2.3 AC2 #2 — `?tier=T1,P1` 返回 2 个 SKU (OR 语义)."""
+    resp = await client.get("/v1/algorithms?tier=T1,P1")
+    assert resp.status_code == 200
+    body = resp.json()
+    k_algos = {b["k_algo"] for b in body}
+    assert k_algos == {"highs-lp", "arima-forecast"}
+
+
+async def test_list_unknown_tier_returns_empty_list(client: AsyncClient) -> None:
+    """Story 2.3 AC2 #3 — 未知 tier 返回 [] + 200 (permissive 语义, 不抛 422)."""
+    resp = await client.get("/v1/algorithms?tier=T9")
+    assert resp.status_code == 200
+    assert resp.json() == []
+
+
+async def test_list_combines_task_type_and_tier(client: AsyncClient) -> None:
+    """Story 2.3 AC2 #4 — task_type + tier AND 组合."""
+    resp = await client.get("/v1/algorithms?task_type=forecast&tier=P1")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert len(body) == 1
+    assert body[0]["k_algo"] == "arima-forecast"
+
+
+async def test_list_with_empty_tier_param_returns_all(client: AsyncClient) -> None:
+    """Story 2.3 AC2 #5 — 空 tier 参数 (?tier=) 等价于无 filter."""
+    resp = await client.get("/v1/algorithms?tier=")
+    assert resp.status_code == 200
+    body = resp.json()
+    # Catalog currently has 8 SKUs (see catalog.py); use >= 1 to stay resilient
+    # if catalog grows during M2.
+    assert len(body) >= 8

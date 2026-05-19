@@ -1,11 +1,16 @@
-/** /algorithms — 公开免鉴权 catalog 浏览页（Story 2.1 + FR C1, C2, C3）.
+/** /algorithms — 公开免鉴权 catalog 浏览页 (Story 2.1 + FR C1, C2, C3).
  *
- * 演示 OptiCloud 支持的算法清单，便于销售 demo / 学界 / 投资人查看。
+ * Story 2.3 (2026-05-19): 3-button optimization/prediction toggle replaced with
+ * per-tier chip group (T1-T6 / P1-P5, multi-toggle); URL `?tier=T1,P2` syncs
+ * for shareable filtered views; filter is now server-side via `?tier=` query.
+ *
+ * Uses `useSearchParams` → must be wrapped in <Suspense> per Next.js 15.
  */
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useMemo, useState } from "react";
 
 import { EmptyState, LoadingShimmer, StatusCard } from "@opticloud/ui";
 
@@ -33,32 +38,91 @@ const STATUS_LABEL: Record<string, string> = {
   shadow: "🔍 灰度",
 };
 
-export default function AlgorithmsPage(): JSX.Element {
+const OPTIMIZATION_TIERS = ["T1", "T2", "T3", "T4", "T5", "T6"];
+const PREDICTION_TIERS = ["P1", "P2", "P3", "P4", "P5"];
+
+function TierChip({
+  tier,
+  selected,
+  onToggle,
+}: {
+  tier: string;
+  selected: boolean;
+  onToggle: () => void;
+}): JSX.Element {
+  const baseColor = TIER_COLOR[tier] ?? "border-border";
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-pressed={selected}
+      data-testid={`tier-chip-${tier}`}
+      className={
+        "min-h-touch rounded-md border px-3 py-1 text-sm font-medium transition " +
+        baseColor +
+        (selected
+          ? " ring-2 ring-primary/60 ring-offset-1 ring-offset-background"
+          : " opacity-70 hover:opacity-100")
+      }
+    >
+      {tier}
+    </button>
+  );
+}
+
+function AlgorithmsContent(): JSX.Element {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Hydrate once from URL — empty dep array intentional.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const initialTiers = useMemo(
+    () =>
+      new Set(
+        (searchParams.get("tier") ?? "")
+          .split(",")
+          .map((t) => t.trim())
+          .filter(Boolean),
+      ),
+    [],
+  );
+
+  const [selectedTiers, setSelectedTiers] = useState<Set<string>>(initialTiers);
   const [algos, setAlgos] = useState<Algorithm[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [filter, setFilter] = useState<string>("all");
 
   useEffect(() => {
+    let cancelled = false;
+    setAlgos(null);
     void (async () => {
       try {
-        const data = await listAlgorithms();
-        setAlgos(data);
+        const data = await listAlgorithms({ tier: Array.from(selectedTiers) });
+        if (!cancelled) setAlgos(data);
       } catch (err) {
-        setError(String((err as Error).message));
+        if (!cancelled) setError(String((err as Error).message));
       }
     })();
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedTiers]);
 
-  const filtered =
-    algos === null
-      ? null
-      : filter === "all"
-        ? algos
-        : algos.filter((a) =>
-            filter === "optimization"
-              ? a.tier.startsWith("T")
-              : a.tier.startsWith("P"),
-          );
+  useEffect(() => {
+    const sorted = Array.from(selectedTiers).sort();
+    const next = sorted.length > 0 ? `/algorithms?tier=${sorted.join(",")}` : "/algorithms";
+    router.replace(next, { scroll: false });
+  }, [selectedTiers, router]);
+
+  const toggleTier = (tier: string): void => {
+    setSelectedTiers((prev) => {
+      const next = new Set(prev);
+      if (next.has(tier)) next.delete(tier);
+      else next.add(tier);
+      return next;
+    });
+  };
+
+  const clearTiers = (): void => setSelectedTiers(new Set());
 
   return (
     <main className="min-h-screen bg-background">
@@ -86,33 +150,44 @@ export default function AlgorithmsPage(): JSX.Element {
         <div className="mx-auto max-w-4xl px-6 text-center">
           <h1 className="text-balance text-3xl font-bold">算法目录</h1>
           <p className="mt-2 text-balance text-muted-foreground">
-            公开免鉴权 — `GET /v1/algorithms`（FR C1）·{" "}
-            <span className="font-mono">
-              {algos === null ? "..." : `${algos.length} 个算法`}
-            </span>{" "}
-            · Provider 全透明（含 provider_url）
+            公开免鉴权 — `GET /v1/algorithms`（FR C1） · Provider 全透明（含 provider_url）
           </p>
 
-          <div className="mt-4 inline-flex rounded-md border border-border bg-background p-1">
-            {[
-              { v: "all", label: "全部" },
-              { v: "optimization", label: "优化 (T1-T6)" },
-              { v: "prediction", label: "预测 (P1-P5)" },
-            ].map((tab) => (
-              <button
-                key={tab.v}
-                type="button"
-                onClick={() => setFilter(tab.v)}
-                className={
-                  "min-h-touch rounded px-4 py-1 text-sm " +
-                  (filter === tab.v
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:bg-muted")
-                }
-              >
-                {tab.label}
-              </button>
-            ))}
+          <div className="mt-6 space-y-3">
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              <span className="text-xs font-medium text-muted-foreground">优化</span>
+              {OPTIMIZATION_TIERS.map((t) => (
+                <TierChip
+                  key={t}
+                  tier={t}
+                  selected={selectedTiers.has(t)}
+                  onToggle={() => toggleTier(t)}
+                />
+              ))}
+            </div>
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              <span className="text-xs font-medium text-muted-foreground">预测</span>
+              {PREDICTION_TIERS.map((t) => (
+                <TierChip
+                  key={t}
+                  tier={t}
+                  selected={selectedTiers.has(t)}
+                  onToggle={() => toggleTier(t)}
+                />
+              ))}
+            </div>
+            {selectedTiers.size > 0 && (
+              <div>
+                <button
+                  type="button"
+                  onClick={clearTiers}
+                  data-testid="tier-clear-button"
+                  className="text-xs text-primary hover:underline"
+                >
+                  清除筛选 ({selectedTiers.size})
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </section>
@@ -135,18 +210,18 @@ export default function AlgorithmsPage(): JSX.Element {
           </div>
         )}
 
-        {filtered && filtered.length === 0 && (
+        {algos && algos.length === 0 && (
           <EmptyState
             ariaLabel="algorithms.empty"
             icon="📂"
-            title="此分类暂无算法"
-            description="切换 Tab 看更多。"
+            title="此筛选条件暂无算法"
+            description="清除筛选看全部，或换一个 tier。"
           />
         )}
 
-        {filtered && filtered.length > 0 && (
+        {algos && algos.length > 0 && (
           <ul className="space-y-3">
-            {filtered.map((algo) => (
+            {algos.map((algo) => (
               <li
                 key={algo.k_algo}
                 className="rounded-lg border border-border bg-background p-5"
@@ -160,9 +235,7 @@ export default function AlgorithmsPage(): JSX.Element {
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
-                        <code className="font-mono font-semibold">
-                          {algo.k_algo}
-                        </code>
+                        <code className="font-mono font-semibold">{algo.k_algo}</code>
                         <span
                           className={
                             "rounded-md border px-2 py-0.5 text-xs font-medium " +
@@ -177,9 +250,7 @@ export default function AlgorithmsPage(): JSX.Element {
                         <span className="ml-auto text-xs text-primary">详情 →</span>
                       </div>
                       <p className="mt-2 text-sm">{algo.description_zh}</p>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {algo.description_en}
-                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">{algo.description_en}</p>
                     </div>
                     <div className="text-right text-xs">
                       <span className="rounded bg-muted px-2 py-1 font-mono">
@@ -198,7 +269,6 @@ export default function AlgorithmsPage(): JSX.Element {
                   </div>
                 </Link>
 
-                {/* Provider URL link kept outside the card-Link so users can click through to the source without navigating away. */}
                 <div className="mt-2 text-xs">
                   <a
                     href={algo.model_version.provider_url}
@@ -239,5 +309,19 @@ export default function AlgorithmsPage(): JSX.Element {
         </p>
       </footer>
     </main>
+  );
+}
+
+export default function AlgorithmsPage(): JSX.Element {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-background p-8">
+          <LoadingShimmer variant="card" />
+        </div>
+      }
+    >
+      <AlgorithmsContent />
+    </Suspense>
   );
 }
