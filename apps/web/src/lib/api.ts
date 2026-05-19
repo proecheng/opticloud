@@ -191,6 +191,10 @@ export interface LPRequest {
   maximize?: { c: number[] };
   st: { A: number[][]; b: number[]; x_lower?: number[]; x_upper?: number[] };
   options?: { max_solve_seconds?: number; reproducible?: boolean };
+  /** Story 2.4 — FR C4 explicit solver enum. */
+  solver?: string;
+  /** Story 2.5 — FR C5 ordered fallback solvers (≤3); execution in Story 2.7. */
+  fallback_chain?: string[];
 }
 
 export interface OptimizationResponse {
