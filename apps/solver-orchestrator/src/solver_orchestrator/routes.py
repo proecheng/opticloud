@@ -279,9 +279,15 @@ async def post_optimization(
         )
         if not finalize_outcome.ok:
             # Q4 — solve result is NOT held hostage by billing; mark + log + continue.
+            # M2.2c — persist retry context so the billing reconciler can replay.
             existing_error = opt.error or {}
             existing_error["billing_finalize_failed"] = True
             existing_error["billing_finalize_error"] = finalize_outcome.error_message
+            existing_error["billing_charge_id"] = str(billing_uuid)
+            existing_error["billing_elapsed_seconds"] = result.solve_seconds
+            existing_error["billing_status"] = finalize_status
+            existing_error["billing_failure_reason"] = failure_reason
+            existing_error["billing_retry_count"] = 0
             opt.error = existing_error
 
     if result.status == "optimal":
