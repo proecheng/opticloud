@@ -47,5 +47,9 @@ class AuthSettings(BaseSettings):
     # ----- 风控 (FR A5) -----
     risk_freeze_threshold: float = 0.9  # 任 2 项触发冻结
 
+    # ----- Story 1.2 — OTP login (FR A1 双因素) -----
+    otp_dev_mode_return: bool = Field(default=True, alias="OTP_DEV_MODE_RETURN")
+    otp_ttl_seconds: int = Field(default=300, alias="OTP_TTL_SECONDS")
+
 
 settings = AuthSettings()
