@@ -149,8 +149,7 @@ async def _fetch_pending(
         await session.execute(stmt, {"max_retries": max_retries, "batch_limit": batch_limit})
     ).all()
     return [
-        (cast(uuid.UUID, r[0]), cast(uuid.UUID, r[1]), cast("dict[str, Any]", r[2]))
-        for r in rows
+        (cast(uuid.UUID, r[0]), cast(uuid.UUID, r[1]), cast("dict[str, Any]", r[2])) for r in rows
     ]
 
 
