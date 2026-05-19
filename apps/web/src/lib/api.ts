@@ -105,6 +105,7 @@ export interface APIKeyCreateRequest {
   description?: string;
   scope: string[];
   expires_at?: string;
+  expires_in_days?: number; // Story 1.3 — convenience; mutually exclusive with expires_at
 }
 
 export interface APIKeyCreateResponse {
@@ -211,6 +212,35 @@ export async function login(body: LoginRequest): Promise<SignupResponse> {
     { method: "POST", body: JSON.stringify(body) },
     AUTH_SERVICE_URL,
   );
+}
+
+// ===== API Keys list + revoke (Story 1.3) =====
+
+export interface APIKeyListItem {
+  id: string;
+  prefix: string;
+  label: string;
+  description: string | null;
+  scope: string[];
+  expires_at: string | null;
+  last_used_at: string | null;
+  revoked_at: string | null;
+  created_at: string;
+}
+
+export async function listAPIKeys(jwtAccess: string): Promise<APIKeyListItem[]> {
+  return request<APIKeyListItem[]>(
+    "/v1/auth/api_keys",
+    { headers: { Authorization: `Bearer ${jwtAccess}` } },
+    AUTH_SERVICE_URL,
+  );
+}
+
+export async function revokeAPIKey(jwtAccess: string, keyId: string): Promise<void> {
+  await fetch(`${AUTH_SERVICE_URL}/v1/auth/api_keys/${keyId}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${jwtAccess}` },
+  });
 }
 
 // ===== Billing (Story 5.A.1) =====

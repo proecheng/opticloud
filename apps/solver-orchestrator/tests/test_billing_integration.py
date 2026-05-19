@@ -307,3 +307,49 @@ async def test_billing_header_finalize_5xx_records_failure_flag(
     # For simplicity, just confirm GET returns successfully (the flag is observable in DB
     # and via Prometheus metrics — full assertion deferred to integration smoke).
     assert fetched["optimization_id"] == opt_id
+
+
+async def test_solver_auth_updates_last_used_at(
+    client_with_db: AsyncClient, api_key, db_engine
+) -> None:
+    """Story 1.3 AC5 #10 — successful auth populates api_keys.last_used_at."""
+    from sqlalchemy import text as _text
+
+    auth, _ = api_key
+
+    # Extract the api_key_id by parsing the sk-... and recomputing hash; simpler:
+    # query the api_keys row that the api_key fixture inserted.
+    maker = async_sessionmaker(db_engine, expire_on_commit=False, class_=AsyncSession)
+    async with maker() as s:
+        prefix = auth.removeprefix("Bearer ")[:6]
+        row = (
+            await s.execute(
+                _text("SELECT id, last_used_at FROM api_keys WHERE key_prefix = :p"),
+                {"p": prefix},
+            )
+        ).first()
+        assert row is not None
+        api_key_id, last_used_before = row
+
+    # Make a request that will hit verify_api_key
+    r = await client_with_db.post(
+        "/v1/optimizations",
+        json=_LP_BODY,
+        headers={"Authorization": auth},
+    )
+    assert r.status_code == 200, r.text
+
+    # Re-read last_used_at — must be populated and recent
+    async with maker() as s:
+        new_last_used = (
+            await s.execute(
+                _text("SELECT last_used_at FROM api_keys WHERE id = :id"),
+                {"id": api_key_id},
+            )
+        ).scalar_one()
+    assert new_last_used is not None
+    # Sanity: within last 30s
+    from datetime import UTC, datetime
+
+    delta = abs((datetime.now(UTC) - new_last_used).total_seconds())
+    assert delta < 30, f"last_used_at off by {delta}s"
