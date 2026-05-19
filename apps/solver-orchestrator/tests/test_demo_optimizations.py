@@ -77,3 +77,20 @@ async def test_demo_schedule_returns_501(client: AsyncClient) -> None:
     body = resp.json()
     assert "M2-M3" in body["detail"]
     assert "schedule" in body["detail"]
+
+
+async def test_demo_inventory_returns_501(client: AsyncClient) -> None:
+    """Story 3.E.5 — inventory body returns 501 with friendly 'M2-M3' detail."""
+    resp = await client.post(
+        "/v1/optimizations/demo",
+        json={
+            "task_type": "inventory",
+            "skus": [{"sku": "S1"}],
+            "history": [{"sku": "S1", "date": "2026-01-01", "qty": 10}],
+            "seasonality": [],
+        },
+    )
+    assert resp.status_code == 501
+    body = resp.json()
+    assert "M2-M3" in body["detail"]
+    assert "inventory" in body["detail"]

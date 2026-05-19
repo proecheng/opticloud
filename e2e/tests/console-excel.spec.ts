@@ -59,6 +59,34 @@ const VRPTW_BUFFER = buildXlsxBuffer([
   },
 ]);
 
+// 3.E.5 — full mappable inventory workbook (SKU + 历史出货 + 季节性 sheets).
+const INVENTORY_BUFFER = buildXlsxBuffer([
+  {
+    name: "SKU",
+    rows: [
+      ["sku", "名称", "类别", "期初库存"],
+      ["S1", "苹果", "水果", 100],
+      ["S2", "香蕉", "水果", 50],
+    ],
+  },
+  {
+    name: "历史出货",
+    rows: [
+      ["sku", "日期", "销量"],
+      ["S1", "2026-01-01", 10],
+      ["S1", "2026-01-02", 15],
+      ["S2", "2026-01-01", 8],
+    ],
+  },
+  {
+    name: "季节性",
+    rows: [
+      ["sku", "季节", "系数"],
+      ["S1", "Q1", 1.2],
+    ],
+  },
+]);
+
 // 3.E.4 — full mappable schedule workbook (任务 + 资源 + 工序 sheets).
 const SCHEDULE_BUFFER = buildXlsxBuffer([
   {
@@ -198,12 +226,10 @@ test.describe("Console Excel surface (3.E.1)", () => {
     await expect(preview).toContainText(/客户/);
   });
 
-  test("'其它' 切换为 inventory → 确认后 handoff 展示 inventory + 覆盖说明", async ({
-    page,
-  }) => {
-    // 3.E.4 — was 'schedule' previously; switched to 'inventory' because
-    // schedule now routes to SchedulePreviewCard, not the fallback handoff card.
-    // Inventory still falls through until 3.E.5 ships its own preview card.
+  test("'其它' 切换为 lp → 确认后 handoff 展示 LP + 覆盖说明", async ({ page }) => {
+    // 3.E.5 — was 'inventory' previously (and 'schedule' before that);
+    // inventory now routes to InventoryPreviewCard. Switched to 'lp' which
+    // still falls through to the placeholder card (no LP-specific preview).
     await page.goto("/console/excel");
     await page.locator('input[type="file"]').setInputFiles({
       name: "vrptw.xlsx",
@@ -214,12 +240,12 @@ test.describe("Console Excel surface (3.E.1)", () => {
     await expect(page.getByTestId("confirmation-modal")).toBeVisible({ timeout: 10_000 });
     await page
       .getByTestId("detection-override-select")
-      .selectOption({ value: "inventory" });
+      .selectOption({ value: "lp" });
     await page.getByRole("button", { name: "确认" }).click();
 
     const handoff = page.getByTestId("excel-confirmed-card");
     await expect(handoff).toBeVisible();
-    await expect(handoff).toContainText(/Inventory/);
+    await expect(handoff).toContainText(/LP/);
     await expect(handoff).toContainText(/覆盖系统推荐/);
   });
 
@@ -285,6 +311,40 @@ test.describe("Console Excel surface (3.E.1)", () => {
     const stub = page.getByTestId("schedule-501-card");
     await expect(stub).toBeVisible({ timeout: 10_000 });
     await expect(stub).toContainText(/M2-M3/);
+  });
+
+  test("Inventory confirm → 试跑 → 501 friendly card + JSON preview", async ({
+    page,
+  }) => {
+    // 3.E.5 — drops a real Inventory workbook (SKU/历史出货/季节性), confirms
+    // detected 'inventory' task_type, then submits → backend short-circuits 501.
+    await page.goto("/console/excel");
+    await page.locator('input[type="file"]').setInputFiles({
+      name: "inventory.xlsx",
+      mimeType: XLSX_MIME,
+      buffer: INVENTORY_BUFFER,
+    });
+
+    await expect(page.getByTestId("confirmation-modal")).toBeVisible({ timeout: 10_000 });
+    await page
+      .getByTestId("detection-override-select")
+      .selectOption({ value: "inventory" });
+    await page.getByRole("button", { name: "确认" }).click();
+
+    const preview = page.getByTestId("inventory-preview-card");
+    await expect(preview).toBeVisible({ timeout: 10_000 });
+    await expect(preview).toContainText(/SKU/);
+    await expect(preview).toContainText(/历史行/);
+
+    const jsonBlock = page.getByTestId("inventory-payload-json");
+    await expect(jsonBlock).toContainText('"task_type": "inventory"');
+
+    // Submit → backend returns 501
+    await page.getByTestId("inventory-submit-button").click();
+    const stub = page.getByTestId("inventory-501-card");
+    await expect(stub).toBeVisible({ timeout: 10_000 });
+    await expect(stub).toContainText(/M2-M3/);
+    await expect(stub).toContainText(/预测引擎/);
   });
 
   test("解析失败的文件显示 parse-error 卡", async ({ page }) => {
