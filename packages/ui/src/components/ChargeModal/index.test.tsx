@@ -73,6 +73,14 @@ describe("ChargeModal", () => {
     expect(confirm).toHaveTextContent("Charging...");
   });
 
+  it("shows the FR B2 cap note 'Final charge ≤ this amount'", () => {
+    // Story 5.A.3 — ChargeModal must communicate that the amount is a CAP.
+    render(<ChargeModal {...baseProps} onConfirm={vi.fn()} onCancel={vi.fn()} />);
+    const note = screen.getByTestId("charge-cap-note");
+    expect(note).toHaveTextContent(/Final charge.*≤.*this amount/);
+    expect(note).toHaveTextContent("实际扣费");
+  });
+
   it("returns null when open is false", () => {
     const { container } = render(
       <ChargeModal

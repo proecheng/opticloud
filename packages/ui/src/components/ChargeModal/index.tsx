@@ -79,7 +79,7 @@ export function ChargeModal({
             data-reference-id={referenceId}
           >
             <DialogPrimitive.Title className="text-lg font-semibold">
-              Confirm charge / 确认扣费
+              Confirm charge (cap) / 确认扣费（封顶）
             </DialogPrimitive.Title>
             <DialogPrimitive.Description className="mt-1 text-sm text-muted-foreground">
               {purpose}
@@ -88,6 +88,12 @@ export function ChargeModal({
             <div className="mt-4 space-y-2">
               <div className="text-2xl font-bold" data-testid="charge-amount">
                 {formatMoney(amount, currency)}
+              </div>
+              <div
+                className="text-xs text-muted-foreground"
+                data-testid="charge-cap-note"
+              >
+                Final charge ≤ this amount / 实际扣费 ≤ 此金额
               </div>
               <div className="text-sm">
                 Current balance:{" "}

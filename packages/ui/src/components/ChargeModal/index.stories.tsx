@@ -49,3 +49,12 @@ export const WithError: Story = {
     error: "Required: ¥6.00, available: ¥3.00",
   },
 };
+
+/** Story 5.A.3 — cap emphasis: title says "(cap)" + inline "≤ this amount" note. */
+export const CapEmphasis_5A3: Story = {
+  args: {
+    amount: 6,
+    balance: 50,
+    purpose: "Solve LP (max 60s × ¥0.10/s = ¥6 cap)",
+  },
+};

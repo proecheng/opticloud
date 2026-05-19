@@ -3,7 +3,7 @@
 # Source: epics.md (21 Epics / 192 Stories, post AE rounds)
 # Path B unlock node sequence (5 + J1 vertical slice 4 锚点 + Critical Gaps)
 
-last_updated: 2026-05-19b
+last_updated: 2026-05-19c
 
 # ===== STATUS DEFINITIONS =====
 # backlog            — not yet started
@@ -162,7 +162,7 @@ development_status:
   5-a-0-saga-implementation: backlog
   5-a-1-j1-credits-charge-modal: done          # J1 第 4 段 — 2026-05-18 (3 billing routes + ChargeModal Tier 1 + demo page; 25 backend + 7 UI tests)
   5-a-2-credits-balance-buckets: done             # 2026-05-19 — 4-bucket balance API + CreditsBalanceBucket wired in /demo/charge; +7 tests; FR B1 v1 ship
-  5-a-3-preview-cap-modal: backlog
+  5-a-3-preview-cap-ge-actual: done             # 2026-05-19 — FR B2 invariant locked via 3 Hypothesis property tests (2 pure + 1 HTTP-chain) + ChargeModal cap-emphasis copy
   5-a-4-per-formula-charging-capped: done             # 2026-05-18 — 2-phase reserve/finalize + per-second pricing; +24 tests; cross-service Saga wired
   5-a-5-p5-warning-modal: done             # 2026-05-19 — /estimate endpoint + pre-charge guard on /charges + ConfirmationModal wiring in /demo/charge; +10 tests; FR B6 v1 ship
   5-a-6-topup-never-expire: backlog

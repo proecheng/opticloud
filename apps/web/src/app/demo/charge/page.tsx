@@ -128,7 +128,14 @@ export default function DemoChargePage(): JSX.Element {
         idempotencyKey,
       );
       const finalized = await confirmCharge(jwt, charge.charge_id);
-      setSuccessMsg(`Charged ¥${finalized.amount}. New balance: ¥${finalized.balance_after}`);
+      // 5.A.3 — show "saved from cap" suffix when actual < estimated by ≥ ¥0.10
+      const previewedCap = estimate ? Number(estimate.estimated_amount) : Number(finalized.amount);
+      const actuallyCharged = Number(finalized.amount);
+      const saved = previewedCap - actuallyCharged;
+      const savedSuffix = saved >= 0.1 ? ` (saved ¥${saved.toFixed(2)} from cap)` : "";
+      setSuccessMsg(
+        `Charged ¥${finalized.amount}${savedSuffix}. New balance: ¥${finalized.balance_after}`,
+      );
       setOpen(false);
       setEstimate(null);
       void refreshBalance();
@@ -227,6 +234,9 @@ export default function DemoChargePage(): JSX.Element {
               </div>
               <div>
                 Current balance: <strong>¥{estimate.balance}</strong>
+              </div>
+              <div className="mt-1 text-xs text-muted-foreground">
+                FR B2: actual ≤ estimated / 实际扣费不超过预估
               </div>
             </div>
           ) : null
