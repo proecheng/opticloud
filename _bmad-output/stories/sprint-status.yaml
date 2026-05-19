@@ -115,7 +115,7 @@ development_status:
   epic-3-e: backlog
 
   3-e-1-excel-drop-zone: done                  # 2026-05-19 — /console/excel + ExcelDropZone refactor (alert→onReject) + actionable hint + 教程 stub + 9 Vitest + 5 Playwright; FG1.2 老张 surface 入口
-  3-e-2-excel-task-type-detect: backlog        # PMR6
+  3-e-2-excel-task-type-detect: done           # 2026-05-19 — browser-side parse (read-excel-file) + heuristic detect + ConfirmationModal w/ manual override + 50K-row cap + parse-error path; apps/web Vitest setup added; +9 Vitest + 4 Playwright; PMR6 ship
   3-e-3-vrptw-template: backlog
   3-e-4-schedule-template: backlog
   3-e-5-inventory-template: backlog

@@ -1,7 +1,16 @@
-/** /console/excel — 老张 Excel upload surface (Story 3.E.1, FG1.2 / FR E11 v1 entry).
+/** /console/excel — 老张 Excel upload surface (Story 3.E.1 + 3.E.2).
  *
- * 公开免鉴权入口；本 story 仅做"接住文件 + 友好确认"，不解析、不上传后端。
- * 后续 story 接管：3.E.2 task_type detect → 3.E.3-5 模板 → 3.E.6 结果下载.
+ * State machine:
+ *   idle → received (3.E.1)
+ *   received → detecting (parse + heuristic detect)
+ *   detecting → detected (Confirm Modal with recommendation + alternatives)
+ *   detecting → too_many_rows (FR E11 50K cap rejection)
+ *   detecting → parse_error (corrupt xlsx)
+ *   detected → confirmed (placeholder handoff card for 3.E.3-5)
+ *   any → idle (reset button)
+ *
+ * Parsing is browser-side (`read-excel-file/browser`); File never leaves the
+ * browser — privacy preserved for 老张's 制造业 .xlsx workbooks.
  */
 "use client";
 
@@ -10,23 +19,79 @@ import { useEffect, useState } from "react";
 
 import {
   type ExcelRejectReason,
+  ConfirmationModal,
   ExcelDropZone,
   LoadingShimmer,
   StatusCard,
 } from "@opticloud/ui";
 
+import { type ExcelWorkbookSummary, parseExcel } from "@/lib/excel";
+import {
+  type DetectedTaskType,
+  type DetectionResult,
+  TASK_LABEL,
+  detectTaskType,
+} from "@/lib/task-type-detect";
+
+const MAX_DATA_ROWS = 50_000;
+
 type ExcelState =
   | { kind: "idle" }
   | { kind: "received"; file: File }
+  | { kind: "detecting"; file: File }
+  | {
+      kind: "detected";
+      file: File;
+      summary: ExcelWorkbookSummary;
+      detection: DetectionResult;
+    }
+  | {
+      kind: "confirmed";
+      file: File;
+      summary: ExcelWorkbookSummary;
+      taskType: DetectedTaskType;
+      overrodeFrom: DetectedTaskType | null;
+    }
+  | {
+      kind: "too_many_rows";
+      file: File;
+      rowCount: number;
+    }
+  | { kind: "parse_error"; file: File; message: string }
   | { kind: "rejected"; reason: ExcelRejectReason };
 
-function ReceivedCard({ file, onReset }: { file: File; onReset: () => void }): JSX.Element {
-  const [phase, setPhase] = useState<"parsing" | "handoff">("parsing");
-
+function ReceivedCard({
+  file,
+  onParsed,
+}: {
+  file: File;
+  onParsed: (next: ExcelState) => void;
+}): JSX.Element {
   useEffect(() => {
-    const id = setTimeout(() => setPhase("handoff"), 2000);
-    return () => clearTimeout(id);
-  }, []);
+    let cancelled = false;
+    void (async () => {
+      try {
+        const summary = await parseExcel(file);
+        if (cancelled) return;
+        if (summary.totalRows > MAX_DATA_ROWS) {
+          onParsed({ kind: "too_many_rows", file, rowCount: summary.totalRows });
+          return;
+        }
+        const detection = detectTaskType(summary);
+        onParsed({ kind: "detected", file, summary, detection });
+      } catch (err) {
+        if (cancelled) return;
+        onParsed({
+          kind: "parse_error",
+          file,
+          message: (err as Error).message || "无法解析此文件",
+        });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [file, onParsed]);
 
   const sizeMB = (file.size / 1024 / 1024).toFixed(2);
 
@@ -39,22 +104,101 @@ function ReceivedCard({ file, onReset }: { file: File; onReset: () => void }): J
         ariaLabel="console.excel.received"
         icon="📊"
       />
-
       <div className="rounded-md border border-border bg-muted/30 p-4">
-        {phase === "parsing" ? (
-          <>
-            <div className="mb-2 text-sm text-muted-foreground">解析中...</div>
-            <LoadingShimmer variant="line" />
-            <LoadingShimmer variant="line" />
-          </>
-        ) : (
-          <p className="text-sm text-muted-foreground">
-            📋 下一步：3.E.2 将自动识别 task_type（VRPTW / Schedule / Inventory）并跳到对应模板。
-            本 story (3.E.1) 仅完成"接住文件 + 友好确认"环节。
-          </p>
-        )}
+        <div className="mb-2 text-sm text-muted-foreground">解析中... 正在识别 task_type</div>
+        <LoadingShimmer variant="line" />
+        <LoadingShimmer variant="line" />
       </div>
+    </div>
+  );
+}
 
+function DetectedModal({
+  detection,
+  onConfirm,
+  onCancel,
+}: {
+  detection: DetectionResult;
+  onConfirm: (taskType: DetectedTaskType) => void;
+  onCancel: () => void;
+}): JSX.Element {
+  const [selected, setSelected] = useState<DetectedTaskType>(detection.taskType);
+  const confidencePct = (detection.confidence * 100).toFixed(0);
+
+  const choices: DetectedTaskType[] = [
+    "vrptw",
+    "schedule",
+    "inventory",
+    "lp",
+    "unknown",
+  ];
+
+  return (
+    <ConfirmationModal
+      open
+      onClose={onCancel}
+      onConfirm={() => onConfirm(selected)}
+      variant="generic"
+      ariaLabel="console.excel.confirm_task_type"
+      title={`自动检测：${TASK_LABEL[detection.taskType]}`}
+      description={detection.reasoning}
+      confirmLabel="确认"
+      cancelLabel="取消"
+      body={
+        <div className="space-y-3 text-sm">
+          <div data-testid="detection-confidence" className="text-xs text-muted-foreground">
+            可信度 {confidencePct}%
+          </div>
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-muted-foreground">
+              不对？手动选择 task_type
+            </span>
+            <select
+              value={selected}
+              onChange={(e) => setSelected(e.target.value as DetectedTaskType)}
+              data-testid="detection-override-select"
+              className="min-h-touch w-full rounded-md border border-border bg-background px-3 py-2"
+            >
+              {choices.map((c) => (
+                <option key={c} value={c}>
+                  {TASK_LABEL[c]}
+                  {c === detection.taskType ? " (系统推荐)" : ""}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      }
+    />
+  );
+}
+
+function ConfirmedCard({
+  taskType,
+  overrodeFrom,
+  onReset,
+}: {
+  taskType: DetectedTaskType;
+  overrodeFrom: DetectedTaskType | null;
+  onReset: () => void;
+}): JSX.Element {
+  return (
+    <div className="space-y-3" data-testid="excel-confirmed-card">
+      <StatusCard
+        variant="ok"
+        title={`✅ task_type 已确认：${TASK_LABEL[taskType]}`}
+        description={
+          overrodeFrom
+            ? `您选择了 ${TASK_LABEL[taskType]}，覆盖系统推荐 ${TASK_LABEL[overrodeFrom]}`
+            : "下一步由后续 story (3.E.3-5) 接管 — 将路由到对应业务模板。"
+        }
+        ariaLabel="console.excel.confirmed"
+        icon="🎯"
+      />
+      <div className="rounded-md border border-border bg-muted/30 p-4 text-sm text-muted-foreground">
+        📋 下一步：3.E.3 (VRPTW) / 3.E.4 (Schedule) / 3.E.5 (Inventory) 将在 PR #21+ 接管这里的
+        task_type 路由 + 字段映射 + 求解触发。
+      </div>
       <button
         type="button"
         onClick={onReset}
@@ -62,6 +206,79 @@ function ReceivedCard({ file, onReset }: { file: File; onReset: () => void }): J
         data-testid="excel-reset-button"
       >
         重新选择文件
+      </button>
+    </div>
+  );
+}
+
+function TooManyRowsCard({
+  rowCount,
+  onReset,
+}: {
+  rowCount: number;
+  onReset: () => void;
+}): JSX.Element {
+  return (
+    <div className="space-y-3" data-testid="excel-too-many-rows-card">
+      <StatusCard
+        variant="warning"
+        title="文件行数过多"
+        description={`共 ${rowCount.toLocaleString()} 行 > 50,000 行上限`}
+        ariaLabel="console.excel.too_many_rows"
+        icon="⚠️"
+      />
+      <div className="rounded-md border border-border bg-muted/30 p-4 text-sm">
+        <p className="mb-2 font-medium">试试这三步：</p>
+        <ul className="ml-4 list-disc space-y-1 text-muted-foreground">
+          <li>① 按时间段拆分（按月/季度/年导出）</li>
+          <li>② 按地区/客户拆分（保留核心子集）</li>
+          <li>③ 截取关键时段（仅保留最近 N 个月）</li>
+        </ul>
+        <p className="mt-3">
+          <Link href="/docs/excel-upload-faq" className="text-primary hover:underline">
+            📖 看教程：如何拆分大 Excel
+          </Link>
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={onReset}
+        className="min-h-touch rounded-md border border-border px-4 py-2 text-sm hover:bg-muted"
+        data-testid="excel-reset-button"
+      >
+        重试
+      </button>
+    </div>
+  );
+}
+
+function ParseErrorCard({
+  message,
+  onReset,
+}: {
+  message: string;
+  onReset: () => void;
+}): JSX.Element {
+  return (
+    <div className="space-y-3" data-testid="excel-parse-error-card">
+      <StatusCard
+        variant="error"
+        title="无法解析此文件"
+        description={message}
+        ariaLabel="console.excel.parse_error"
+        icon="🚫"
+      />
+      <div className="rounded-md border border-border bg-muted/30 p-4 text-sm text-muted-foreground">
+        请确认文件确为有效的 .xlsx 工作簿。若问题持续，请尝试在 Excel 中
+        "另存为 .xlsx" 再上传。
+      </div>
+      <button
+        type="button"
+        onClick={onReset}
+        className="min-h-touch rounded-md border border-border px-4 py-2 text-sm hover:bg-muted"
+        data-testid="excel-reset-button"
+      >
+        重试
       </button>
     </div>
   );
@@ -96,10 +313,7 @@ function RejectedCard({
             <li>③ 转 CSV (≤10MB) — 我们也支持 .csv 上传（v1 末）</li>
           </ul>
           <p className="mt-3">
-            <Link
-              href="/docs/excel-upload-faq"
-              className="text-primary hover:underline"
-            >
+            <Link href="/docs/excel-upload-faq" className="text-primary hover:underline">
               📖 看教程：如何拆分大 Excel
             </Link>
           </p>
@@ -162,7 +376,54 @@ export default function ConsoleExcelPage(): JSX.Element {
           />
         )}
 
-        {state.kind === "received" && <ReceivedCard file={state.file} onReset={reset} />}
+        {state.kind === "received" && (
+          <ReceivedCard file={state.file} onParsed={setState} />
+        )}
+
+        {state.kind === "detected" && (
+          <>
+            {/* Keep the received card visible behind the modal for context */}
+            <div className="space-y-3" data-testid="excel-received-card">
+              <StatusCard
+                variant="ok"
+                title="✅ 已收到您的 Excel 文件"
+                description={`${state.file.name} · ${(state.file.size / 1024 / 1024).toFixed(2)} MB`}
+                ariaLabel="console.excel.received"
+                icon="📊"
+              />
+            </div>
+            <DetectedModal
+              detection={state.detection}
+              onConfirm={(taskType) =>
+                setState({
+                  kind: "confirmed",
+                  file: state.file,
+                  summary: state.summary,
+                  taskType,
+                  overrodeFrom:
+                    taskType !== state.detection.taskType ? state.detection.taskType : null,
+                })
+              }
+              onCancel={reset}
+            />
+          </>
+        )}
+
+        {state.kind === "confirmed" && (
+          <ConfirmedCard
+            taskType={state.taskType}
+            overrodeFrom={state.overrodeFrom}
+            onReset={reset}
+          />
+        )}
+
+        {state.kind === "too_many_rows" && (
+          <TooManyRowsCard rowCount={state.rowCount} onReset={reset} />
+        )}
+
+        {state.kind === "parse_error" && (
+          <ParseErrorCard message={state.message} onReset={reset} />
+        )}
 
         {state.kind === "rejected" && (
           <RejectedCard reason={state.reason} onReset={reset} />
