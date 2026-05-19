@@ -38,7 +38,11 @@ export { ErrorBoundary, RFC7807Panel } from "./components/ErrorBoundary";
 export type { RFC7807ErrorPayload } from "./components/ErrorBoundary";
 
 export { ExcelDropZone } from "./components/ExcelDropZone";
-export type { ExcelDropZoneProps } from "./components/ExcelDropZone";
+export type {
+  ExcelDropZoneProps,
+  ExcelRejectReason,
+  ExcelRejectCode,
+} from "./components/ExcelDropZone";
 
 export { SparklineKPI } from "./components/SparklineKPI";
 export type { SparklineKPIProps } from "./components/SparklineKPI";
@@ -50,7 +54,10 @@ export { Toast } from "./components/Toast";
 export type { ToastProps, ToastVariant } from "./components/Toast";
 
 export { FilePicker } from "./components/FilePicker";
-export type { FilePickerProps } from "./components/FilePicker";
+export type {
+  FilePickerProps,
+  FilePickerRejectReason,
+} from "./components/FilePicker";
 
 export { LoadingShimmer } from "./components/LoadingShimmer";
 export type { LoadingShimmerProps } from "./components/LoadingShimmer";

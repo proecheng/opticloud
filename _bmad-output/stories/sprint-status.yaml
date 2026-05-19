@@ -114,7 +114,7 @@ development_status:
   # ===== Epic 3.E: Excel UX (9 stories) =====
   epic-3-e: backlog
 
-  3-e-1-excel-drop-zone: backlog               # FG1.2 Critical 老张
+  3-e-1-excel-drop-zone: done                  # 2026-05-19 — /console/excel + ExcelDropZone refactor (alert→onReject) + actionable hint + 教程 stub + 9 Vitest + 5 Playwright; FG1.2 老张 surface 入口
   3-e-2-excel-task-type-detect: backlog        # PMR6
   3-e-3-vrptw-template: backlog
   3-e-4-schedule-template: backlog
