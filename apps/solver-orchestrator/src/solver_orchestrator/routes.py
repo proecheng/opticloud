@@ -429,17 +429,51 @@ def _build_success_response(opt: Optimization) -> JSONResponse:
         "Rate limit: M3 内按 IP 限流；v1 无限制（无敏感数据暴露）"
     ),
 )
-async def post_optimization_demo(payload: OptimizationRequest, request: Request) -> JSONResponse:
-    """Story 3.E.3 — unauthenticated marketing-demo solve."""
+async def post_optimization_demo(request: Request) -> JSONResponse:
+    """Story 3.E.3 — unauthenticated marketing-demo solve.
+
+    Accepts a free-form JSON body so VRPTW / Schedule / etc. payloads (which
+    don't match the LP-centric OptimizationRequest schema) can reach the
+    501 short-circuit instead of being rejected at Pydantic validation as 422.
+    Only the LP path performs strict validation (via OptimizationRequest).
+    """
     request_id = request.headers.get("x-request-id") or str(uuid.uuid4())
 
-    if payload.task_type != "lp":
+    try:
+        raw = await request.json()
+    except Exception:
+        return _rfc7807_error(
+            title="Invalid JSON",
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="request body is not valid JSON",
+            request_id=request_id,
+        )
+
+    task_type = raw.get("task_type") if isinstance(raw, dict) else None
+    if not task_type:
+        return _rfc7807_error(
+            title="Missing task_type",
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="body must include `task_type`",
+            request_id=request_id,
+        )
+
+    if task_type != "lp":
         return _rfc7807_error(
             title="Not Implemented",
             status_code=status.HTTP_501_NOT_IMPLEMENTED,
-            detail=(
-                f"task_type '{payload.task_type}' 求解器将在 M2-M3 落地。 您的数据已通过格式校验。"
-            ),
+            detail=(f"task_type '{task_type}' 求解器将在 M2-M3 落地。 您的数据已通过格式校验。"),
+            request_id=request_id,
+        )
+
+    # LP path — now apply strict validation
+    try:
+        payload = OptimizationRequest.model_validate(raw)
+    except Exception as e:
+        return _rfc7807_error(
+            title="Invalid LP body",
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(e),
             request_id=request_id,
         )
 
