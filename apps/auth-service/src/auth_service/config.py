@@ -45,7 +45,17 @@ class AuthSettings(BaseSettings):
     service_port: int = Field(default=8001, alias="AUTH_SERVICE_PORT")
 
     # ----- 风控 (FR A5) -----
-    risk_freeze_threshold: float = 0.9  # 任 2 项触发冻结
+    # Reserved for Story 1.11 (geo-anomaly risk-scoring). Story 1.5 uses the
+    # discrete COUNT threshold defined in `risk.FREEZE_THRESHOLD = 2` instead.
+    risk_freeze_threshold: float = 0.9
+
+    # Story 1.5 — admin shared-secret for /v1/admin/* endpoints (FR A5 manual flag + unfreeze).
+    # Empty default → admin endpoints return 403 (fail-closed). v1 only; M2+ uses real RBAC.
+    admin_secret: str = Field(
+        default="",
+        alias="ADMIN_SECRET",
+        description="X-Admin-Secret header value for admin endpoints; empty → endpoints 403.",
+    )
 
     # ----- Story 1.2 — OTP login (FR A1 双因素) -----
     otp_dev_mode_return: bool = Field(default=True, alias="OTP_DEV_MODE_RETURN")
