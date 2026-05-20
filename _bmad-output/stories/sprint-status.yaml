@@ -199,7 +199,7 @@ development_status:
   6-a-2-bibtex-academic-page: done             # 2026-05-20 — /academic SSR BibTeX Landing 页 + shared CodeBlock + landing 学术合作 link; 5 Playwright cases; post-code-review patches applied
   6-a-3-citation-tracking: done                # 2026-05-20 — citation tracker CLI/runbook shipped; post-implementation review patches applied; 77 solver tests pass
   6-a-4-academic-onboarding-toolkit: done        # 2026-05-20 — Academic onboarding toolkit docs shipped: execution-ready handbook + scholar FAQ + Chinese paper template + joint whitepaper outline; docs-only; link/placeholder checks pass; post-review trailing-whitespace patch applied
-  6-a-5-ip-attribution-tiers: backlog          # E5
+  6-a-5-ip-attribution-tiers: done             # 2026-05-20 — IP attribution L1/L2/L3 catalog/API/public+Console UI shipped; post-code-review clean; backend/typecheck/E2E passed
 
   6-b-1-mark-reproducible: backlog             # FR R1
   6-b-2-voucher-unique-id: backlog             # FR R2

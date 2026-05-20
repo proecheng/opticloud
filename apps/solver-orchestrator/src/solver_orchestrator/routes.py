@@ -19,6 +19,7 @@ from solver_orchestrator.auth import require_scope, verify_api_key
 from solver_orchestrator.catalog import (
     CATALOG,
     Citation,
+    IPAttribution,
     find_by_k_algo,
     find_by_task_type_and_solver,
 )
@@ -27,6 +28,7 @@ from solver_orchestrator.models import IdempotencyKey, Optimization
 from solver_orchestrator.schemas import (
     AlgorithmSchema,
     CitationSchema,
+    IPAttributionSchema,
     OptimizationRequest,
     OptimizationResponse,
 )
@@ -455,8 +457,9 @@ async def post_optimization(
 
 
 def _build_success_response(opt: Optimization) -> JSONResponse:
-    """FR E1 + E9 — success response, with FR R5 citation (Story 6.A.1)."""
+    """FR E1 + E9 — success response, with citation + IP attribution metadata."""
     algo_citation: Citation | None = None
+    algo_attribution: IPAttribution | None = None
     if isinstance(opt.model_version, dict):
         provider_id = opt.model_version.get("provider_id")
         if isinstance(provider_id, str):
@@ -468,6 +471,7 @@ def _build_success_response(opt: Optimization) -> JSONResponse:
                     and a["task_type"] == opt.task_type
                 ):
                     algo_citation = a.get("citation")
+                    algo_attribution = a.get("ip_attribution")
                     break
 
     citation_payload: CitationSchema | None = None
@@ -479,6 +483,13 @@ def _build_success_response(opt: Optimization) -> JSONResponse:
         except Exception:
             citation_payload = None
 
+    attribution_payload: IPAttributionSchema | None = None
+    if algo_attribution is not None:
+        try:
+            attribution_payload = IPAttributionSchema.model_validate(algo_attribution)
+        except Exception:
+            attribution_payload = None
+
     payload = OptimizationResponse(
         optimization_id=opt.id,
         status="completed",
@@ -489,6 +500,7 @@ def _build_success_response(opt: Optimization) -> JSONResponse:
         created_at=opt.created_at,
         completed_at=opt.completed_at or opt.created_at,
         citation=citation_payload,
+        ip_attribution=attribution_payload,
     )
     return JSONResponse(
         content=json.loads(payload.model_dump_json()),
@@ -628,6 +640,15 @@ async def post_optimization_demo(request: Request) -> JSONResponse:
                 )
             except Exception:
                 demo_citation = None
+        demo_attribution_raw = algo.get("ip_attribution")
+        demo_attribution: dict[str, object] | None = None
+        if demo_attribution_raw is not None:
+            try:
+                demo_attribution = json.loads(
+                    IPAttributionSchema.model_validate(demo_attribution_raw).model_dump_json()
+                )
+            except Exception:
+                demo_attribution = None
         return JSONResponse(
             content={
                 "status": "completed",
@@ -637,6 +658,7 @@ async def post_optimization_demo(request: Request) -> JSONResponse:
                 "solve_seconds": result.solve_seconds,
                 "demo": True,
                 "citation": demo_citation,
+                "ip_attribution": demo_attribution,
             },
             status_code=status.HTTP_200_OK,
         )

@@ -58,10 +58,24 @@ test.describe("Academic landing page (Epic 6.A.2)", () => {
 
     const card = page.getByTestId("citation-card-aqgs-acopf");
     await expect(card).toBeVisible();
+    await expect(card.getByTestId("attribution-badge-L1")).toBeVisible();
+    await expect(page.getByTestId("attribution-line-aqgs-acopf")).toContainText(
+      "Algorithm by OptiCloud / Trust-Tech 团队",
+    );
     await expect(card.getByTestId("url-aqgs-acopf")).toBeVisible();
     await expect(card.getByTestId("doi-aqgs-acopf")).toHaveCount(0);
     await expect(card.getByTestId("bibtex-aqgs-acopf")).toContainText(
       "@software{aqgs2025opticloud,",
+    );
+  });
+
+  test("highs-lp citation card 显示 L3 license-only attribution", async ({ page }) => {
+    await page.goto("/academic", { waitUntil: "networkidle" });
+
+    const card = page.getByTestId("citation-card-highs-lp");
+    await expect(card.getByTestId("attribution-badge-L3")).toBeVisible();
+    await expect(page.getByTestId("attribution-line-highs-lp")).toContainText(
+      "开源 Runner",
     );
   });
 

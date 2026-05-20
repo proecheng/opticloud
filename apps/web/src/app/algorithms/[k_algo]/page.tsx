@@ -13,6 +13,7 @@ import { useEffect, useState } from "react";
 
 import { EmptyState, LoadingShimmer, StatusCard } from "@opticloud/ui";
 
+import { AttributionBadge, attributionLine } from "@/components/AttributionBadge";
 import { CodeBlock } from "@/components/CodeBlock";
 import {
   type Algorithm,
@@ -188,6 +189,7 @@ export default function AlgorithmDetailPage(): JSX.Element {
                 <span className="rounded bg-muted px-2 py-1 font-mono text-xs">
                   task_type: {algo.task_type}
                 </span>
+                <AttributionBadge attribution={algo.ip_attribution} />
               </div>
               <p className="mt-3 text-base">{algo.description_zh}</p>
               <p className="mt-1 text-sm text-muted-foreground">{algo.description_en}</p>
@@ -210,6 +212,29 @@ export default function AlgorithmDetailPage(): JSX.Element {
                 </a>
               </div>
             </header>
+
+            <section
+              data-testid="ip-attribution-block"
+              aria-labelledby="ip-attribution-heading"
+              className="rounded-lg border border-border bg-muted/30 p-4"
+            >
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 id="ip-attribution-heading" className="text-lg font-semibold">
+                  IP Attribution
+                </h2>
+                <AttributionBadge attribution={algo.ip_attribution} />
+              </div>
+              <p className="mt-2 text-sm" data-testid="ip-attribution-line">
+                {attributionLine(algo.ip_attribution)}
+              </p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {algo.ip_attribution.summary_zh}
+              </p>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Contract anchor:{" "}
+                <code className="font-mono">{algo.ip_attribution.contract_anchor}</code>
+              </p>
+            </section>
 
             <section>
               <h2 className="mb-3 text-lg font-semibold">Try it now</h2>
