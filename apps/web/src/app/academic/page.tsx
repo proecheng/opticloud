@@ -25,8 +25,15 @@ export const metadata = {
 // thundering-herd protection.
 export const dynamic = "force-dynamic";
 
-const SOLVER_BASE =
-  process.env.NEXT_PUBLIC_SOLVER_SERVICE_URL ?? "http://localhost:8002";
+// This fetch runs server-side (Node.js), where `localhost` resolves to ::1
+// (IPv6) first. The backend services bind 0.0.0.0 (IPv4 only), so a Node
+// `fetch("http://localhost:...")` is refused. Normalize to 127.0.0.1 — the
+// same IPv4-explicit workaround e2e.yml documents for its readiness probes.
+// (The browser-side client in lib/api.ts keeps `localhost`: the browser/OS
+// resolver handles it fine; only Node's resolver has the ::1 preference.)
+const SOLVER_BASE = (
+  process.env.NEXT_PUBLIC_SOLVER_SERVICE_URL ?? "http://localhost:8002"
+).replace("localhost", "127.0.0.1");
 
 const TIER_COLOR: Record<string, string> = {
   T1: "bg-success/10 text-success border-success/30",
