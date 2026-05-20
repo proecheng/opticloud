@@ -13,6 +13,7 @@ import { useEffect, useState } from "react";
 
 import { EmptyState, LoadingShimmer, StatusCard } from "@opticloud/ui";
 
+import { CodeBlock } from "@/components/CodeBlock";
 import {
   type Algorithm,
   OptiCloudClientError,
@@ -46,56 +47,6 @@ const PLACEHOLDER_INPUT: Record<string, unknown> = {
   minimize: { c: [1] },
   st: { A: [[1]], b: [1] },
 };
-
-function CodeBlock({
-  lang,
-  code,
-  testId,
-  label,
-  ariaLabel,
-}: {
-  lang: "python" | "bash";
-  code: string;
-  testId: string;
-  /** Story 6.A.1 — optional override for the upper-left label (default: Python / cURL). */
-  label?: string;
-  /** Story 6.A.1 — optional override for the copy-button aria-label. */
-  ariaLabel?: string;
-}): JSX.Element {
-  const [copied, setCopied] = useState(false);
-
-  const handleCopy = async (): Promise<void> => {
-    try {
-      await navigator.clipboard.writeText(code);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    } catch {
-      // Clipboard API missing — graceful no-op; user can still select+Ctrl-C
-    }
-  };
-
-  const computedLabel = label ?? (lang === "python" ? "Python" : "cURL");
-  const computedAriaLabel = ariaLabel ?? `复制 ${computedLabel} 代码`;
-
-  return (
-    <div className="relative rounded-md border border-border bg-muted/30" data-testid={testId}>
-      <div className="flex items-center justify-between border-b border-border px-3 py-1.5">
-        <span className="font-mono text-xs uppercase text-muted-foreground">
-          {computedLabel}
-        </span>
-        <button
-          type="button"
-          onClick={() => void handleCopy()}
-          className="min-h-touch rounded px-2 py-1 text-xs text-primary hover:bg-primary/10"
-          aria-label={computedAriaLabel}
-        >
-          {copied ? "✅ 已复制" : "📋 复制"}
-        </button>
-      </div>
-      <pre className="overflow-x-auto p-3 font-mono text-xs leading-relaxed">{code}</pre>
-    </div>
-  );
-}
 
 function buildPythonSnippet(algo: Algorithm, exampleInput: Record<string, unknown>): string {
   const json = JSON.stringify(exampleInput, null, 4).replace(/\n/g, "\n    ");
