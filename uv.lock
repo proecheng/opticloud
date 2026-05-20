@@ -1214,6 +1214,7 @@ dependencies = [
     { name = "asyncpg" },
     { name = "fastapi" },
     { name = "highspy" },
+    { name = "httpx" },
     { name = "numpy" },
     { name = "opticloud-shared" },
     { name = "pydantic", extra = ["email"] },
@@ -1225,7 +1226,6 @@ dependencies = [
 
 [package.optional-dependencies]
 dev = [
-    { name = "httpx" },
     { name = "hypothesis" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
@@ -1236,7 +1236,7 @@ requires-dist = [
     { name = "asyncpg", specifier = ">=0.30" },
     { name = "fastapi", specifier = ">=0.115" },
     { name = "highspy", specifier = ">=1.7" },
-    { name = "httpx", marker = "extra == 'dev'", specifier = ">=0.27" },
+    { name = "httpx", specifier = ">=0.27" },
     { name = "hypothesis", marker = "extra == 'dev'", specifier = ">=6.115" },
     { name = "numpy", specifier = ">=1.26" },
     { name = "opticloud-shared", editable = "packages/shared-py" },
