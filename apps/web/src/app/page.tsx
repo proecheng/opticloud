@@ -18,6 +18,12 @@ export default function LandingPage(): JSX.Element {
             >
               算法目录
             </Link>
+            <Link
+              href="/academic"
+              className="text-muted-foreground hover:text-foreground"
+            >
+              学术合作
+            </Link>
             <Link href="/docs" className="text-muted-foreground hover:text-foreground">
               文档
             </Link>
