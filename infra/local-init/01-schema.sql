@@ -66,6 +66,22 @@ CREATE TABLE IF NOT EXISTS audit_logs (
 CREATE INDEX idx_audit_logs_user_id_created_at ON audit_logs(user_id, created_at DESC);
 CREATE INDEX idx_audit_logs_action_created_at ON audit_logs(action, created_at DESC);
 
+-- ===== account_deletion_requests (Story 1.6 + FR A6) =====
+CREATE TABLE IF NOT EXISTS account_deletion_requests (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id_snapshot    UUID NOT NULL UNIQUE,
+    user_id             UUID NULL REFERENCES users(id) ON DELETE SET NULL,
+    status              VARCHAR(32) NOT NULL DEFAULT 'scheduled',
+    requested_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    hard_delete_at      TIMESTAMPTZ NOT NULL,
+    completed_at        TIMESTAMPTZ NULL,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_account_deletion_requests_hard_delete_at
+    ON account_deletion_requests(hard_delete_at);
+
 -- ===== outbox (P33 + P56 + C12 sidecar relayer) =====
 -- M1 fire-and-forget；M2+ outbox sidecar
 CREATE TABLE IF NOT EXISTS outbox (

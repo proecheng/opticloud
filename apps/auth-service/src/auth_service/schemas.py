@@ -82,6 +82,20 @@ class LoginResponse(SignupResponse):
     """POST /v1/auth/login response — same shape as SignupResponse."""
 
 
+# ===== Story 1.6: account deletion =====
+
+
+class AccountDeletionStatusResponse(BaseModel):
+    """Authenticated account deletion status."""
+
+    status: Literal["none", "scheduled", "completed"]
+    user_id_snapshot: uuid.UUID | None = None
+    requested_at: datetime | None = None
+    hard_delete_at: datetime | None = None
+    completed_at: datetime | None = None
+    grace_period_days: int = 7
+
+
 # ===== api_keys =====
 
 VALID_SCOPES = {
