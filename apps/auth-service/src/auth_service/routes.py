@@ -15,12 +15,14 @@ from sqlalchemy import and_, select, text, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from auth_service import account_deletion, risk, security
+from auth_service import account_deletion, account_merge, risk, security
 from auth_service.config import settings
 from auth_service.db import get_session
 from auth_service.models import APIKey, AuditLog, User, UserOTP
 from auth_service.schemas import (
     AccountDeletionStatusResponse,
+    AccountMergeProposalCreateRequest,
+    AccountMergeProposalResponse,
     APIKeyCreateRequest,
     APIKeyCreateResponse,
     APIKeyListItem,
@@ -165,6 +167,16 @@ async def _require_active_user(session: AsyncSession, user_id: uuid.UUID) -> Use
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="account deleted",
+        )
+    if user.merged_at is not None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="account merged",
+        )
+    if user.is_frozen:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="account frozen",
         )
     return user
 
@@ -554,3 +566,52 @@ async def request_account_deletion(
         hard_delete_at=request.hard_delete_at,
         completed_at=request.completed_at,
     )
+
+
+@router.post(
+    "/account-merge-proposals",
+    response_model=AccountMergeProposalResponse,
+    summary="提交冻结账户合并提案",
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_account_merge_proposal(
+    body: AccountMergeProposalCreateRequest,
+    authorization: str | None = Header(default=None),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, object]:
+    user_id = await _resolve_user_from_jwt(authorization)
+    proposal = await account_merge.create_merge_proposal(session, user_id, body)
+    await session.commit()
+    await session.refresh(proposal)
+    return account_merge.proposal_to_response(proposal)
+
+
+@router.get(
+    "/account-merge-proposals",
+    response_model=list[AccountMergeProposalResponse],
+    summary="列出当前用户的账户合并提案",
+)
+async def list_account_merge_proposals(
+    authorization: str | None = Header(default=None),
+    session: AsyncSession = Depends(get_session),
+) -> list[dict[str, object]]:
+    user_id = await _resolve_user_from_jwt(authorization)
+    proposals = await account_merge.list_user_merge_proposals(session, user_id)
+    return [account_merge.proposal_to_response(p) for p in proposals]
+
+
+@router.post(
+    "/account-merge-proposals/{proposal_id}/accept",
+    response_model=AccountMergeProposalResponse,
+    summary="接受已批准的账户合并提案",
+)
+async def accept_account_merge_proposal(
+    proposal_id: uuid.UUID,
+    authorization: str | None = Header(default=None),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, object]:
+    user_id = await _resolve_user_from_jwt(authorization)
+    proposal = await account_merge.accept_merge_proposal(session, user_id, proposal_id)
+    await session.commit()
+    await session.refresh(proposal)
+    return account_merge.proposal_to_response(proposal)

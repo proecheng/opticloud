@@ -96,6 +96,68 @@ class AccountDeletionStatusResponse(BaseModel):
     grace_period_days: int = 7
 
 
+# ===== Story 1.7: account merge proposals =====
+
+
+class AccountMergeEvidence(BaseModel):
+    """Evidence collected for FR A7 account-merge review."""
+
+    reason: str = Field(..., min_length=4, max_length=500)
+    contact_email: EmailStr
+    supporting_note: str | None = Field(default=None, max_length=1000)
+    team_size: int | None = Field(default=None, ge=1, le=50)
+
+
+class AccountMergeProposalCreateRequest(BaseModel):
+    primary_user_id: uuid.UUID
+    duplicate_user_ids: list[uuid.UUID] = Field(..., min_length=1)
+    evidence: AccountMergeEvidence
+
+    @field_validator("duplicate_user_ids")
+    @classmethod
+    def validate_duplicate_user_ids(cls, v: list[uuid.UUID]) -> list[uuid.UUID]:
+        if len(set(v)) != len(v):
+            raise ValueError("duplicate_user_ids must be unique")
+        return v
+
+    @model_validator(mode="after")
+    def validate_primary_not_duplicate(self) -> AccountMergeProposalCreateRequest:
+        if self.primary_user_id in self.duplicate_user_ids:
+            raise ValueError("duplicate_user_ids must not include primary_user_id")
+        return self
+
+
+class AccountMergeProposalResponse(BaseModel):
+    id: uuid.UUID
+    requester_user_id: uuid.UUID
+    primary_user_id: uuid.UUID
+    duplicate_user_ids: list[uuid.UUID]
+    evidence: dict[str, object]
+    status: Literal[
+        "pending_review",
+        "approved",
+        "rejected",
+        "auto_approved",
+        "accepted",
+        "cancelled",
+    ]
+    review_mode: Literal["human", "auto"]
+    auto_score: float | None
+    review_due_at: datetime
+    reviewed_at: datetime | None
+    reviewed_by: str | None
+    decision_reason: str | None
+    accepted_at: datetime | None
+    created_at: datetime
+    updated_at: datetime
+    next_action: str
+
+
+class AccountMergeAdminReviewRequest(BaseModel):
+    decision: Literal["approve", "reject"]
+    reason: str = Field(..., min_length=1, max_length=1000)
+
+
 # ===== api_keys =====
 
 VALID_SCOPES = {

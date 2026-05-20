@@ -289,6 +289,85 @@ export async function requestAccountDeletion(
   );
 }
 
+// ===== Account merge (Story 1.7 — FR A7/A8) =====
+
+export interface AccountMergeEvidence {
+  reason: string;
+  contact_email: string;
+  supporting_note?: string | null;
+  team_size?: number | null;
+}
+
+export interface AccountMergeProposalCreateRequest {
+  primary_user_id: string;
+  duplicate_user_ids: string[];
+  evidence: AccountMergeEvidence;
+}
+
+export interface AccountMergeProposalResponse {
+  id: string;
+  requester_user_id: string;
+  primary_user_id: string;
+  duplicate_user_ids: string[];
+  evidence: Record<string, unknown>;
+  status:
+    | "pending_review"
+    | "approved"
+    | "rejected"
+    | "auto_approved"
+    | "accepted"
+    | "cancelled";
+  review_mode: "human" | "auto";
+  auto_score: number | null;
+  review_due_at: string;
+  reviewed_at: string | null;
+  reviewed_by: string | null;
+  decision_reason: string | null;
+  accepted_at: string | null;
+  created_at: string;
+  updated_at: string;
+  next_action: string;
+}
+
+export async function createAccountMergeProposal(
+  jwtAccess: string,
+  body: AccountMergeProposalCreateRequest,
+): Promise<AccountMergeProposalResponse> {
+  return request<AccountMergeProposalResponse>(
+    "/v1/auth/account-merge-proposals",
+    {
+      method: "POST",
+      headers: { Authorization: `Bearer ${jwtAccess}` },
+      body: JSON.stringify(body),
+    },
+    AUTH_SERVICE_URL,
+  );
+}
+
+export async function listAccountMergeProposals(
+  jwtAccess: string,
+): Promise<AccountMergeProposalResponse[]> {
+  return request<AccountMergeProposalResponse[]>(
+    "/v1/auth/account-merge-proposals",
+    { headers: { Authorization: `Bearer ${jwtAccess}` } },
+    AUTH_SERVICE_URL,
+  );
+}
+
+export async function acceptAccountMergeProposal(
+  jwtAccess: string,
+  proposalId: string,
+): Promise<AccountMergeProposalResponse> {
+  return request<AccountMergeProposalResponse>(
+    `/v1/auth/account-merge-proposals/${encodeURIComponent(proposalId)}/accept`,
+    {
+      method: "POST",
+      headers: { Authorization: `Bearer ${jwtAccess}` },
+    },
+    AUTH_SERVICE_URL,
+  );
+}
+
 // ===== API Keys list + revoke (Story 1.3) =====
 
 export interface APIKeyListItem {

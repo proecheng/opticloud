@@ -16,14 +16,23 @@ CREATE TABLE IF NOT EXISTS users (
     age_verified    BOOLEAN NOT NULL DEFAULT FALSE,  -- FR A10 <14 岁拦截
     risk_score      NUMERIC(3, 2) NOT NULL DEFAULT 0.00,  -- FR A5 风控
     is_frozen       BOOLEAN NOT NULL DEFAULT FALSE,
+    merged_into_user_id UUID NULL REFERENCES users(id) ON DELETE SET NULL,
+    merged_at       TIMESTAMPTZ NULL,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     deleted_at      TIMESTAMPTZ NULL  -- FR A6 PIPL soft delete (7 day hard-delete cron)
 );
 
+ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS merged_into_user_id UUID NULL REFERENCES users(id) ON DELETE SET NULL;
+ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS merged_at TIMESTAMPTZ NULL;
+
 CREATE INDEX idx_users_phone ON users(phone) WHERE deleted_at IS NULL;
 CREATE INDEX idx_users_email ON users(email) WHERE deleted_at IS NULL;
 CREATE INDEX idx_users_edu_tier ON users(edu_tier) WHERE edu_tier = TRUE;
+CREATE INDEX IF NOT EXISTS idx_users_merged_into
+    ON users(merged_into_user_id) WHERE merged_into_user_id IS NOT NULL;
 
 -- ===== api_keys (Story 0.6 + FR A2) =====
 -- D7: HMAC-SHA256 with Vault pepper; 仅 hash 入库，前缀 6 位可见
@@ -81,6 +90,30 @@ CREATE TABLE IF NOT EXISTS account_deletion_requests (
 
 CREATE INDEX idx_account_deletion_requests_hard_delete_at
     ON account_deletion_requests(hard_delete_at);
+
+-- ===== account_merge_proposals (Story 1.7 + FR A7/A8) =====
+CREATE TABLE IF NOT EXISTS account_merge_proposals (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    requester_user_id   UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    primary_user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    duplicate_user_ids  UUID[] NOT NULL,
+    evidence            JSONB NOT NULL DEFAULT '{}'::jsonb,
+    status              VARCHAR(32) NOT NULL DEFAULT 'pending_review',
+    review_mode         VARCHAR(16) NOT NULL,
+    auto_score          NUMERIC(4, 2) NULL,
+    review_due_at       TIMESTAMPTZ NOT NULL,
+    reviewed_at         TIMESTAMPTZ NULL,
+    reviewed_by         VARCHAR(255) NULL,
+    decision_reason     TEXT NULL,
+    accepted_at         TIMESTAMPTZ NULL,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_account_merge_proposals_requester_created_at
+    ON account_merge_proposals(requester_user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_account_merge_proposals_status_due
+    ON account_merge_proposals(status, review_due_at);
 
 -- ===== outbox (P33 + P56 + C12 sidecar relayer) =====
 -- M1 fire-and-forget；M2+ outbox sidecar
