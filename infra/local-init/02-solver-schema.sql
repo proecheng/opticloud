@@ -35,3 +35,26 @@ CREATE TABLE IF NOT EXISTS idempotency_keys (
 
 CREATE INDEX IF NOT EXISTS idx_idempotency_keys_expires_at
     ON idempotency_keys(expires_at);
+
+-- Story 6.B.2: permanent reproducibility vouchers.
+CREATE TABLE IF NOT EXISTS reproduction_vouchers (
+    id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    voucher_id              VARCHAR(32) NOT NULL UNIQUE,
+    optimization_id         UUID NOT NULL UNIQUE REFERENCES optimizations(id) ON DELETE CASCADE,
+    user_id                 UUID NOT NULL,
+    api_key_id              UUID NOT NULL,
+    request_fingerprint     TEXT NOT NULL,
+    locked_model_version    JSONB NOT NULL,
+    locked_solver           VARCHAR(64) NOT NULL,
+    seed_locked             BOOLEAN NOT NULL,
+    seed                    INTEGER NULL,
+    status                  VARCHAR(32) NOT NULL DEFAULT 'issued',
+    created_at              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT ck_reproduction_vouchers_voucher_id_format
+        CHECK (voucher_id ~ '^repro-[0-9]{4}-[0123456789ABCDEFGHJKMNPQRSTVWXYZ]{6}$'),
+    CONSTRAINT ck_reproduction_vouchers_status
+        CHECK (status IN ('issued'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_reproduction_vouchers_user_id_created_at
+    ON reproduction_vouchers(user_id, created_at DESC);
