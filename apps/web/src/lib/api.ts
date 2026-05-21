@@ -248,6 +248,16 @@ export interface OptimizationResponse {
   reproducibility?: Reproducibility;
 }
 
+export interface ReproductionRerunResponse extends OptimizationResponse {
+  rerun_of_voucher_id: string;
+  source_optimization_id: string;
+  archive_restore?: {
+    mode: "live_solver_image_reuse";
+    status: "used";
+    detail: string;
+  };
+}
+
 // ===== Login (Story 1.2 — OTP 2FA) =====
 
 export interface OTPRequestBody {
@@ -458,6 +468,29 @@ export async function postOptimization(
         "Idempotency-Key": idempotencyKey,
       },
       body: JSON.stringify(body),
+    },
+    SOLVER_SERVICE_URL,
+  );
+}
+
+export async function rerunReproductionVoucher(
+  apiKey: string,
+  voucherId: string,
+  idempotencyKey?: string,
+): Promise<ReproductionRerunResponse> {
+  const replayKey =
+    idempotencyKey ??
+    (typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}`);
+  return request<ReproductionRerunResponse>(
+    `/v1/reproduce/${encodeURIComponent(voucherId)}/rerun`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Idempotency-Key": replayKey,
+      },
     },
     SOLVER_SERVICE_URL,
   );
