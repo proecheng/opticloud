@@ -112,9 +112,7 @@ class IdempotencyKey(Base):
     __tablename__ = "idempotency_keys"
 
     key: Mapped[str] = mapped_column(String(255), primary_key=True)
-    user_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, nullable=False
-    )
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, nullable=False)
     optimization_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("optimizations.id"), nullable=False
     )

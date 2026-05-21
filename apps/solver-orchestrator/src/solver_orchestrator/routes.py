@@ -839,9 +839,7 @@ async def rerun_reproduction(
                 archive_restore=_build_archive_restore_metadata(),
             )
 
-    voucher = await _load_owner_visible_voucher(
-        session, voucher_id=voucher_id, user_id=user_id
-    )
+    voucher = await _load_owner_visible_voucher(session, voucher_id=voucher_id, user_id=user_id)
     if voucher is None:
         return _rfc7807_error(
             title="Not Found",
@@ -919,9 +917,7 @@ async def rerun_reproduction(
         api_key_id=api_key_id,
         task_type=clean_payload.task_type,
         status="in_progress",
-        input_payload=_attach_reproducibility_metadata(
-            clean_payload_dict, rerun_reproducibility
-        ),
+        input_payload=_attach_reproducibility_metadata(clean_payload_dict, rerun_reproducibility),
         idempotency_key=idempotency_key,
     )
     session.add(rerun_opt)

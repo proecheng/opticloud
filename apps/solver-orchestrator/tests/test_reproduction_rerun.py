@@ -374,9 +374,9 @@ async def test_rerun_idempotency_replays_same_voucher_and_rejects_other_target(
     assert second.status_code == 200, second.text
     second_body = second.json()
     assert second_body["optimization_id"] == first_body["optimization_id"]
-    assert second_body["reproducibility"]["voucher_id"] == first_body["reproducibility"][
-        "voucher_id"
-    ]
+    assert (
+        second_body["reproducibility"]["voucher_id"] == first_body["reproducibility"]["voucher_id"]
+    )
 
     third = await client_with_db.post(
         f"/v1/reproduce/{source_b['reproducibility']['voucher_id']}/rerun",
@@ -470,9 +470,7 @@ async def test_rerun_expired_and_boundary_helpers(
     expiry = _voucher_expiry_utc(boundary)
     assert expiry == datetime(2031, 5, 21, tzinfo=UTC)
     assert _is_rerun_voucher_expired(boundary, now=expiry.replace(microsecond=0)) is True
-    assert (
-        _is_rerun_voucher_expired(boundary, now=expiry - datetime.resolution) is False
-    )
+    assert _is_rerun_voucher_expired(boundary, now=expiry - datetime.resolution) is False
     assert _add_calendar_years_utc(datetime(2024, 2, 29, 12, tzinfo=UTC), 5) == datetime(
         2029, 2, 28, 12, tzinfo=UTC
     )
