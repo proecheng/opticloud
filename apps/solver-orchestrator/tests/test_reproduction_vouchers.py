@@ -29,6 +29,15 @@ if sys.platform == "win32":
 DATABASE_URL = os.getenv("DATABASE_URL", settings.database_url)
 
 
+def _fresh_voucher_id(issued_at: datetime, *, used: set[str] | None = None) -> str:
+    used = used if used is not None else set()
+    voucher_id = generate_reproduction_voucher_id(issued_at)
+    while voucher_id in used:
+        voucher_id = generate_reproduction_voucher_id(issued_at)
+    used.add(voucher_id)
+    return voucher_id
+
+
 @pytest_asyncio.fixture(scope="session", loop_scope="session")
 async def db_engine():
     eng = create_async_engine(DATABASE_URL, echo=False, future=True, pool_pre_ping=True)
@@ -84,10 +93,14 @@ def _voucher_row(
     created_at: datetime,
     status: str = "issued",
     request_fingerprint: str = "sha256:test",
+    parent_voucher_id: uuid.UUID | None = None,
+    rerun_depth: int = 0,
 ) -> ReproductionVoucher:
     return ReproductionVoucher(
         voucher_id=voucher_id,
         optimization_id=opt.id,
+        parent_voucher_id=parent_voucher_id,
+        rerun_depth=rerun_depth,
         user_id=opt.user_id,
         api_key_id=opt.api_key_id,
         request_fingerprint=request_fingerprint,
@@ -113,8 +126,9 @@ def test_generate_reproduction_voucher_id_uses_contract_format() -> None:
 
 async def test_issue_reproduction_voucher_retries_on_voucher_id_collision(db_engine) -> None:
     issued_at = datetime(2026, 5, 21, tzinfo=UTC)
-    duplicate_id = f"repro-2026-{uuid.uuid4().hex[:6].upper()}"
-    replacement_id = f"repro-2026-{uuid.uuid4().hex[:6].upper()}"
+    used_ids: set[str] = set()
+    duplicate_id = _fresh_voucher_id(issued_at, used=used_ids)
+    replacement_id = _fresh_voucher_id(issued_at, used=used_ids)
     calls: list[str] = []
 
     def _factory(_: datetime) -> str:
@@ -182,9 +196,24 @@ async def test_reproduction_vouchers_enforce_database_constraints(db_engine) -> 
         session.add(
             _voucher_row(
                 opt=opt,
-                voucher_id=f"repro-2026-{uuid.uuid4().hex[:6].upper()}",
+                voucher_id=_fresh_voucher_id(issued_at),
                 created_at=issued_at,
-                status="expired",
+                status="revoked",
+            )
+        )
+        await session.flush()
+        await session.rollback()
+
+    async with maker() as session:
+        opt = _completed_repro_optimization()
+        session.add(opt)
+        await session.flush()
+        session.add(
+            _voucher_row(
+                opt=opt,
+                voucher_id=_fresh_voucher_id(issued_at),
+                created_at=issued_at,
+                rerun_depth=-1,
             )
         )
         with pytest.raises(IntegrityError):

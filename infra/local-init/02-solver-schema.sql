@@ -25,16 +25,27 @@ CREATE INDEX IF NOT EXISTS idx_optimizations_status
 
 -- P23 Idempotency-Key dedup (24h TTL — auto-cleanup via cron in M3)
 CREATE TABLE IF NOT EXISTS idempotency_keys (
-    key                 VARCHAR(255) PRIMARY KEY,
     user_id             UUID NOT NULL,
+    key                 VARCHAR(255) NOT NULL,
     optimization_id     UUID NOT NULL REFERENCES optimizations(id) ON DELETE CASCADE,
     request_body_hash   TEXT NOT NULL,
     expires_at          TIMESTAMPTZ NOT NULL,
-    created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (user_id, key)
 );
 
 CREATE INDEX IF NOT EXISTS idx_idempotency_keys_expires_at
     ON idempotency_keys(expires_at);
+
+-- Story 6.B.3: scope solver idempotency by user + key rather than global key.
+ALTER TABLE idempotency_keys
+    DROP CONSTRAINT IF EXISTS idempotency_keys_pkey;
+ALTER TABLE idempotency_keys
+    ALTER COLUMN user_id SET NOT NULL;
+ALTER TABLE idempotency_keys
+    ALTER COLUMN key SET NOT NULL;
+ALTER TABLE idempotency_keys
+    ADD PRIMARY KEY (user_id, key);
 
 -- Story 6.B.2: permanent reproducibility vouchers.
 CREATE TABLE IF NOT EXISTS reproduction_vouchers (
@@ -49,12 +60,58 @@ CREATE TABLE IF NOT EXISTS reproduction_vouchers (
     seed_locked             BOOLEAN NOT NULL,
     seed                    INTEGER NULL,
     status                  VARCHAR(32) NOT NULL DEFAULT 'issued',
+    parent_voucher_id       UUID NULL,
+    rerun_depth             INTEGER NOT NULL DEFAULT 0,
     created_at              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT fk_reproduction_vouchers_parent_voucher_id
+        FOREIGN KEY (parent_voucher_id) REFERENCES reproduction_vouchers(id),
     CONSTRAINT ck_reproduction_vouchers_voucher_id_format
         CHECK (voucher_id ~ '^repro-[0-9]{4}-[0123456789ABCDEFGHJKMNPQRSTVWXYZ]{6}$'),
     CONSTRAINT ck_reproduction_vouchers_status
-        CHECK (status IN ('issued'))
+        CHECK (status IN ('issued', 'revoked')),
+    CONSTRAINT ck_reproduction_vouchers_rerun_depth
+        CHECK (rerun_depth >= 0)
 );
 
 CREATE INDEX IF NOT EXISTS idx_reproduction_vouchers_user_id_created_at
     ON reproduction_vouchers(user_id, created_at DESC);
+
+-- Story 6.B.3: idempotent upgrade for dev databases created before rerun lineage.
+ALTER TABLE reproduction_vouchers
+    ADD COLUMN IF NOT EXISTS parent_voucher_id UUID NULL;
+ALTER TABLE reproduction_vouchers
+    ADD COLUMN IF NOT EXISTS rerun_depth INTEGER NOT NULL DEFAULT 0;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint c
+        JOIN pg_attribute a
+            ON a.attrelid = c.conrelid
+            AND a.attnum = ANY(c.conkey)
+        WHERE c.conrelid = 'reproduction_vouchers'::regclass
+            AND c.contype = 'f'
+            AND a.attname = 'parent_voucher_id'
+    ) THEN
+        ALTER TABLE reproduction_vouchers
+            ADD CONSTRAINT fk_reproduction_vouchers_parent_voucher_id
+            FOREIGN KEY (parent_voucher_id) REFERENCES reproduction_vouchers(id);
+    END IF;
+END
+$$;
+
+ALTER TABLE reproduction_vouchers
+    DROP CONSTRAINT IF EXISTS ck_reproduction_vouchers_status;
+ALTER TABLE reproduction_vouchers
+    ADD CONSTRAINT ck_reproduction_vouchers_status
+    CHECK (status IN ('issued', 'revoked'));
+
+ALTER TABLE reproduction_vouchers
+    DROP CONSTRAINT IF EXISTS ck_reproduction_vouchers_rerun_depth;
+ALTER TABLE reproduction_vouchers
+    ADD CONSTRAINT ck_reproduction_vouchers_rerun_depth
+    CHECK (rerun_depth >= 0);
+
+CREATE INDEX IF NOT EXISTS idx_reproduction_vouchers_parent_voucher_id
+    ON reproduction_vouchers(parent_voucher_id);

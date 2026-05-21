@@ -1,4 +1,4 @@
-"""Reproduction voucher issuance helpers (Story 6.B.2)."""
+"""Reproduction voucher issuance helpers (Story 6.B.2 + 6.B.3)."""
 
 from __future__ import annotations
 
@@ -41,6 +41,10 @@ def _extract_reproducibility_handoff(opt: Optimization) -> dict[str, Any]:
     if not isinstance(reproducibility, dict):
         raise ValueError("optimization has no reproducibility handoff")
     return cast(dict[str, Any], reproducibility)
+
+
+def _clone_model_json(value: dict[str, Any]) -> dict[str, Any]:
+    return dict(value)
 
 
 def _seed_from_handoff(handoff: dict[str, Any]) -> int | None:
@@ -103,6 +107,39 @@ async def get_reproduction_voucher(
     return result.scalar_one_or_none()
 
 
+async def get_reproduction_voucher_by_id(
+    session: AsyncSession, voucher_id: str
+) -> ReproductionVoucher | None:
+    result = await session.execute(
+        select(ReproductionVoucher).where(ReproductionVoucher.voucher_id == voucher_id)
+    )
+    return result.scalar_one_or_none()
+
+
+async def get_reproduction_voucher_by_pk(
+    session: AsyncSession, voucher_pk: uuid.UUID
+) -> ReproductionVoucher | None:
+    result = await session.execute(
+        select(ReproductionVoucher).where(ReproductionVoucher.id == voucher_pk)
+    )
+    return result.scalar_one_or_none()
+
+
+def build_rerun_lineage_payload(
+    *,
+    rerun_of_voucher_id: str,
+    source_optimization_id: uuid.UUID,
+    archive_restore: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "rerun_of_voucher_id": rerun_of_voucher_id,
+        "source_optimization_id": str(source_optimization_id),
+    }
+    if archive_restore is not None:
+        payload["archive_restore"] = _clone_model_json(archive_restore)
+    return payload
+
+
 async def attach_existing_voucher_id(
     session: AsyncSession,
     opt: Optimization,
@@ -121,6 +158,8 @@ async def issue_reproduction_voucher(
     issued_at: datetime | None = None,
     voucher_id_factory: Callable[[datetime], str] = generate_reproduction_voucher_id,
     max_attempts: int = MAX_VOUCHER_ID_ATTEMPTS,
+    parent_voucher_id: uuid.UUID | None = None,
+    rerun_depth: int = 0,
 ) -> str:
     """Issue one durable voucher for a completed reproducible optimization."""
     if opt.status != "completed":
@@ -147,6 +186,8 @@ async def issue_reproduction_voucher(
                     ReproductionVoucher(
                         voucher_id=voucher_id,
                         optimization_id=opt.id,
+                        parent_voucher_id=parent_voucher_id,
+                        rerun_depth=rerun_depth,
                         user_id=opt.user_id,
                         api_key_id=opt.api_key_id,
                         request_fingerprint=request_fingerprint,
