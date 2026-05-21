@@ -154,8 +154,67 @@ async def test_no_billing_header_no_billing_calls(
         headers={"Authorization": auth},
     )
     assert r.status_code == 200, r.text
+    body = r.json()
+    assert "reproducibility" not in body
     assert calls["reserve"] == 0
     assert calls["finalize"] == 0
+
+
+async def test_reproducible_optimization_returns_and_persists_locked_context(
+    client_with_db: AsyncClient, api_key, db_engine, monkeypatch
+) -> None:
+    """Story 6.B.1 — opt-in runs return and persist the reproducibility handoff."""
+    auth, _ = api_key
+
+    async def _reserve(*args, **kwargs):
+        raise AssertionError("no billing header should avoid reserve")
+
+    async def _finalize(*args, **kwargs):
+        raise AssertionError("no billing header should avoid finalize")
+
+    monkeypatch.setattr(billing_client, "reserve", _reserve)
+    monkeypatch.setattr(billing_client, "finalize", _finalize)
+
+    payload = {
+        **_LP_BODY,
+        "options": {"reproducible": True},
+    }
+    r = await client_with_db.post(
+        "/v1/optimizations",
+        json=payload,
+        headers={"Authorization": auth},
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    repro = body.get("reproducibility")
+    assert repro is not None
+    assert repro["requested"] is True
+    assert repro["request_fingerprint"].startswith("sha256:")
+    assert repro["locked_model_version"] == body["model_version"]
+    assert repro["locked_solver"] == "highs"
+    assert repro["seed_locked"] is True
+    assert repro["seed"] is None
+
+    opt_id = body["optimization_id"]
+    fetched = await client_with_db.get(
+        f"/v1/optimizations/{opt_id}",
+        headers={"Authorization": auth},
+    )
+    assert fetched.status_code == 200
+    fetched_body = fetched.json()
+    assert fetched_body["reproducibility"] == repro
+
+    maker = async_sessionmaker(db_engine, expire_on_commit=False, class_=AsyncSession)
+    async with maker() as s:
+        row = (
+            await s.execute(
+                text("SELECT input_payload FROM optimizations WHERE id = :id"),
+                {"id": uuid.UUID(opt_id)},
+            )
+        ).scalar_one()
+    assert row["options"]["reproducible"] is True
+    assert row["_system"]["reproducibility"] == repro
+    assert "_system" not in payload
 
 
 async def test_billing_header_success_path_calls_reserve_and_finalize(

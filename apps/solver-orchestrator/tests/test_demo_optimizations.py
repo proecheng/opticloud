@@ -35,6 +35,28 @@ async def test_demo_lp_solves_without_auth(client: AsyncClient) -> None:
     assert body["status"] == "completed"
     assert "objective" in body
     assert body["demo"] is True
+    assert "reproducibility" not in body
+
+
+async def test_demo_lp_reproducible_returns_locked_context(client: AsyncClient) -> None:
+    """Story 6.B.1 — reproducible demo LP returns a downstream handoff envelope."""
+    payload = {
+        "task_type": "lp",
+        "minimize": {"c": [1.0, 1.0]},
+        "st": {"A": [[1.0, 1.0]], "b": [10.0]},
+        "options": {"reproducible": True},
+    }
+    resp = await client.post("/v1/optimizations/demo", json=payload)
+    assert resp.status_code == 200
+    body = resp.json()
+    repro = body.get("reproducibility")
+    assert repro is not None
+    assert repro["requested"] is True
+    assert repro["request_fingerprint"].startswith("sha256:")
+    assert repro["locked_model_version"] == body["model_version"]
+    assert repro["locked_solver"] == "highs"
+    assert repro["seed_locked"] is True
+    assert repro["seed"] is None
 
 
 async def test_demo_vrptw_returns_501(client: AsyncClient) -> None:

@@ -159,6 +159,16 @@ export interface IPAttribution {
   contract_anchor: string;
 }
 
+/** Story 6.B.1 — opt-in reproducibility handoff for voucher minting. */
+export interface Reproducibility {
+  requested: true;
+  request_fingerprint: string;
+  locked_model_version: ModelVersion;
+  locked_solver: string;
+  seed_locked: boolean;
+  seed: number | null;
+}
+
 export interface Algorithm {
   k_algo: string;
   task_type: string;
@@ -232,6 +242,8 @@ export interface OptimizationResponse {
   completed_at: string;
   citation: Citation | null;
   ip_attribution: IPAttribution | null;
+  /** Present only when `options.reproducible: true`; omitted otherwise. */
+  reproducibility?: Reproducibility;
 }
 
 // ===== Login (Story 1.2 — OTP 2FA) =====
@@ -411,6 +423,8 @@ export interface DemoOptimizationResponse {
   demo: true;
   citation: Citation | null;
   ip_attribution: IPAttribution | null;
+  /** Present only when `options.reproducible: true`; omitted otherwise. */
+  reproducibility?: Reproducibility;
 }
 
 export async function submitOptimizationDemo<TBody extends { task_type: string }>(

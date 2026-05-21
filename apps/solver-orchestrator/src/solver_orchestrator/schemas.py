@@ -42,6 +42,17 @@ class IPAttributionSchema(BaseModel):
     contract_anchor: str
 
 
+class ReproducibilitySchema(BaseModel):
+    """Story 6.B.1 — opt-in reproducibility handoff for voucher minting."""
+
+    requested: Literal[True]
+    request_fingerprint: str
+    locked_model_version: ModelVersionSchema
+    locked_solver: str
+    seed_locked: bool
+    seed: int | None = None
+
+
 class AlgorithmSchema(BaseModel):
     k_algo: str
     task_type: str
