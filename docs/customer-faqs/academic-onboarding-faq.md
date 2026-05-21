@@ -1,7 +1,7 @@
 # Academic Onboarding FAQ
 
-> **Audience**：高校教师 / 研究员 / 博士后 / 课题组技术负责人  
-> **Status**：M3 可发送版  
+> **Audience**：高校教师 / 研究员 / 博士后 / 课题组技术负责人
+> **Status**：M3 可发送版
 > **Last Updated**：2026-05-20
 
 ---

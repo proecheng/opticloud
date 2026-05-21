@@ -1,7 +1,7 @@
 # OptiCloud 学界联合白皮书提纲
 
-> **用途**：给合作课题组、市场和 Founder 一份联合白皮书 / 案例研究的结构化起点。  
-> **Status**：M3 提纲版；不是 finished publication。  
+> **用途**：给合作课题组、市场和 Founder 一份联合白皮书 / 案例研究的结构化起点。
+> **Status**：M3 提纲版；不是 finished publication。
 > **Last Updated**：2026-05-20
 
 ---

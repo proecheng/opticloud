@@ -161,9 +161,7 @@ async def test_algorithm_list_includes_ip_attribution_for_every_row(
     assert len(body) >= 8
     for item in body:
         attribution = item.get("ip_attribution")
-        assert attribution is not None, (
-            f"{item['k_algo']} missing ip_attribution in list response"
-        )
+        assert attribution is not None, f"{item['k_algo']} missing ip_attribution in list response"
         assert attribution["tier"] in {"L1", "L2", "L3"}
         assert attribution["visibility"] in {"full_visible", "bibtex", "license_only"}
 
