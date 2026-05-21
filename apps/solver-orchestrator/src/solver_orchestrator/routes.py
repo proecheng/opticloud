@@ -111,6 +111,13 @@ def _hash_body(body: dict) -> str:  # type: ignore[type-arg]
     return hashlib.sha256(canon.encode("utf-8")).hexdigest()
 
 
+def _model_json_dict(model_json: str) -> dict[str, object]:
+    payload = json.loads(model_json)
+    if not isinstance(payload, dict):
+        raise ValueError("model JSON did not encode an object")
+    return payload
+
+
 def _build_reproducibility_payload(
     *,
     request_body: dict,  # type: ignore[type-arg]
@@ -131,7 +138,7 @@ def _build_reproducibility_payload(
         seed_locked=True,
         seed=None,
     )
-    return json.loads(payload.model_dump_json())
+    return _model_json_dict(payload.model_dump_json())
 
 
 def _attach_reproducibility_metadata(
@@ -142,12 +149,12 @@ def _attach_reproducibility_metadata(
     if reproducibility is None:
         return body
     payload = dict(body)
+    existing_system = payload.get("_system")
+    system_payload: dict[str, object] = (
+        dict(existing_system) if isinstance(existing_system, dict) else {}
+    )
     payload["_system"] = {
-        **(
-            payload.get("_system")
-            if isinstance(payload.get("_system"), dict)
-            else {}
-        ),
+        **system_payload,
         "reproducibility": reproducibility,
     }
     return payload

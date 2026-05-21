@@ -185,6 +185,7 @@ Verification:
 - `uv run pytest apps/solver-orchestrator/tests/test_demo_optimizations.py apps/solver-orchestrator/tests/test_citation.py -q` with explicit local `PYTHONPATH` — 18 passed, 2 existing FastAPI deprecation warnings.
 - `uv run pytest apps/solver-orchestrator/tests/test_billing_integration.py -q` with explicit local `PYTHONPATH` — 7 passed, 2 existing FastAPI deprecation warnings.
 - `uv run pytest apps/solver-orchestrator/tests/ -q` with explicit local `PYTHONPATH` — 82 passed, 5 existing FastAPI deprecation warnings.
+- `uv run mypy apps packages` — pass after CI follow-up type narrowing patch.
 - `pnpm --filter @opticloud/web typecheck` — pass after installing Node workspace dependencies with `pnpm install --frozen-lockfile`.
 - `git diff --check` — pass.
 
@@ -207,6 +208,7 @@ Modified:
 - 2026-05-21 — Implemented opt-in reproducibility handoff metadata for authenticated and demo LP success paths.
 - 2026-05-21 — Added regression coverage for opt-in response, non-opt-in omission, and completed GET persistence.
 - 2026-05-21 — Post-implementation review patched web API response types for the new optional `reproducibility` field.
+- 2026-05-21 — CI follow-up narrowed helper return types and applied ruff formatting for `routes.py`.
 
 ### Post-Implementation Code Review
 
@@ -217,5 +219,6 @@ Findings fixed:
 
 Verification:
 - `uv run pytest apps/solver-orchestrator/tests/ -q` with explicit local `PYTHONPATH` — 82 passed, 5 existing FastAPI deprecation warnings.
+- `uv run mypy apps packages` — pass.
 - `pnpm --filter @opticloud/web typecheck` — pass.
 - `git diff --check` — pass.
