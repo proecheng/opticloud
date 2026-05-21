@@ -63,6 +63,15 @@ def _bool_from_handoff(handoff: dict[str, Any], key: str) -> bool:
     raise ValueError(f"reproducibility {key} must be boolean")
 
 
+def _optional_bool_from_handoff(handoff: dict[str, Any], key: str) -> bool:
+    value = handoff.get(key)
+    if value is None:
+        return False
+    if type(value) is bool:
+        return value
+    raise ValueError(f"reproducibility {key} must be boolean")
+
+
 def _str_from_handoff(handoff: dict[str, Any], key: str) -> str:
     value = handoff.get(key)
     if isinstance(value, str) and value:
@@ -77,8 +86,10 @@ def _dict_from_handoff(handoff: dict[str, Any], key: str) -> dict[str, Any]:
     raise ValueError(f"reproducibility {key} must be an object")
 
 
-def attach_voucher_id_to_optimization(opt: Optimization, voucher_id: str) -> None:
-    """Persist voucher_id into `Optimization.input_payload._system.reproducibility`.
+def attach_voucher_metadata_to_optimization(
+    opt: Optimization, *, voucher_id: str, anonymous: bool = False
+) -> None:
+    """Persist voucher metadata into `Optimization.input_payload._system.reproducibility`.
 
     SQLAlchemy does not reliably detect nested JSONB mutations; assign a fresh
     dict so the change is flushed.
@@ -90,12 +101,26 @@ def attach_voucher_id_to_optimization(opt: Optimization, voucher_id: str) -> Non
     if not isinstance(reproducibility_payload, dict):
         return
     reproducibility = dict(reproducibility_payload)
-    if reproducibility.get("voucher_id") == voucher_id:
-        return
     reproducibility["voucher_id"] = voucher_id
+    if anonymous:
+        reproducibility["anonymous"] = True
+    else:
+        reproducibility.pop("anonymous", None)
     system["reproducibility"] = reproducibility
     payload["_system"] = system
     opt.input_payload = payload
+
+
+def attach_voucher_id_to_optimization(opt: Optimization, voucher_id: str) -> None:
+    existing_anonymous = False
+    system_payload = opt.input_payload.get("_system")
+    if isinstance(system_payload, dict):
+        reproducibility_payload = system_payload.get("reproducibility")
+        if isinstance(reproducibility_payload, dict):
+            existing_anonymous = reproducibility_payload.get("anonymous") is True
+    attach_voucher_metadata_to_optimization(
+        opt, voucher_id=voucher_id, anonymous=existing_anonymous
+    )
 
 
 async def get_reproduction_voucher(
@@ -147,7 +172,9 @@ async def attach_existing_voucher_id(
     voucher = await get_reproduction_voucher(session, opt.id)
     if voucher is None:
         return None
-    attach_voucher_id_to_optimization(opt, voucher.voucher_id)
+    attach_voucher_metadata_to_optimization(
+        opt, voucher_id=voucher.voucher_id, anonymous=voucher.anonymous
+    )
     return voucher.voucher_id
 
 
@@ -177,6 +204,7 @@ async def issue_reproduction_voucher(
     locked_solver = _str_from_handoff(handoff, "locked_solver")
     seed_locked = _bool_from_handoff(handoff, "seed_locked")
     seed = _seed_from_handoff(handoff)
+    anonymous = _optional_bool_from_handoff(handoff, "anonymous")
 
     for _ in range(max_attempts):
         voucher_id = voucher_id_factory(created_at)
@@ -195,6 +223,7 @@ async def issue_reproduction_voucher(
                         locked_solver=locked_solver,
                         seed_locked=seed_locked,
                         seed=seed,
+                        anonymous=anonymous,
                         status="issued",
                         created_at=created_at,
                     )
@@ -203,11 +232,15 @@ async def issue_reproduction_voucher(
         except IntegrityError:
             existing_after_conflict = await get_reproduction_voucher(session, opt.id)
             if existing_after_conflict is not None:
-                attach_voucher_id_to_optimization(opt, existing_after_conflict.voucher_id)
+                attach_voucher_metadata_to_optimization(
+                    opt,
+                    voucher_id=existing_after_conflict.voucher_id,
+                    anonymous=existing_after_conflict.anonymous,
+                )
                 return existing_after_conflict.voucher_id
             continue
 
-        attach_voucher_id_to_optimization(opt, voucher_id)
+        attach_voucher_metadata_to_optimization(opt, voucher_id=voucher_id, anonymous=anonymous)
         return voucher_id
 
     raise RuntimeError("failed to issue a unique reproduction voucher after bounded retries")

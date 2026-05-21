@@ -59,6 +59,7 @@ CREATE TABLE IF NOT EXISTS reproduction_vouchers (
     locked_solver           VARCHAR(64) NOT NULL,
     seed_locked             BOOLEAN NOT NULL,
     seed                    INTEGER NULL,
+    anonymous               BOOLEAN NOT NULL DEFAULT FALSE,
     status                  VARCHAR(32) NOT NULL DEFAULT 'issued',
     parent_voucher_id       UUID NULL,
     rerun_depth             INTEGER NOT NULL DEFAULT 0,
@@ -81,6 +82,8 @@ ALTER TABLE reproduction_vouchers
     ADD COLUMN IF NOT EXISTS parent_voucher_id UUID NULL;
 ALTER TABLE reproduction_vouchers
     ADD COLUMN IF NOT EXISTS rerun_depth INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE reproduction_vouchers
+    ADD COLUMN IF NOT EXISTS anonymous BOOLEAN NOT NULL DEFAULT FALSE;
 
 DO $$
 BEGIN

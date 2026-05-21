@@ -234,6 +234,149 @@ async def test_reproducible_optimization_returns_and_persists_locked_context(
     assert "_system" not in payload
 
 
+async def test_anonymous_reproducible_optimization_persists_and_replays_flag(
+    client_with_db: AsyncClient, api_key, db_engine, monkeypatch
+) -> None:
+    """Story 6.B.4 — anonymous is a durable voucher property and response mirror."""
+    auth, _ = api_key
+
+    async def _reserve(*args, **kwargs):
+        raise AssertionError("no billing header should avoid reserve")
+
+    async def _finalize(*args, **kwargs):
+        raise AssertionError("no billing header should avoid finalize")
+
+    monkeypatch.setattr(billing_client, "reserve", _reserve)
+    monkeypatch.setattr(billing_client, "finalize", _finalize)
+
+    payload = {
+        **_LP_BODY,
+        "options": {"reproducible": True, "anonymous": True},
+    }
+    idem_key = f"anon-repro-{uuid.uuid4()}"
+    headers = {"Authorization": auth, "Idempotency-Key": idem_key}
+
+    r = await client_with_db.post("/v1/optimizations", json=payload, headers=headers)
+    assert r.status_code == 200, r.text
+    body = r.json()
+    repro = body["reproducibility"]
+    assert repro["anonymous"] is True
+    assert "email" not in str(body).lower()
+    assert "phone" not in str(body).lower()
+    assert "bank_account" not in str(body).lower()
+    assert "id_card" not in str(body).lower()
+
+    opt_id = body["optimization_id"]
+    fetched = await client_with_db.get(
+        f"/v1/optimizations/{opt_id}",
+        headers={"Authorization": auth},
+    )
+    assert fetched.status_code == 200, fetched.text
+    assert fetched.json()["reproducibility"]["anonymous"] is True
+
+    replay = await client_with_db.post("/v1/optimizations", json=payload, headers=headers)
+    assert replay.status_code == 200, replay.text
+    assert replay.json()["optimization_id"] == opt_id
+    assert replay.json()["reproducibility"]["anonymous"] is True
+
+    maker = async_sessionmaker(db_engine, expire_on_commit=False, class_=AsyncSession)
+    async with maker() as s:
+        voucher = (
+            await s.execute(
+                select(ReproductionVoucher).where(
+                    ReproductionVoucher.optimization_id == uuid.UUID(opt_id)
+                )
+            )
+        ).scalar_one()
+    assert voucher.anonymous is True
+
+
+async def test_non_anonymous_reproducible_response_omits_anonymous_flag(
+    client_with_db: AsyncClient, api_key, monkeypatch
+) -> None:
+    """Story 6.B.4 — default false must not leak as false/null in response JSON."""
+    auth, _ = api_key
+
+    async def _reserve(*args, **kwargs):
+        raise AssertionError("no billing header should avoid reserve")
+
+    async def _finalize(*args, **kwargs):
+        raise AssertionError("no billing header should avoid finalize")
+
+    monkeypatch.setattr(billing_client, "reserve", _reserve)
+    monkeypatch.setattr(billing_client, "finalize", _finalize)
+
+    resp = await client_with_db.post(
+        "/v1/optimizations",
+        json={**_LP_BODY, "options": {"reproducible": True}},
+        headers={"Authorization": auth},
+    )
+    assert resp.status_code == 200, resp.text
+    repro = resp.json()["reproducibility"]
+    assert "anonymous" not in repro
+    assert '"anonymous":false' not in resp.text
+    assert '"anonymous":null' not in resp.text
+
+
+async def test_anonymous_requires_reproducible_true(
+    client_with_db: AsyncClient, api_key, monkeypatch
+) -> None:
+    """Story 6.B.4 — anonymous without reproducible returns RFC7807-style 422."""
+    auth, _ = api_key
+
+    async def _reserve(*args, **kwargs):
+        raise AssertionError("validation should avoid reserve")
+
+    async def _finalize(*args, **kwargs):
+        raise AssertionError("validation should avoid finalize")
+
+    monkeypatch.setattr(billing_client, "reserve", _reserve)
+    monkeypatch.setattr(billing_client, "finalize", _finalize)
+
+    resp = await client_with_db.post(
+        "/v1/optimizations",
+        json={**_LP_BODY, "options": {"anonymous": True}},
+        headers={"Authorization": auth},
+    )
+    assert resp.status_code == 422, resp.text
+    body = resp.json()
+    assert body["title"] == "Invalid Anonymous Option"
+    assert body["errors"][0]["field_path"] == "options.anonymous"
+
+
+async def test_same_idempotency_key_different_anonymous_value_conflicts(
+    client_with_db: AsyncClient, api_key, monkeypatch
+) -> None:
+    """Story 6.B.4 — anonymous is part of request identity for idempotency."""
+    auth, _ = api_key
+
+    async def _reserve(*args, **kwargs):
+        raise AssertionError("no billing header should avoid reserve")
+
+    async def _finalize(*args, **kwargs):
+        raise AssertionError("no billing header should avoid finalize")
+
+    monkeypatch.setattr(billing_client, "reserve", _reserve)
+    monkeypatch.setattr(billing_client, "finalize", _finalize)
+
+    key = f"anon-conflict-{uuid.uuid4()}"
+    headers = {"Authorization": auth, "Idempotency-Key": key}
+    first = await client_with_db.post(
+        "/v1/optimizations",
+        json={**_LP_BODY, "options": {"reproducible": True}},
+        headers=headers,
+    )
+    assert first.status_code == 200, first.text
+
+    second = await client_with_db.post(
+        "/v1/optimizations",
+        json={**_LP_BODY, "options": {"reproducible": True, "anonymous": True}},
+        headers=headers,
+    )
+    assert second.status_code == 409, second.text
+    assert second.json()["title"] == "Idempotency Conflict"
+
+
 async def test_reproducible_idempotency_replay_reuses_same_voucher(
     client_with_db: AsyncClient, api_key, db_engine, monkeypatch
 ) -> None:
