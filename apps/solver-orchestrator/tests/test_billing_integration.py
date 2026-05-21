@@ -25,7 +25,9 @@ from solver_orchestrator.billing_client import BillingResult
 from solver_orchestrator.config import settings
 from solver_orchestrator.db import get_session
 from solver_orchestrator.main import app
-from sqlalchemy import text
+from solver_orchestrator.models import ReproductionVoucher
+from solver_orchestrator.repro import VOUCHER_ID_PATTERN
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
     async_sessionmaker,
@@ -163,7 +165,7 @@ async def test_no_billing_header_no_billing_calls(
 async def test_reproducible_optimization_returns_and_persists_locked_context(
     client_with_db: AsyncClient, api_key, db_engine, monkeypatch
 ) -> None:
-    """Story 6.B.1 — opt-in runs return and persist the reproducibility handoff."""
+    """Story 6.B.1 + 6.B.2 — opt-in runs return and persist voucher-backed metadata."""
     auth, _ = api_key
 
     async def _reserve(*args, **kwargs):
@@ -194,6 +196,7 @@ async def test_reproducible_optimization_returns_and_persists_locked_context(
     assert repro["locked_solver"] == "highs"
     assert repro["seed_locked"] is True
     assert repro["seed"] is None
+    assert VOUCHER_ID_PATTERN.fullmatch(repro["voucher_id"])
 
     opt_id = body["optimization_id"]
     fetched = await client_with_db.get(
@@ -212,9 +215,101 @@ async def test_reproducible_optimization_returns_and_persists_locked_context(
                 {"id": uuid.UUID(opt_id)},
             )
         ).scalar_one()
+        voucher = (
+            await s.execute(
+                select(ReproductionVoucher).where(
+                    ReproductionVoucher.optimization_id == uuid.UUID(opt_id)
+                )
+            )
+        ).scalar_one()
     assert row["options"]["reproducible"] is True
     assert row["_system"]["reproducibility"] == repro
+    assert voucher.voucher_id == repro["voucher_id"]
+    assert voucher.request_fingerprint == repro["request_fingerprint"]
+    assert voucher.locked_model_version == repro["locked_model_version"]
+    assert voucher.locked_solver == repro["locked_solver"]
+    assert voucher.seed_locked is True
+    assert voucher.seed is None
+    assert voucher.status == "issued"
     assert "_system" not in payload
+
+
+async def test_reproducible_idempotency_replay_reuses_same_voucher(
+    client_with_db: AsyncClient, api_key, db_engine, monkeypatch
+) -> None:
+    """Story 6.B.2 — idempotency replay returns the cached voucher without duplicate rows."""
+    auth, _ = api_key
+
+    async def _reserve(*args, **kwargs):
+        raise AssertionError("no billing header should avoid reserve")
+
+    async def _finalize(*args, **kwargs):
+        raise AssertionError("no billing header should avoid finalize")
+
+    monkeypatch.setattr(billing_client, "reserve", _reserve)
+    monkeypatch.setattr(billing_client, "finalize", _finalize)
+
+    payload = {
+        **_LP_BODY,
+        "options": {"reproducible": True},
+    }
+    idem_key = f"repro-replay-{uuid.uuid4()}"
+    headers = {"Authorization": auth, "Idempotency-Key": idem_key}
+
+    first = await client_with_db.post("/v1/optimizations", json=payload, headers=headers)
+    second = await client_with_db.post("/v1/optimizations", json=payload, headers=headers)
+
+    assert first.status_code == 200, first.text
+    assert second.status_code == 200, second.text
+    first_body = first.json()
+    second_body = second.json()
+    assert second_body["optimization_id"] == first_body["optimization_id"]
+    assert (
+        second_body["reproducibility"]["voucher_id"] == first_body["reproducibility"]["voucher_id"]
+    )
+
+    maker = async_sessionmaker(db_engine, expire_on_commit=False, class_=AsyncSession)
+    async with maker() as s:
+        count = (
+            await s.execute(
+                select(func.count())
+                .select_from(ReproductionVoucher)
+                .where(
+                    ReproductionVoucher.optimization_id == uuid.UUID(first_body["optimization_id"])
+                )
+            )
+        ).scalar_one()
+    assert count == 1
+
+
+async def test_reproducible_demo_does_not_issue_permanent_voucher(
+    client_with_db: AsyncClient, db_engine
+) -> None:
+    """Story 6.B.2 — demo remains stateless even when Story 6.B.1 handoff is present."""
+    maker = async_sessionmaker(db_engine, expire_on_commit=False, class_=AsyncSession)
+    async with maker() as s:
+        before = (
+            await s.execute(select(func.count()).select_from(ReproductionVoucher))
+        ).scalar_one()
+
+    resp = await client_with_db.post(
+        "/v1/optimizations/demo",
+        json={
+            **_LP_BODY,
+            "options": {"reproducible": True},
+        },
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    repro = body.get("reproducibility")
+    assert repro is not None
+    assert "voucher_id" not in repro
+
+    async with maker() as s:
+        after = (
+            await s.execute(select(func.count()).select_from(ReproductionVoucher))
+        ).scalar_one()
+    assert after == before
 
 
 async def test_billing_header_success_path_calls_reserve_and_finalize(

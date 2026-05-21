@@ -202,7 +202,7 @@ development_status:
   6-a-5-ip-attribution-tiers: done             # 2026-05-20 — IP attribution L1/L2/L3 catalog/API/public+Console UI shipped; post-code-review clean; backend/typecheck/E2E passed
 
   6-b-1-mark-reproducible: done                # 2026-05-21 — FR R1 ship: options.reproducible=true now locks model_version + solver, creates reproducibility handoff (sha256 request fingerprint + explicit seed lock), persists under Optimization.input_payload._system.reproducibility, and returns optional reproducibility only for opt-in POST/GET/demo LP success responses; no voucher ID/DB/rerun route/anonymous scope added; +2 backend tests; solver suite 82 passed; web typecheck passed after API type sync review patch
-  6-b-2-voucher-unique-id: backlog             # FR R2
+  6-b-2-voucher-unique-id: done                 # 2026-05-21 — FR R2 ship: authenticated reproducible completed LP runs now issue durable voucher IDs `repro-{YYYY}-{6 Crockford base32}` persisted in `reproduction_vouchers`; POST/GET/idempotency replay expose `reproducibility.voucher_id`; demo/non-opt-in/failure paths remain voucher-free; solver schema CI filter fixed; +5 voucher regressions; solver suite 87 passed; mypy/web typecheck passed after post-review DB constraint test patch
   6-b-3-rerun-within-5y: backlog               # FR R3
   6-b-4-anonymous-voucher: backlog             # FR R6
   6-b-5-voucher-card-component: backlog

@@ -167,6 +167,8 @@ export interface Reproducibility {
   locked_solver: string;
   seed_locked: boolean;
   seed: number | null;
+  /** Present only for authenticated persisted reproducible runs. */
+  voucher_id?: string;
 }
 
 export interface Algorithm {

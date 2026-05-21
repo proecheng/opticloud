@@ -57,6 +57,7 @@ async def test_demo_lp_reproducible_returns_locked_context(client: AsyncClient) 
     assert repro["locked_solver"] == "highs"
     assert repro["seed_locked"] is True
     assert repro["seed"] is None
+    assert "voucher_id" not in repro
 
 
 async def test_demo_vrptw_returns_501(client: AsyncClient) -> None:

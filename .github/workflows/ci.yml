@@ -67,6 +67,7 @@ jobs:
               - 'apps/api-gateway/**'
             solver_orchestrator:
               - 'apps/solver-orchestrator/**'
+              - 'infra/local-init/02-solver-schema.sql'
             chat_service:
               - 'apps/chat-service/**'
             critic_service:

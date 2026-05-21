@@ -25,6 +25,7 @@ from solver_orchestrator.catalog import (
 )
 from solver_orchestrator.db import get_session
 from solver_orchestrator.models import IdempotencyKey, Optimization
+from solver_orchestrator.repro import attach_existing_voucher_id, issue_reproduction_voucher
 from solver_orchestrator.schemas import (
     AlgorithmSchema,
     CitationSchema,
@@ -279,6 +280,7 @@ async def post_optimization(
             # Return cached result
             opt = await session.get(Optimization, existing.optimization_id)
             if opt is not None and opt.status == "completed":
+                await attach_existing_voucher_id(session, opt)
                 return _build_success_response(opt)
 
     # ----- Lookup algorithm catalog (Story 2.1 + 2.4 integration) -----
@@ -422,6 +424,8 @@ async def post_optimization(
         opt.solution = result.solution
         opt.objective = result.objective
         opt.completed_at = datetime.now(UTC)
+        if reproducibility_payload is not None:
+            await issue_reproduction_voucher(session, opt, issued_at=opt.completed_at)
     elif result.status in ("infeasible", "unbounded"):
         opt.status = "failed"
         opt.completed_at = datetime.now(UTC)
@@ -770,6 +774,7 @@ async def get_optimization(
             detail=f"optimization {optimization_id} not found",
         )
     if opt.status == "completed":
+        await attach_existing_voucher_id(session, opt)
         return _build_success_response(opt)
     return JSONResponse(
         content={
