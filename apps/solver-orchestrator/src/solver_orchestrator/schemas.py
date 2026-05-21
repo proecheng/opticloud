@@ -31,6 +31,17 @@ class CitationSchema(BaseModel):
     url: str | None = None
 
 
+class IPAttributionSchema(BaseModel):
+    """Story 6.A.5 — scholar / license IP attribution display contract."""
+
+    tier: Literal["L1", "L2", "L3"]
+    label_zh: str
+    display_name_zh: str
+    summary_zh: str
+    visibility: Literal["full_visible", "bibtex", "license_only"]
+    contract_anchor: str
+
+
 class AlgorithmSchema(BaseModel):
     k_algo: str
     task_type: str
@@ -42,6 +53,7 @@ class AlgorithmSchema(BaseModel):
     examples: list[dict[str, Any]] = []
     supported_solvers: list[str]  # Story 2.4 — FR C4
     citation: CitationSchema | None = None  # Story 6.A.1 — FR R5
+    ip_attribution: IPAttributionSchema  # Story 6.A.5 — L1/L2/L3 IP attribution
 
 
 # ===== Story 3.1: POST /v1/optimizations =====
@@ -108,3 +120,4 @@ class OptimizationResponse(BaseModel):
     created_at: datetime
     completed_at: datetime
     citation: CitationSchema | None = None  # Story 6.A.1 — FR R5
+    ip_attribution: IPAttributionSchema | None = None  # Story 6.A.5

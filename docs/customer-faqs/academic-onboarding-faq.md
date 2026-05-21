@@ -1,7 +1,7 @@
 # Academic Onboarding FAQ
 
-> **Audience**：高校教师 / 研究员 / 博士后 / 课题组技术负责人  
-> **Status**：M3 可发送版  
+> **Audience**：高校教师 / 研究员 / 博士后 / 课题组技术负责人
+> **Status**：M3 可发送版
 > **Last Updated**：2026-05-20
 
 ---
@@ -34,7 +34,7 @@ OptiCloud 把优化与预测算法包装成可调用 API。学者提供算法思
 | L2 | 自动附带 BibTeX | 一般学界 Provider |
 | L3 | 仅遵守开源 license | 开源 Runner 算法 |
 
-具体 tier 在合作时确认。Story 6.A.5 会把 attribution tier 工程化；当前 v1 先以文档和 BibTeX 方式落地。
+具体 tier 在合作时确认。OptiCloud 已把 attribution tier 工程化到算法 catalog、API 响应、`/academic`、算法详情页和内部 Console review surface；合同例外仍以 Provider Agreement 为准。
 
 ## 6. BibTeX 怎么处理？
 

@@ -9,6 +9,7 @@ import Link from "next/link";
 
 import { StatusCard } from "@opticloud/ui";
 
+import { AttributionBadge, attributionLine } from "@/components/AttributionBadge";
 import { CodeBlock } from "@/components/CodeBlock";
 import type { Algorithm } from "@/lib/api";
 
@@ -98,6 +99,7 @@ function FlywheelCard({
 
 function CitationCard({ algo }: { algo: Algorithm }): JSX.Element {
   const { citation } = algo;
+  const attribution = algo.ip_attribution;
   return (
     <article
       data-testid={`citation-card-${algo.k_algo}`}
@@ -113,8 +115,15 @@ function CitationCard({ algo }: { algo: Algorithm }): JSX.Element {
         >
           {algo.tier}
         </span>
+        <AttributionBadge attribution={attribution} />
       </header>
       <p className="mt-1 text-sm text-muted-foreground">{algo.description_zh}</p>
+      <p
+        className="mt-2 text-sm text-muted-foreground"
+        data-testid={`attribution-line-${algo.k_algo}`}
+      >
+        {attributionLine(attribution)}
+      </p>
 
       {citation ? (
         <>

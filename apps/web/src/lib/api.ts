@@ -149,6 +149,16 @@ export interface Citation {
   url: string | null;
 }
 
+/** Story 6.A.5 — scholar / license IP attribution tier. */
+export interface IPAttribution {
+  tier: "L1" | "L2" | "L3";
+  label_zh: string;
+  display_name_zh: string;
+  summary_zh: string;
+  visibility: "full_visible" | "bibtex" | "license_only";
+  contract_anchor: string;
+}
+
 export interface Algorithm {
   k_algo: string;
   task_type: string;
@@ -166,6 +176,8 @@ export interface Algorithm {
   supported_solvers: string[];
   /** Story 6.A.1 — FR R5 academic citation; null reserved for commercial-only SKUs. */
   citation: Citation | null;
+  /** Story 6.A.5 — L1/L2/L3 IP attribution display metadata. */
+  ip_attribution: IPAttribution;
 }
 
 export interface ListAlgorithmsOptions {
@@ -218,6 +230,8 @@ export interface OptimizationResponse {
   solve_seconds: number;
   created_at: string;
   completed_at: string;
+  citation: Citation | null;
+  ip_attribution: IPAttribution | null;
 }
 
 // ===== Login (Story 1.2 — OTP 2FA) =====
@@ -395,6 +409,8 @@ export interface DemoOptimizationResponse {
   model_version: ModelVersion;
   solve_seconds: number;
   demo: true;
+  citation: Citation | null;
+  ip_attribution: IPAttribution | null;
 }
 
 export async function submitOptimizationDemo<TBody extends { task_type: string }>(

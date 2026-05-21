@@ -136,3 +136,35 @@ async def test_algorithm_list_includes_citation_for_every_row(client: AsyncClien
         )
     # at least one recent paper (Chronos / OR-Tools 2024)
     assert any(item["citation"]["year"] >= 2024 for item in body)
+
+
+async def test_algorithm_detail_includes_ip_attribution(client: AsyncClient) -> None:
+    """Story 6.A.5 — GET /v1/algorithms/{k_algo} returns IP attribution metadata."""
+    resp = await client.get("/v1/algorithms/aqgs-acopf")
+    assert resp.status_code == 200
+    body = resp.json()
+    attribution = body.get("ip_attribution")
+    assert attribution is not None
+    assert attribution["tier"] == "L1"
+    assert attribution["visibility"] == "full_visible"
+    assert "OptiCloud / Trust-Tech" in attribution["display_name_zh"]
+    assert "docs/legal-templates.md" in attribution["contract_anchor"]
+
+
+async def test_algorithm_list_includes_ip_attribution_for_every_row(
+    client: AsyncClient,
+) -> None:
+    """Story 6.A.5 — every catalog row has non-null IP attribution metadata."""
+    resp = await client.get("/v1/algorithms")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert len(body) >= 8
+    for item in body:
+        attribution = item.get("ip_attribution")
+        assert attribution is not None, f"{item['k_algo']} missing ip_attribution in list response"
+        assert attribution["tier"] in {"L1", "L2", "L3"}
+        assert attribution["visibility"] in {"full_visible", "bibtex", "license_only"}
+
+    highs_lp = next(item for item in body if item["k_algo"] == "highs-lp")
+    assert highs_lp["ip_attribution"]["tier"] == "L3"
+    assert highs_lp["ip_attribution"]["visibility"] == "license_only"

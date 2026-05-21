@@ -191,7 +191,7 @@ Story 6.A.1 已经把每个算法的 citation.bibtex 做成平台数据面。Sto
 - 商业 Provider：L2 only，除非另签营销合作。
 - 开源 Runner：L3。
 
-Story 6.A.5 会工程化 attribution tier；本手册只规定 v1 沟通与文档边界。
+Story 6.A.5 已将 attribution tier 工程化到算法 catalog、API 响应、`/academic`、算法详情页和 Console review surface。本手册继续作为 Tier 选择和合同沟通的文字源头；具体例外条款仍以 Provider Agreement 为准。
 
 ---
 
