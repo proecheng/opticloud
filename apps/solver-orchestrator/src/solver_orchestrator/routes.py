@@ -29,8 +29,10 @@ from solver_orchestrator.schemas import (
     AlgorithmSchema,
     CitationSchema,
     IPAttributionSchema,
+    ModelVersionSchema,
     OptimizationRequest,
     OptimizationResponse,
+    ReproducibilitySchema,
 )
 
 router = APIRouter(prefix="/v1")
@@ -107,6 +109,48 @@ async def get_algorithm(k_algo: str) -> AlgorithmSchema:
 def _hash_body(body: dict) -> str:  # type: ignore[type-arg]
     canon = json.dumps(body, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(canon.encode("utf-8")).hexdigest()
+
+
+def _build_reproducibility_payload(
+    *,
+    request_body: dict,  # type: ignore[type-arg]
+    model_version: dict,  # type: ignore[type-arg]
+    locked_solver: str,
+) -> dict[str, object]:
+    """Story 6.B.1 — build the opt-in reproducibility handoff.
+
+    The fingerprint is computed from the original request body before any
+    `_system` metadata is attached, so it remains stable for later voucher
+    minting.
+    """
+    payload = ReproducibilitySchema(
+        requested=True,
+        request_fingerprint=f"sha256:{_hash_body(request_body)}",
+        locked_model_version=ModelVersionSchema.model_validate(model_version),
+        locked_solver=locked_solver,
+        seed_locked=True,
+        seed=None,
+    )
+    return json.loads(payload.model_dump_json())
+
+
+def _attach_reproducibility_metadata(
+    body: dict,  # type: ignore[type-arg]
+    reproducibility: dict[str, object] | None,
+) -> dict:  # type: ignore[type-arg]
+    """Return a copy of the user payload with namespaced system metadata."""
+    if reproducibility is None:
+        return body
+    payload = dict(body)
+    payload["_system"] = {
+        **(
+            payload.get("_system")
+            if isinstance(payload.get("_system"), dict)
+            else {}
+        ),
+        "reproducibility": reproducibility,
+    }
+    return payload
 
 
 def _rfc7807_error(
@@ -300,13 +344,21 @@ async def post_optimization(
                     request_id=request_id,
                 )
 
+    reproducibility_payload: dict[str, object] | None = None
+    if payload.options.reproducible:
+        reproducibility_payload = _build_reproducibility_payload(
+            request_body=body_dict,
+            model_version=dict(algo["model_version"]),
+            locked_solver=algo["supported_solvers"][0],
+        )
+
     # ----- Persist input -----
     opt = Optimization(
         user_id=user_id,
         api_key_id=api_key_id,
         task_type=payload.task_type,
         status="in_progress",
-        input_payload=body_dict,
+        input_payload=_attach_reproducibility_metadata(body_dict, reproducibility_payload),
         idempotency_key=idempotency_key,
     )
     session.add(opt)
@@ -502,8 +554,16 @@ def _build_success_response(opt: Optimization) -> JSONResponse:
         citation=citation_payload,
         ip_attribution=attribution_payload,
     )
+    content = json.loads(payload.model_dump_json())
+    if isinstance(opt.input_payload, dict):
+        system_payload = opt.input_payload.get("_system")
+        if isinstance(system_payload, dict):
+            reproducibility = system_payload.get("reproducibility")
+            if isinstance(reproducibility, dict):
+                content["reproducibility"] = reproducibility
+
     return JSONResponse(
-        content=json.loads(payload.model_dump_json()),
+        content=content,
         status_code=status.HTTP_200_OK,
     )
 
@@ -649,17 +709,24 @@ async def post_optimization_demo(request: Request) -> JSONResponse:
                 )
             except Exception:
                 demo_attribution = None
+        content = {
+            "status": "completed",
+            "solution": result.solution,
+            "objective": result.objective,
+            "model_version": dict(algo["model_version"]),
+            "solve_seconds": result.solve_seconds,
+            "demo": True,
+            "citation": demo_citation,
+            "ip_attribution": demo_attribution,
+        }
+        if payload.options.reproducible:
+            content["reproducibility"] = _build_reproducibility_payload(
+                request_body=body_dict,
+                model_version=dict(algo["model_version"]),
+                locked_solver=algo["supported_solvers"][0],
+            )
         return JSONResponse(
-            content={
-                "status": "completed",
-                "solution": result.solution,
-                "objective": result.objective,
-                "model_version": dict(algo["model_version"]),
-                "solve_seconds": result.solve_seconds,
-                "demo": True,
-                "citation": demo_citation,
-                "ip_attribution": demo_attribution,
-            },
+            content=content,
             status_code=status.HTTP_200_OK,
         )
     if result.status in ("infeasible", "unbounded"):
