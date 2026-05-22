@@ -207,7 +207,7 @@ development_status:
   6-b-4-anonymous-voucher: done                # 2026-05-21 — FR R6 ship: `options.anonymous=true` now requires reproducible opt-in, persists `reproduction_vouchers.anonymous`, mirrors `reproducibility.anonymous=true` only for anonymous voucher flows, preserves blind-review-safe response shapes, inherits anonymity across rerun child vouchers, and treats anonymous as request identity for idempotency; +7 anonymous regressions, solver suite 106 passed, mypy/web typecheck/diff-check passed after code-review compatibility patch
   6-b-5-voucher-card-component: done
   6-b-6-voucher-5y-sla-tracking: done          # 2026-05-22 — TT4 ship: 5y Repro / Image archival clock now explicitly starts at `reproduction_vouchers.created_at` UTC; added Repro Image Restore SOP with evidence/exception/drill steps; aligned handbook, FAQ, paper template, whitepaper outline, legal-template index, and runbooks index; docs-only; link/stale wording/diff-check passed after code-review link patch
-  6-b-7-bitwise-reproducibility-test: backlog  # E11
+  6-b-7-bitwise-reproducibility-test: done         # 2026-05-22 — E11 ship: quarterly voucher bitwise reproducibility audit framework with deterministic 5% sampling, strict canonical SHA-256 result comparison, LP/highs live rerun support, explicit skipped coverage, JSON/Markdown CLI reports, redaction/no-side-effect tests, runbook, and generated report ignore; +10 audit tests, solver suite 116 passed, ruff/mypy/diff-check passed after code-review patches
 
   6-c-1-auto-migrate-provider: backlog         # v2
   6-c-2-30d-exit-notification: backlog

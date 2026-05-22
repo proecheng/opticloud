@@ -72,3 +72,4 @@ tmp/
 .cache/
 .cache/citation-tracking/
 _bmad-output/reports/citation-tracking/
+_bmad-output/reports/repro-bitwise/
