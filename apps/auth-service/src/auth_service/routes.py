@@ -8,6 +8,7 @@ from __future__ import annotations
 import secrets
 import uuid
 from datetime import UTC, datetime, timedelta
+from typing import Literal
 
 import structlog
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
@@ -35,6 +36,12 @@ from auth_service.schemas import (
 _log = structlog.get_logger("auth_service.routes")
 
 router = APIRouter(prefix="/v1/auth", tags=["auth"])
+
+
+def _deletion_status_value(status: str) -> Literal["scheduled", "completed"]:
+    if status == "completed":
+        return "completed"
+    return "scheduled"
 
 
 # ===== Story 0.7: Health & Readiness =====
@@ -523,7 +530,7 @@ async def get_account_deletion_status(
     if request is None:
         return AccountDeletionStatusResponse(status="none")
     return AccountDeletionStatusResponse(
-        status=request.status if request.status in {"scheduled", "completed"} else "scheduled",
+        status=_deletion_status_value(request.status),
         user_id_snapshot=request.user_id_snapshot,
         requested_at=request.requested_at,
         hard_delete_at=request.hard_delete_at,
@@ -548,7 +555,7 @@ async def request_account_deletion(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="user not found") from e
     await session.commit()
     return AccountDeletionStatusResponse(
-        status=request.status,
+        status=_deletion_status_value(request.status),
         user_id_snapshot=request.user_id_snapshot,
         requested_at=request.requested_at,
         hard_delete_at=request.hard_delete_at,

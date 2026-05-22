@@ -92,14 +92,18 @@ async def test_request_account_deletion_soft_deletes_and_revokes_keys(
     assert body["hard_delete_at"] is not None
     requested_at = datetime.fromisoformat(body["requested_at"])
     hard_delete_at = datetime.fromisoformat(body["hard_delete_at"])
-    assert timedelta(days=6, hours=23) < hard_delete_at - requested_at < timedelta(days=7, minutes=1)
+    assert (
+        timedelta(days=6, hours=23) < hard_delete_at - requested_at < timedelta(days=7, minutes=1)
+    )
 
     maker = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
     async with maker() as s:
         user = (await s.execute(select(User).where(User.id == user_id))).scalar_one()
         assert user.deleted_at is not None
         revoked_at = (
-            await s.execute(text("SELECT revoked_at FROM api_keys WHERE id = :kid"), {"kid": key_id})
+            await s.execute(
+                text("SELECT revoked_at FROM api_keys WHERE id = :kid"), {"kid": key_id}
+            )
         ).scalar_one()
         assert revoked_at is not None
         audit_actions = {
