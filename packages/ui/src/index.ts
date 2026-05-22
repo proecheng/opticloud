@@ -53,6 +53,14 @@ export type { StatusCardProps, StatusVariant } from "./components/StatusCard";
 export { Toast } from "./components/Toast";
 export type { ToastProps, ToastVariant } from "./components/Toast";
 
+export { VoucherCard } from "./components/VoucherCard";
+export type {
+  VoucherCardModelVersion,
+  VoucherCardProps,
+  VoucherCardVoucher,
+  VoucherStatus,
+} from "./components/VoucherCard";
+
 export { FilePicker } from "./components/FilePicker";
 export type {
   FilePickerProps,
