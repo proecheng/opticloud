@@ -3,7 +3,7 @@
 # Source: epics.md (21 Epics / 192 Stories, post AE rounds)
 # Path B unlock node sequence (5 + J1 vertical slice 4 锚点 + Critical Gaps)
 
-last_updated: 2026-05-21
+last_updated: 2026-05-22
 
 # ===== STATUS DEFINITIONS =====
 # backlog            — not yet started
@@ -205,7 +205,7 @@ development_status:
   6-b-2-voucher-unique-id: done                 # 2026-05-21 — FR R2 ship: authenticated reproducible completed LP runs now issue durable voucher IDs `repro-{YYYY}-{6 Crockford base32}` persisted in `reproduction_vouchers`; POST/GET/idempotency replay expose `reproducibility.voucher_id`; demo/non-opt-in/failure paths remain voucher-free; solver schema CI filter fixed; +5 voucher regressions; solver suite 87 passed; mypy/web typecheck passed after post-review DB constraint test patch
   6-b-3-rerun-within-5y: done                  # 2026-05-21 — FR R3 ship: voucher owners can POST /v1/reproduce/{voucher_id}/rerun within the 5y UTC calendar window; reruns rebuild locked LP payloads from source optimization, issue linked child vouchers (parent_voucher_id + rerun_depth), expose rerun-only lineage fields, reject billing headers, and use user-scoped voucher-aware idempotency; +10 rerun regressions, solver suite 97 passed, mypy/web typecheck/diff-check passed after code-review patches
   6-b-4-anonymous-voucher: done                # 2026-05-21 — FR R6 ship: `options.anonymous=true` now requires reproducible opt-in, persists `reproduction_vouchers.anonymous`, mirrors `reproducibility.anonymous=true` only for anonymous voucher flows, preserves blind-review-safe response shapes, inherits anonymity across rerun child vouchers, and treats anonymous as request identity for idempotency; +7 anonymous regressions, solver suite 106 passed, mypy/web typecheck/diff-check passed after code-review compatibility patch
-  6-b-5-voucher-card-component: backlog
+  6-b-5-voucher-card-component: done
   6-b-6-voucher-5y-sla-tracking: backlog       # TT4
   6-b-7-bitwise-reproducibility-test: backlog  # E11
 

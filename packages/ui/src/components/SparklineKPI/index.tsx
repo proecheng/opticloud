@@ -45,7 +45,12 @@ export function SparklineKPI({
           {values[values.length - 1] ?? 0}
           {unit && <span className="ml-1 text-xs text-muted-foreground">{unit}</span>}
         </span>
-        <svg width={width} height={height} role="img" aria-hidden="false" focusable="false">
+        <svg
+          width={width}
+          height={height}
+          aria-hidden="true"
+          focusable="false"
+        >
           <polyline
             points={points}
             fill="none"

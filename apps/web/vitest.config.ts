@@ -1,5 +1,8 @@
 import react from "@vitejs/plugin-react";
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
+
+const srcDir = fileURLToPath(new URL("./src", import.meta.url));
 
 export default defineConfig({
   plugins: [react()],
@@ -13,6 +16,7 @@ export default defineConfig({
     // use /node which doesn't need DOM. Both paths re-export the same default
     // function with the same signature.
     alias: {
+      "@": srcDir,
       "read-excel-file/browser": "read-excel-file/node",
     },
     coverage: {
