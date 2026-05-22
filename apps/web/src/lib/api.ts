@@ -167,6 +167,8 @@ export interface Reproducibility {
   locked_solver: string;
   seed_locked: boolean;
   seed: number | null;
+  /** Present only when `options.anonymous: true` for blind review. */
+  anonymous?: true;
   /** Present only for authenticated persisted reproducible runs. */
   voucher_id?: string;
 }

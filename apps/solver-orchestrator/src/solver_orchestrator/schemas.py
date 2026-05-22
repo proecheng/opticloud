@@ -51,6 +51,7 @@ class ReproducibilitySchema(BaseModel):
     locked_solver: str
     seed_locked: bool
     seed: int | None = None
+    anonymous: Literal[True] | None = None
 
 
 class AlgorithmSchema(BaseModel):
@@ -86,6 +87,7 @@ class LPConstraints(BaseModel):
 class OptimizationOptions(BaseModel):
     max_solve_seconds: float = Field(default=30.0, ge=1.0, le=600.0)
     reproducible: bool = Field(default=False, description="FR R1 lock version/seed")
+    anonymous: bool = Field(default=False, description="FR R6 anonymous blind-review voucher")
 
 
 class OptimizationRequest(BaseModel):

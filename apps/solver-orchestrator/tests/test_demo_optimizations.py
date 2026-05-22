@@ -60,6 +60,37 @@ async def test_demo_lp_reproducible_returns_locked_context(client: AsyncClient) 
     assert "voucher_id" not in repro
 
 
+async def test_demo_lp_anonymous_reproducible_returns_preview_flag(client: AsyncClient) -> None:
+    """Story 6.B.4 — demo mirrors anonymous reproducibility preview without voucher issuance."""
+    payload = {
+        "task_type": "lp",
+        "minimize": {"c": [1.0, 1.0]},
+        "st": {"A": [[1.0, 1.0]], "b": [10.0]},
+        "options": {"reproducible": True, "anonymous": True},
+    }
+    resp = await client.post("/v1/optimizations/demo", json=payload)
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    repro = body["reproducibility"]
+    assert repro["anonymous"] is True
+    assert "voucher_id" not in repro
+
+
+async def test_demo_lp_anonymous_without_reproducible_returns_422(client: AsyncClient) -> None:
+    """Story 6.B.4 — anonymous requires reproducible on demo preview too."""
+    resp = await client.post(
+        "/v1/optimizations/demo",
+        json={
+            "task_type": "lp",
+            "minimize": {"c": [1.0, 1.0]},
+            "st": {"A": [[1.0, 1.0]], "b": [10.0]},
+            "options": {"anonymous": True},
+        },
+    )
+    assert resp.status_code == 422, resp.text
+    assert resp.json()["title"] == "Invalid Anonymous Option"
+
+
 async def test_demo_vrptw_returns_501(client: AsyncClient) -> None:
     """AC7 #2 — VRPTW returns 501 with friendly 'M2-M3' detail."""
     resp = await client.post(

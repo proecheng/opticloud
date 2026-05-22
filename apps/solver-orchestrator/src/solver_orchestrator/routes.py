@@ -143,6 +143,7 @@ def _build_reproducibility_payload(
     request_body: dict,  # type: ignore[type-arg]
     model_version: dict,  # type: ignore[type-arg]
     locked_solver: str,
+    anonymous: bool = False,
 ) -> dict[str, object]:
     """Story 6.B.1 — build the opt-in reproducibility handoff.
 
@@ -157,8 +158,29 @@ def _build_reproducibility_payload(
         locked_solver=locked_solver,
         seed_locked=True,
         seed=None,
+        anonymous=True if anonymous else None,
     )
-    return _model_json_dict(payload.model_dump_json())
+    result = _model_json_dict(payload.model_dump_json())
+    if not anonymous:
+        result.pop("anonymous", None)
+    return result
+
+
+def _anonymous_without_reproducible_error(*, request_id: str | None = None) -> JSONResponse:
+    return _rfc7807_error(
+        title="Invalid Anonymous Option",
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        detail="options.anonymous requires options.reproducible=true",
+        errors=[
+            ErrorDetail(
+                field_path="options.anonymous",
+                value=True,
+                constraint="requires options.reproducible=true",
+                remediation_hint_key="errors.422.anonymous_requires_reproducible",
+            )
+        ],
+        request_id=request_id,
+    )
 
 
 def _add_calendar_years_utc(value: datetime, years: int) -> datetime:
@@ -394,6 +416,9 @@ async def post_optimization(
     body_dict = payload.model_dump(by_alias=True)
     request_id = request.headers.get("x-request-id") or str(uuid.uuid4())
 
+    if payload.options.anonymous and not payload.options.reproducible:
+        return _anonymous_without_reproducible_error(request_id=request_id)
+
     # ----- Story 5.A.4 — pre-solve billing reserve (opt-in via X-Billing-Charge-Id) -----
     billing_uuid: uuid.UUID | None = None
     if billing_charge_id:
@@ -539,6 +564,7 @@ async def post_optimization(
             request_body=body_dict,
             model_version=dict(algo["model_version"]),
             locked_solver=algo["supported_solvers"][0],
+            anonymous=payload.options.anonymous,
         )
 
     # ----- Persist input -----
@@ -909,6 +935,7 @@ async def rerun_reproduction(
         request_body=clean_payload_dict,
         model_version=dict(voucher.locked_model_version),
         locked_solver=voucher.locked_solver,
+        anonymous=voucher.anonymous,
     )
 
     rerun_tx = await session.begin_nested()
@@ -1083,6 +1110,8 @@ async def post_optimization_demo(request: Request) -> JSONResponse:
         )
 
     body_dict = payload.model_dump(by_alias=True)
+    if payload.options.anonymous and not payload.options.reproducible:
+        return _anonymous_without_reproducible_error(request_id=request_id)
     # Story 2.4 — solver validation (FR C4) on /demo as well
     algo, supported_solvers = find_by_task_type_and_solver("lp", payload.solver)
     if algo is None and not supported_solvers:
@@ -1176,6 +1205,7 @@ async def post_optimization_demo(request: Request) -> JSONResponse:
                 request_body=body_dict,
                 model_version=dict(algo["model_version"]),
                 locked_solver=algo["supported_solvers"][0],
+                anonymous=payload.options.anonymous,
             )
         return JSONResponse(
             content=content,

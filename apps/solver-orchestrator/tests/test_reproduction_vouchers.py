@@ -15,6 +15,7 @@ from solver_orchestrator.config import settings
 from solver_orchestrator.models import Optimization, ReproductionVoucher
 from solver_orchestrator.repro import (
     VOUCHER_ID_PATTERN,
+    attach_voucher_id_to_optimization,
     generate_reproduction_voucher_id,
     issue_reproduction_voucher,
 )
@@ -83,6 +84,16 @@ def _completed_repro_optimization() -> Optimization:
         completed_at=now,
     )
     opt.id = uuid.uuid4()
+    return opt
+
+
+def _completed_anonymous_repro_optimization() -> Optimization:
+    opt = _completed_repro_optimization()
+    system = dict(opt.input_payload["_system"])
+    repro = dict(system["reproducibility"])
+    repro["anonymous"] = True
+    system["reproducibility"] = repro
+    opt.input_payload = {**opt.input_payload, "_system": system}
     return opt
 
 
@@ -173,6 +184,44 @@ async def test_issue_reproduction_voucher_retries_on_voucher_id_collision(db_eng
             )
         ).scalar_one()
     assert row == replacement_id
+
+
+async def test_issue_reproduction_voucher_persists_anonymous_metadata(db_engine) -> None:
+    issued_at = datetime(2026, 5, 21, tzinfo=UTC)
+
+    maker = async_sessionmaker(db_engine, expire_on_commit=False, class_=AsyncSession)
+    async with maker() as session:
+        opt = _completed_anonymous_repro_optimization()
+        session.add(opt)
+        await session.flush()
+
+        voucher_id = await issue_reproduction_voucher(session, opt, issued_at=issued_at)
+        await session.commit()
+
+    async with maker() as session:
+        row = (
+            await session.execute(
+                text(
+                    "SELECT anonymous FROM reproduction_vouchers "
+                    "WHERE optimization_id = :optimization_id"
+                ),
+                {"optimization_id": opt.id},
+            )
+        ).scalar_one()
+
+    assert row is True
+    assert opt.input_payload["_system"]["reproducibility"]["voucher_id"] == voucher_id
+    assert opt.input_payload["_system"]["reproducibility"]["anonymous"] is True
+
+
+def test_legacy_attach_voucher_id_preserves_existing_anonymous_flag() -> None:
+    opt = _completed_anonymous_repro_optimization()
+
+    attach_voucher_id_to_optimization(opt, "repro-2026-ABC123")
+
+    repro = opt.input_payload["_system"]["reproducibility"]
+    assert repro["voucher_id"] == "repro-2026-ABC123"
+    assert repro["anonymous"] is True
 
 
 async def test_reproduction_vouchers_enforce_database_constraints(db_engine) -> None:

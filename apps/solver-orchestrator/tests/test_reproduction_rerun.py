@@ -132,6 +132,13 @@ def _lp_payload() -> dict[str, object]:
     }
 
 
+def _anonymous_lp_payload() -> dict[str, object]:
+    return {
+        **_LP_BODY,
+        "options": {"reproducible": True, "anonymous": True},
+    }
+
+
 def _disable_billing(monkeypatch) -> None:
     async def _boom(*args, **kwargs):
         raise AssertionError("billing helper should not be called")
@@ -174,6 +181,24 @@ async def _seed_reproducible_run(
     body = resp.json()
     assert body["status"] == "completed"
     assert "reproducibility" in body
+    return body
+
+
+async def _seed_anonymous_reproducible_run(
+    client_with_db: AsyncClient,
+    auth: str,
+    monkeypatch,
+) -> dict[str, object]:
+    _disable_billing(monkeypatch)
+    resp = await client_with_db.post(
+        "/v1/optimizations",
+        json=_anonymous_lp_payload(),
+        headers={"Authorization": auth},
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["status"] == "completed"
+    assert body["reproducibility"]["anonymous"] is True
     return body
 
 
@@ -348,6 +373,50 @@ async def test_rerun_success_creates_linked_voucher_and_preserves_source(
     assert before_source[1] == source_after[1]
     assert counts_after["optimizations"] == counts_before["optimizations"] + 1
     assert counts_after["vouchers"] == counts_before["vouchers"] + 1
+
+
+async def test_rerun_of_anonymous_voucher_preserves_anonymous_lineage(
+    client_with_db: AsyncClient, api_key, db_engine, monkeypatch
+) -> None:
+    """Story 6.B.4 — rerun child vouchers inherit anonymous mode."""
+    auth, _user_id = api_key
+    source = await _seed_anonymous_reproducible_run(client_with_db, auth, monkeypatch)
+    source_voucher_id = source["reproducibility"]["voucher_id"]
+
+    resp = await client_with_db.post(
+        f"/v1/reproduce/{source_voucher_id}/rerun",
+        headers={"Authorization": auth},
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    repro = body["reproducibility"]
+    assert repro["anonymous"] is True
+    assert body["rerun_of_voucher_id"] == source_voucher_id
+    assert "email" not in str(body).lower()
+    assert "phone" not in str(body).lower()
+    assert "bank_account" not in str(body).lower()
+    assert "id_card" not in str(body).lower()
+
+    maker = async_sessionmaker(db_engine, expire_on_commit=False, class_=AsyncSession)
+    async with maker() as s:
+        child = (
+            await s.execute(
+                select(ReproductionVoucher).where(
+                    ReproductionVoucher.voucher_id == repro["voucher_id"]
+                )
+            )
+        ).scalar_one()
+        source_voucher = (
+            await s.execute(
+                select(ReproductionVoucher).where(
+                    ReproductionVoucher.voucher_id == source_voucher_id
+                )
+            )
+        ).scalar_one()
+    assert source_voucher.anonymous is True
+    assert child.anonymous is True
+    assert child.parent_voucher_id == source_voucher.id
+    assert child.rerun_depth == source_voucher.rerun_depth + 1
 
 
 async def test_rerun_idempotency_replays_same_voucher_and_rejects_other_target(
