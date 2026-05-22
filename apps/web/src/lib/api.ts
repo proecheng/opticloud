@@ -295,6 +295,40 @@ export async function login(body: LoginRequest): Promise<SignupResponse> {
   );
 }
 
+// ===== Account deletion (Story 1.6 — PIPL) =====
+
+export interface AccountDeletionStatusResponse {
+  status: "none" | "scheduled" | "completed";
+  user_id_snapshot: string | null;
+  requested_at: string | null;
+  hard_delete_at: string | null;
+  completed_at: string | null;
+  grace_period_days: number;
+}
+
+export async function getAccountDeletionStatus(
+  jwtAccess: string,
+): Promise<AccountDeletionStatusResponse> {
+  return request<AccountDeletionStatusResponse>(
+    "/v1/auth/account-deletion",
+    { headers: { Authorization: `Bearer ${jwtAccess}` } },
+    AUTH_SERVICE_URL,
+  );
+}
+
+export async function requestAccountDeletion(
+  jwtAccess: string,
+): Promise<AccountDeletionStatusResponse> {
+  return request<AccountDeletionStatusResponse>(
+    "/v1/auth/account-deletion",
+    {
+      method: "POST",
+      headers: { Authorization: `Bearer ${jwtAccess}` },
+    },
+    AUTH_SERVICE_URL,
+  );
+}
+
 // ===== API Keys list + revoke (Story 1.3) =====
 
 export interface APIKeyListItem {

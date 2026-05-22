@@ -8,6 +8,7 @@ from __future__ import annotations
 import secrets
 import uuid
 from datetime import UTC, datetime, timedelta
+from typing import Literal
 
 import structlog
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
@@ -15,11 +16,12 @@ from sqlalchemy import and_, select, text, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from auth_service import risk, security
+from auth_service import account_deletion, risk, security
 from auth_service.config import settings
 from auth_service.db import get_session
 from auth_service.models import APIKey, AuditLog, User, UserOTP
 from auth_service.schemas import (
+    AccountDeletionStatusResponse,
     APIKeyCreateRequest,
     APIKeyCreateResponse,
     APIKeyListItem,
@@ -34,6 +36,12 @@ from auth_service.schemas import (
 _log = structlog.get_logger("auth_service.routes")
 
 router = APIRouter(prefix="/v1/auth", tags=["auth"])
+
+
+def _deletion_status_value(status: str) -> Literal["scheduled", "completed"]:
+    if status == "completed":
+        return "completed"
+    return "scheduled"
 
 
 # ===== Story 0.7: Health & Readiness =====
@@ -158,6 +166,16 @@ async def _lookup_user(session: AsyncSession, phone: str, email: str) -> User | 
     return (await session.execute(stmt)).scalar_one_or_none()
 
 
+async def _require_active_user(session: AsyncSession, user_id: uuid.UUID) -> User:
+    user = await account_deletion.get_active_user(session, user_id)
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="account deleted",
+        )
+    return user
+
+
 def _generate_otp() -> str:
     """6-digit numeric OTP, zero-padded."""
     return f"{secrets.randbelow(1_000_000):06d}"
@@ -191,6 +209,11 @@ async def request_otp(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="user not found",
+        )
+    if user.deleted_at is not None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="account deleted",
         )
     if user.is_frozen:
         raise HTTPException(
@@ -284,6 +307,11 @@ async def login(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="user not found",
         )
+    if user.deleted_at is not None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="account deleted",
+        )
     if user.is_frozen:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -352,8 +380,17 @@ async def _resolve_user_from_jwt(authorization: str | None) -> uuid.UUID:
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="not an access token",
         )
+    user_id = uuid.UUID(payload["sub"])
+    return user_id
 
-    return uuid.UUID(payload["sub"])
+
+async def _resolve_active_user_from_jwt(
+    authorization: str | None,
+    session: AsyncSession,
+) -> uuid.UUID:
+    user_id = await _resolve_user_from_jwt(authorization)
+    await _require_active_user(session, user_id)
+    return user_id
 
 
 @router.post(
@@ -372,7 +409,7 @@ async def create_api_key(
     authorization: str | None = Header(default=None),
     session: AsyncSession = Depends(get_session),
 ) -> APIKeyCreateResponse:
-    user_id = await _resolve_user_from_jwt(authorization)
+    user_id = await _resolve_active_user_from_jwt(authorization, session)
 
     # D7: HMAC-SHA256 generation
     full_key, prefix, hmac_hash = security.generate_api_key()
@@ -423,7 +460,7 @@ async def list_api_keys(
     authorization: str | None = Header(default=None),
     session: AsyncSession = Depends(get_session),
 ) -> list[APIKeyListItem]:
-    user_id = await _resolve_user_from_jwt(authorization)
+    user_id = await _resolve_active_user_from_jwt(authorization, session)
 
     result = await session.execute(
         select(APIKey).where(APIKey.user_id == user_id).order_by(APIKey.created_at.desc())
@@ -455,7 +492,7 @@ async def revoke_api_key(
     authorization: str | None = Header(default=None),
     session: AsyncSession = Depends(get_session),
 ) -> None:
-    user_id = await _resolve_user_from_jwt(authorization)
+    user_id = await _resolve_active_user_from_jwt(authorization, session)
 
     result = await session.execute(
         select(APIKey).where(APIKey.id == key_id, APIKey.user_id == user_id)
@@ -475,4 +512,52 @@ async def revoke_api_key(
             resource_id=key_id,
             audit_metadata={},
         )
+    )
+    await session.commit()
+
+
+@router.get(
+    "/account-deletion",
+    response_model=AccountDeletionStatusResponse,
+    summary="查看账户删除状态",
+)
+async def get_account_deletion_status(
+    authorization: str | None = Header(default=None),
+    session: AsyncSession = Depends(get_session),
+) -> AccountDeletionStatusResponse:
+    user_id = await _resolve_user_from_jwt(authorization)
+    request = await account_deletion.get_deletion_request_status(session, user_id)
+    if request is None:
+        return AccountDeletionStatusResponse(status="none")
+    return AccountDeletionStatusResponse(
+        status=_deletion_status_value(request.status),
+        user_id_snapshot=request.user_id_snapshot,
+        requested_at=request.requested_at,
+        hard_delete_at=request.hard_delete_at,
+        completed_at=request.completed_at,
+    )
+
+
+@router.post(
+    "/account-deletion",
+    response_model=AccountDeletionStatusResponse,
+    summary="请求账户删除",
+    status_code=status.HTTP_200_OK,
+)
+async def request_account_deletion(
+    authorization: str | None = Header(default=None),
+    session: AsyncSession = Depends(get_session),
+) -> AccountDeletionStatusResponse:
+    user_id = await _resolve_user_from_jwt(authorization)
+    try:
+        request = await account_deletion.request_account_deletion(session, user_id)
+    except LookupError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="user not found") from e
+    await session.commit()
+    return AccountDeletionStatusResponse(
+        status=_deletion_status_value(request.status),
+        user_id_snapshot=request.user_id_snapshot,
+        requested_at=request.requested_at,
+        hard_delete_at=request.hard_delete_at,
+        completed_at=request.completed_at,
     )
