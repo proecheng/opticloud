@@ -136,8 +136,9 @@
 
 - 当前记录了哪些运行元数据
 - 哪些数据可公开，哪些不能公开
-- 5-year reproducibility / image archival 是合同和路线图承诺
-- Story 6.B voucher / rerun endpoint 未上线前，不写成已可自助重跑
+- 5-year reproducibility / image archival 面向已签发 durable voucher，5 年时钟从 `reproduction_vouchers.created_at` UTC 起算
+- rerun child voucher 使用 child voucher 自己的创建时间起算，不延长 parent voucher 的 5 年承诺
+- 完整 archive restore 以 [`docs/runbooks/repro-image-restore.md`](runbooks/repro-image-restore.md) 和上线版本为准；G7 pipeline 未完整交付前，不写成已可自助恢复全部归档镜像
 - 学生数据、企业数据、人类受试者数据的边界
 
 ---
