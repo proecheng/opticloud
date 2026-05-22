@@ -149,6 +149,30 @@ export interface Citation {
   url: string | null;
 }
 
+/** Story 6.A.5 — scholar / license IP attribution tier. */
+export interface IPAttribution {
+  tier: "L1" | "L2" | "L3";
+  label_zh: string;
+  display_name_zh: string;
+  summary_zh: string;
+  visibility: "full_visible" | "bibtex" | "license_only";
+  contract_anchor: string;
+}
+
+/** Story 6.B.1 — opt-in reproducibility handoff for voucher minting. */
+export interface Reproducibility {
+  requested: true;
+  request_fingerprint: string;
+  locked_model_version: ModelVersion;
+  locked_solver: string;
+  seed_locked: boolean;
+  seed: number | null;
+  /** Present only when `options.anonymous: true` for blind review. */
+  anonymous?: true;
+  /** Present only for authenticated persisted reproducible runs. */
+  voucher_id?: string;
+}
+
 export interface Algorithm {
   k_algo: string;
   task_type: string;
@@ -166,6 +190,8 @@ export interface Algorithm {
   supported_solvers: string[];
   /** Story 6.A.1 — FR R5 academic citation; null reserved for commercial-only SKUs. */
   citation: Citation | null;
+  /** Story 6.A.5 — L1/L2/L3 IP attribution display metadata. */
+  ip_attribution: IPAttribution;
 }
 
 export interface ListAlgorithmsOptions {
@@ -218,6 +244,20 @@ export interface OptimizationResponse {
   solve_seconds: number;
   created_at: string;
   completed_at: string;
+  citation: Citation | null;
+  ip_attribution: IPAttribution | null;
+  /** Present only when `options.reproducible: true`; omitted otherwise. */
+  reproducibility?: Reproducibility;
+}
+
+export interface ReproductionRerunResponse extends OptimizationResponse {
+  rerun_of_voucher_id: string;
+  source_optimization_id: string;
+  archive_restore?: {
+    mode: "live_solver_image_reuse";
+    status: "used";
+    detail: string;
+  };
 }
 
 // ===== Login (Story 1.2 — OTP 2FA) =====
@@ -429,6 +469,10 @@ export interface DemoOptimizationResponse {
   model_version: ModelVersion;
   solve_seconds: number;
   demo: true;
+  citation: Citation | null;
+  ip_attribution: IPAttribution | null;
+  /** Present only when `options.reproducible: true`; omitted otherwise. */
+  reproducibility?: Reproducibility;
 }
 
 export async function submitOptimizationDemo<TBody extends { task_type: string }>(
@@ -460,6 +504,29 @@ export async function postOptimization(
         "Idempotency-Key": idempotencyKey,
       },
       body: JSON.stringify(body),
+    },
+    SOLVER_SERVICE_URL,
+  );
+}
+
+export async function rerunReproductionVoucher(
+  apiKey: string,
+  voucherId: string,
+  idempotencyKey?: string,
+): Promise<ReproductionRerunResponse> {
+  const replayKey =
+    idempotencyKey ??
+    (typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}`);
+  return request<ReproductionRerunResponse>(
+    `/v1/reproduce/${encodeURIComponent(voucherId)}/rerun`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Idempotency-Key": replayKey,
+      },
     },
     SOLVER_SERVICE_URL,
   );

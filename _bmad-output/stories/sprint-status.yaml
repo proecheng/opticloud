@@ -3,7 +3,7 @@
 # Source: epics.md (21 Epics / 192 Stories, post AE rounds)
 # Path B unlock node sequence (5 + J1 vertical slice 4 锚点 + Critical Gaps)
 
-last_updated: 2026-05-20h
+last_updated: 2026-05-22
 
 # ===== STATUS DEFINITIONS =====
 # backlog            — not yet started
@@ -73,7 +73,7 @@ development_status:
   1-3-api-keys-crud-complete: done             # 2026-05-19 — expires_in_days convenience + 9 auth tests + 1 solver last_used_at test + /auth/api-keys web page; revoke 立即生效 verified
   1-4-edu-tier-email-whitelist: done             # 2026-05-19 — .edu/.ac.cn auto-activates edu_tier=true + seeds ¥2000 bucket="edu"; +6 auth tests; FR A4 v1 ship
   1-5-risk-control-freeze: done                  # 2026-05-19 — FR A5 ship: risk_rules registry + risk_flags log + NFR-S6 "任 2 项触发" auto-freeze; v1 enables only ip_24_share (other 4 rules defined-but-disabled, graduate as signal sources land); admin surface (POST risk-flags / POST unfreeze / GET risk-flags / GET risk-rules) gated by X-Admin-Secret shared-secret (constant-time compare; empty config → 403); signup wired to risk.evaluate_signup + apply_flags_and_maybe_freeze; +10 backend tests; migration 07-risk-control.sql added to auth+solver CI jobs; bundled sprint-status into PR commit (lesson from 2.5/#26)
-  1-6-pipl-account-delete: done                # 2026-05-20 — PIPL 7 day account deletion shipped; account_deletion_requests + soft-delete/key revoke + tombstone hard-delete CLI + /auth/account + 5 lifecycle tests; code review fixed billing-history cascade risk
+  1-6-pipl-account-delete: backlog             # FR A6
   1-7-account-merge-proposal: backlog          # FR A7/A8
   1-8-onboarding-wizard-5steps: backlog        # FR A9
   1-9-under-14-block: backlog                  # FR A10
@@ -192,22 +192,22 @@ development_status:
 
   # ===== Epic 6.A/B/C: Reproducibility (13 stories) =====
   epic-6-a: in-progress
-  epic-6-b: backlog
+  epic-6-b: in-progress
   epic-6-c: backlog
 
   6-a-1-citation-bibtex: done                  # 2026-05-20 — FR R5 v1 必上 ship: opens Epic 6.A; 8 hand-curated BibTeX entries on Algorithm catalog (huangfu2018 × 2, perron2024ortools @software, perron2011constraint LNCS 6876, ansari2024chronos arXiv, box1976time, hochreiter1997long, aqgs2025opticloud @software w/ Apache 2.0); CitationSchema mirrored on AlgorithmSchema + OptimizationResponse (defaults None); `_build_success_response` does (provider_id, task_type)-keyed catalog lookup at response time with try/except guard so malformed rows degrade to citation=null not 500; /v1/optimizations/demo LP-optimal branch routes citation through CitationSchema for parity; /algorithms/[k_algo] gains 📚 引用本算法 section w/ 学者信息 line + `encodeURI`-wrapped DOI/URL links + reused CodeBlock w/ new label+ariaLabel props for "BibTeX"; +11 backend tests (47 → 60; catalog signature/braces/key-pinning/`\&` LaTeX-safety/AQGS @software/LP demo+auth/422 RFC 7807/MILP-disambiguation/unknown-provider-degradation) + 2 Playwright (highs-lp DOI path + aqgs URL-only path); 3 reviewer-layer code review (Blind Hunter + Edge Case + Acceptance Auditor) → 11 patches applied + 3 deferred to deferred-work.md + 6 dismissed; bundle delta /algorithms/[k_algo] +0.22 KB; sprint-status BUNDLED into PR-29 commits (lesson from 1.5/PR#28)
-  6-a-2-bibtex-academic-page: review           # 营销 milestone Landing 页 — dev complete 2026-05-20, awaiting code review
-  6-a-3-citation-tracking: backlog
-  6-a-4-academic-onboarding-toolkit: backlog   # RE2-2
-  6-a-5-ip-attribution-tiers: backlog          # E5
+  6-a-2-bibtex-academic-page: done             # 2026-05-20 — /academic SSR BibTeX Landing 页 + shared CodeBlock + landing 学术合作 link; 5 Playwright cases; post-code-review patches applied
+  6-a-3-citation-tracking: done                # 2026-05-20 — citation tracker CLI/runbook shipped; post-implementation review patches applied; 77 solver tests pass
+  6-a-4-academic-onboarding-toolkit: done        # 2026-05-20 — Academic onboarding toolkit docs shipped: execution-ready handbook + scholar FAQ + Chinese paper template + joint whitepaper outline; docs-only; link/placeholder checks pass; post-review trailing-whitespace patch applied
+  6-a-5-ip-attribution-tiers: done             # 2026-05-20 — IP attribution L1/L2/L3 catalog/API/public+Console UI shipped; post-code-review clean; backend/typecheck/E2E passed
 
-  6-b-1-mark-reproducible: backlog             # FR R1
-  6-b-2-voucher-unique-id: backlog             # FR R2
-  6-b-3-rerun-within-5y: backlog               # FR R3
-  6-b-4-anonymous-voucher: backlog             # FR R6
-  6-b-5-voucher-card-component: backlog
-  6-b-6-voucher-5y-sla-tracking: backlog       # TT4
-  6-b-7-bitwise-reproducibility-test: backlog  # E11
+  6-b-1-mark-reproducible: done                # 2026-05-21 — FR R1 ship: options.reproducible=true now locks model_version + solver, creates reproducibility handoff (sha256 request fingerprint + explicit seed lock), persists under Optimization.input_payload._system.reproducibility, and returns optional reproducibility only for opt-in POST/GET/demo LP success responses; no voucher ID/DB/rerun route/anonymous scope added; +2 backend tests; solver suite 82 passed; web typecheck passed after API type sync review patch
+  6-b-2-voucher-unique-id: done                 # 2026-05-21 — FR R2 ship: authenticated reproducible completed LP runs now issue durable voucher IDs `repro-{YYYY}-{6 Crockford base32}` persisted in `reproduction_vouchers`; POST/GET/idempotency replay expose `reproducibility.voucher_id`; demo/non-opt-in/failure paths remain voucher-free; solver schema CI filter fixed; +5 voucher regressions; solver suite 87 passed; mypy/web typecheck passed after post-review DB constraint test patch
+  6-b-3-rerun-within-5y: done                  # 2026-05-21 — FR R3 ship: voucher owners can POST /v1/reproduce/{voucher_id}/rerun within the 5y UTC calendar window; reruns rebuild locked LP payloads from source optimization, issue linked child vouchers (parent_voucher_id + rerun_depth), expose rerun-only lineage fields, reject billing headers, and use user-scoped voucher-aware idempotency; +10 rerun regressions, solver suite 97 passed, mypy/web typecheck/diff-check passed after code-review patches
+  6-b-4-anonymous-voucher: done                # 2026-05-21 — FR R6 ship: `options.anonymous=true` now requires reproducible opt-in, persists `reproduction_vouchers.anonymous`, mirrors `reproducibility.anonymous=true` only for anonymous voucher flows, preserves blind-review-safe response shapes, inherits anonymity across rerun child vouchers, and treats anonymous as request identity for idempotency; +7 anonymous regressions, solver suite 106 passed, mypy/web typecheck/diff-check passed after code-review compatibility patch
+  6-b-5-voucher-card-component: done
+  6-b-6-voucher-5y-sla-tracking: done          # 2026-05-22 — TT4 ship: 5y Repro / Image archival clock now explicitly starts at `reproduction_vouchers.created_at` UTC; added Repro Image Restore SOP with evidence/exception/drill steps; aligned handbook, FAQ, paper template, whitepaper outline, legal-template index, and runbooks index; docs-only; link/stale wording/diff-check passed after code-review link patch
+  6-b-7-bitwise-reproducibility-test: done         # 2026-05-22 — E11 ship: quarterly voucher bitwise reproducibility audit framework with deterministic 5% sampling, strict canonical SHA-256 result comparison, LP/highs live rerun support, explicit skipped coverage, JSON/Markdown CLI reports, redaction/no-side-effect tests, runbook, and generated report ignore; +10 audit tests, solver suite 116 passed, ruff/mypy/diff-check passed after code-review patches
 
   6-c-1-auto-migrate-provider: backlog         # v2
   6-c-2-30d-exit-notification: backlog

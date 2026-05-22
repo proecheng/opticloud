@@ -47,8 +47,8 @@ repos:
     hooks:
       - id: license-check
         name: License check (allow MIT/Apache 2.0/BSD/EPL-2.0; GPL-3.0 limited-to ECOS)
-        entry: scripts/check_licenses.sh
-        language: script
+        entry: python scripts/check_licenses.py
+        language: system
         pass_filenames: false
         files: ^(pyproject\.toml|package\.json|pnpm-lock\.yaml|uv\.lock)$
 

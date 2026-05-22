@@ -9,6 +9,7 @@ import Link from "next/link";
 
 import { StatusCard } from "@opticloud/ui";
 
+import { AttributionBadge, attributionLine } from "@/components/AttributionBadge";
 import { CodeBlock } from "@/components/CodeBlock";
 import type { Algorithm } from "@/lib/api";
 
@@ -31,9 +32,21 @@ export const dynamic = "force-dynamic";
 // same IPv4-explicit workaround e2e.yml documents for its readiness probes.
 // (The browser-side client in lib/api.ts keeps `localhost`: the browser/OS
 // resolver handles it fine; only Node's resolver has the ::1 preference.)
-const SOLVER_BASE = (
-  process.env.NEXT_PUBLIC_SOLVER_SERVICE_URL ?? "http://localhost:8002"
-).replace("localhost", "127.0.0.1");
+function normalizeSolverBase(rawBase: string): string {
+  try {
+    const url = new URL(rawBase);
+    if (url.hostname === "localhost") {
+      url.hostname = "127.0.0.1";
+    }
+    return url.toString().replace(/\/$/, "");
+  } catch {
+    return rawBase.replace(/\/$/, "");
+  }
+}
+
+const SOLVER_BASE = normalizeSolverBase(
+  process.env.NEXT_PUBLIC_SOLVER_SERVICE_URL ?? "http://localhost:8002",
+);
 
 const TIER_COLOR: Record<string, string> = {
   T1: "bg-success/10 text-success border-success/30",
@@ -62,17 +75,19 @@ function FlywheelCard({
   title,
   body,
   source,
+  className = "",
 }: {
   step: number;
   title: string;
   body: string;
   source: string;
+  className?: string;
 }): JSX.Element {
   return (
     <div
       data-testid={`flywheel-step-${step}`}
       aria-describedby="flywheel-explainer"
-      className="rounded-lg border border-border bg-background p-5"
+      className={`rounded-lg border border-border bg-background p-5 ${className}`}
     >
       <div className="text-xs font-semibold text-primary">第 {step} 步</div>
       <div className="mt-1 font-semibold">{title}</div>
@@ -84,6 +99,7 @@ function FlywheelCard({
 
 function CitationCard({ algo }: { algo: Algorithm }): JSX.Element {
   const { citation } = algo;
+  const attribution = algo.ip_attribution;
   return (
     <article
       data-testid={`citation-card-${algo.k_algo}`}
@@ -99,8 +115,15 @@ function CitationCard({ algo }: { algo: Algorithm }): JSX.Element {
         >
           {algo.tier}
         </span>
+        <AttributionBadge attribution={attribution} />
       </header>
       <p className="mt-1 text-sm text-muted-foreground">{algo.description_zh}</p>
+      <p
+        className="mt-2 text-sm text-muted-foreground"
+        data-testid={`attribution-line-${algo.k_algo}`}
+      >
+        {attributionLine(attribution)}
+      </p>
 
       {citation ? (
         <>
@@ -255,17 +278,28 @@ export default async function AcademicPage(): Promise<JSX.Element> {
               body="提交任务即拿到 citation.bibtex，一行 paste 进论文 References。"
               source="Story 6.A.1"
             />
+
+            <div
+              aria-hidden="true"
+              className="hidden text-center text-2xl font-semibold text-primary md:col-span-2 md:flex md:items-center md:justify-between md:px-8"
+            >
+              <span>↑</span>
+              <span>↓</span>
+            </div>
+
             <FlywheelCard
               step={3}
               title="论文带来新学者"
               body="引用图谱上每多一个指向我们的节点，就有更多学者看见 OptiCloud。"
               source="Story 6.A.3 自动追踪"
+              className="md:col-start-2 md:row-start-3"
             />
             <FlywheelCard
               step={4}
               title="飞轮转起来"
               body="更多学者上车 → 更多论文 → 更多引用，自我强化。"
               source="Innovation #3"
+              className="md:col-start-1 md:row-start-3"
             />
           </div>
           <p

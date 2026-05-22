@@ -1,7 +1,6 @@
 /** Tests for useA11y Hook (Story 0.12). */
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { useA11y } from "./useA11y";
@@ -48,7 +47,6 @@ describe("useA11y", () => {
   it("warns in dev when aria-label missing", () => {
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     function MissingLabel() {
-      // @ts-expect-error intentional: testing missing required prop
       const a11y = useA11y({ ariaLabel: "" });
       return <div {...a11y.attrs} ref={a11y.ref} />;
     }

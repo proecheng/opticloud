@@ -3,7 +3,7 @@ story_key: 6-a-2-bibtex-academic-page
 epic_num: 6.A
 epic_name: Reproducibility — BibTeX Academic v1 必上 (M3)
 story_num: 6.A.2
-status: review
+status: done
 priority: 🟢 High (Innovation #3 学界变现飞轮第二根支柱; 6.A.1 citation field now needs a surface that scholars actually find; pure FE)
 sizing: S–M (~2-3 hours; new SSR-friendly route + 1 component extraction + reuse 6.A.1 catalog API + 1 Playwright spec; no backend / no schema / no migration)
 type: implementation
@@ -538,6 +538,7 @@ Executed T1–T6 in story-spec order. One refinement beyond spec during T5: `/ac
 ### Debug Log References
 
 - 2026-05-20 — first `pnpm build` showed `○ /academic (Static)` with 5m revalidate. Recognized the build-time-prerender race against the e2e job's backgrounded solver-orchestrator boot; added `export const dynamic = "force-dynamic"`; rebuild confirmed `ƒ /academic`.
+- 2026-05-20 — post-implementation code review found two final hardening items: `localhost` normalization should be URL-hostname-specific, and the flywheel should preserve 1→2→3→4 DOM/mobile reading order while keeping the desktop cycle layout. Both patches applied.
 
 ### Completion Notes
 
@@ -545,7 +546,7 @@ Executed T1–T6 in story-spec order. One refinement beyond spec during T5: `/ac
   - AC1 ✅ — `/academic` server component; SSR fetch with try/catch graceful-degrade; `force-dynamic` (see Implementation Plan)
   - AC2 ✅ — `CodeBlock` extracted to `apps/web/src/components/CodeBlock.tsx` (verbatim move + `"use client"`); `[k_algo]/page.tsx` imports it; props unchanged
   - AC3 ✅ — Hero copy per spec
-  - AC4 ✅ — 4-card flywheel grid; `flywheel-step-{1..4}` testids; explainer paragraph with `aria-describedby` wiring
+  - AC4 ✅ — 4-card flywheel grid; `flywheel-step-{1..4}` testids; explainer paragraph with `aria-describedby` wiring; DOM/mobile reading order stays 1→2→3→4 while desktop places 4-left / 3-right for the loop diagram
   - AC5 ✅ — citations grid (2-col responsive); per-card 学者信息 line + DOI/URL conditional + BibTeX CodeBlock; commercial-only-null branch handled
   - AC6 ✅ — edu-tier CTA section anchored to Story 1.4 behavior
   - AC7 ✅ — 学术合作 nav link added to landing page header between 算法目录 and 文档
@@ -559,15 +560,27 @@ Executed T1–T6 in story-spec order. One refinement beyond spec during T5: `/ac
 
 **Created:**
 - `apps/web/src/components/CodeBlock.tsx` (extracted from `[k_algo]/page.tsx`; verbatim + `"use client"`)
-- `apps/web/src/app/academic/page.tsx` (server component — `/academic` route)
+- `apps/web/src/app/academic/page.tsx` (server component — `/academic` route; `force-dynamic`; hostname-safe solver URL normalization)
 - `e2e/tests/academic-page.spec.ts` (5 Playwright cases)
 
 **Modified:**
 - `apps/web/src/app/algorithms/[k_algo]/page.tsx` (removed inline CodeBlock; added `import { CodeBlock } from "@/components/CodeBlock"`)
 - `apps/web/src/app/page.tsx` (added 学术合作 → /academic nav link)
-- `_bmad-output/stories/sprint-status.yaml` (6-a-2-bibtex-academic-page backlog → review)
-- `_bmad-output/stories/6-a-2-bibtex-academic-page.md` (this file; status → review; Dev Agent Record + File List + Change Log added)
+- `_bmad-output/stories/sprint-status.yaml` (6-a-2-bibtex-academic-page backlog → review → done)
+- `_bmad-output/stories/6-a-2-bibtex-academic-page.md` (this file; status → done; Dev Agent Record + File List + Change Log + post-implementation code review added)
 
 ### Change Log
 
 - 2026-05-20 — Story 6.A.2 implementation: /academic SSR Landing 页 (hero + 学界变现飞轮 4-card diagram + 8-citation grid + edu-tier CTA) + CodeBlock extraction to shared component + landing-page 学术合作 nav link + 5 Playwright tests. Second pillar of Epic 6.A Innovation #3 arc.
+- 2026-05-20 — Post-implementation code review complete: patched hostname-specific solver URL normalization and flywheel DOM/mobile reading order; `pnpm -C apps/web typecheck` green.
+
+### Post-Implementation Code Review
+
+**Result:** PASS after two review patches.
+
+Findings fixed:
+- P2 — `SOLVER_BASE.replace("localhost", "127.0.0.1")` could rewrite non-host text in unusual URLs. Replaced with `new URL(...)` hostname normalization and trailing-slash trimming fallback.
+- P2 — Current desktop flywheel patch placed step 4 before step 3 in DOM/mobile reading order. Restored DOM order to 1→2→3→4 and used responsive grid placement to keep the desktop visual loop.
+
+Verification:
+- `pnpm -C apps/web typecheck` ✅

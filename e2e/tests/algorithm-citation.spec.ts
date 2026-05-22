@@ -53,6 +53,13 @@ test.describe("Algorithm citation block (FR R5)", () => {
     const copyButton = bibtex.getByRole("button", { name: /复制 BibTeX/ });
     await expect(copyButton).toBeVisible();
     await expect(copyButton).toHaveAttribute("aria-label", "复制 BibTeX 代码");
+
+    const attribution = page.getByTestId("ip-attribution-block");
+    await expect(attribution).toBeVisible();
+    await expect(attribution.getByTestId("attribution-badge-L3")).toBeVisible();
+    await expect(attribution.getByTestId("ip-attribution-line")).toContainText(
+      "开源 Runner",
+    );
   });
 
   test("aqgs-acopf (自研, 无 DOI) 展示 查看出处 链接而非 DOI", async ({ page }) => {
@@ -82,6 +89,12 @@ test.describe("Algorithm citation block (FR R5)", () => {
     // BibTeX uses @software entry type
     await expect(block.getByTestId("citation-bibtex")).toContainText(
       "@software{aqgs2025opticloud,",
+    );
+
+    const attribution = page.getByTestId("ip-attribution-block");
+    await expect(attribution.getByTestId("attribution-badge-L1")).toBeVisible();
+    await expect(attribution.getByTestId("ip-attribution-line")).toContainText(
+      "Algorithm by OptiCloud / Trust-Tech 团队",
     );
   });
 });
