@@ -18,6 +18,7 @@
 - 中文论文模板：[`docs/academic-paper-template.zh-CN.md`](academic-paper-template.zh-CN.md)
 - 联合白皮书提纲：[`docs/academic-joint-whitepaper-outline.zh-CN.md`](academic-joint-whitepaper-outline.zh-CN.md)
 - 法务模板索引：[`docs/legal-templates.md`](legal-templates.md)
+- Repro Image 恢复 SOP：[`docs/runbooks/repro-image-restore.md`](runbooks/repro-image-restore.md)
 - 学术合作落地页：`/academic`
 
 ---
@@ -84,7 +85,7 @@ Tier 3 是高价值课题组 / 实验室合作包，不是 v1 已上线能力。
 | 2. 首次沟通 | Founder | 30 分钟 call notes | 学者理解 OptiCloud 只获得调用 + 分发权，不转移 IP |
 | 3. 技术 handoff | 学者 + Lab 助手 | 算法包、依赖、sample input/output | 本地可复现一次成功运行 |
 | 4. Citation handoff | 学者 + 平台 | BibTeX、作者署名、机构署名 | 学者确认 key、作者和 venue 无误 |
-| 5. Legal handoff | Founder + 法务 | Provider Agreement 签署路径 | 分润、IP、退出、5y Image 归档条款清楚 |
+| 5. Legal handoff | Founder + 法务 | Provider Agreement 签署路径 | 分润、IP、退出、5y Image 归档条款清楚；起算点为 `reproduction_vouchers.created_at` UTC |
 | 6. Shadow 验证 | 工程团队 | 14 天验证记录 | 结果稳定、失败边界明确、无合规 blocker |
 | 7. 上线准备 | 工程 + 市场 | `/academic` 引用、FAQ、论文模板、白皮书提纲 | 外部学者能读懂合作方式和引用方式 |
 | 8. 上线后跟进 | Academic Relations Lead | 30/60/90 day follow-up | 引用追踪、反馈、案例素材进入节奏 |
@@ -242,7 +243,7 @@ v2 目标 LMS：
 
 - Option A：算法 IP 转课题组 / 学校，继续分润给课题组事业单位主体。
 - Option B：算法 IP 转学者个人，改走个人税务路径。
-- Option C：算法转为开源 Apache 2.0，OptiCloud 继续 honor 5y Image 归档承诺，分润停止。
+- Option C：算法转为开源 Apache 2.0，OptiCloud 继续 honor 已签发 voucher 的 5y Image 归档承诺；每个 voucher 的 5 年时钟从 `reproduction_vouchers.created_at` UTC 起算，分润停止。
 
 ### 跨校合作（多作者）
 
@@ -252,10 +253,10 @@ v2 目标 LMS：
 
 ### 离世 / 失联
 
-- 算法继续 honor 5y Repro / Image 归档承诺。
+- 算法继续 honor 已签发 voucher 的 5y Repro / Image 归档承诺；每个 voucher 的 5 年时钟从 `reproduction_vouchers.created_at` UTC 起算。
 - 分润转为遗产或课题组事业单位主体，按合同条款执行。
 
-5-year reproducibility 在 v1 对外材料中只能作为合同 / 路线图承诺表达；不要暗示 Story 6.B voucher / rerun endpoint 已经上线。
+5-year reproducibility / image archival 的合同和运营口径：每个 durable voucher 的 5 年时钟从 `reproduction_vouchers.created_at` UTC 起算。rerun child voucher 使用 child voucher 自己的 `created_at` 起算，不会延长或重置 parent voucher 的承诺。恢复操作按 [`docs/runbooks/repro-image-restore.md`](runbooks/repro-image-restore.md) 记录证据或异常。对外材料不得暗示尚未上线的 archive pipeline 已经完整交付。
 
 ---
 
@@ -353,5 +354,6 @@ M9+：
 - 中文论文模板：[`docs/academic-paper-template.zh-CN.md`](academic-paper-template.zh-CN.md)
 - 联合白皮书提纲：[`docs/academic-joint-whitepaper-outline.zh-CN.md`](academic-joint-whitepaper-outline.zh-CN.md)
 - 法律合作合同：[`docs/legal-templates.md`](legal-templates.md) Doc 6
+- Repro Image 恢复 SOP：[`docs/runbooks/repro-image-restore.md`](runbooks/repro-image-restore.md)
 - Runbooks：[`docs/runbooks/`](runbooks/)
 - PRD / Architecture 学界规划：`_bmad-output/planning/prd.md`、`_bmad-output/planning/architecture.md`

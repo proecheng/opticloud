@@ -127,7 +127,7 @@
 
 建议写法：
 
-> 本文实验使用 OptiCloud 平台生成的算法结果。平台在当前阶段提供算法来源、BibTeX 引用和运行元数据；5-year reproducibility / image archival 属于平台合同与路线图承诺，后续 voucher / rerun 功能以上线版本为准。本文保留了输入数据摘要、运行日期、算法 SKU、关键参数和返回结果，以便后续复核。
+> 本文实验使用 OptiCloud 平台生成的算法结果。平台提供算法来源、BibTeX 引用、运行元数据，以及面向 durable voucher 的 5-year reproducibility / image archival 承诺。该 5 年时钟从平台在 `reproduction_vouchers.created_at` 记录的 voucher 创建时间（UTC）起算；完整 archive restore 以平台上线版本和恢复 SOP 为准。本文保留了输入数据摘要、运行日期、算法 SKU、关键参数、voucher 信息（如已签发）和返回结果，以便后续复核。
 
 需要记录：
 
@@ -137,6 +137,8 @@
 - 参数
 - 返回的 `model_version`
 - 返回的 `citation.bibtex`
+- 返回的 `reproducibility.voucher_id`（如已签发）
+- voucher 创建时间 `reproduction_vouchers.created_at` UTC（如已签发）
 - 结果文件 hash（如适用）
 
 ---

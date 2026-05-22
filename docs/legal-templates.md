@@ -86,15 +86,17 @@
   - **IP 归属**：算法 IP 归原作者；OptiCloud 仅获得**调用 + 分发权**（非独占）
   - **学术伦理**：BibTeX 强制引用 + 教学模式开放
   - **合作期限**：1 年滚动 + 30 day notice 退出
-  - **退出 SLA**：30 day 预通知 + 5y Image 归档 honor
+  - **退出 SLA**：30 day 预通知 + 已签发 durable voucher 继续 honor 5y Image 归档；5 年时钟从 `reproduction_vouchers.created_at` UTC 起算，rerun child voucher 使用 child row 自己的 `created_at`，不重置 parent voucher 时钟
   - **税务**：分润为 service fee，按个税 / 课题组事业单位入账
   - **跨校 / 多作者**：明示主负责人 + 分配比例 + 退休 / 转校 handover
+- 🔗 **运营 SOP**：[`docs/runbooks/repro-image-restore.md`](runbooks/repro-image-restore.md)（恢复证据、异常记录、季度演练；依赖 G7 Image 分层归档）
 - 🎯 适配：吕老师 M0 wk2 签发 Apache 2.0 时同步签合作合同
 
 ### 7. 数据出境同意书（DeepSeek/Qwen 境内已免；GPT/Claude 触发）
 
 - 📄 **`docs/legal/data-export-consent-template.md`**
 - 🎯 触发：用户在 Console 主动选 N4 远程国际 LLM（GPT-5.1 / Claude，v2+）时弹出
+- ⚠️ 本 Doc 7 与 5y Repro / Image 归档 SLA 无关；不要把数据出境同意书当作 voucher SLA 承诺文件。
 - 关键条款：
   - 数据出境**用户知情同意**
   - 出境后**境外接收方**（Anthropic / OpenAI）的合规承诺
