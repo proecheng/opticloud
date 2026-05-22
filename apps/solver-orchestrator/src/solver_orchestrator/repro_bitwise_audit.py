@@ -193,8 +193,7 @@ def sample_candidates(
         key=lambda candidate: (
             hashlib.sha256(
                 (
-                    f"{policy.seed}:{_as_utc(policy.as_of).isoformat()}:"
-                    f"{candidate.voucher_id}"
+                    f"{policy.seed}:{_as_utc(policy.as_of).isoformat()}:{candidate.voucher_id}"
                 ).encode()
             ).hexdigest(),
             candidate.voucher_id,
