@@ -14,7 +14,7 @@ const voucher: VoucherCardVoucher = {
     name: "linprog",
     version: "1.11.4",
   },
-  requestFingerprint: "0123456789abcdef0123456789abcdef0123456789abcdef",
+  requestFingerprint: "fixture-fingerprint-2026-issued-voucher",
   seedLocked: true,
   seed: null,
 };

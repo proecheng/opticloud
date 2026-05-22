@@ -13,7 +13,7 @@ const baseVoucher: VoucherCardVoucher = {
     name: "linprog",
     version: "1.11.4",
   },
-  requestFingerprint: "0123456789abcdef0123456789abcdef0123456789abcdef",
+  requestFingerprint: "fixture-fingerprint-2026-issued-voucher",
   seedLocked: true,
   seed: null,
 };
@@ -30,7 +30,7 @@ describe("VoucherCard", () => {
       "scipy/linprog@1.11.4",
     );
     expect(screen.getByTestId("voucher-fingerprint")).toHaveTextContent(
-      "0123456789...abcdef",
+      "fixture-fi...oucher",
     );
     expect(screen.getByTestId("voucher-seed")).toHaveTextContent("Locked (null)");
     expect(screen.queryByText(/email|phone|api key|raw payload/i)).not.toBeInTheDocument();
