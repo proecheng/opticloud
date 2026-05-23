@@ -12,9 +12,12 @@
 import { defineConfig, devices } from "@playwright/test";
 
 const isCI = !!process.env.CI;
-const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3000";
-const AUTH_URL = process.env.PLAYWRIGHT_AUTH_URL ?? "http://localhost:8001";
-const SOLVER_URL = process.env.PLAYWRIGHT_SOLVER_URL ?? "http://localhost:8002";
+const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
+const AUTH_URL = process.env.PLAYWRIGHT_AUTH_URL ?? "http://127.0.0.1:8001";
+const SOLVER_URL = process.env.PLAYWRIGHT_SOLVER_URL ?? "http://127.0.0.1:8002";
+const PYTHON = process.env.PLAYWRIGHT_PYTHON ?? ".\\.venv\\Scripts\\python.exe";
+const AUTH_SERVER_COMMAND = `${PYTHON} scripts/start_service.py auth-service 8001`;
+const SOLVER_SERVER_COMMAND = `${PYTHON} scripts/start_service.py solver-orchestrator 8002`;
 
 export default defineConfig({
   testDir: "./tests",
@@ -66,23 +69,21 @@ export default defineConfig({
     ? undefined
     : [
         {
-          command:
-            'PYTHONPATH="..\\packages\\shared-py;..\\apps\\auth-service\\src;..\\packages\\python-sdk\\src" ..\\.venv\\Scripts\\python.exe -m uvicorn auth_service.main:app --port 8001',
+          command: AUTH_SERVER_COMMAND,
           url: `${AUTH_URL}/healthz`,
           reuseExistingServer: true,
           timeout: 90_000,
           cwd: "..",
         },
         {
-          command:
-            'PYTHONPATH="..\\packages\\shared-py;..\\apps\\solver-orchestrator\\src;..\\packages\\python-sdk\\src" ..\\.venv\\Scripts\\python.exe -m uvicorn solver_orchestrator.main:app --port 8002',
+          command: SOLVER_SERVER_COMMAND,
           url: `${SOLVER_URL}/healthz`,
           reuseExistingServer: true,
           timeout: 90_000,
           cwd: "..",
         },
         {
-          command: "pnpm -C ..\\apps\\web dev",
+          command: "pnpm --dir apps/web exec next dev -p 3000",
           url: BASE_URL,
           reuseExistingServer: true,
           timeout: 90_000,
