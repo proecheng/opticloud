@@ -27,6 +27,7 @@ from auth_service.schemas import (
     AccountMergeProposalResponse,
     APIKeyCreateRequest,
     APIKeyCreateResponse,
+    APIKeyGeoAnomalyWarning,
     APIKeyListItem,
     GuardianConsentPendingResponse,
     LoginRequest,
@@ -662,6 +663,25 @@ async def list_api_keys(
             scope=k.scope,
             expires_at=k.expires_at,
             last_used_at=k.last_used_at,
+            last_used_ip=str(k.last_used_ip) if k.last_used_ip is not None else None,
+            last_used_geo_bucket=k.last_used_geo_bucket,
+            geo_risk_score=float(k.geo_risk_score),
+            geo_anomaly_at=k.geo_anomaly_at,
+            geo_anomaly=(
+                APIKeyGeoAnomalyWarning(
+                    previous_geo_bucket=k.geo_anomaly_metadata.get("previous_geo_bucket"),
+                    current_geo_bucket=k.geo_anomaly_metadata.get("current_geo_bucket"),
+                    previous_geo_label_zh=k.geo_anomaly_metadata.get("previous_geo_label_zh"),
+                    current_geo_label_zh=k.geo_anomaly_metadata.get("current_geo_label_zh"),
+                    previous_ip=k.geo_anomaly_metadata.get("previous_ip"),
+                    current_ip=k.geo_anomaly_metadata.get("current_ip"),
+                    geo_risk_score=float(k.geo_risk_score),
+                    detected_at=k.geo_anomaly_at,
+                    detector_version=k.geo_anomaly_metadata.get("detector_version"),
+                )
+                if k.geo_anomaly_at is not None and k.revoked_at is None
+                else None
+            ),
             revoked_at=k.revoked_at,
             created_at=k.created_at,
         )

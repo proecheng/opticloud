@@ -91,13 +91,14 @@ async def _count_risk_flags(engine: AsyncEngine, user_id: uuid.UUID) -> int:
 
 
 async def test_seed_risk_rules_loaded(engine: AsyncEngine) -> None:
-    """AC7 #1 — migration seeded all 5 rules; only ip_24_share is enabled."""
+    """AC7 #1 — seeded risk rules include v1 freeze rules + disabled geo signal."""
     maker = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
     async with maker() as s:
         result = await s.execute(text("SELECT code, enabled FROM risk_rules ORDER BY code"))
         rows = {r.code: r.enabled for r in result}
     assert set(rows.keys()) == {
         "fingerprint_high",
+        "geo_anomaly",
         "ip_24_share",
         "calls_24h_over_20",
         "payment_reused",

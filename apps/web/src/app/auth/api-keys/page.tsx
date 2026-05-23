@@ -28,10 +28,28 @@ const ALL_SCOPES = [
   "reproduce:read",
 ];
 
+function activeGeoWarnings(keys: APIKeyListItem[]): APIKeyListItem[] {
+  return keys.filter((k) => keyStatus(k) === "active" && k.geo_anomaly !== null);
+}
+
 function keyStatus(k: APIKeyListItem): "active" | "expired" | "revoked" {
   if (k.revoked_at) return "revoked";
   if (k.expires_at && new Date(k.expires_at) < new Date()) return "expired";
   return "active";
+}
+
+function riskPercent(score: number): string {
+  return `${Math.round(score * 100)}%`;
+}
+
+function warningGeoLabel(
+  warning: NonNullable<APIKeyListItem["geo_anomaly"]>,
+  side: "previous" | "current",
+): string {
+  if (side === "previous") {
+    return warning.previous_geo_label_zh ?? warning.previous_geo_bucket ?? "未知区域";
+  }
+  return warning.current_geo_label_zh ?? warning.current_geo_bucket ?? "未知区域";
 }
 
 export default function APIKeysPage(): JSX.Element {
@@ -42,6 +60,8 @@ export default function APIKeysPage(): JSX.Element {
   const [error, setError] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [created, setCreated] = useState<APIKeyCreateResponse | null>(null);
+  const [dismissedWarningIds, setDismissedWarningIds] = useState<Set<string>>(new Set());
+  const [selectedWarningId, setSelectedWarningId] = useState<string | null>(null);
 
   // Create form state
   const [label, setLabel] = useState("");
@@ -64,6 +84,10 @@ export default function APIKeysPage(): JSX.Element {
     try {
       const list = await listAPIKeys(jwt);
       setKeys(list);
+      setDismissedWarningIds((prev) => {
+        const activeIds = new Set(activeGeoWarnings(list).map((k) => k.id));
+        return new Set([...prev].filter((id) => activeIds.has(id)));
+      });
     } catch (e) {
       setError(e instanceof OptiCloudClientError ? `${e.title}: ${e.detail}` : String(e));
     } finally {
@@ -74,6 +98,14 @@ export default function APIKeysPage(): JSX.Element {
   useEffect(() => {
     if (jwt) void refresh();
   }, [jwt, refresh]);
+
+  useEffect(() => {
+    const nextWarning = activeGeoWarnings(keys).find((k) => !dismissedWarningIds.has(k.id));
+    setSelectedWarningId((current) => {
+      if (current && keys.some((k) => k.id === current && k.geo_anomaly !== null)) return current;
+      return nextWarning?.id ?? null;
+    });
+  }, [dismissedWarningIds, keys]);
 
   const handleCreate = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
@@ -111,6 +143,22 @@ export default function APIKeysPage(): JSX.Element {
     }
   };
 
+  const handleGeoRevoke = async (keyId: string): Promise<void> => {
+    if (!jwt) return;
+    setLoading(true);
+    setError(null);
+    try {
+      await revokeAPIKey(jwt, keyId);
+      setDismissedWarningIds((prev) => new Set([...prev, keyId]));
+      setSelectedWarningId(null);
+      void refresh();
+    } catch (e) {
+      setError(e instanceof OptiCloudClientError ? `${e.title}: ${e.detail}` : String(e));
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const toggleScope = (s: string): void => {
     setScopes((prev) => {
       const next = new Set(prev);
@@ -119,6 +167,9 @@ export default function APIKeysPage(): JSX.Element {
       return next;
     });
   };
+
+  const selectedWarningKey =
+    selectedWarningId === null ? null : (keys.find((k) => k.id === selectedWarningId) ?? null);
 
   return (
     <main className="container mx-auto max-w-4xl p-8">
@@ -163,6 +214,55 @@ export default function APIKeysPage(): JSX.Element {
           >
             Done — hide
           </button>
+        </div>
+      )}
+
+      {selectedWarningKey?.geo_anomaly && keyStatus(selectedWarningKey) === "active" && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="geo-anomaly-title"
+          className="mb-4 rounded-md border border-warning/40 bg-warning/10 p-4"
+          data-testid="geo-anomaly-modal"
+        >
+          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+            <div>
+              <h2 id="geo-anomaly-title" className="text-base font-semibold text-warning">
+                API Key 出现异常地理使用
+              </h2>
+              <p className="mt-1 text-sm text-foreground">
+                Key {selectedWarningKey.label} ({selectedWarningKey.prefix}) 从{" "}
+                {warningGeoLabel(selectedWarningKey.geo_anomaly, "previous")} 切换到{" "}
+                {warningGeoLabel(selectedWarningKey.geo_anomaly, "current")}，
+                当前风险评分 {riskPercent(selectedWarningKey.geo_anomaly.geo_risk_score)}。
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                如果这不是你的调用，建议立即吊销该 key 并创建新 key。
+              </p>
+            </div>
+            <div className="flex shrink-0 gap-2">
+              <button
+                type="button"
+                onClick={() => void handleGeoRevoke(selectedWarningKey.id)}
+                disabled={loading}
+                className="rounded-md bg-danger px-3 py-2 text-sm text-white hover:bg-danger/90 disabled:opacity-50"
+                data-testid="geo-anomaly-revoke"
+              >
+                吊销 key
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setDismissedWarningIds((prev) => new Set([...prev, selectedWarningKey.id]));
+                  setSelectedWarningId(null);
+                }}
+                className="rounded-md border border-border px-3 py-2 text-sm hover:bg-muted"
+                data-testid="geo-anomaly-dismiss"
+              >
+                暂时保留
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -250,6 +350,7 @@ export default function APIKeysPage(): JSX.Element {
             <th className="py-2">Scope</th>
             <th className="py-2">Created</th>
             <th className="py-2">Last used</th>
+            <th className="py-2">Risk</th>
             <th className="py-2">Expires</th>
             <th className="py-2">Status</th>
             <th className="py-2">Actions</th>
@@ -258,7 +359,7 @@ export default function APIKeysPage(): JSX.Element {
         <tbody>
           {keys.length === 0 && !loading && (
             <tr>
-              <td colSpan={8} className="py-8 text-center text-muted-foreground">
+              <td colSpan={9} className="py-8 text-center text-muted-foreground">
                 No keys yet — create your first one.
               </td>
             </tr>
@@ -273,6 +374,24 @@ export default function APIKeysPage(): JSX.Element {
                 <td className="py-2 text-xs">{new Date(k.created_at).toLocaleDateString()}</td>
                 <td className="py-2 text-xs">
                   {k.last_used_at ? new Date(k.last_used_at).toLocaleDateString() : "—"}
+                </td>
+                <td className="py-2">
+                  {k.geo_anomaly && status === "active" ? (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedWarningId(k.id)}
+                      className="rounded bg-warning/10 px-2 py-0.5 text-xs text-warning hover:bg-warning/20"
+                      data-testid={`geo-anomaly-open-${k.id}`}
+                    >
+                      异常 {riskPercent(k.geo_risk_score)}
+                    </button>
+                  ) : k.geo_risk_score > 0 ? (
+                    <span className="rounded bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                      {riskPercent(k.geo_risk_score)}
+                    </span>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">—</span>
+                  )}
                 </td>
                 <td className="py-2 text-xs">
                   {k.expires_at ? new Date(k.expires_at).toLocaleDateString() : "Never"}

@@ -255,6 +255,20 @@ class APIKeyCreateResponse(BaseModel):
     created_at: datetime
 
 
+class APIKeyGeoAnomalyWarning(BaseModel):
+    """User-safe warning data for Story 1.11 geo-anomaly risk."""
+
+    previous_geo_bucket: str | None = None
+    current_geo_bucket: str | None = None
+    previous_geo_label_zh: str | None = None
+    current_geo_label_zh: str | None = None
+    previous_ip: str | None = None
+    current_ip: str | None = None
+    geo_risk_score: float
+    detected_at: datetime
+    detector_version: str | None = None
+
+
 class APIKeyListItem(BaseModel):
     """FR A2 api_keys list item."""
 
@@ -265,5 +279,10 @@ class APIKeyListItem(BaseModel):
     scope: list[str]
     expires_at: datetime | None
     last_used_at: datetime | None
+    last_used_ip: str | None = None
+    last_used_geo_bucket: str | None = None
+    geo_risk_score: float = 0.0
+    geo_anomaly_at: datetime | None = None
+    geo_anomaly: APIKeyGeoAnomalyWarning | None = None
     revoked_at: datetime | None
     created_at: datetime

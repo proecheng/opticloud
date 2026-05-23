@@ -108,6 +108,10 @@ async function request<T>(
     throw new OptiCloudClientError(payload);
   }
 
+  if (response.status === 204) {
+    return undefined as T;
+  }
+
   return (await response.json()) as T;
 }
 
@@ -438,6 +442,21 @@ export interface APIKeyListItem {
   scope: string[];
   expires_at: string | null;
   last_used_at: string | null;
+  last_used_ip: string | null;
+  last_used_geo_bucket: string | null;
+  geo_risk_score: number;
+  geo_anomaly_at: string | null;
+  geo_anomaly: {
+    previous_geo_bucket: string | null;
+    current_geo_bucket: string | null;
+    previous_geo_label_zh: string | null;
+    current_geo_label_zh: string | null;
+    previous_ip: string | null;
+    current_ip: string | null;
+    geo_risk_score: number;
+    detected_at: string;
+    detector_version: string | null;
+  } | null;
   revoked_at: string | null;
   created_at: string;
 }
@@ -451,10 +470,14 @@ export async function listAPIKeys(jwtAccess: string): Promise<APIKeyListItem[]> 
 }
 
 export async function revokeAPIKey(jwtAccess: string, keyId: string): Promise<void> {
-  await fetch(`${AUTH_SERVICE_URL}/v1/auth/api_keys/${keyId}`, {
-    method: "DELETE",
-    headers: { Authorization: `Bearer ${jwtAccess}` },
-  });
+  await request<unknown>(
+    `/v1/auth/api_keys/${encodeURIComponent(keyId)}`,
+    {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${jwtAccess}` },
+    },
+    AUTH_SERVICE_URL,
+  );
 }
 
 // ===== Billing (Story 5.A.1) =====
