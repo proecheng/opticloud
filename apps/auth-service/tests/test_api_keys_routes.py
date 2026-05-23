@@ -8,9 +8,11 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 
 import pytest_asyncio
 from httpx import AsyncClient
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 
@@ -202,6 +204,120 @@ async def test_revoke_other_users_key_returns_404(http_client: AsyncClient) -> N
         f"/v1/auth/api_keys/{a_key_id}", headers={"Authorization": f"Bearer {jwt_b}"}
     )
     assert rev.status_code == 404, rev.text
+
+
+# ===== Story 1.11 — geo anomaly list fields =====
+
+
+async def test_list_api_keys_returns_geo_anomaly_warning_fields(
+    http_client: AsyncClient,
+    signed_in_jwt: tuple[uuid.UUID, str],
+    engine: AsyncEngine,
+) -> None:
+    user_id, jwt = signed_in_jwt
+    create = await http_client.post(
+        "/v1/auth/api_keys",
+        json={"label": "geo-prod", "scope": ["optimize:write"]},
+        headers={"Authorization": f"Bearer {jwt}"},
+    )
+    assert create.status_code == 201, create.text
+    key_id = uuid.UUID(create.json()["id"])
+
+    maker = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
+    async with maker() as s:
+        await s.execute(
+            text(
+                """
+                UPDATE api_keys
+                SET
+                    last_used_ip = CAST('139.59.10.10' AS inet),
+                    last_used_geo_bucket = 'SG-SG',
+                    geo_risk_score = :score,
+                    geo_anomaly_at = NOW(),
+                    geo_anomaly_metadata = CAST(:metadata AS jsonb)
+                WHERE id = :key_id AND user_id = :user_id
+                """
+            ),
+            {
+                "key_id": key_id,
+                "user_id": user_id,
+                "score": Decimal("0.35"),
+                "metadata": (
+                    '{"previous_geo_bucket":"CN-BJ","current_geo_bucket":"SG-SG",'
+                    '"previous_geo_label_zh":"中国北京","current_geo_label_zh":"新加坡",'
+                    '"previous_ip":"101.6.6.6","current_ip":"139.59.10.10",'
+                    '"detector_version":"geo-risk-v1"}'
+                ),
+            },
+        )
+        await s.commit()
+
+    listed = await http_client.get("/v1/auth/api_keys", headers={"Authorization": f"Bearer {jwt}"})
+    assert listed.status_code == 200, listed.text
+    item = next(k for k in listed.json() if k["id"] == str(key_id))
+    assert item["last_used_ip"] == "139.59.10.10"
+    assert item["last_used_geo_bucket"] == "SG-SG"
+    assert item["geo_risk_score"] == 0.35
+    assert item["geo_anomaly_at"] is not None
+    assert item["geo_anomaly"] == {
+        "previous_geo_bucket": "CN-BJ",
+        "current_geo_bucket": "SG-SG",
+        "previous_geo_label_zh": "中国北京",
+        "current_geo_label_zh": "新加坡",
+        "previous_ip": "101.6.6.6",
+        "current_ip": "139.59.10.10",
+        "geo_risk_score": 0.35,
+        "detected_at": item["geo_anomaly_at"],
+        "detector_version": "geo-risk-v1",
+    }
+
+
+async def test_revoked_geo_anomaly_key_is_not_actionable_warning(
+    http_client: AsyncClient,
+    signed_in_jwt: tuple[uuid.UUID, str],
+    engine: AsyncEngine,
+) -> None:
+    user_id, jwt = signed_in_jwt
+    create = await http_client.post(
+        "/v1/auth/api_keys",
+        json={"label": "geo-revoked", "scope": ["optimize:write"]},
+        headers={"Authorization": f"Bearer {jwt}"},
+    )
+    key_id = uuid.UUID(create.json()["id"])
+
+    maker = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
+    async with maker() as s:
+        await s.execute(
+            text(
+                """
+                UPDATE api_keys
+                SET
+                    geo_risk_score = :score,
+                    geo_anomaly_at = NOW(),
+                    geo_anomaly_metadata = CAST(:metadata AS jsonb)
+                WHERE id = :key_id AND user_id = :user_id
+                """
+            ),
+            {
+                "key_id": key_id,
+                "user_id": user_id,
+                "score": Decimal("0.35"),
+                "metadata": '{"previous_geo_bucket":"CN-BJ","current_geo_bucket":"SG-SG"}',
+            },
+        )
+        await s.commit()
+
+    rev = await http_client.delete(
+        f"/v1/auth/api_keys/{key_id}", headers={"Authorization": f"Bearer {jwt}"}
+    )
+    assert rev.status_code == 204, rev.text
+
+    listed = await http_client.get("/v1/auth/api_keys", headers={"Authorization": f"Bearer {jwt}"})
+    item = next(k for k in listed.json() if k["id"] == str(key_id))
+    assert item["geo_risk_score"] == 0.35
+    assert item["geo_anomaly_at"] is not None
+    assert item["revoked_at"] is not None
+    assert item["geo_anomaly"] is None
 
 
 # ===== AC4 case 9 — cross-service revoke takes effect immediately =====

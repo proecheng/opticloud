@@ -78,7 +78,7 @@ development_status:
   1-8-onboarding-wizard-5steps: done           # FR A9 — 2026-05-23 shared SignupWizard + signup/login/welcome handoff + 5min rescue prompt + J1 smoke
   1-9-under-14-block: done                     # FR A10
   1-10-language-switch-zh: done                 # FR A3
-  1-11-geo-anomaly-risk: backlog               # NFR-S
+  1-11-geo-anomaly-risk: done                  # NFR-S — 2026-05-23 API Key geo anomaly scoring + user warning/revoke
   1-12-j7-fraud-freeze-vertical-slice: backlog # J7
 
   # ===== Epic 2: Algorithm Catalog (8 stories) =====

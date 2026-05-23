@@ -49,13 +49,29 @@ CREATE TABLE IF NOT EXISTS api_keys (
     expires_at      TIMESTAMPTZ NULL,
     last_used_at    TIMESTAMPTZ NULL,
     last_used_ip    INET NULL,
+    last_used_geo_bucket VARCHAR(64) NULL,
+    geo_risk_score  NUMERIC(3, 2) NOT NULL DEFAULT 0.00,
+    geo_anomaly_at  TIMESTAMPTZ NULL,
+    geo_anomaly_metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
     revoked_at      TIMESTAMPTZ NULL,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+ALTER TABLE api_keys
+    ADD COLUMN IF NOT EXISTS last_used_geo_bucket VARCHAR(64) NULL;
+ALTER TABLE api_keys
+    ADD COLUMN IF NOT EXISTS geo_risk_score NUMERIC(3, 2) NOT NULL DEFAULT 0.00;
+ALTER TABLE api_keys
+    ADD COLUMN IF NOT EXISTS geo_anomaly_at TIMESTAMPTZ NULL;
+ALTER TABLE api_keys
+    ADD COLUMN IF NOT EXISTS geo_anomaly_metadata JSONB NOT NULL DEFAULT '{}'::jsonb;
+
 CREATE INDEX idx_api_keys_user_id ON api_keys(user_id);
 CREATE INDEX idx_api_keys_key_prefix ON api_keys(key_prefix);
 CREATE INDEX idx_api_keys_key_hash ON api_keys(key_hash) WHERE revoked_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_api_keys_geo_anomaly_user
+    ON api_keys(user_id, geo_anomaly_at DESC)
+    WHERE geo_anomaly_at IS NOT NULL;
 
 -- ===== audit_logs (Story 0.7 + FR O3 + C3 v1 单表) =====
 -- C3: v1 Audit = Postgres audit_log 表 + 异步入库；v2 末拆库
