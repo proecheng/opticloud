@@ -1,7 +1,7 @@
 /** API helpers — direct service calls without going through browser. */
 
-const AUTH_URL = process.env.PLAYWRIGHT_AUTH_URL ?? "http://localhost:8001";
-const SOLVER_URL = process.env.PLAYWRIGHT_SOLVER_URL ?? "http://localhost:8002";
+const AUTH_URL = process.env.PLAYWRIGHT_AUTH_URL ?? "http://127.0.0.1:8001";
+const SOLVER_URL = process.env.PLAYWRIGHT_SOLVER_URL ?? "http://127.0.0.1:8002";
 
 export interface SignupResult {
   user_id: string;

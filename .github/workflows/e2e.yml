@@ -132,8 +132,8 @@ jobs:
 
       - name: Build + start web (background)
         env:
-          NEXT_PUBLIC_AUTH_SERVICE_URL: http://localhost:8001
-          NEXT_PUBLIC_SOLVER_SERVICE_URL: http://localhost:8002
+          NEXT_PUBLIC_AUTH_SERVICE_URL: http://127.0.0.1:8001
+          NEXT_PUBLIC_SOLVER_SERVICE_URL: http://127.0.0.1:8002
         run: |
           pnpm -C apps/web build
           nohup pnpm -C apps/web start > web.log 2>&1 &
@@ -164,9 +164,9 @@ jobs:
       - name: Run Playwright tests (chromium)
         run: pnpm -C e2e exec playwright test --project=chromium
         env:
-          PLAYWRIGHT_BASE_URL: http://localhost:3000
-          PLAYWRIGHT_AUTH_URL: http://localhost:8001
-          PLAYWRIGHT_SOLVER_URL: http://localhost:8002
+          PLAYWRIGHT_BASE_URL: http://127.0.0.1:3000
+          PLAYWRIGHT_AUTH_URL: http://127.0.0.1:8001
+          PLAYWRIGHT_SOLVER_URL: http://127.0.0.1:8002
 
       # ===== Redact secrets (S2 fix) before upload =====
       - name: Redact secrets in artifacts
