@@ -20,10 +20,11 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from auth_service import risk
+from auth_service import account_merge, risk
 from auth_service.config import settings
 from auth_service.db import get_session
 from auth_service.models import AuditLog, RiskFlag, RiskRule, User
+from auth_service.schemas import AccountMergeAdminReviewRequest, AccountMergeProposalResponse
 
 _log = structlog.get_logger("auth_service.admin")
 
@@ -263,3 +264,51 @@ async def admin_list_risk_rules(
         )
         for r in rules
     ]
+
+
+@admin_router.get(
+    "/account-merge-proposals",
+    response_model=list[AccountMergeProposalResponse],
+    summary="List account-merge proposals awaiting review (FR A7)",
+)
+async def admin_list_account_merge_proposals(
+    status_filter: str | None = None,
+    status: str | None = None,
+    _auth: None = Depends(require_admin_secret),
+    session: AsyncSession = Depends(get_session),
+) -> list[dict[str, object]]:
+    # FastAPI reserves no special meaning for the query name "status"; keep
+    # status_filter as a backward-compatible alias if internal callers prefer it.
+    selected_status = status if status is not None else status_filter
+    proposals = await account_merge.list_admin_merge_proposals(session, selected_status)
+    return [account_merge.proposal_to_response(p) for p in proposals]
+
+
+@admin_router.post(
+    "/account-merge-proposals/{proposal_id}/review",
+    response_model=AccountMergeProposalResponse,
+    summary="Approve or reject an account-merge proposal (FR A7)",
+)
+async def admin_review_account_merge_proposal(
+    proposal_id: uuid.UUID,
+    body: AccountMergeAdminReviewRequest,
+    x_admin_secret: str | None = Header(default=None),
+    _auth: None = Depends(require_admin_secret),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, object]:
+    proposal = await account_merge.review_merge_proposal(
+        session,
+        proposal_id,
+        decision=body.decision,
+        reason=body.reason,
+        reviewed_by="admin-secret",
+    )
+    await session.commit()
+    await session.refresh(proposal)
+    _log.info(
+        "admin.account_merge.reviewed",
+        proposal_id=str(proposal_id),
+        decision=body.decision,
+        authenticated=bool(x_admin_secret),
+    )
+    return account_merge.proposal_to_response(proposal)
