@@ -57,7 +57,9 @@ async def _ensure_account_deletion_table(engine: AsyncEngine) -> None:
 async def _signup(http_client: AsyncClient) -> tuple[uuid.UUID, str, str, str]:
     phone = _phone()
     email = _email()
-    r = await http_client.post("/v1/auth/signup", json={"phone": phone, "email": email})
+    r = await http_client.post(
+        "/v1/auth/signup", json={"phone": phone, "email": email, "age_years": 18}
+    )
     assert r.status_code == 201, r.text
     body = r.json()
     return uuid.UUID(body["user_id"]), phone, email, body["jwt_access"]

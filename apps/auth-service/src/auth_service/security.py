@@ -66,6 +66,26 @@ def _hmac_sha256(full_key: str, pepper_version: int) -> str:
     return hmac.new(pepper, full_key.encode("utf-8"), hashlib.sha256).hexdigest()
 
 
+# ===== Guardian Consent Token Hashing (FR A10) =====
+
+
+def generate_guardian_consent_token() -> str:
+    """Generate a URL-safe one-time guardian consent token."""
+    return secrets.token_urlsafe(32)
+
+
+def hash_guardian_consent_token(token: str) -> str:
+    """HMAC-SHA256 guardian consent token hash for DB persistence."""
+    pepper = settings.guardian_consent_token_pepper_dev.encode("utf-8")
+    return hmac.new(pepper, token.encode("utf-8"), hashlib.sha256).hexdigest()
+
+
+def verify_guardian_consent_token(token: str, stored_hash: str) -> bool:
+    """Constant-time guardian consent token verification."""
+    computed = hash_guardian_consent_token(token)
+    return hmac.compare_digest(computed, stored_hash)
+
+
 # ===== JWT Ed25519 (D8) =====
 
 _jwt_private_key: Ed25519PrivateKey | None = None

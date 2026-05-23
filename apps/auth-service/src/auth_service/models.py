@@ -103,6 +103,43 @@ class UserOTP(Base):
     )
 
 
+class GuardianConsentRequest(Base):
+    """Story 1.9 — pre-user guardian consent for 14-17 signup."""
+
+    __tablename__ = "guardian_consent_requests"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()
+    )
+    phone: Mapped[str] = mapped_column(String(20), nullable=False)
+    email: Mapped[str] = mapped_column(String(255), nullable=False)
+    age_years: Mapped[int] = mapped_column(Integer, nullable=False)
+    guardian_email: Mapped[str] = mapped_column(String(255), nullable=False)
+    token_hash: Mapped[str] = mapped_column(Text, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    __table_args__ = (
+        Index("idx_guardian_consent_requests_token_hash", "token_hash"),
+        Index(
+            "idx_guardian_consent_requests_pending_contacts",
+            "phone",
+            "email",
+            "guardian_email",
+            "expires_at",
+            postgresql_where=(confirmed_at.is_(None)),
+        ),
+    )
+
+
 class AccountDeletionRequest(Base):
     """Story 1.6 — PIPL account deletion lifecycle."""
 

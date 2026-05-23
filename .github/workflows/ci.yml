@@ -180,6 +180,7 @@ jobs:
           psql -h localhost -U opticloud -d opticloud_dev -f infra/local-init/05-bucket-backfill.sql
           psql -h localhost -U opticloud -d opticloud_dev -f infra/local-init/06-user-otps.sql
           psql -h localhost -U opticloud -d opticloud_dev -f infra/local-init/07-risk-control.sql
+          psql -h localhost -U opticloud -d opticloud_dev -f infra/local-init/08-guardian-consent.sql
       - name: Run tests
         env:
           DATABASE_URL: postgresql+asyncpg://opticloud:opticloud_dev@localhost:5432/opticloud_dev  # pragma: allowlist secret
@@ -259,6 +260,7 @@ jobs:
           psql -h localhost -U opticloud -d opticloud_dev -f infra/local-init/03-billing-schema.sql
           psql -h localhost -U opticloud -d opticloud_dev -f infra/local-init/05-bucket-backfill.sql
           psql -h localhost -U opticloud -d opticloud_dev -f infra/local-init/07-risk-control.sql
+          psql -h localhost -U opticloud -d opticloud_dev -f infra/local-init/08-guardian-consent.sql
       - name: Run tests
         env:
           DATABASE_URL: postgresql+asyncpg://opticloud:opticloud_dev@localhost:5432/opticloud_dev  # pragma: allowlist secret

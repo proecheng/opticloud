@@ -54,7 +54,7 @@ async def test_edu_dotedu_email_creates_user_with_edu_tier_true_and_seed(
     email = f"student-{uuid.uuid4().hex[:10]}@stanford.edu"
     r = await http_client.post(
         "/v1/auth/signup",
-        json={"phone": _phone(), "email": email},
+        json={"phone": _phone(), "email": email, "age_years": 18},
     )
     assert r.status_code == 201, r.text
     body = r.json()
@@ -72,7 +72,7 @@ async def test_edu_dotaccn_email_creates_user_with_edu_tier_true_and_seed(
     email = f"prof-{uuid.uuid4().hex[:10]}@pku.ac.cn"
     r = await http_client.post(
         "/v1/auth/signup",
-        json={"phone": _phone(), "email": email},
+        json={"phone": _phone(), "email": email, "age_years": 18},
     )
     assert r.status_code == 201, r.text
     body = r.json()
@@ -94,7 +94,7 @@ async def test_edu_subdomain_dotedu_also_activates(
     email = f"student-{uuid.uuid4().hex[:10]}@cs.mit.edu"
     r = await http_client.post(
         "/v1/auth/signup",
-        json={"phone": _phone(), "email": email},
+        json={"phone": _phone(), "email": email, "age_years": 18},
     )
     assert r.status_code == 201, r.text
     body = r.json()
@@ -110,7 +110,7 @@ async def test_regular_signup_no_edu_no_seed(http_client: AsyncClient, engine: A
     email = f"user-{uuid.uuid4().hex[:10]}@example.com"
     r = await http_client.post(
         "/v1/auth/signup",
-        json={"phone": _phone(), "email": email},
+        json={"phone": _phone(), "email": email, "age_years": 18},
     )
     assert r.status_code == 201, r.text
     body = r.json()
@@ -132,7 +132,7 @@ async def test_edu_seed_amount_matches_config(
     email = f"halfedu-{uuid.uuid4().hex[:10]}@stanford.edu"
     r = await http_client.post(
         "/v1/auth/signup",
-        json={"phone": _phone(), "email": email},
+        json={"phone": _phone(), "email": email, "age_years": 18},
     )
     assert r.status_code == 201, r.text
     user_id = uuid.UUID(r.json()["user_id"])
@@ -148,7 +148,7 @@ async def test_edu_signup_audit_log_includes_seed_amount(
     email = f"audit-{uuid.uuid4().hex[:10]}@stanford.edu"
     r = await http_client.post(
         "/v1/auth/signup",
-        json={"phone": _phone(), "email": email},
+        json={"phone": _phone(), "email": email, "age_years": 18},
     )
     user_id = uuid.UUID(r.json()["user_id"])
 

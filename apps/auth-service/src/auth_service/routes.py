@@ -12,6 +12,7 @@ from typing import Literal
 
 import structlog
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
+from fastapi.responses import JSONResponse
 from sqlalchemy import and_, select, text, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,7 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from auth_service import account_deletion, account_merge, risk, security
 from auth_service.config import settings
 from auth_service.db import get_session
-from auth_service.models import APIKey, AuditLog, User, UserOTP
+from auth_service.models import APIKey, AuditLog, GuardianConsentRequest, User, UserOTP
 from auth_service.schemas import (
     AccountDeletionStatusResponse,
     AccountMergeProposalCreateRequest,
@@ -27,6 +28,7 @@ from auth_service.schemas import (
     APIKeyCreateRequest,
     APIKeyCreateResponse,
     APIKeyListItem,
+    GuardianConsentPendingResponse,
     LoginRequest,
     LoginResponse,
     OTPRequestBody,
@@ -78,6 +80,7 @@ async def readyz(session: AsyncSession = Depends(get_session)) -> dict[str, obje
     "/signup",
     response_model=SignupResponse,
     status_code=status.HTTP_201_CREATED,
+    responses={status.HTTP_202_ACCEPTED: {"model": GuardianConsentPendingResponse}},
     summary="注册新用户（手机+邮箱双因素）",
     description=(
         "FR A1: 任何访客 can register via 手机号+邮箱双因素验证. "
@@ -88,12 +91,177 @@ async def signup(
     body: SignupRequest,
     request: Request,
     session: AsyncSession = Depends(get_session),
+) -> SignupResponse | JSONResponse:
+    if body.age_years < 14:
+        session.add(
+            AuditLog(
+                user_id=None,
+                actor="system",
+                action="auth.signup.age_gate_rejected",
+                resource_type="signup",
+                resource_id=None,
+                audit_metadata={"age_band": "under_14", "reason": "policy"},
+            )
+        )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="registration is unavailable for this age band",
+        )
+
+    if body.age_years < 18:
+        if body.guardian_consent_token and body.guardian_consent_request_id:
+            return await _complete_guardian_confirmed_signup(body, request, session)
+        return await _create_or_refresh_guardian_consent(body, session)
+
+    return await _create_verified_user_signup(
+        body=body,
+        request=request,
+        session=session,
+        age_band="adult",
+        guardian_consent_request_id=None,
+    )
+
+
+async def _create_or_refresh_guardian_consent(
+    body: SignupRequest,
+    session: AsyncSession,
+) -> JSONResponse:
+    assert body.guardian_email is not None
+
+    now = datetime.now(UTC)
+    expires_at = now + timedelta(seconds=settings.guardian_consent_ttl_seconds)
+    token = security.generate_guardian_consent_token()
+    token_hash = security.hash_guardian_consent_token(token)
+    email = str(body.email).lower()
+    guardian_email = str(body.guardian_email).lower()
+    lock_key = f"guardian-consent:{body.phone}:{email}:{guardian_email}"
+    await session.execute(
+        text("SELECT pg_advisory_xact_lock(hashtextextended(:lock_key, 0))"),
+        {"lock_key": lock_key},
+    )
+
+    existing = (
+        await session.execute(
+            select(GuardianConsentRequest)
+            .where(
+                GuardianConsentRequest.phone == body.phone,
+                GuardianConsentRequest.email == email,
+                GuardianConsentRequest.guardian_email == guardian_email,
+                GuardianConsentRequest.confirmed_at.is_(None),
+                GuardianConsentRequest.expires_at > now,
+            )
+            .order_by(GuardianConsentRequest.created_at.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+
+    if existing is None:
+        consent = GuardianConsentRequest(
+            phone=body.phone,
+            email=email,
+            age_years=body.age_years,
+            guardian_email=guardian_email,
+            token_hash=token_hash,
+            expires_at=expires_at,
+        )
+        session.add(consent)
+        await session.flush()
+    else:
+        existing.age_years = body.age_years
+        existing.token_hash = token_hash
+        existing.expires_at = expires_at
+        consent = existing
+        await session.flush()
+
+    response = GuardianConsentPendingResponse(
+        request_id=consent.id,
+        expires_in_seconds=settings.guardian_consent_ttl_seconds,
+        guardian_email=guardian_email,
+        dev_guardian_consent_token=(token if settings.guardian_consent_dev_mode_return else None),
+    )
+    return JSONResponse(
+        status_code=status.HTTP_202_ACCEPTED, content=response.model_dump(mode="json")
+    )
+
+
+async def _complete_guardian_confirmed_signup(
+    body: SignupRequest,
+    request: Request,
+    session: AsyncSession,
 ) -> SignupResponse:
+    assert body.guardian_email is not None
+    assert body.guardian_consent_request_id is not None
+    assert body.guardian_consent_token is not None
+
+    email = str(body.email).lower()
+    guardian_email = str(body.guardian_email).lower()
+    consent = (
+        await session.execute(
+            select(GuardianConsentRequest).where(
+                GuardianConsentRequest.id == body.guardian_consent_request_id
+            )
+        )
+    ).scalar_one_or_none()
+    if consent is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="invalid guardian consent"
+        )
+    if consent.confirmed_at is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="guardian consent already used",
+        )
+    now = datetime.now(UTC)
+    if consent.expires_at <= now:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="guardian consent expired",
+        )
+    if (
+        consent.phone != body.phone
+        or consent.email != email
+        or consent.age_years != body.age_years
+        or consent.guardian_email != guardian_email
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="guardian consent does not match signup request",
+        )
+    if not security.verify_guardian_consent_token(
+        body.guardian_consent_token,
+        consent.token_hash,
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="invalid guardian consent"
+        )
+
+    response = await _create_verified_user_signup(
+        body=body,
+        request=request,
+        session=session,
+        age_band="minor_14_17",
+        guardian_consent_request_id=consent.id,
+    )
+    consent.confirmed_at = now
+    consent.user_id = uuid.UUID(str(response.user_id))
+    await session.flush()
+    return response
+
+
+async def _create_verified_user_signup(
+    *,
+    body: SignupRequest,
+    request: Request,
+    session: AsyncSession,
+    age_band: Literal["adult", "minor_14_17"],
+    guardian_consent_request_id: uuid.UUID | None,
+) -> SignupResponse:
+    email = str(body.email).lower()
     # FR A4: .edu / .ac.cn 邮箱自动激活教育版
-    edu_tier = body.email.endswith((".edu", ".ac.cn")) or ".edu." in body.email
+    edu_tier = email.endswith((".edu", ".ac.cn")) or ".edu." in email
 
     # In a real Story 1.x, we'd send OTPs here. Story 0.6 stub assumes verified.
-    user = User(phone=body.phone, email=body.email, edu_tier=edu_tier)
+    user = User(phone=body.phone, email=email, edu_tier=edu_tier, age_verified=True)
     session.add(user)
 
     try:
@@ -137,6 +305,13 @@ async def signup(
             audit_metadata={
                 "edu_tier": edu_tier,
                 "edu_signup_seed_amount": edu_seed_amount,
+                "age_band": age_band,
+                "age_verified": True,
+                "guardian_consent_request_id": (
+                    str(guardian_consent_request_id)
+                    if guardian_consent_request_id is not None
+                    else None
+                ),
             },
         )
     )

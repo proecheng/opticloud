@@ -11,7 +11,12 @@ import { useRouter } from "next/navigation";
 
 import { RFC7807Panel, SignupWizard, StatusCard } from "@opticloud/ui";
 
-import { OptiCloudClientError, signup } from "@/lib/api";
+import {
+  type GuardianConsentPendingResponse,
+  OptiCloudClientError,
+  type SignupResult,
+  signup,
+} from "@/lib/api";
 import {
   buildOnboardingSteps,
   createInitialOnboardingState,
@@ -26,20 +31,40 @@ import {
 
 const QUICKSTART_URL = "/docs/quickstart";
 
+function isGuardianConsentPending(
+  result: SignupResult,
+): result is GuardianConsentPendingResponse {
+  return "status" in result && result.status === "guardian_consent_required";
+}
+
 interface FormState {
   phone: string;
   email: string;
+  ageYears: string;
+  guardianEmail: string;
+  guardianConsentToken: string;
 }
 
 export default function SignupPage(): JSX.Element {
   const router = useRouter();
-  const [form, setForm] = useState<FormState>({ phone: "", email: "" });
+  const [form, setForm] = useState<FormState>({
+    phone: "",
+    email: "",
+    ageYears: "",
+    guardianEmail: "",
+    guardianConsentToken: "",
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<OptiCloudClientError | null>(null);
   const [wizardState, setWizardState] = useState(() =>
     createInitialOnboardingState(null),
   );
   const [supportVisible, setSupportVisible] = useState(false);
+  const [guardianPending, setGuardianPending] = useState<{
+    requestId: string;
+    guardianEmail: string;
+    devToken: string | null;
+  } | null>(null);
 
   useEffect(() => {
     const loaded = loadOnboardingState(sessionStorage, null);
@@ -60,12 +85,39 @@ export default function SignupPage(): JSX.Element {
     return () => window.clearInterval(timeout);
   }, [wizardState]);
 
+  const ageYears = Number.parseInt(form.ageYears, 10);
+  const isMinorRequiringGuardian =
+    Number.isFinite(ageYears) && ageYears >= 14 && ageYears < 18;
+
   const handleSubmit = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
     setError(null);
     setLoading(true);
     try {
-      const result = await signup({ phone: form.phone, email: form.email });
+      const result = await signup({
+        phone: form.phone,
+        email: form.email,
+        age_years: ageYears,
+        guardian_email: isMinorRequiringGuardian ? form.guardianEmail : undefined,
+        guardian_consent_request_id: guardianPending?.requestId,
+        guardian_consent_token:
+          guardianPending && form.guardianConsentToken
+            ? form.guardianConsentToken
+            : undefined,
+      });
+      if (isGuardianConsentPending(result)) {
+        setGuardianPending({
+          requestId: result.request_id,
+          guardianEmail: result.guardian_email,
+          devToken: result.dev_guardian_consent_token,
+        });
+        setForm((current) => ({
+          ...current,
+          guardianEmail: result.guardian_email,
+          guardianConsentToken: result.dev_guardian_consent_token ?? "",
+        }));
+        return;
+      }
       // Store JWT in sessionStorage (production: HttpOnly cookie)
       sessionStorage.setItem("jwt_access", result.jwt_access);
       sessionStorage.setItem("jwt_refresh", result.jwt_refresh);
@@ -205,12 +257,121 @@ export default function SignupPage(): JSX.Element {
               </p>
             </fieldset>
 
+            <fieldset className="mb-4" disabled={loading}>
+              <label htmlFor="age-years" className="mb-1 block text-sm font-medium">
+                年龄
+                <span className="ml-1 text-danger" aria-hidden="true">
+                  *
+                </span>
+              </label>
+              <input
+                id="age-years"
+                type="number"
+                min={0}
+                max={120}
+                required
+                value={form.ageYears}
+                onChange={(e) => {
+                  setForm({
+                    ...form,
+                    ageYears: e.target.value,
+                    guardianConsentToken: "",
+                  });
+                  setGuardianPending(null);
+                }}
+                placeholder="18"
+                autoComplete="off"
+                className="min-h-touch w-full rounded-md border border-border bg-background px-3 py-2 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                aria-describedby="age-hint"
+              />
+              <p id="age-hint" className="mt-1 text-xs text-muted-foreground">
+                仅填写周岁数字；未满 14 岁暂不能注册，14-17 岁需监护人确认。
+              </p>
+            </fieldset>
+
+            {isMinorRequiringGuardian && (
+              <fieldset className="mb-4" disabled={loading}>
+                <label
+                  htmlFor="guardian-email"
+                  className="mb-1 block text-sm font-medium"
+                >
+                  监护人邮箱
+                  <span className="ml-1 text-danger" aria-hidden="true">
+                    *
+                  </span>
+                </label>
+                <input
+                  id="guardian-email"
+                  type="email"
+                  required
+                  value={form.guardianEmail}
+                  onChange={(e) => {
+                    setForm({
+                      ...form,
+                      guardianEmail: e.target.value,
+                      guardianConsentToken: "",
+                    });
+                    setGuardianPending(null);
+                  }}
+                  placeholder="guardian@example.com"
+                  autoComplete="email"
+                  className="min-h-touch w-full rounded-md border border-border bg-background px-3 py-2 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  aria-describedby="guardian-email-hint"
+                />
+                <p
+                  id="guardian-email-hint"
+                  className="mt-1 text-xs text-muted-foreground"
+                >
+                  提交后需要监护人确认，确认前不会创建账户或发放 API Key。
+                </p>
+              </fieldset>
+            )}
+
+            {guardianPending && (
+              <div className="mb-4">
+                <StatusCard
+                  variant="warning"
+                  title="需要监护人确认"
+                  description={`确认邮件已发送至 ${guardianPending.guardianEmail}。本地开发模式可直接使用下方确认码完成注册。`}
+                  ariaLabel="signup.guardian_consent_required"
+                />
+                <label
+                  htmlFor="guardian-token"
+                  className="mb-1 mt-3 block text-sm font-medium"
+                >
+                  监护确认码
+                </label>
+                <input
+                  id="guardian-token"
+                  type="text"
+                  value={form.guardianConsentToken}
+                  onChange={(e) =>
+                    setForm({ ...form, guardianConsentToken: e.target.value })
+                  }
+                  placeholder="输入邮件中的确认码"
+                  autoComplete="one-time-code"
+                  className="min-h-touch w-full rounded-md border border-border bg-background px-3 py-2 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                />
+              </div>
+            )}
+
             <button
               type="submit"
-              disabled={loading || !form.phone || !form.email}
+              disabled={
+                loading ||
+                !form.phone ||
+                !form.email ||
+                !form.ageYears ||
+                (isMinorRequiringGuardian && !form.guardianEmail) ||
+                (guardianPending !== null && !form.guardianConsentToken)
+              }
               className="min-h-touch w-full rounded-md bg-primary px-4 py-3 font-semibold text-primary-foreground shadow hover:bg-primary-600 disabled:opacity-50"
             >
-              {loading ? "正在注册..." : "立即注册 →"}
+              {loading
+                ? "正在注册..."
+                : guardianPending
+                  ? "提交监护确认 →"
+                  : "立即注册 →"}
             </button>
           </form>
 

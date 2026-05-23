@@ -22,7 +22,7 @@ export async function postSignup(phone: string, email: string): Promise<SignupRe
   const res = await fetch(`${AUTH_URL}/v1/auth/signup`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ phone, email }),
+    body: JSON.stringify({ phone, email, age_years: 18 }),
   });
   if (!res.ok) throw new Error(`signup failed: ${res.status} ${await res.text()}`);
   return (await res.json()) as SignupResult;
