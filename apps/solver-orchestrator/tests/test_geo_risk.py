@@ -53,7 +53,9 @@ async def maker(db_engine: AsyncEngine) -> async_sessionmaker[AsyncSession]:
     maker_ = async_sessionmaker(db_engine, expire_on_commit=False, class_=AsyncSession)
     async with maker_() as s:
         await s.execute(
-            text("ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS last_used_geo_bucket VARCHAR(64) NULL")
+            text(
+                "ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS last_used_geo_bucket VARCHAR(64) NULL"
+            )
         )
         await s.execute(
             text(
