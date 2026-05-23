@@ -75,7 +75,7 @@ development_status:
   1-5-risk-control-freeze: done                  # 2026-05-19 — FR A5 ship: risk_rules registry + risk_flags log + NFR-S6 "任 2 项触发" auto-freeze; v1 enables only ip_24_share (other 4 rules defined-but-disabled, graduate as signal sources land); admin surface (POST risk-flags / POST unfreeze / GET risk-flags / GET risk-rules) gated by X-Admin-Secret shared-secret (constant-time compare; empty config → 403); signup wired to risk.evaluate_signup + apply_flags_and_maybe_freeze; +10 backend tests; migration 07-risk-control.sql added to auth+solver CI jobs; bundled sprint-status into PR commit (lesson from 2.5/#26)
   1-6-pipl-account-delete: done                # 2026-05-20 — PIPL 7 day account deletion shipped; account_deletion_requests + soft-delete/key revoke + tombstone hard-delete CLI + /auth/account + 5 lifecycle tests; code review fixed billing-history cascade risk
   1-7-account-merge-proposal: done             # 2026-05-20 — FR A7/A8 account merge proposal shipped: merge proposal table + user retirement markers (`merged_into_user_id`, `merged_at`) + frozen-user proposal endpoints + admin 48h review queue + auto-score path + accept transition unfreezes primary, retire-freezes duplicates, revokes duplicate API keys, and blocks retired accounts from old-JWT API-key access; +11 backend tests and +3 web API-client tests
-  1-8-onboarding-wizard-5steps: backlog        # FR A9
+  1-8-onboarding-wizard-5steps: done           # FR A9 — 2026-05-23 shared SignupWizard + signup/login/welcome handoff + 5min rescue prompt + J1 smoke
   1-9-under-14-block: backlog                  # FR A10
   1-10-language-switch-zh: backlog             # FR A3
   1-11-geo-anomaly-risk: backlog               # NFR-S

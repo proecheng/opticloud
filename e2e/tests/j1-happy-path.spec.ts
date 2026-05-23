@@ -23,6 +23,8 @@ test.describe("J1 — 李工 cURL Hello World vertical slice", () => {
       await page.getByRole("navigation").getByRole("link", { name: "立即注册" }).click();
       await expect(page).toHaveURL(/\/auth\/signup$/);
       await expect(page.getByRole("heading", { name: "注册 OptiCloud" })).toBeVisible();
+      await expect(page.getByTestId("signup-wizard")).toBeVisible();
+      await expect(page.getByText("5 步跑通 Hello World")).toBeVisible();
     });
 
     await test.step("c. 填手机+邮箱并提交", async () => {
@@ -38,6 +40,8 @@ test.describe("J1 — 李工 cURL Hello World vertical slice", () => {
       await expect(page.getByText(/注册成功 — Hello World 立即开跑/)).toBeVisible({
         timeout: 15_000,
       });
+      await expect(page.getByTestId("signup-wizard")).toBeVisible();
+      await expect(page.getByText("拿 API Key")).toBeVisible();
     });
 
     await test.step("e. 关 Modal 看到 APIKeyManager + masked prefix", async () => {
@@ -55,6 +59,8 @@ test.describe("J1 — 李工 cURL Hello World vertical slice", () => {
       await page.getByRole("button", { name: /试跑 LP 求解/ }).click();
       // Wait for result panel to appear (within solver budget)
       await expect(page.getByText(/求解完成/)).toBeVisible({ timeout: 30_000 });
+      await expect(page.getByTestId("signup-wizard")).toContainText("Hello World 跑通");
+      await expect(page.getByTestId("signup-wizard")).toContainText("已完成");
     });
 
     await test.step("g. 验证 objective + solution + provider_url (Q2 fix: 范围 assert)", async () => {

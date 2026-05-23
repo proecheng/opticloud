@@ -48,7 +48,8 @@ export function SparklineKPI({
         <svg
           width={width}
           height={height}
-          aria-hidden="true"
+          role="img"
+          aria-label={`${label} trend`}
           focusable="false"
         >
           <polyline
