@@ -24,7 +24,7 @@ export interface OnboardingState {
 
 export const ONBOARDING_SUPPORT_DELAY_MS = 5 * 60 * 1000;
 
-const stepLabels: Record<OnboardingStepId, string> = {
+export const DEFAULT_ONBOARDING_STEP_LABELS: Record<OnboardingStepId, string> = {
   signup: "注册",
   verify: "验证",
   "api-key": "拿 API Key",
@@ -166,7 +166,10 @@ export function shouldShowOnboardingSupport(
   return now.getTime() - new Date(state.startedAt).getTime() >= ONBOARDING_SUPPORT_DELAY_MS;
 }
 
-export function buildOnboardingSteps(state: OnboardingState): SignupWizardStep[] {
+export function buildOnboardingSteps(
+  state: OnboardingState,
+  stepLabels: Record<OnboardingStepId, string> = DEFAULT_ONBOARDING_STEP_LABELS,
+): SignupWizardStep[] {
   const completed = new Set(state.completedSteps);
   const skipped = new Set(state.skippedSteps);
   let currentAssigned = false;

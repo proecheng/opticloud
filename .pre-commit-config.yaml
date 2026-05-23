@@ -67,4 +67,5 @@ repos:
           - "KeywordDetector"
           - "--disable-plugin"
           - "BasicAuthDetector"
-        exclude: ^(\.env\.example|infra/local-init/.*\.sql|.*\.stories\.tsx)$
+        # pnpm-lock.yaml contains generated integrity hashes that trigger high-entropy false positives.
+        exclude: ^(\.env\.example|infra/local-init/.*\.sql|.*\.stories\.tsx|pnpm-lock\.yaml)$

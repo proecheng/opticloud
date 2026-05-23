@@ -8,6 +8,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 
 import {
@@ -18,6 +19,7 @@ import {
   StatusCard,
 } from "@opticloud/ui";
 
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import {
   APIKeyCreateResponse,
   OptiCloudClientError,
@@ -26,6 +28,7 @@ import {
   postOptimization,
 } from "@/lib/api";
 import {
+  type OnboardingStepId,
   buildOnboardingSteps,
   createInitialOnboardingState,
   dismissOnboarding,
@@ -43,6 +46,9 @@ const QUICKSTART_URL = "/docs/quickstart";
 
 export default function WelcomePage(): JSX.Element {
   const router = useRouter();
+  const common = useTranslations("common");
+  const t = useTranslations("welcome");
+  const onboarding = useTranslations("onboarding");
   const [apiKey, setApiKey] = useState<APIKeyCreateResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
@@ -56,6 +62,19 @@ export default function WelcomePage(): JSX.Element {
     createInitialOnboardingState(null),
   );
   const [supportVisible, setSupportVisible] = useState(false);
+  const stepLabels: Record<OnboardingStepId, string> = {
+    signup: onboarding("steps.signup"),
+    verify: onboarding("steps.verify"),
+    "api-key": onboarding("steps.api-key"),
+    postman: onboarding("steps.postman"),
+    "hello-world": onboarding("steps.hello-world"),
+  };
+  const wizardStateLabels = {
+    completed: onboarding("states.completed"),
+    current: onboarding("states.current"),
+    pending: onboarding("states.pending"),
+    skipped: onboarding("states.skipped"),
+  };
 
   useEffect(() => {
     const jwt = sessionStorage.getItem("jwt_access");
@@ -101,10 +120,13 @@ export default function WelcomePage(): JSX.Element {
 
   if (error) {
     return (
-      <main className="flex min-h-screen items-center justify-center p-4">
+      <main className="relative flex min-h-screen items-center justify-center p-4">
+        <div className="absolute right-4 top-4">
+          <LanguageSwitcher />
+        </div>
         <StatusCard
           variant="error"
-          title="创建 API Key 失败"
+          title={t("errors.createKeyTitle")}
           description={error}
           ariaLabel="welcome.create_key.error"
         />
@@ -114,12 +136,12 @@ export default function WelcomePage(): JSX.Element {
 
   if (!apiKey) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-muted">
+      <main className="relative flex min-h-screen items-center justify-center bg-muted">
+        <div className="absolute right-4 top-4">
+          <LanguageSwitcher />
+        </div>
         <div className="text-center">
-          <div className="mb-4 text-4xl" aria-hidden="true">
-            ⏳
-          </div>
-          <p className="text-muted-foreground">正在生成你的第一个 API Key...</p>
+          <p className="text-muted-foreground">{t("loading.apiKey")}</p>
         </div>
       </main>
     );
@@ -191,12 +213,20 @@ export default function WelcomePage(): JSX.Element {
   return (
     <main className="min-h-screen bg-muted p-4">
       <div className="mx-auto max-w-3xl py-12">
+        <div className="mb-4 flex justify-end">
+          <LanguageSwitcher />
+        </div>
         <SignupWizard
           className="mb-6"
           ariaLabel="onboarding.welcome"
-          title="5 步跑通 Hello World"
-          description="你已进入 API Key、Postman 和第一个 LP 求解阶段。"
-          steps={buildOnboardingSteps(wizardState)}
+          title={t("wizard.title")}
+          description={t("wizard.description")}
+          steps={buildOnboardingSteps(wizardState, stepLabels)}
+          stateLabels={wizardStateLabels}
+          controlLabels={{
+            resume: onboarding("controls.resume"),
+            skip: onboarding("controls.skip"),
+          }}
           onSkip={() => {
             const dismissed = dismissOnboarding(wizardState);
             setWizardState(dismissed);
@@ -205,25 +235,22 @@ export default function WelcomePage(): JSX.Element {
           onResume={() => setSupportVisible(false)}
           supportPrompt={{
             visible: supportVisible,
-            title: "还没跑通？",
-            description: "继续引导、打开 quickstart，或稍后再试。这个提示不会阻塞当前页面。",
-            actionLabel: "继续引导",
+            title: t("wizard.supportTitle"),
+            description: t("wizard.supportDescription"),
+            actionLabel: t("wizard.supportAction"),
             onAction: () => setSupportVisible(false),
-            dismissLabel: "稍后",
+            dismissLabel: common("actions.later"),
             onDismiss: () => setSupportVisible(false),
             secondaryAction: {
-              label: "打开 quickstart",
+              label: common("actions.openQuickstart"),
               href: QUICKSTART_URL,
             },
           }}
         />
         <header className="mb-8 text-center">
-          <div className="mb-3 text-5xl" aria-hidden="true">
-            🎉
-          </div>
-          <h1 className="text-balance text-3xl font-bold">欢迎来到 OptiCloud</h1>
+          <h1 className="text-balance text-3xl font-bold">{t("hero.title")}</h1>
           <p className="mt-2 text-balance text-muted-foreground">
-            你的第一个 API Key 已生成。点 "🧪 试跑 LP 求解"立即体验，或复制 cURL 到终端。
+            {t("hero.description")}
           </p>
         </header>
 
@@ -244,10 +271,9 @@ export default function WelcomePage(): JSX.Element {
 
         {/* 🧪 试跑 LP 求解（Story 3.1 in-browser demo）*/}
         <section className="mt-6 rounded-lg border border-primary/30 bg-primary/5 p-6">
-          <h2 className="text-lg font-semibold">🧪 试跑 LP 求解（无需 cURL）</h2>
+          <h2 className="text-lg font-semibold">{t("solve.title")}</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            题目：物流案例 — <code className="font-mono">min 5x₁+8x₂+12x₃+10y₁+4y₂+6y₃</code>
-            ，2 辆车给 3 个客户送货，求<strong>最低总成本</strong>配送方案。
+            {t("solve.description")}
           </p>
           <button
             type="button"
@@ -255,7 +281,7 @@ export default function WelcomePage(): JSX.Element {
             disabled={solving}
             className="mt-3 min-h-touch rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary-600 disabled:opacity-50"
           >
-            {solving ? "⏳ 求解中..." : "🧪 试跑 LP 求解"}
+            {solving ? t("solve.solving") : t("solve.button")}
           </button>
 
           {lpError && (
@@ -284,22 +310,24 @@ export default function WelcomePage(): JSX.Element {
           {lpResult && lpResult.solution && (
             <div className="mt-4 rounded-md border border-success bg-success/5 p-4">
               <h3 className="font-semibold text-success">
-                ✅ 求解完成（{(lpResult.solve_seconds * 1000).toFixed(1)} ms）
+                {t("solve.completed", {
+                  ms: (lpResult.solve_seconds * 1000).toFixed(1),
+                })}
               </h3>
               <p className="mt-2 text-sm">
-                <span className="font-medium">最低总成本：</span>
+                <span className="font-medium">{t("solve.cost")}</span>
                 <span className="font-mono text-lg text-primary">
                   ¥{lpResult.objective?.toFixed(2)}
                 </span>
               </p>
               <p className="mt-2 text-sm">
-                <span className="font-medium">最优分配（x = [车1→客1, 车1→客2, 车1→客3, 车2→客1, 车2→客2, 车2→客3]）：</span>
+                <span className="font-medium">{t("solve.assignment")}</span>
               </p>
               <pre className="mt-2 overflow-x-auto rounded bg-muted p-2 font-mono text-xs">
                 {JSON.stringify(lpResult.solution.x, null, 2)}
               </pre>
               <details className="mt-3 text-xs text-muted-foreground">
-                <summary className="cursor-pointer">求解器信息（Provider 透明 — A-S1）</summary>
+                <summary className="cursor-pointer">{t("solve.provider")}</summary>
                 <pre className="mt-2 overflow-x-auto rounded bg-muted p-2 font-mono">
                   {JSON.stringify(lpResult.model_version, null, 2)}
                 </pre>
@@ -319,8 +347,8 @@ export default function WelcomePage(): JSX.Element {
           onConfirm={handleCopy}
           variant="signup_success"
           ariaLabel="modal.signup.success"
-          title="🎉 注册成功 — Hello World 立即开跑"
-          description="复制下面的 cURL 命令到终端，或在本页面点试跑 LP 按钮。"
+          title={t("modal.title")}
+          description={t("modal.description")}
           body={
             <div>
               <pre className="overflow-x-auto rounded-md bg-muted p-3 font-mono text-xs leading-relaxed">
@@ -332,44 +360,41 @@ export default function WelcomePage(): JSX.Element {
                   onClick={handleCopy}
                   className="min-h-touch rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-primary-600"
                 >
-                  {copied ? "✓ 已复制" : "复制 cURL"}
+                  {copied ? common("actions.copied") : common("actions.copyCurl")}
                 </button>
                 <button
                   type="button"
                   onClick={handlePostman}
                   className="min-h-touch rounded-md border border-primary bg-background px-4 py-2 text-sm text-primary hover:bg-primary/5"
                 >
-                  📥 导入 Postman
+                  {t("modal.postman")}
                 </button>
               </div>
               <p className="mt-3 text-xs text-muted-foreground">
-                ⚠️ 此 API Key 仅显示一次。请立即复制保存（不会再显示完整值）。
+                {t("modal.apiKeyWarning")}
               </p>
             </div>
           }
-          confirmLabel="开始使用"
-          cancelLabel="稍后"
+          confirmLabel={common("actions.start")}
+          cancelLabel={t("modal.cancel")}
         />
 
         <section className="mt-6 rounded-lg border border-border bg-background p-6">
-          <h2 className="font-semibold">下一步</h2>
+          <h2 className="font-semibold">{t("next.title")}</h2>
           <ul className="mt-3 space-y-2 text-sm">
             <li>
-              📚{" "}
               <a href="/algorithms" className="text-primary hover:underline">
-                浏览 8 个支持的算法（公开免鉴权 catalog）
+                {t("next.algorithms")}
               </a>
             </li>
             <li>
-              📖{" "}
               <a href={QUICKSTART_URL} className="text-primary hover:underline">
-                查看完整 Hello World 三件套文档
+                {t("next.quickstart")}
               </a>
             </li>
             <li>
-              💰{" "}
               <a href="/console/billing" className="text-primary hover:underline">
-                查看 Credits 余额（已赠送 200 Credits）
+                {t("next.credits")}
               </a>
             </li>
           </ul>

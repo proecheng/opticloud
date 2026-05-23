@@ -36,14 +36,12 @@ export default defineConfig({
 
   use: {
     baseURL: BASE_URL,
+    locale: "zh-CN",
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
     video: "retain-on-failure",
     actionTimeout: 10_000,
     navigationTimeout: 15_000,
-    extraHTTPHeaders: {
-      "Accept-Language": "zh-CN",
-    },
   },
 
   // Cross-browser policy (Q1 fix from Round 2):

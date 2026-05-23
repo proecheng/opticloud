@@ -14,13 +14,21 @@ test.describe("J1 — 李工 cURL Hello World vertical slice", () => {
     const email = randomEmail();
 
     await test.step("a. 访问 Landing 页", async () => {
+      await page.context().clearCookies();
+      await page.context().addCookies([
+        {
+          name: "opticloud-locale",
+          value: "zh-CN",
+          domain: "127.0.0.1",
+          path: "/",
+        },
+      ]);
       await page.goto("/");
       await expect(page.getByRole("heading", { name: "让算法走出实验室" })).toBeVisible();
     });
 
     await test.step("b. 点击立即注册跳转到 /auth/signup", async () => {
-      // Use nav landmark to avoid ambiguity with hero CTA (CR3 fix)
-      await page.getByRole("navigation").getByRole("link", { name: "立即注册" }).click();
+      await page.getByRole("link", { name: "立即注册 →" }).click();
       await expect(page).toHaveURL(/\/auth\/signup$/);
       await expect(page.getByRole("heading", { name: "注册 OptiCloud" })).toBeVisible();
       await expect(page.getByTestId("signup-wizard")).toBeVisible();

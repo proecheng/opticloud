@@ -1,0 +1,198 @@
+{
+  "common": {
+    "brand": "OptiCloud",
+    "nav": {
+      "home": "首页",
+      "algorithms": "算法目录",
+      "academic": "学术合作",
+      "docs": "文档",
+      "pricing": "定价",
+      "signup": "立即注册",
+      "register": "注册"
+    },
+    "language": {
+      "label": "界面语言",
+      "zh": "中文",
+      "en": "English",
+      "aria": "切换界面语言"
+    },
+    "actions": {
+      "signup": "立即注册",
+      "signupArrow": "立即注册 →",
+      "browseAlgorithms": "浏览 8 个算法 →",
+      "continue": "继续",
+      "later": "稍后",
+      "copyCurl": "复制 cURL",
+      "copied": "已复制",
+      "start": "开始使用",
+      "openQuickstart": "打开 quickstart"
+    },
+    "legal": {
+      "reviewPending": "法律文本待法务确认，本页为产品内链接占位与语言兜底，不构成最终法律意见。"
+    }
+  },
+  "landing": {
+    "metadata": {
+      "title": "OptiCloud — 通用优化与预测云",
+      "description": "让懂业务的工程师 5 分钟用上 Gurobi/TimeGPT 级算法"
+    },
+    "hero": {
+      "title": "让算法走出实验室",
+      "subtitle": "让懂业务的工程师 / 数据分析师 5 分钟用上 Gurobi / TimeGPT 级算法",
+      "body": "76% 中型企业的工程师手里只有 Excel —— 算法用不起（Gurobi ≥¥5,000/月）、用不动。我们让他们用一行 API 跑通过去只有 Gurobi / DataRobot 能做的事。",
+      "cost": "月成本 ¥6 起。"
+    },
+    "hello": {
+      "title": "3 分钟跑通第一个 LP 求解",
+      "snippet": "# 1. 注册（手机+邮箱双因素，3 分钟）\ncurl -X POST https://api.opticloud.cn/v1/auth/signup \\\n  -d '{\"phone\":\"+86138...\",\"email\":\"you@example.com\",\"age_years\":18}'\n\n# 2. 拿到 sk-xxx API Key，立即可用：\ncurl -X POST https://api.opticloud.cn/v1/optimizations \\\n  -H \"Authorization: Bearer sk-xxx\" \\\n  -H \"Idempotency-Key: $(uuidgen)\" \\\n  -d '{\"task_type\":\"lp\",\"minimize\":{\"c\":[1,1]},\"st\":{\"A\":[[1,1]],\"b\":[10]}}'\n\n# 5 秒内返回 200 + 最优解 + 含 Provider 透明的 model_version\n"
+    },
+    "footer": "OptiCloud · M0 Sprint 0 · J1 Vertical Slice (Story 1.1a + 1.1b)"
+  },
+  "signup": {
+    "errors": {
+      "networkTitle": "网络错误"
+    },
+    "wizard": {
+      "title": "5 步跑通 Hello World",
+      "description": "先注册并完成验证，随后拿到 API Key、导入 Postman，并跑通第一个 LP。",
+      "supportTitle": "注册卡住了？",
+      "supportDescription": "可以继续填写注册信息、打开 quickstart，或稍后再完成。",
+      "supportAction": "继续注册"
+    },
+    "form": {
+      "title": "注册 OptiCloud",
+      "subtitle": "3 分钟拿到 API Key，立即跑 Hello World",
+      "phone": "手机号",
+      "phoneHint": "E.164 国际格式（+86 开头）",
+      "email": "邮箱",
+      "emailHint": ".edu / .ac.cn 邮箱自动激活教育版 (Starter 2K/月 永久免费)",
+      "age": "年龄",
+      "ageHint": "仅填写周岁数字；未满 14 岁暂不能注册，14-17 岁需监护人确认。",
+      "guardianEmail": "监护人邮箱",
+      "guardianEmailHint": "提交后需要监护人确认，确认前不会创建账户或发放 API Key。",
+      "guardianTitle": "需要监护人确认",
+      "guardianDescription": "确认邮件已发送至 {email}。本地开发模式可直接使用下方确认码完成注册。",
+      "guardianToken": "监护确认码",
+      "guardianTokenPlaceholder": "输入邮件中的确认码",
+      "loading": "正在注册...",
+      "submitGuardian": "提交监护确认 →",
+      "submit": "立即注册 →",
+      "termsPrefix": "注册即同意",
+      "tos": "服务条款",
+      "privacy": "隐私政策",
+      "pipl": "(PIPL 合规)"
+    }
+  },
+  "welcome": {
+    "errors": {
+      "createKeyTitle": "创建 API Key 失败",
+      "networkTitle": "Network Error"
+    },
+    "loading": {
+      "apiKey": "正在生成你的第一个 API Key..."
+    },
+    "wizard": {
+      "title": "5 步跑通 Hello World",
+      "description": "你已进入 API Key、Postman 和第一个 LP 求解阶段。",
+      "supportTitle": "还没跑通？",
+      "supportDescription": "继续引导、打开 quickstart，或稍后再试。这个提示不会阻塞当前页面。",
+      "supportAction": "继续引导"
+    },
+    "hero": {
+      "title": "欢迎来到 OptiCloud",
+      "description": "你的第一个 API Key 已生成。点 \"试跑 LP 求解\" 立即体验，或复制 cURL 到终端。"
+    },
+    "solve": {
+      "title": "试跑 LP 求解（无需 cURL）",
+      "description": "题目：物流案例 — min 5x1+8x2+12x3+10y1+4y2+6y3，2 辆车给 3 个客户送货，求最低总成本配送方案。",
+      "button": "试跑 LP 求解",
+      "solving": "求解中...",
+      "completed": "求解完成（{ms} ms）",
+      "cost": "最低总成本：",
+      "assignment": "最优分配（x = [车1→客1, 车1→客2, 车1→客3, 车2→客1, 车2→客2, 车2→客3]）：",
+      "provider": "求解器信息（Provider 透明 — A-S1）"
+    },
+    "modal": {
+      "title": "注册成功 — Hello World 立即开跑",
+      "description": "复制下面的 cURL 命令到终端，或在本页面点试跑 LP 按钮。",
+      "postman": "导入 Postman",
+      "apiKeyWarning": "此 API Key 仅显示一次。请立即复制保存（不会再显示完整值）。",
+      "cancel": "稍后"
+    },
+    "next": {
+      "title": "下一步",
+      "algorithms": "浏览 8 个支持的算法（公开免鉴权 catalog）",
+      "quickstart": "查看完整 Hello World 三件套文档",
+      "credits": "查看 Credits 余额（已赠送 200 Credits）"
+    }
+  },
+  "quickstart": {
+    "back": "← 返回 onboarding",
+    "title": "Hello World Quickstart",
+    "description": "这份速查用于 onboarding 中断时继续完成 API Key、Postman 和第一个 LP 求解。",
+    "steps": {
+      "apiKey": {
+        "title": "1. 复制 API Key",
+        "body": "注册后在欢迎页保存完整 API Key。完整值只展示一次，后续只显示 masked prefix。"
+      },
+      "postman": {
+        "title": "2. 导入 Postman",
+        "body": "在注册成功弹窗点击「导入 Postman」，下载集合后导入 Postman 工作区。"
+      },
+      "lp": {
+        "title": "3. 跑通第一个 LP",
+        "body": "回到欢迎页点击「试跑 LP 求解」。看到「求解完成」和 objective 后，wizard 会标记完成。"
+      }
+    },
+    "continue": "回到欢迎页继续"
+  },
+  "pricing": {
+    "title": "定价",
+    "description": "v1 定价页占位：月成本 ¥6 起，学界邮箱自动获得教育版额度。完整商业套餐将在法务和计费策略确认后发布。",
+    "plansTitle": "当前可用",
+    "plans": {
+      "starter": "Starter：注册后获得基础 Credits，适合第一个 LP / 预测任务。",
+      "academic": "Academic：.edu / .ac.cn 邮箱自动激活教育版额度。",
+      "api": "API：按任务消耗 Credits，失败/取消退款规则由后续账单故事完善。"
+    }
+  },
+  "legal": {
+    "tos": {
+      "title": "服务条款",
+      "body": "OptiCloud 服务条款正文待法务确认。当前页面用于保证产品内链接可达，并提供 zh-CN / en-US 兜底。"
+    },
+    "privacy": {
+      "title": "隐私政策",
+      "body": "OptiCloud 隐私政策正文待法务确认。当前注册、年龄声明和账户删除流程遵循最小必要信息原则。"
+    },
+    "eula": {
+      "title": "最终用户许可协议",
+      "body": "OptiCloud EULA 正文待法务确认。当前页面为 v1 关键页英文兜底的占位壳。"
+    },
+    "back": "返回首页"
+  },
+  "notFound": {
+    "title": "找不到这个页面",
+    "description": "你可能复制了错误的链接，或者这个页面已被移除。",
+    "action": "返回首页"
+  },
+  "onboarding": {
+    "steps": {
+      "signup": "注册",
+      "verify": "验证",
+      "api-key": "拿 API Key",
+      "postman": "Postman 导入",
+      "hello-world": "Hello World 跑通"
+    },
+    "states": {
+      "completed": "已完成",
+      "current": "当前步骤",
+      "pending": "待完成",
+      "skipped": "已跳过"
+    },
+    "controls": {
+      "skip": "跳过引导",
+      "resume": "继续引导"
+    }
+  }
+}

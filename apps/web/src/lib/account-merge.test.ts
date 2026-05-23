@@ -49,14 +49,12 @@ describe("account merge API client", () => {
     });
 
     expect(result.status).toBe("auto_approved");
-    expect(fetchMock).toHaveBeenCalledWith(
-      "http://localhost:8001/v1/auth/account-merge-proposals",
-      expect.objectContaining({
-        method: "POST",
-        headers: expect.objectContaining({ Authorization: "Bearer jwt-test" }),
-        body: expect.stringContaining(responseBody.primary_user_id),
-      }),
-    );
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(url).toBe("http://localhost:8001/v1/auth/account-merge-proposals");
+    expect(init?.method).toBe("POST");
+    expect(new Headers(init?.headers).get("Authorization")).toBe("Bearer jwt-test");
+    expect(new Headers(init?.headers).get("Accept-Language")).toBe("zh-CN");
+    expect(String(init?.body)).toContain(responseBody.primary_user_id);
   });
 
   it("GETs merge proposals with bearer token", async () => {
@@ -70,12 +68,10 @@ describe("account merge API client", () => {
     const result = await listAccountMergeProposals("jwt-test");
 
     expect(result).toHaveLength(1);
-    expect(fetchMock).toHaveBeenCalledWith(
-      "http://localhost:8001/v1/auth/account-merge-proposals",
-      expect.objectContaining({
-        headers: expect.objectContaining({ Authorization: "Bearer jwt-test" }),
-      }),
-    );
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(url).toBe("http://localhost:8001/v1/auth/account-merge-proposals");
+    expect(new Headers(init?.headers).get("Authorization")).toBe("Bearer jwt-test");
+    expect(new Headers(init?.headers).get("Accept-Language")).toBe("zh-CN");
   });
 
   it("POSTs accept request using proposal id path and bearer token", async () => {
@@ -89,12 +85,12 @@ describe("account merge API client", () => {
     const result = await acceptAccountMergeProposal("jwt-test", responseBody.id);
 
     expect(result.status).toBe("accepted");
-    expect(fetchMock).toHaveBeenCalledWith(
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(url).toBe(
       `http://localhost:8001/v1/auth/account-merge-proposals/${responseBody.id}/accept`,
-      expect.objectContaining({
-        method: "POST",
-        headers: expect.objectContaining({ Authorization: "Bearer jwt-test" }),
-      }),
     );
+    expect(init?.method).toBe("POST");
+    expect(new Headers(init?.headers).get("Authorization")).toBe("Bearer jwt-test");
+    expect(new Headers(init?.headers).get("Accept-Language")).toBe("zh-CN");
   });
 });
