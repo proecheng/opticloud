@@ -25,12 +25,10 @@ describe("account deletion API client", () => {
     const result = await getAccountDeletionStatus("jwt-test");
 
     expect(result.status).toBe("none");
-    expect(fetchMock).toHaveBeenCalledWith(
-      "http://localhost:8001/v1/auth/account-deletion",
-      expect.objectContaining({
-        headers: expect.objectContaining({ Authorization: "Bearer jwt-test" }),
-      }),
-    );
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(url).toBe("http://localhost:8001/v1/auth/account-deletion");
+    expect(new Headers(init?.headers).get("Authorization")).toBe("Bearer jwt-test");
+    expect(new Headers(init?.headers).get("Accept-Language")).toBe("zh-CN");
   });
 
   it("POSTs account deletion request with bearer token", async () => {
@@ -51,12 +49,10 @@ describe("account deletion API client", () => {
     const result = await requestAccountDeletion("jwt-test");
 
     expect(result.status).toBe("scheduled");
-    expect(fetchMock).toHaveBeenCalledWith(
-      "http://localhost:8001/v1/auth/account-deletion",
-      expect.objectContaining({
-        method: "POST",
-        headers: expect.objectContaining({ Authorization: "Bearer jwt-test" }),
-      }),
-    );
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(url).toBe("http://localhost:8001/v1/auth/account-deletion");
+    expect(init?.method).toBe("POST");
+    expect(new Headers(init?.headers).get("Authorization")).toBe("Bearer jwt-test");
+    expect(new Headers(init?.headers).get("Accept-Language")).toBe("zh-CN");
   });
 });

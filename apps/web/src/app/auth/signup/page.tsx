@@ -7,10 +7,12 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 
 import { RFC7807Panel, SignupWizard, StatusCard } from "@opticloud/ui";
 
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import {
   type GuardianConsentPendingResponse,
   OptiCloudClientError,
@@ -18,6 +20,7 @@ import {
   signup,
 } from "@/lib/api";
 import {
+  type OnboardingStepId,
   buildOnboardingSteps,
   createInitialOnboardingState,
   dismissOnboarding,
@@ -47,6 +50,9 @@ interface FormState {
 
 export default function SignupPage(): JSX.Element {
   const router = useRouter();
+  const common = useTranslations("common");
+  const t = useTranslations("signup");
+  const onboarding = useTranslations("onboarding");
   const [form, setForm] = useState<FormState>({
     phone: "",
     email: "",
@@ -88,6 +94,19 @@ export default function SignupPage(): JSX.Element {
   const ageYears = Number.parseInt(form.ageYears, 10);
   const isMinorRequiringGuardian =
     Number.isFinite(ageYears) && ageYears >= 14 && ageYears < 18;
+  const stepLabels: Record<OnboardingStepId, string> = {
+    signup: onboarding("steps.signup"),
+    verify: onboarding("steps.verify"),
+    "api-key": onboarding("steps.api-key"),
+    postman: onboarding("steps.postman"),
+    "hello-world": onboarding("steps.hello-world"),
+  };
+  const wizardStateLabels = {
+    completed: onboarding("states.completed"),
+    current: onboarding("states.current"),
+    pending: onboarding("states.pending"),
+    skipped: onboarding("states.skipped"),
+  };
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
@@ -139,7 +158,7 @@ export default function SignupPage(): JSX.Element {
         setError(
           new OptiCloudClientError({
             status: 0,
-            title: "Network Error",
+            title: t("errors.networkTitle"),
             detail: String((err as Error).message),
           }),
         );
@@ -152,12 +171,20 @@ export default function SignupPage(): JSX.Element {
   return (
     <main className="flex min-h-screen items-center justify-center bg-muted p-4">
       <div className="w-full max-w-4xl">
+        <div className="mb-4 flex justify-end">
+          <LanguageSwitcher />
+        </div>
         <SignupWizard
           className="mb-4"
           ariaLabel="onboarding.signup"
-          title="5 步跑通 Hello World"
-          description="先注册并完成验证，随后拿到 API Key、导入 Postman，并跑通第一个 LP。"
-          steps={buildOnboardingSteps(wizardState)}
+          title={t("wizard.title")}
+          description={t("wizard.description")}
+          steps={buildOnboardingSteps(wizardState, stepLabels)}
+          stateLabels={wizardStateLabels}
+          controlLabels={{
+            resume: onboarding("controls.resume"),
+            skip: onboarding("controls.skip"),
+          }}
           onSkip={() => {
             const dismissed = dismissOnboarding(wizardState);
             setWizardState(dismissed);
@@ -167,23 +194,23 @@ export default function SignupPage(): JSX.Element {
           onResume={() => setSupportVisible(false)}
           supportPrompt={{
             visible: supportVisible,
-            title: "注册卡住了？",
-            description: "可以继续填写注册信息、打开 quickstart，或稍后再完成。",
-            actionLabel: "继续注册",
+            title: t("wizard.supportTitle"),
+            description: t("wizard.supportDescription"),
+            actionLabel: t("wizard.supportAction"),
             onAction: () => setSupportVisible(false),
             secondaryAction: {
-              label: "打开 quickstart",
+              label: common("actions.openQuickstart"),
               href: QUICKSTART_URL,
             },
-            dismissLabel: "稍后",
+            dismissLabel: common("actions.later"),
             onDismiss: () => setSupportVisible(false),
           }}
         />
         <div className="mx-auto w-full max-w-md rounded-lg border border-border bg-background p-8 shadow-lg">
           <header className="mb-6 text-center">
-            <h1 className="text-2xl font-bold">注册 OptiCloud</h1>
+            <h1 className="text-2xl font-bold">{t("form.title")}</h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              3 分钟拿到 API Key，立即跑 Hello World
+              {t("form.subtitle")}
             </p>
           </header>
 
@@ -213,7 +240,7 @@ export default function SignupPage(): JSX.Element {
           <form onSubmit={handleSubmit} noValidate>
             <fieldset className="mb-4" disabled={loading}>
               <label htmlFor="phone" className="mb-1 block text-sm font-medium">
-                手机号
+                {t("form.phone")}
                 <span className="ml-1 text-danger" aria-hidden="true">
                   *
                 </span>
@@ -230,13 +257,13 @@ export default function SignupPage(): JSX.Element {
                 aria-describedby="phone-hint"
               />
               <p id="phone-hint" className="mt-1 text-xs text-muted-foreground">
-                E.164 国际格式（+86 开头）
+                {t("form.phoneHint")}
               </p>
             </fieldset>
 
             <fieldset className="mb-4" disabled={loading}>
               <label htmlFor="email" className="mb-1 block text-sm font-medium">
-                邮箱
+                {t("form.email")}
                 <span className="ml-1 text-danger" aria-hidden="true">
                   *
                 </span>
@@ -253,13 +280,13 @@ export default function SignupPage(): JSX.Element {
                 aria-describedby="email-hint"
               />
               <p id="email-hint" className="mt-1 text-xs text-muted-foreground">
-                .edu / .ac.cn 邮箱自动激活教育版 (Starter 2K/月 永久免费)
+                {t("form.emailHint")}
               </p>
             </fieldset>
 
             <fieldset className="mb-4" disabled={loading}>
               <label htmlFor="age-years" className="mb-1 block text-sm font-medium">
-                年龄
+                {t("form.age")}
                 <span className="ml-1 text-danger" aria-hidden="true">
                   *
                 </span>
@@ -285,7 +312,7 @@ export default function SignupPage(): JSX.Element {
                 aria-describedby="age-hint"
               />
               <p id="age-hint" className="mt-1 text-xs text-muted-foreground">
-                仅填写周岁数字；未满 14 岁暂不能注册，14-17 岁需监护人确认。
+                {t("form.ageHint")}
               </p>
             </fieldset>
 
@@ -295,7 +322,7 @@ export default function SignupPage(): JSX.Element {
                   htmlFor="guardian-email"
                   className="mb-1 block text-sm font-medium"
                 >
-                  监护人邮箱
+                  {t("form.guardianEmail")}
                   <span className="ml-1 text-danger" aria-hidden="true">
                     *
                   </span>
@@ -322,7 +349,7 @@ export default function SignupPage(): JSX.Element {
                   id="guardian-email-hint"
                   className="mt-1 text-xs text-muted-foreground"
                 >
-                  提交后需要监护人确认，确认前不会创建账户或发放 API Key。
+                  {t("form.guardianEmailHint")}
                 </p>
               </fieldset>
             )}
@@ -331,15 +358,17 @@ export default function SignupPage(): JSX.Element {
               <div className="mb-4">
                 <StatusCard
                   variant="warning"
-                  title="需要监护人确认"
-                  description={`确认邮件已发送至 ${guardianPending.guardianEmail}。本地开发模式可直接使用下方确认码完成注册。`}
+                  title={t("form.guardianTitle")}
+                  description={t("form.guardianDescription", {
+                    email: guardianPending.guardianEmail,
+                  })}
                   ariaLabel="signup.guardian_consent_required"
                 />
                 <label
                   htmlFor="guardian-token"
                   className="mb-1 mt-3 block text-sm font-medium"
                 >
-                  监护确认码
+                  {t("form.guardianToken")}
                 </label>
                 <input
                   id="guardian-token"
@@ -348,7 +377,7 @@ export default function SignupPage(): JSX.Element {
                   onChange={(e) =>
                     setForm({ ...form, guardianConsentToken: e.target.value })
                   }
-                  placeholder="输入邮件中的确认码"
+                  placeholder={t("form.guardianTokenPlaceholder")}
                   autoComplete="one-time-code"
                   className="min-h-touch w-full rounded-md border border-border bg-background px-3 py-2 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
                 />
@@ -368,23 +397,23 @@ export default function SignupPage(): JSX.Element {
               className="min-h-touch w-full rounded-md bg-primary px-4 py-3 font-semibold text-primary-foreground shadow hover:bg-primary-600 disabled:opacity-50"
             >
               {loading
-                ? "正在注册..."
+                ? t("form.loading")
                 : guardianPending
-                  ? "提交监护确认 →"
-                  : "立即注册 →"}
+                  ? t("form.submitGuardian")
+                  : t("form.submit")}
             </button>
           </form>
 
           <p className="mt-4 text-center text-xs text-muted-foreground">
-            注册即同意{" "}
+            {t("form.termsPrefix")}{" "}
             <a href="/legal/tos" className="text-primary hover:underline">
-              服务条款
+              {t("form.tos")}
             </a>{" "}
             +{" "}
             <a href="/legal/privacy" className="text-primary hover:underline">
-              隐私政策
+              {t("form.privacy")}
             </a>{" "}
-            (PIPL 合规)
+            {t("form.pipl")}
           </p>
         </div>
       </div>

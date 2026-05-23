@@ -1,0 +1,198 @@
+{
+  "common": {
+    "brand": "OptiCloud",
+    "nav": {
+      "home": "Home",
+      "algorithms": "Algorithms",
+      "academic": "Academic",
+      "docs": "Docs",
+      "pricing": "Pricing",
+      "signup": "Sign up",
+      "register": "Register"
+    },
+    "language": {
+      "label": "Interface language",
+      "zh": "中文",
+      "en": "English",
+      "aria": "Switch interface language"
+    },
+    "actions": {
+      "signup": "Sign up",
+      "signupArrow": "Sign up →",
+      "browseAlgorithms": "Browse 8 algorithms →",
+      "continue": "Continue",
+      "later": "Later",
+      "copyCurl": "Copy cURL",
+      "copied": "Copied",
+      "start": "Start",
+      "openQuickstart": "Open quickstart"
+    },
+    "legal": {
+      "reviewPending": "Legal copy is pending legal review. This page is a bilingual product-link shell and is not final legal advice."
+    }
+  },
+  "landing": {
+    "metadata": {
+      "title": "OptiCloud — Optimization and Forecasting Cloud",
+      "description": "Production-grade optimization and forecasting APIs for business engineers"
+    },
+    "hero": {
+      "title": "Optimization APIs for business engineers",
+      "subtitle": "Run Gurobi- and TimeGPT-class workflows in minutes, without rebuilding research tooling",
+      "body": "Most mid-market teams still run planning from spreadsheets. OptiCloud gives them a direct API path to optimization and forecasting workloads that used to require expensive specialist platforms.",
+      "cost": "Plans start from ¥6 per month."
+    },
+    "hello": {
+      "title": "Run your first LP solve in 3 minutes",
+      "snippet": "# 1. Sign up with phone + email\ncurl -X POST https://api.opticloud.cn/v1/auth/signup \\\n  -d '{\"phone\":\"+86138...\",\"email\":\"you@example.com\",\"age_years\":18}'\n\n# 2. Use the generated sk-xxx API key:\ncurl -X POST https://api.opticloud.cn/v1/optimizations \\\n  -H \"Authorization: Bearer sk-xxx\" \\\n  -H \"Idempotency-Key: $(uuidgen)\" \\\n  -d '{\"task_type\":\"lp\",\"minimize\":{\"c\":[1,1]},\"st\":{\"A\":[[1,1]],\"b\":[10]}}'\n\n# Response includes the optimum and transparent model_version metadata.\n"
+    },
+    "footer": "OptiCloud · M0 Sprint 0 · J1 Vertical Slice (Story 1.1a + 1.1b)"
+  },
+  "signup": {
+    "errors": {
+      "networkTitle": "Network Error"
+    },
+    "wizard": {
+      "title": "5 steps to Hello World",
+      "description": "Create an account, verify it, generate an API key, import Postman, and run the first LP.",
+      "supportTitle": "Stuck on signup?",
+      "supportDescription": "Keep filling the form, open the quickstart, or finish later.",
+      "supportAction": "Continue signup"
+    },
+    "form": {
+      "title": "Sign up for OptiCloud",
+      "subtitle": "Get an API key in 3 minutes and run Hello World",
+      "phone": "Phone",
+      "phoneHint": "Use E.164 international format, for example +8613800138000.",
+      "email": "Email",
+      "emailHint": ".edu / .ac.cn emails activate the academic tier automatically.",
+      "age": "Age",
+      "ageHint": "Enter age in full years only. Users under 14 cannot register; ages 14-17 require guardian confirmation.",
+      "guardianEmail": "Guardian email",
+      "guardianEmailHint": "The account and API key are not created until guardian confirmation is complete.",
+      "guardianTitle": "Guardian confirmation required",
+      "guardianDescription": "A confirmation email was sent to {email}. Local development can use the confirmation code below.",
+      "guardianToken": "Guardian confirmation code",
+      "guardianTokenPlaceholder": "Enter the email confirmation code",
+      "loading": "Signing up...",
+      "submitGuardian": "Submit guardian confirmation →",
+      "submit": "Sign up →",
+      "termsPrefix": "By signing up, you agree to the",
+      "tos": "Terms of Service",
+      "privacy": "Privacy Policy",
+      "pipl": "(PIPL compliant)"
+    }
+  },
+  "welcome": {
+    "errors": {
+      "createKeyTitle": "Failed to create API key",
+      "networkTitle": "Network Error"
+    },
+    "loading": {
+      "apiKey": "Generating your first API key..."
+    },
+    "wizard": {
+      "title": "5 steps to Hello World",
+      "description": "You are now on the API key, Postman, and first LP solve stages.",
+      "supportTitle": "Still not through?",
+      "supportDescription": "Continue the guide, open the quickstart, or try again later. This prompt does not block the page.",
+      "supportAction": "Continue guide"
+    },
+    "hero": {
+      "title": "Welcome to OptiCloud",
+      "description": "Your first API key has been generated. Run the LP demo here or copy the cURL command to your terminal."
+    },
+    "solve": {
+      "title": "Run an LP solve in-browser",
+      "description": "Scenario: delivery assignment LP with two vehicles and three customers. Minimize the total delivery cost.",
+      "button": "Run LP solve",
+      "solving": "Solving...",
+      "completed": "Solve completed ({ms} ms)",
+      "cost": "Minimum total cost:",
+      "assignment": "Optimal assignment vector:",
+      "provider": "Solver information (provider transparency — A-S1)"
+    },
+    "modal": {
+      "title": "Signup complete — run Hello World now",
+      "description": "Copy the cURL command to your terminal or run the LP demo on this page.",
+      "postman": "Import Postman",
+      "apiKeyWarning": "This API key is shown only once. Copy and store it now.",
+      "cancel": "Later"
+    },
+    "next": {
+      "title": "Next",
+      "algorithms": "Browse 8 supported public algorithms",
+      "quickstart": "Open the full Hello World quickstart",
+      "credits": "View Credits balance (200 Credits granted)"
+    }
+  },
+  "quickstart": {
+    "back": "← Back to onboarding",
+    "title": "Hello World Quickstart",
+    "description": "Use this quick reference to resume API key setup, Postman import, and your first LP solve.",
+    "steps": {
+      "apiKey": {
+        "title": "1. Copy the API key",
+        "body": "Save the full API key on the welcome page. It is shown once; later views only show a masked prefix."
+      },
+      "postman": {
+        "title": "2. Import Postman",
+        "body": "Click Import Postman in the signup success modal, then import the collection into your Postman workspace."
+      },
+      "lp": {
+        "title": "3. Run the first LP",
+        "body": "Return to the welcome page and click Run LP solve. When the result appears, the wizard marks Hello World complete."
+      }
+    },
+    "continue": "Return to welcome"
+  },
+  "pricing": {
+    "title": "Pricing",
+    "description": "v1 pricing shell: plans start from ¥6 per month, and academic emails receive an automatic education tier. Full commercial packaging will be published after legal and billing policy review.",
+    "plansTitle": "Currently available",
+    "plans": {
+      "starter": "Starter: signup grants baseline Credits for the first LP or forecasting task.",
+      "academic": "Academic: .edu / .ac.cn emails activate education-tier Credits automatically.",
+      "api": "API: tasks consume Credits; failed and cancelled refund rules are completed by later billing stories."
+    }
+  },
+  "legal": {
+    "tos": {
+      "title": "Terms of Service",
+      "body": "OptiCloud Terms of Service content is pending legal review. This route keeps product links reachable and provides zh-CN / en-US fallback."
+    },
+    "privacy": {
+      "title": "Privacy Policy",
+      "body": "OptiCloud Privacy Policy content is pending legal review. Current signup, age declaration, and account deletion flows follow data minimization."
+    },
+    "eula": {
+      "title": "End User License Agreement",
+      "body": "OptiCloud EULA content is pending legal review. This page is a v1 key-page fallback shell."
+    },
+    "back": "Back home"
+  },
+  "notFound": {
+    "title": "Page not found",
+    "description": "The link may be wrong, or the page may have been removed.",
+    "action": "Back home"
+  },
+  "onboarding": {
+    "steps": {
+      "signup": "Sign up",
+      "verify": "Verify",
+      "api-key": "Get API key",
+      "postman": "Import Postman",
+      "hello-world": "Hello World complete"
+    },
+    "states": {
+      "completed": "Completed",
+      "current": "Current step",
+      "pending": "Pending",
+      "skipped": "Skipped"
+    },
+    "controls": {
+      "skip": "Skip guide",
+      "resume": "Continue guide"
+    }
+  }
+}
