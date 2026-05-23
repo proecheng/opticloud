@@ -35,7 +35,10 @@ async def admin_secret() -> AsyncIterator[str]:
 async def _signup(
     http_client: AsyncClient, *, domain: str = "example.com"
 ) -> tuple[uuid.UUID, str]:
-    r = await http_client.post("/v1/auth/signup", json={"phone": _phone(), "email": _email(domain)})
+    r = await http_client.post(
+        "/v1/auth/signup",
+        json={"phone": _phone(), "email": _email(domain), "age_years": 18},
+    )
     assert r.status_code == 201, r.text
     body = r.json()
     return uuid.UUID(body["user_id"]), body["jwt_access"]
@@ -53,7 +56,10 @@ async def _seed_user(engine: AsyncEngine, *, domain: str = "example.com") -> uui
     maker = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
     async with maker() as s:
         await s.execute(
-            text("INSERT INTO users (id, phone, email) VALUES (:id, :phone, :email)"),
+            text(
+                "INSERT INTO users (id, phone, email, age_verified) "
+                "VALUES (:id, :phone, :email, true)"
+            ),
             {"id": user_id, "phone": _phone(), "email": _email(domain)},
         )
         await s.commit()

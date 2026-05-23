@@ -15,6 +15,10 @@ const BILLING_SERVICE_URL =
 export interface SignupRequest {
   phone: string;
   email: string;
+  age_years: number;
+  guardian_email?: string;
+  guardian_consent_request_id?: string;
+  guardian_consent_token?: string;
 }
 
 export interface SignupResponse {
@@ -23,6 +27,16 @@ export interface SignupResponse {
   jwt_refresh: string;
   edu_tier: boolean;
 }
+
+export interface GuardianConsentPendingResponse {
+  status: "guardian_consent_required";
+  request_id: string;
+  expires_in_seconds: number;
+  guardian_email: string;
+  dev_guardian_consent_token: string | null;
+}
+
+export type SignupResult = SignupResponse | GuardianConsentPendingResponse;
 
 export interface ApiError {
   status: number;
@@ -93,8 +107,8 @@ async function request<T>(
 
 // ===== Auth =====
 
-export async function signup(body: SignupRequest): Promise<SignupResponse> {
-  return request<SignupResponse>("/v1/auth/signup", {
+export async function signup(body: SignupRequest): Promise<SignupResult> {
+  return request<SignupResult>("/v1/auth/signup", {
     method: "POST",
     body: JSON.stringify(body),
   });

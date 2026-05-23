@@ -20,6 +20,21 @@ class SignupRequest(BaseModel):
 
     phone: str = Field(..., description="E.164 phone number (e.g. +8613800138000)")
     email: EmailStr = Field(..., description="Valid email address")
+    age_years: int = Field(..., ge=0, le=120, description="Age declaration in years")
+    guardian_email: EmailStr | None = Field(
+        default=None,
+        description="Required for age 14-17 until guardian consent is confirmed",
+    )
+    guardian_consent_request_id: uuid.UUID | None = Field(
+        default=None,
+        description="Guardian consent request id returned by the pending signup response",
+    )
+    guardian_consent_token: str | None = Field(
+        default=None,
+        min_length=16,
+        max_length=255,
+        description="One-time guardian consent token",
+    )
 
     @field_validator("phone")
     @classmethod
@@ -27,6 +42,19 @@ class SignupRequest(BaseModel):
         if not PHONE_PATTERN.match(v):
             raise ValueError("phone must be E.164 format (e.g. +8613800138000)")
         return v
+
+    @field_validator("email", "guardian_email")
+    @classmethod
+    def normalize_email(cls, v: EmailStr | None) -> EmailStr | None:
+        if v is None:
+            return None
+        return str(v).lower()
+
+    @model_validator(mode="after")
+    def validate_guardian_fields(self) -> SignupRequest:
+        if 14 <= self.age_years < 18 and self.guardian_email is None:
+            raise ValueError("guardian_email is required for users aged 14-17")
+        return self
 
 
 class SignupResponse(BaseModel):
@@ -36,6 +64,16 @@ class SignupResponse(BaseModel):
     jwt_access: str
     jwt_refresh: str
     edu_tier: bool = Field(default=False, description="FR A4 .edu/.ac.cn auto-detected")
+
+
+class GuardianConsentPendingResponse(BaseModel):
+    """Story 1.9 — pending guardian consent response for 14-17 signup."""
+
+    status: Literal["guardian_consent_required"] = "guardian_consent_required"
+    request_id: uuid.UUID
+    expires_in_seconds: int
+    guardian_email: EmailStr
+    dev_guardian_consent_token: str | None = None
 
 
 # ===== Story 1.2: login (OTP 2FA) =====

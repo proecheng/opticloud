@@ -21,7 +21,7 @@ uv run uvicorn auth_service.main:app --reload --port 8001
 # 4. Test signup
 curl -X POST http://localhost:8001/v1/auth/signup \
   -H "Content-Type: application/json" \
-  -d '{"phone":"+8613800138000","email":"test@example.com"}'
+  -d '{"phone":"+8613800138000","email":"test@example.com","age_years":18}'
 
 # Response (201):
 # {"user_id":"...","jwt_access":"eyJ...","jwt_refresh":"eyJ...","edu_tier":false}

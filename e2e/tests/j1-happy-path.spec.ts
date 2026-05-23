@@ -30,6 +30,7 @@ test.describe("J1 — 李工 cURL Hello World vertical slice", () => {
     await test.step("c. 填手机+邮箱并提交", async () => {
       await page.getByLabel("手机号").fill(phone);
       await page.getByLabel("邮箱").fill(email);
+      await page.getByLabel("年龄").fill("18");
       await page.getByRole("button", { name: /立即注册/ }).click();
     });
 

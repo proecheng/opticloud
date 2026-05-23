@@ -61,6 +61,24 @@ class AuthSettings(BaseSettings):
     otp_dev_mode_return: bool = Field(default=True, alias="OTP_DEV_MODE_RETURN")
     otp_ttl_seconds: int = Field(default=300, alias="OTP_TTL_SECONDS")
 
+    # ----- Story 1.9 — guardian consent for 14-17 signup (FR A10) -----
+    guardian_consent_dev_mode_return: bool = Field(
+        default=True,
+        alias="GUARDIAN_CONSENT_DEV_MODE_RETURN",
+        description="Return dev guardian consent token in signup 202 response for local tests.",
+    )
+    guardian_consent_ttl_seconds: int = Field(
+        default=86_400,
+        gt=0,
+        alias="GUARDIAN_CONSENT_TTL_SECONDS",
+        description="Guardian consent token validity window in seconds.",
+    )
+    guardian_consent_token_pepper_dev: str = Field(
+        default="dev-guardian-consent-pepper-do-not-use-in-prod-32-bytes",
+        alias="GUARDIAN_CONSENT_TOKEN_PEPPER_DEV",
+        description="Dev HMAC pepper for guardian consent token hashes.",
+    )
+
     # ----- Story 1.4 — edu tier auto-activation (FR A4 + B8) -----
     edu_signup_seed_amount: str = Field(
         default="2000.00",

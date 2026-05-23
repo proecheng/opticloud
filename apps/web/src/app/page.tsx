@@ -79,7 +79,7 @@ export default function LandingPage(): JSX.Element {
           <pre className="mt-4 overflow-x-auto rounded-lg bg-background p-4 font-mono text-xs leading-relaxed shadow-sm">
             <code>{`# 1. 注册（手机+邮箱双因素，3 分钟）
 curl -X POST https://api.opticloud.cn/v1/auth/signup \\
-  -d '{"phone":"+86138...","email":"you@example.com"}'
+  -d '{"phone":"+86138...","email":"you@example.com","age_years":18}'
 
 # 2. 拿到 sk-xxx API Key，立即可用：
 curl -X POST https://api.opticloud.cn/v1/optimizations \\
