@@ -69,3 +69,7 @@ e2e/node_modules/
 # Local artifact dirs (not for repo)
 output/
 tmp/
+.cache/
+.cache/citation-tracking/
+_bmad-output/reports/citation-tracking/
+_bmad-output/reports/repro-bitwise/

@@ -68,9 +68,9 @@ async def request_account_deletion(
     session.add(request)
 
     await session.execute(
-        update(APIKey).where(APIKey.user_id == user.id, APIKey.revoked_at.is_(None)).values(
-            revoked_at=now
-        )
+        update(APIKey)
+        .where(APIKey.user_id == user.id, APIKey.revoked_at.is_(None))
+        .values(revoked_at=now)
     )
     session.add(
         AuditLog(

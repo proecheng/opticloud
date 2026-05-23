@@ -11,7 +11,18 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import DateTime, ForeignKey, Numeric, String, Text, func
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    Numeric,
+    String,
+    Text,
+    func,
+)
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -45,13 +56,64 @@ class Optimization(Base):
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
+class ReproductionVoucher(Base):
+    """Story 6.B.2 — permanent voucher for reproducible optimization runs."""
+
+    __tablename__ = "reproduction_vouchers"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()
+    )
+    voucher_id: Mapped[str] = mapped_column(String(32), nullable=False, unique=True)
+    optimization_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("optimizations.id", ondelete="CASCADE"), nullable=False
+    )
+    parent_voucher_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("reproduction_vouchers.id"),
+        nullable=True,
+    )
+    rerun_depth: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    api_key_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    request_fingerprint: Mapped[str] = mapped_column(Text, nullable=False)
+    locked_model_version: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    locked_solver: Mapped[str] = mapped_column(String(64), nullable=False)
+    seed_locked: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    seed: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    anonymous: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="issued")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "voucher_id ~ '^repro-[0-9]{4}-[0123456789ABCDEFGHJKMNPQRSTVWXYZ]{6}$'",
+            name="ck_reproduction_vouchers_voucher_id_format",
+        ),
+        CheckConstraint(
+            "status IN ('issued', 'revoked')",
+            name="ck_reproduction_vouchers_status",
+        ),
+        CheckConstraint("rerun_depth >= 0", name="ck_reproduction_vouchers_rerun_depth"),
+        Index(
+            "uq_reproduction_vouchers_optimization_id",
+            "optimization_id",
+            unique=True,
+        ),
+        Index("idx_reproduction_vouchers_user_id_created_at", "user_id", "created_at"),
+        Index("idx_reproduction_vouchers_parent_voucher_id", "parent_voucher_id"),
+    )
+
+
 class IdempotencyKey(Base):
     """P23 Idempotency-Key dedup (24h TTL)."""
 
     __tablename__ = "idempotency_keys"
 
     key: Mapped[str] = mapped_column(String(255), primary_key=True)
-    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, nullable=False)
     optimization_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("optimizations.id"), nullable=False
     )

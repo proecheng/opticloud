@@ -49,5 +49,18 @@ class SolverSettings(BaseSettings):
         description="Single-attempt timeout per billing call (Q4)",
     )
 
+    # Story 6.A.3 — citation tracking integrations
+    semantic_scholar_api_key: str = Field(default="", alias="SEMANTIC_SCHOLAR_API_KEY")
+    semantic_scholar_min_interval_seconds: float = Field(
+        default=1.0,
+        alias="SEMANTIC_SCHOLAR_MIN_INTERVAL_SECONDS",
+    )
+    semantic_scholar_timeout_seconds: float = Field(
+        default=10.0,
+        alias="SEMANTIC_SCHOLAR_TIMEOUT_SECONDS",
+    )
+    linear_api_key: str = Field(default="", alias="LINEAR_API_KEY")
+    linear_team_key: str = Field(default="", alias="LINEAR_TEAM_KEY")
+
 
 settings = SolverSettings()

@@ -13,6 +13,7 @@ dependencies = [
   "highspy>=1.7",                # HiGHS LP/MIP solver (MIT license, Architecture C1)
   "numpy>=1.26",
   "structlog>=24.1",
+  "httpx>=0.27",
   "opticloud-shared",
 ]
 
@@ -20,7 +21,6 @@ dependencies = [
 dev = [
   "pytest>=8.3",
   "pytest-asyncio>=0.24",
-  "httpx>=0.27",
   "hypothesis>=6.115",
 ]
 

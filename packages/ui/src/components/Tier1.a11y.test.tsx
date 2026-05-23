@@ -29,7 +29,8 @@ describe("Tier 1 a11y compliance (axe-core)", () => {
     const { container } = render(
       <APIKeyManager keys={[]} onCreate={() => {}} ariaLabel="api_keys.manager" />,
     );
-    expect(await axe(container)).toHaveNoViolations();
+    const results = await axe(container);
+    expect(results.violations).toHaveLength(0);
   });
 
   it("ConfidenceLabel has no a11y violations (all 3 tiers)", async () => {
@@ -40,7 +41,8 @@ describe("Tier 1 a11y compliance (axe-core)", () => {
         <ConfidenceLabel score={0.45} />
       </div>,
     );
-    expect(await axe(container)).toHaveNoViolations();
+    const results = await axe(container);
+    expect(results.violations).toHaveLength(0);
   });
 
   it("ConfirmationModal has no a11y violations (5 variants)", async () => {
@@ -53,7 +55,8 @@ describe("Tier 1 a11y compliance (axe-core)", () => {
         title="Test"
       />,
     );
-    expect(await axe(container)).toHaveNoViolations();
+    const results = await axe(container);
+    expect(results.violations).toHaveLength(0);
   });
 
   it("CreditsBalanceBucket has no a11y violations", async () => {
@@ -65,7 +68,8 @@ describe("Tier 1 a11y compliance (axe-core)", () => {
         ]}
       />,
     );
-    expect(await axe(container)).toHaveNoViolations();
+    const results = await axe(container);
+    expect(results.violations).toHaveLength(0);
   });
 
   it("ErrorBoundary RFC7807Panel has no a11y violations", async () => {
@@ -80,50 +84,58 @@ describe("Tier 1 a11y compliance (axe-core)", () => {
         }}
       />,
     );
-    expect(await axe(container)).toHaveNoViolations();
+    const results = await axe(container);
+    expect(results.violations).toHaveLength(0);
   });
 
   it("ExcelDropZone has no a11y violations", async () => {
     const { container } = render(<ExcelDropZone onFile={() => {}} />);
-    expect(await axe(container)).toHaveNoViolations();
+    const results = await axe(container);
+    expect(results.violations).toHaveLength(0);
   });
 
   it("SparklineKPI has no a11y violations", async () => {
     const { container } = render(
       <SparklineKPI label="7d" ariaLabel="kpi.test" values={[1, 2, 3, 4, 5]} />,
     );
-    expect(await axe(container)).toHaveNoViolations();
+    const results = await axe(container);
+    expect(results.violations).toHaveLength(0);
   });
 
   it("StatusCard has no a11y violations", async () => {
     const { container } = render(
       <StatusCard variant="ok" title="All systems operational" ariaLabel="status.ok" />,
     );
-    expect(await axe(container)).toHaveNoViolations();
+    const results = await axe(container);
+    expect(results.violations).toHaveLength(0);
   });
 
   it("Toast has no a11y violations", async () => {
     const { container } = render(
       <Toast variant="success" message="Done" ariaLabel="toast.test" durationMs={999999} />,
     );
-    expect(await axe(container)).toHaveNoViolations();
+    const results = await axe(container);
+    expect(results.violations).toHaveLength(0);
   });
 
   it("FilePicker has no a11y violations", async () => {
     const { container } = render(<FilePicker ariaLabel="file_picker.test" onFile={() => {}} />);
-    expect(await axe(container)).toHaveNoViolations();
+    const results = await axe(container);
+    expect(results.violations).toHaveLength(0);
   });
 
   it("LoadingShimmer has no a11y violations", async () => {
     const { container } = render(<LoadingShimmer variant="line" />);
-    expect(await axe(container)).toHaveNoViolations();
+    const results = await axe(container);
+    expect(results.violations).toHaveLength(0);
   });
 
   it("EmptyState has no a11y violations", async () => {
     const { container } = render(
       <EmptyState ariaLabel="empty.test" icon="📋" title="No tasks yet" />,
     );
-    expect(await axe(container)).toHaveNoViolations();
+    const results = await axe(container);
+    expect(results.violations).toHaveLength(0);
   });
 });
 

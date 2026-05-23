@@ -157,6 +157,25 @@ async def test_lp_demo_response_includes_citation(client: AsyncClient) -> None:
     assert citation["doi"] == "10.1007/s12532-017-0130-5"
 
 
+async def test_lp_demo_response_includes_ip_attribution(client: AsyncClient) -> None:
+    """Story 6.A.5 — /v1/optimizations/demo LP success embeds IP attribution."""
+    resp = await client.post(
+        "/v1/optimizations/demo",
+        json={
+            "task_type": "lp",
+            "minimize": {"c": [1.0, 1.0]},
+            "st": {"A": [[1.0, 1.0]], "b": [10.0]},
+        },
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    attribution = body.get("ip_attribution")
+    assert attribution is not None
+    assert attribution["tier"] == "L3"
+    assert attribution["visibility"] == "license_only"
+    assert "HiGHS" in attribution["display_name_zh"]
+
+
 async def test_failed_lp_demo_returns_rfc7807_without_citation(
     client: AsyncClient,
 ) -> None:
@@ -237,6 +256,10 @@ def test_build_success_response_resolves_lp_citation() -> None:
     assert citation is not None
     assert citation["bibtex"].startswith("@article{huangfu2018parallelizing,")
     assert citation["year"] == 2018
+    attribution = body.get("ip_attribution")
+    assert attribution is not None
+    assert attribution["tier"] == "L3"
+    assert attribution["visibility"] == "license_only"
 
 
 def test_build_success_response_disambiguates_milp_vs_lp() -> None:
@@ -282,3 +305,4 @@ def test_build_success_response_unknown_provider_degrades_to_null() -> None:
     body = json.loads(resp.body)
     assert resp.status_code == 200
     assert body.get("citation") is None
+    assert body.get("ip_attribution") is None

@@ -33,6 +33,17 @@ class Citation(TypedDict):
     url: str | None
 
 
+class IPAttribution(TypedDict):
+    """Story 6.A.5 — scholar / license IP attribution display contract."""
+
+    tier: Literal["L1", "L2", "L3"]
+    label_zh: str
+    display_name_zh: str
+    summary_zh: str
+    visibility: Literal["full_visible", "bibtex", "license_only"]
+    contract_anchor: str
+
+
 class Algorithm(TypedDict):
     k_algo: str
     task_type: str
@@ -46,6 +57,65 @@ class Algorithm(TypedDict):
         str
     ]  # Story 2.4 — FR C4 (enum of solver names valid for this algorithm)
     citation: Citation | None  # Story 6.A.1 — FR R5 (None reserved for future commercial-only SKUs)
+    ip_attribution: IPAttribution  # Story 6.A.5 — L1/L2/L3 academic IP attribution
+
+
+OPEN_SOURCE_LICENSE_ANCHOR = "docs/legal-templates.md Doc 1 / open-source license review"
+PROVIDER_AGREEMENT_ANCHOR = "docs/legal-templates.md Doc 6 / Provider Agreement"
+
+ATTR_HIGHS: IPAttribution = {
+    "tier": "L3",
+    "label_zh": "L3 · License-Only",
+    "display_name_zh": "HiGHS open-source project",
+    "summary_zh": "开源 Runner：遵守 MIT license 与论文引用，不声明学界 Provider 合作。",
+    "visibility": "license_only",
+    "contract_anchor": OPEN_SOURCE_LICENSE_ANCHOR,
+}
+
+ATTR_OR_TOOLS: IPAttribution = {
+    "tier": "L3",
+    "label_zh": "L3 · License-Only",
+    "display_name_zh": "Google OR-Tools open-source project",
+    "summary_zh": "开源 Runner：遵守 Apache 2.0 license 与软件引用，不声明学界 Provider 合作。",
+    "visibility": "license_only",
+    "contract_anchor": OPEN_SOURCE_LICENSE_ANCHOR,
+}
+
+ATTR_CHRONOS: IPAttribution = {
+    "tier": "L3",
+    "label_zh": "L3 · License-Only",
+    "display_name_zh": "Chronos authors / Amazon Science",
+    "summary_zh": "文献与开源模型引用：展示 BibTeX / DOI，不声明 OptiCloud Provider 合作。",
+    "visibility": "license_only",
+    "contract_anchor": OPEN_SOURCE_LICENSE_ANCHOR,
+}
+
+ATTR_ARIMA: IPAttribution = {
+    "tier": "L3",
+    "label_zh": "L3 · License-Only",
+    "display_name_zh": "Box & Jenkins ARIMA literature",
+    "summary_zh": "经典文献引用：展示 BibTeX，不声明学界 Provider 合作。",
+    "visibility": "license_only",
+    "contract_anchor": OPEN_SOURCE_LICENSE_ANCHOR,
+}
+
+ATTR_LSTM: IPAttribution = {
+    "tier": "L3",
+    "label_zh": "L3 · License-Only",
+    "display_name_zh": "Hochreiter & Schmidhuber LSTM literature",
+    "summary_zh": "经典文献引用：展示 DOI / BibTeX，不声明学界 Provider 合作。",
+    "visibility": "license_only",
+    "contract_anchor": OPEN_SOURCE_LICENSE_ANCHOR,
+}
+
+ATTR_AQGS: IPAttribution = {
+    "tier": "L1",
+    "label_zh": "L1 · Full Visible Attribution",
+    "display_name_zh": "OptiCloud / Trust-Tech 团队",
+    "summary_zh": "Full visible attribution：自研学术品牌锚点，可在公开学术页面显示 Algorithm by。",
+    "visibility": "full_visible",
+    "contract_anchor": PROVIDER_AGREEMENT_ANCHOR,
+}
 
 
 CATALOG: list[Algorithm] = [
@@ -93,6 +163,7 @@ CATALOG: list[Algorithm] = [
             "doi": "10.1007/s12532-017-0130-5",
             "url": "https://doi.org/10.1007/s12532-017-0130-5",
         },
+        "ip_attribution": ATTR_HIGHS,
     },
     {
         "k_algo": "highs-milp",
@@ -128,6 +199,7 @@ CATALOG: list[Algorithm] = [
             "doi": "10.1007/s12532-017-0130-5",
             "url": "https://doi.org/10.1007/s12532-017-0130-5",
         },
+        "ip_attribution": ATTR_HIGHS,
     },
     {
         "k_algo": "or-tools-vrptw",
@@ -161,6 +233,7 @@ CATALOG: list[Algorithm] = [
             "doi": None,
             "url": "https://developers.google.com/optimization",
         },
+        "ip_attribution": ATTR_OR_TOOLS,
     },
     {
         "k_algo": "or-tools-cp-sat",
@@ -196,6 +269,7 @@ CATALOG: list[Algorithm] = [
             "doi": "10.1007/978-3-642-23786-7_2",
             "url": "https://doi.org/10.1007/978-3-642-23786-7_2",
         },
+        "ip_attribution": ATTR_OR_TOOLS,
     },
     {
         "k_algo": "chronos-t5-forecast",
@@ -233,6 +307,7 @@ CATALOG: list[Algorithm] = [
             "doi": "10.48550/arXiv.2403.07815",
             "url": "https://doi.org/10.48550/arXiv.2403.07815",
         },
+        "ip_attribution": ATTR_CHRONOS,
     },
     {
         "k_algo": "arima-forecast",
@@ -266,6 +341,7 @@ CATALOG: list[Algorithm] = [
             "doi": None,
             "url": None,
         },
+        "ip_attribution": ATTR_ARIMA,
     },
     {
         "k_algo": "lstm-forecast",
@@ -301,6 +377,7 @@ CATALOG: list[Algorithm] = [
             "doi": "10.1162/neco.1997.9.8.1735",
             "url": "https://doi.org/10.1162/neco.1997.9.8.1735",
         },
+        "ip_attribution": ATTR_LSTM,
     },
     {
         "k_algo": "aqgs-acopf",
@@ -334,6 +411,7 @@ CATALOG: list[Algorithm] = [
             "doi": None,
             "url": "https://github.com/opticloud/aqgs",
         },
+        "ip_attribution": ATTR_AQGS,
     },
 ]
 
