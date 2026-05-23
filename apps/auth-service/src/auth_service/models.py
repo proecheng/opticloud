@@ -137,7 +137,9 @@ class AccountMergeProposal(Base):
 
     __tablename__ = "account_merge_proposals"
     __table_args__ = (
-        Index("idx_account_merge_proposals_requester_created_at", "requester_user_id", "created_at"),
+        Index(
+            "idx_account_merge_proposals_requester_created_at", "requester_user_id", "created_at"
+        ),
         Index("idx_account_merge_proposals_status_due", "status", "review_due_at"),
     )
 
@@ -150,7 +152,9 @@ class AccountMergeProposal(Base):
     primary_user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
-    duplicate_user_ids: Mapped[list[uuid.UUID]] = mapped_column(ARRAY(UUID(as_uuid=True)), nullable=False)
+    duplicate_user_ids: Mapped[list[uuid.UUID]] = mapped_column(
+        ARRAY(UUID(as_uuid=True)), nullable=False
+    )
     evidence: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="pending_review")
     review_mode: Mapped[str] = mapped_column(String(16), nullable=False)

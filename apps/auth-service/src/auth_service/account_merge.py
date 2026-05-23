@@ -164,7 +164,9 @@ async def create_merge_proposal(
     proposal_status = "pending_review"
 
     if review_mode == "auto":
-        auto_score = await _calculate_auto_score(session, requester, duplicates, body.evidence.reason)
+        auto_score = await _calculate_auto_score(
+            session, requester, duplicates, body.evidence.reason
+        )
         if auto_score >= AUTO_APPROVE_THRESHOLD:
             proposal_status = "auto_approved"
 
@@ -320,7 +322,9 @@ async def review_merge_proposal(
     reviewed_by: str,
 ) -> AccountMergeProposal:
     proposal = (
-        await session.execute(select(AccountMergeProposal).where(AccountMergeProposal.id == proposal_id))
+        await session.execute(
+            select(AccountMergeProposal).where(AccountMergeProposal.id == proposal_id)
+        )
     ).scalar_one_or_none()
     if proposal is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="proposal not found")

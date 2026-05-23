@@ -149,9 +149,7 @@ async def test_rejects_deleted_duplicate_account(
     maker = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
     async with maker() as s:
         await s.execute(
-            text(
-                "UPDATE users SET deleted_at = NOW(), email = :email WHERE id = :uid"
-            ),
+            text("UPDATE users SET deleted_at = NOW(), email = :email WHERE id = :uid"),
             {"uid": duplicate, "email": f"deleted-{duplicate.hex[:12]}@invalid.local"},
         )
         await s.commit()
@@ -246,7 +244,9 @@ async def test_admin_approve_then_accept_unfreezes_primary_and_retires_duplicate
         primary = (await s.execute(select(User).where(User.id == requester))).scalar_one()
         dup = (await s.execute(select(User).where(User.id == duplicate))).scalar_one()
         revoked_at = (
-            await s.execute(text("SELECT revoked_at FROM api_keys WHERE id = :kid"), {"kid": key_id})
+            await s.execute(
+                text("SELECT revoked_at FROM api_keys WHERE id = :kid"), {"kid": key_id}
+            )
         ).scalar_one()
     assert primary.is_frozen is False
     assert dup.is_frozen is True
