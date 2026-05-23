@@ -177,11 +177,11 @@ async def _create_or_refresh_guardian_consent(
         request_id=consent.id,
         expires_in_seconds=settings.guardian_consent_ttl_seconds,
         guardian_email=guardian_email,
-        dev_guardian_consent_token=(
-            token if settings.guardian_consent_dev_mode_return else None
-        ),
+        dev_guardian_consent_token=(token if settings.guardian_consent_dev_mode_return else None),
     )
-    return JSONResponse(status_code=status.HTTP_202_ACCEPTED, content=response.model_dump(mode="json"))
+    return JSONResponse(
+        status_code=status.HTTP_202_ACCEPTED, content=response.model_dump(mode="json")
+    )
 
 
 async def _complete_guardian_confirmed_signup(
@@ -203,7 +203,9 @@ async def _complete_guardian_confirmed_signup(
         )
     ).scalar_one_or_none()
     if consent is None:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="invalid guardian consent")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="invalid guardian consent"
+        )
     if consent.confirmed_at is not None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -229,7 +231,9 @@ async def _complete_guardian_confirmed_signup(
         body.guardian_consent_token,
         consent.token_hash,
     ):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="invalid guardian consent")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="invalid guardian consent"
+        )
 
     response = await _create_verified_user_signup(
         body=body,

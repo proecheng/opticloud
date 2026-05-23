@@ -39,10 +39,7 @@ async def _seed_user(engine: AsyncEngine) -> uuid.UUID:
     maker = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
     async with maker() as s:
         await s.execute(
-            text(
-                "INSERT INTO users (id, phone, email, age_verified) "
-                "VALUES (:id, :p, :e, true)"
-            ),
+            text("INSERT INTO users (id, phone, email, age_verified) VALUES (:id, :p, :e, true)"),
             {"id": user_id, "p": _phone(), "e": _email()},
         )
         await s.commit()
@@ -56,10 +53,7 @@ async def _seed_prior_signup(
     maker = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
     async with maker() as s:
         await s.execute(
-            text(
-                "INSERT INTO users (id, phone, email, age_verified) "
-                "VALUES (:id, :p, :e, true)"
-            ),
+            text("INSERT INTO users (id, phone, email, age_verified) VALUES (:id, :p, :e, true)"),
             {"id": user_id, "p": phone, "e": email},
         )
         await s.execute(
@@ -418,10 +412,7 @@ async def test_r3_ip24_share_triggers_when_3_priors_same_24(
         fake_user_id = uuid.uuid4()
         # Insert the 4th user (so the evaluator's user_id != exclusion catches the 3 priors)
         await s.execute(
-            text(
-                "INSERT INTO users (id, phone, email, age_verified) "
-                "VALUES (:id, :p, :e, true)"
-            ),
+            text("INSERT INTO users (id, phone, email, age_verified) VALUES (:id, :p, :e, true)"),
             {"id": fake_user_id, "p": _phone(), "e": _email()},
         )
         await s.commit()
@@ -433,10 +424,7 @@ async def test_r3_ip24_share_triggers_when_3_priors_same_24(
     async with maker() as s:
         other_user_id = uuid.uuid4()
         await s.execute(
-            text(
-                "INSERT INTO users (id, phone, email, age_verified) "
-                "VALUES (:id, :p, :e, true)"
-            ),
+            text("INSERT INTO users (id, phone, email, age_verified) VALUES (:id, :p, :e, true)"),
             {"id": other_user_id, "p": _phone(), "e": _email()},
         )
         await s.commit()

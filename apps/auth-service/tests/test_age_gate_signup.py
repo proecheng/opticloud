@@ -50,7 +50,9 @@ async def test_adult_signup_sets_age_verified(
         user = (await s.execute(select(User).where(User.id == user_id))).scalar_one()
         audit_metadata = (
             await s.execute(
-                text("SELECT metadata FROM audit_logs WHERE user_id = :uid AND action = 'auth.signup'"),
+                text(
+                    "SELECT metadata FROM audit_logs WHERE user_id = :uid AND action = 'auth.signup'"
+                ),
                 {"uid": user_id},
             )
         ).scalar_one()
@@ -244,7 +246,9 @@ async def test_valid_guardian_token_completes_minor_signup_once(
         ).scalar_one()
         audit_metadata = (
             await s.execute(
-                text("SELECT metadata FROM audit_logs WHERE user_id = :uid AND action = 'auth.signup'"),
+                text(
+                    "SELECT metadata FROM audit_logs WHERE user_id = :uid AND action = 'auth.signup'"
+                ),
                 {"uid": user_id},
             )
         ).scalar_one()
@@ -291,10 +295,7 @@ async def test_guardian_token_mismatch_and_expiry_do_not_create_user(
     maker = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
     async with maker() as s:
         await s.execute(
-            text(
-                "UPDATE guardian_consent_requests "
-                "SET expires_at = :past WHERE id = :request_id"
-            ),
+            text("UPDATE guardian_consent_requests SET expires_at = :past WHERE id = :request_id"),
             {
                 "past": datetime.now(UTC) - timedelta(seconds=1),
                 "request_id": pending_body["request_id"],
