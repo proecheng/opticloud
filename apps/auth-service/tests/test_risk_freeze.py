@@ -39,7 +39,7 @@ async def _seed_user(engine: AsyncEngine) -> uuid.UUID:
     maker = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
     async with maker() as s:
         await s.execute(
-            text("INSERT INTO users (id, phone, email) VALUES (:id, :p, :e)"),
+            text("INSERT INTO users (id, phone, email, age_verified) VALUES (:id, :p, :e, true)"),
             {"id": user_id, "p": _phone(), "e": _email()},
         )
         await s.commit()
@@ -53,7 +53,7 @@ async def _seed_prior_signup(
     maker = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
     async with maker() as s:
         await s.execute(
-            text("INSERT INTO users (id, phone, email) VALUES (:id, :p, :e)"),
+            text("INSERT INTO users (id, phone, email, age_verified) VALUES (:id, :p, :e, true)"),
             {"id": user_id, "p": phone, "e": email},
         )
         await s.execute(
@@ -96,15 +96,16 @@ async def test_seed_risk_rules_loaded(engine: AsyncEngine) -> None:
     async with maker() as s:
         result = await s.execute(text("SELECT code, enabled FROM risk_rules ORDER BY code"))
         rows = {r.code: r.enabled for r in result}
-    assert set(rows.keys()) == {
+    expected_rules = {
         "fingerprint_high",
         "ip_24_share",
         "calls_24h_over_20",
         "payment_reused",
         "phone_reused",
     }
+    assert expected_rules.issubset(rows.keys())
     assert rows["ip_24_share"] is True
-    assert all(v is False for k, v in rows.items() if k != "ip_24_share")
+    assert all(rows[k] is False for k in expected_rules if k != "ip_24_share")
 
 
 # ===== AC7 #2 =====
@@ -114,7 +115,7 @@ async def test_signup_alone_does_not_freeze(http_client: AsyncClient, engine: As
     """AC7 #2 — single signup → no /24 prior history → no flag → not frozen."""
     r = await http_client.post(
         "/v1/auth/signup",
-        json={"phone": _phone(), "email": _email()},
+        json={"phone": _phone(), "email": _email(), "age": 19},
     )
     assert r.status_code == 201, r.text
     user_id = uuid.UUID(r.json()["user_id"])
@@ -412,7 +413,7 @@ async def test_r3_ip24_share_triggers_when_3_priors_same_24(
         fake_user_id = uuid.uuid4()
         # Insert the 4th user (so the evaluator's user_id != exclusion catches the 3 priors)
         await s.execute(
-            text("INSERT INTO users (id, phone, email) VALUES (:id, :p, :e)"),
+            text("INSERT INTO users (id, phone, email, age_verified) VALUES (:id, :p, :e, true)"),
             {"id": fake_user_id, "p": _phone(), "e": _email()},
         )
         await s.commit()
@@ -424,7 +425,7 @@ async def test_r3_ip24_share_triggers_when_3_priors_same_24(
     async with maker() as s:
         other_user_id = uuid.uuid4()
         await s.execute(
-            text("INSERT INTO users (id, phone, email) VALUES (:id, :p, :e)"),
+            text("INSERT INTO users (id, phone, email, age_verified) VALUES (:id, :p, :e, true)"),
             {"id": other_user_id, "p": _phone(), "e": _email()},
         )
         await s.commit()

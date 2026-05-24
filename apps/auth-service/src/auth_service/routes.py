@@ -1,10 +1,8 @@
-"""Auth endpoints — signup / login (Story 1.2) / api_keys CRUD / health.
-
-FR A1 / A2 implementation (Story 0.6 + 1.2).
-"""
+"""Auth endpoints — signup / login / guardian confirmation / api_keys CRUD / health."""
 
 from __future__ import annotations
 
+import hashlib
 import secrets
 import uuid
 from datetime import UTC, datetime, timedelta
@@ -12,6 +10,7 @@ from typing import Literal
 
 import structlog
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
+from fastapi.responses import JSONResponse
 from sqlalchemy import and_, select, text, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,12 +18,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from auth_service import account_deletion, risk, security
 from auth_service.config import settings
 from auth_service.db import get_session
-from auth_service.models import APIKey, AuditLog, User, UserOTP
+from auth_service.models import APIKey, AuditLog, GuardianConfirmation, User, UserOTP
 from auth_service.schemas import (
     AccountDeletionStatusResponse,
     APIKeyCreateRequest,
     APIKeyCreateResponse,
     APIKeyListItem,
+    GuardianConfirmationRequest,
+    GuardianConfirmationResponse,
     LoginRequest,
     LoginResponse,
     OTPRequestBody,
@@ -39,9 +40,131 @@ router = APIRouter(prefix="/v1/auth", tags=["auth"])
 
 
 def _deletion_status_value(status: str) -> Literal["scheduled", "completed"]:
-    if status == "completed":
-        return "completed"
-    return "scheduled"
+    return "completed" if status == "completed" else "scheduled"
+
+
+def _error_detail(
+    *,
+    field_path: str,
+    value: object,
+    constraint: str,
+    remediation_hint_key: str,
+) -> dict[str, object]:
+    return {
+        "field_path": field_path,
+        "value": value,
+        "constraint": constraint,
+        "remediation_hint_key": remediation_hint_key,
+    }
+
+
+def _problem_response(
+    *,
+    status_code: int,
+    title: str,
+    detail: str,
+    errors: list[dict[str, object]] | None = None,
+    next_action_url: str | None = None,
+    type_uri: str = "about:blank",
+) -> JSONResponse:
+    body: dict[str, object] = {
+        "type": type_uri,
+        "title": title,
+        "status": status_code,
+        "detail": detail,
+    }
+    if errors:
+        body["errors"] = errors
+    if next_action_url:
+        body["next_action_url"] = next_action_url
+    return JSONResponse(
+        status_code=status_code, content=body, media_type="application/problem+json"
+    )
+
+
+def _signup_age_error(age: int) -> JSONResponse:
+    return _problem_response(
+        status_code=status.HTTP_403_FORBIDDEN,
+        title="Age Gate Rejected",
+        detail="14 岁以下用户不可注册。",
+        errors=[
+            _error_detail(
+                field_path="body.age",
+                value=age,
+                constraint="age must be >= 14",
+                remediation_hint_key="errors.403.age_gate_under_14",
+            )
+        ],
+        next_action_url="/auth/signup",
+        type_uri="https://api.opticloud.cn/errors/age-gate-rejected",
+    )
+
+
+def _guardian_missing_error() -> JSONResponse:
+    return _problem_response(
+        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+        title="Guardian Email Required",
+        detail="14-18 岁用户需要填写监护人邮箱。",
+        errors=[
+            _error_detail(
+                field_path="body.guardian_email",
+                value=None,
+                constraint="guardian_email is required for ages 14-18",
+                remediation_hint_key="errors.422.guardian_email_required",
+            )
+        ],
+        next_action_url="/auth/signup",
+        type_uri="https://api.opticloud.cn/errors/guardian-email-required",
+    )
+
+
+def _pending_signup_response(
+    *,
+    user: User,
+    edu_tier: bool,
+    guardian_email: str,
+    guardian_confirmation_url: str,
+) -> SignupResponse:
+    return SignupResponse(
+        account_status="pending_guardian_confirmation",
+        user_id=user.id,
+        jwt_access=None,
+        jwt_refresh=None,
+        edu_tier=edu_tier,
+        age_verified=False,
+        guardian_email=guardian_email,
+        guardian_confirmation_url=guardian_confirmation_url,
+    )
+
+
+def _verified_signup_response(*, user: User, edu_tier: bool) -> SignupResponse:
+    return SignupResponse(
+        account_status="verified",
+        user_id=user.id,
+        jwt_access=security.create_access_token(user.id),
+        jwt_refresh=security.create_refresh_token(user.id),
+        edu_tier=edu_tier,
+        age_verified=True,
+    )
+
+
+def _age_gate_pending_error() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="age gate pending: finish guardian confirmation first",
+    )
+
+
+async def _apply_signup_risk(
+    session: AsyncSession,
+    *,
+    user_id: uuid.UUID,
+    signup_ip: str | None,
+) -> None:
+    triggered = await risk.evaluate_signup(session, user_id, signup_ip)
+    if triggered:
+        new_flags = [(code, "auto", {"signup_ip": signup_ip}) for code in triggered]
+        await risk.apply_flags_and_maybe_freeze(session, user_id, new_flags)
 
 
 # ===== Story 0.7: Health & Readiness =====
@@ -51,21 +174,16 @@ health_router = APIRouter(tags=["health"])
 
 @health_router.get("/healthz")
 async def healthz() -> dict[str, str]:
-    """Liveness probe."""
     return {"status": "ok"}
 
 
 @health_router.get("/readyz")
 async def readyz(session: AsyncSession = Depends(get_session)) -> dict[str, object]:
-    """Readiness probe — check DB connectivity."""
     try:
         await session.execute(select(1))
         deps = {"db": "ok"}
     except Exception as e:
-        return {
-            "status": "not-ready",
-            "deps": {"db": f"error: {type(e).__name__}"},
-        }
+        return {"status": "not-ready", "deps": {"db": f"error: {type(e).__name__}"}}
     return {"status": "ready", "deps": deps}
 
 
@@ -77,20 +195,18 @@ async def readyz(session: AsyncSession = Depends(get_session)) -> dict[str, obje
     response_model=SignupResponse,
     status_code=status.HTTP_201_CREATED,
     summary="注册新用户（手机+邮箱双因素）",
-    description=(
-        "FR A1: 任何访客 can register via 手机号+邮箱双因素验证. "
-        "Returns user_id + JWT pair. Education tier auto-detected via .edu/.ac.cn email (FR A4)."
-    ),
 )
 async def signup(
     body: SignupRequest,
     request: Request,
     session: AsyncSession = Depends(get_session),
-) -> SignupResponse:
-    # FR A4: .edu / .ac.cn 邮箱自动激活教育版
-    edu_tier = body.email.endswith((".edu", ".ac.cn")) or ".edu." in body.email
+) -> SignupResponse | JSONResponse:
+    if body.age < 14:
+        return _signup_age_error(body.age)
+    if 14 <= body.age <= 18 and body.guardian_email is None:
+        return _guardian_missing_error()
 
-    # In a real Story 1.x, we'd send OTPs here. Story 0.6 stub assumes verified.
+    edu_tier = body.email.endswith((".edu", ".ac.cn")) or ".edu." in body.email
     user = User(phone=body.phone, email=body.email, edu_tier=edu_tier)
     session.add(user)
 
@@ -98,13 +214,9 @@ async def signup(
         await session.flush()
     except IntegrityError as e:
         raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="phone or email already registered",
+            status_code=status.HTTP_409_CONFLICT, detail="phone or email already registered"
         ) from e
 
-    # Story 1.4 — FR A4: seed edu bucket on edu_tier=true signup.
-    # Raw SQL because auth-service doesn't import billing's ORM models (clean service
-    # boundary). Same session as the user INSERT → transactional atomicity.
     edu_seed_amount: str | None = None
     if edu_tier:
         edu_seed_amount = settings.edu_signup_seed_amount
@@ -112,18 +224,65 @@ async def signup(
             text(
                 "INSERT INTO credit_transactions "
                 "(user_id, saga_id, amount, kind, bucket, currency, metadata, created_at) "
-                "VALUES (:uid, NULL, :amt, 'topup', 'edu', 'CNY', "
-                "CAST(:meta AS jsonb), NOW())"
+                "VALUES (:uid, NULL, :amt, 'topup', 'edu', 'CNY', CAST(:meta AS jsonb), NOW())"
             ),
-            {
-                "uid": user.id,
-                "amt": edu_seed_amount,
-                "meta": '{"source": "edu_tier_signup"}',
-            },
+            {"uid": user.id, "amt": edu_seed_amount, "meta": '{"source": "edu_tier_signup"}'},
         )
 
-    # Audit log (FR O3 + C3). ip_address feeds Story 1.5's R3 ip_24_share detector.
     signup_ip = request.client.host if request.client else None
+
+    if 14 <= body.age <= 18:
+        guardian_email = str(body.guardian_email)
+        token = secrets.token_urlsafe(32)
+        token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
+        confirmation = GuardianConfirmation(
+            user_id=user.id,
+            guardian_email=guardian_email,
+            token_hash=token_hash,
+            token_expires_at=datetime.now(UTC) + timedelta(days=7),
+            confirmed_at=None,
+        )
+        session.add(confirmation)
+        session.add(
+            AuditLog(
+                user_id=user.id,
+                actor="user",
+                action="auth.signup",
+                resource_type="user",
+                resource_id=user.id,
+                ip_address=signup_ip,
+                audit_metadata={
+                    "edu_tier": edu_tier,
+                    "edu_signup_seed_amount": edu_seed_amount,
+                    "age": body.age,
+                    "account_status": "pending_guardian_confirmation",
+                },
+            )
+        )
+        session.add(
+            AuditLog(
+                user_id=user.id,
+                actor="user",
+                action="auth.guardian_confirmation.requested",
+                resource_type="user",
+                resource_id=user.id,
+                audit_metadata={
+                    "guardian_email": guardian_email,
+                    "token_expires_at": confirmation.token_expires_at.isoformat(),
+                },
+            )
+        )
+        await session.flush()
+        await _apply_signup_risk(session, user_id=user.id, signup_ip=signup_ip)
+        await session.commit()
+        return _pending_signup_response(
+            user=user,
+            edu_tier=edu_tier,
+            guardian_email=guardian_email,
+            guardian_confirmation_url=f"/auth/guardian-confirmation?token={token}",
+        )
+
+    user.age_verified = True
     session.add(
         AuditLog(
             user_id=user.id,
@@ -135,30 +294,19 @@ async def signup(
             audit_metadata={
                 "edu_tier": edu_tier,
                 "edu_signup_seed_amount": edu_seed_amount,
+                "age": body.age,
+                "account_status": "verified",
             },
         )
     )
-    await session.flush()  # AuditLog must be queryable by risk.evaluate_signup below
+    await session.flush()
+    await _apply_signup_risk(session, user_id=user.id, signup_ip=signup_ip)
 
-    # FR A5 — risk evaluation. With only ip_24_share enabled in v1 a single
-    # signup never freezes (count<2); admin manual flag is the v1 second slot.
-    triggered = await risk.evaluate_signup(session, user.id, signup_ip)
-    if triggered:
-        new_flags = [(code, "auto", {"signup_ip": signup_ip}) for code in triggered]
-        await risk.apply_flags_and_maybe_freeze(session, user.id, new_flags)
-
-    access = security.create_access_token(user.id)
-    refresh = security.create_refresh_token(user.id)
-
-    return SignupResponse(
-        user_id=user.id,
-        jwt_access=access,
-        jwt_refresh=refresh,
-        edu_tier=edu_tier,
-    )
+    await session.commit()
+    return _verified_signup_response(user=user, edu_tier=edu_tier)
 
 
-# ===== Story 1.2: OTP login (FR A1 双因素) =====
+# ===== Story 1.2: OTP login =====
 
 
 async def _lookup_user(session: AsyncSession, phone: str, email: str) -> User | None:
@@ -166,18 +314,7 @@ async def _lookup_user(session: AsyncSession, phone: str, email: str) -> User | 
     return (await session.execute(stmt)).scalar_one_or_none()
 
 
-async def _require_active_user(session: AsyncSession, user_id: uuid.UUID) -> User:
-    user = await account_deletion.get_active_user(session, user_id)
-    if user is None:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="account deleted",
-        )
-    return user
-
-
 def _generate_otp() -> str:
-    """6-digit numeric OTP, zero-padded."""
     return f"{secrets.randbelow(1_000_000):06d}"
 
 
@@ -190,39 +327,22 @@ async def _invalidate_unused_otps(session: AsyncSession, user_id: uuid.UUID) -> 
     )
 
 
-@router.post(
-    "/otp/request",
-    response_model=OTPRequestResponse,
-    summary="请求登录 OTP 双因素验证码",
-    description=(
-        "FR A1: 请求登录所需的双 OTP（phone + email）。每个 factor 一个 6 位数字 OTP，"
-        "TTL 5 分钟。响应中 `dev_phone_otp` / `dev_email_otp` 仅在 `OTP_DEV_MODE_RETURN=true` "
-        "（local dev 默认）时返回；生产环境通过 logs 派发到 SMS/Email provider（M3 集成）。"
-    ),
-)
+@router.post("/otp/request", response_model=OTPRequestResponse, summary="请求登录 OTP 双因素验证码")
 async def request_otp(
     body: OTPRequestBody,
     session: AsyncSession = Depends(get_session),
 ) -> OTPRequestResponse:
     user = await _lookup_user(session, body.phone, body.email)
     if user is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="user not found",
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="user not found")
     if user.deleted_at is not None:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="account deleted",
-        )
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="account deleted")
+    if not user.age_verified:
+        raise _age_gate_pending_error()
     if user.is_frozen:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="account frozen",
-        )
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="account frozen")
 
     await _invalidate_unused_otps(session, user.id)
-
     now = datetime.now(UTC)
     expires_at = now + timedelta(seconds=settings.otp_ttl_seconds)
     phone_otp = _generate_otp()
@@ -248,14 +368,6 @@ async def request_otp(
         ]
     )
     await session.commit()
-
-    _log.info(
-        "auth.otp.requested",
-        user_id=str(user.id),
-        factors=["phone", "email"],
-        ttl_s=settings.otp_ttl_seconds,
-    )
-
     return OTPRequestResponse(
         expires_in_seconds=settings.otp_ttl_seconds,
         factors=["phone", "email"],
@@ -267,7 +379,6 @@ async def request_otp(
 async def _verify_otp(
     session: AsyncSession, user_id: uuid.UUID, factor: str, provided_code: str
 ) -> bool:
-    """Return True iff a valid unused-and-unexpired OTP for (user, factor) matches."""
     now = datetime.now(UTC)
     stmt = (
         select(UserOTP)
@@ -283,53 +394,32 @@ async def _verify_otp(
         .limit(1)
     )
     row = (await session.execute(stmt)).scalar_one_or_none()
-    if row is None:
-        return False
-    return secrets.compare_digest(row.code, provided_code)
+    return bool(row and secrets.compare_digest(row.code, provided_code))
 
 
-@router.post(
-    "/login",
-    response_model=LoginResponse,
-    summary="OTP 双因素登录",
-    description=(
-        "FR A1: 已注册用户用 phone + email + 两个 6 位 OTP 登录。两个 OTP 任一错误 / 过期 / 已使用 "
-        "→ 401 且 detail 不指明哪个 factor（防 enumeration）。"
-    ),
-)
+@router.post("/login", response_model=LoginResponse, summary="OTP 双因素登录")
 async def login(
     body: LoginRequest,
     session: AsyncSession = Depends(get_session),
 ) -> LoginResponse:
     user = await _lookup_user(session, body.phone, body.email)
     if user is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="user not found",
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="user not found")
     if user.deleted_at is not None:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="account deleted",
-        )
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="account deleted")
+    if not user.age_verified:
+        raise _age_gate_pending_error()
     if user.is_frozen:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="account frozen",
-        )
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="account frozen")
 
-    # Verify BOTH OTPs without short-circuit (S1 — don't leak which failed first via timing).
     phone_ok = await _verify_otp(session, user.id, "phone", body.phone_otp)
     email_ok = await _verify_otp(session, user.id, "email", body.email_otp)
     if not (phone_ok and email_ok):
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="invalid or expired OTP",
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid or expired OTP"
         )
 
-    # Both verified — invalidate ALL unused OTPs for this user (prevents replay).
     await _invalidate_unused_otps(session, user.id)
-
     session.add(
         AuditLog(
             user_id=user.id,
@@ -341,14 +431,80 @@ async def login(
         )
     )
     await session.commit()
-
-    _log.info("auth.login.success", user_id=str(user.id))
-
     return LoginResponse(
+        account_status="verified",
         user_id=user.id,
         jwt_access=security.create_access_token(user.id),
         jwt_refresh=security.create_refresh_token(user.id),
         edu_tier=user.edu_tier,
+        age_verified=True,
+    )
+
+
+@router.post(
+    "/guardian-confirmation/confirm",
+    response_model=GuardianConfirmationResponse,
+    summary="Verify guardian confirmation token",
+)
+async def confirm_guardian(
+    body: GuardianConfirmationRequest,
+    session: AsyncSession = Depends(get_session),
+) -> GuardianConfirmationResponse:
+    token_hash = hashlib.sha256(body.token.encode("utf-8")).hexdigest()
+    confirmation = (
+        await session.execute(
+            select(GuardianConfirmation).where(GuardianConfirmation.token_hash == token_hash)
+        )
+    ).scalar_one_or_none()
+    if confirmation is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="guardian confirmation token not found"
+        )
+    if confirmation.confirmed_at is not None:
+        user = await session.get(User, confirmation.user_id)
+        if user is not None:
+            user.age_verified = True
+        await session.commit()
+        return GuardianConfirmationResponse(
+            confirmation_status="already_confirmed",
+            user_id=confirmation.user_id,
+            guardian_email=confirmation.guardian_email,
+            age_verified=True,
+            confirmed_at=confirmation.confirmed_at,
+        )
+
+    now = datetime.now(UTC)
+    if confirmation.token_expires_at <= now:
+        raise HTTPException(
+            status_code=status.HTTP_410_GONE, detail="guardian confirmation token expired"
+        )
+
+    user = await session.get(User, confirmation.user_id)
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="user not found for guardian confirmation"
+        )
+
+    user.age_verified = True
+    confirmation.confirmed_at = now
+    confirmation.updated_at = now
+    session.add(
+        AuditLog(
+            user_id=user.id,
+            actor="user",
+            action="auth.guardian_confirmation.confirmed",
+            resource_type="user",
+            resource_id=user.id,
+            audit_metadata={"guardian_email": confirmation.guardian_email},
+        )
+    )
+    await session.commit()
+    return GuardianConfirmationResponse(
+        confirmation_status="confirmed",
+        user_id=user.id,
+        guardian_email=confirmation.guardian_email,
+        age_verified=True,
+        confirmed_at=now,
     )
 
 
@@ -356,10 +512,6 @@ async def login(
 
 
 async def _resolve_user_from_jwt(authorization: str | None) -> uuid.UUID:
-    """Extract user_id from Bearer JWT (Story 0.6 stub).
-
-    Production will support API Key Bearer too (D7); for Story 0.6 we focus on JWT.
-    """
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -371,17 +523,12 @@ async def _resolve_user_from_jwt(authorization: str | None) -> uuid.UUID:
         payload = security.verify_jwt(token)
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"invalid token: {type(e).__name__}",
+            status_code=status.HTTP_401_UNAUTHORIZED, detail=f"invalid token: {type(e).__name__}"
         ) from e
 
     if payload.get("type") != "access":
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="not an access token",
-        )
-    user_id = uuid.UUID(payload["sub"])
-    return user_id
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="not an access token")
+    return uuid.UUID(payload["sub"])
 
 
 async def _resolve_active_user_from_jwt(
@@ -389,7 +536,11 @@ async def _resolve_active_user_from_jwt(
     session: AsyncSession,
 ) -> uuid.UUID:
     user_id = await _resolve_user_from_jwt(authorization)
-    await _require_active_user(session, user_id)
+    user = await account_deletion.get_active_user(session, user_id)
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="account deleted")
+    if not user.age_verified:
+        raise _age_gate_pending_error()
     return user_id
 
 
@@ -398,11 +549,6 @@ async def _resolve_active_user_from_jwt(
     response_model=APIKeyCreateResponse,
     status_code=status.HTTP_201_CREATED,
     summary="创建新 API Key",
-    description=(
-        "FR A2: 用户 can create API keys with scoped permissions, label, description, "
-        "optional expiration. Returns FULL key ONCE — store it now. "
-        "Architecture D7: HMAC-SHA256 with Vault pepper; only hash + prefix persisted."
-    ),
 )
 async def create_api_key(
     body: APIKeyCreateRequest,
@@ -410,10 +556,7 @@ async def create_api_key(
     session: AsyncSession = Depends(get_session),
 ) -> APIKeyCreateResponse:
     user_id = await _resolve_active_user_from_jwt(authorization, session)
-
-    # D7: HMAC-SHA256 generation
     full_key, prefix, hmac_hash = security.generate_api_key()
-
     api_key = APIKey(
         user_id=user_id,
         key_hash=hmac_hash,
@@ -426,8 +569,6 @@ async def create_api_key(
     )
     session.add(api_key)
     await session.flush()
-
-    # Audit log
     session.add(
         AuditLog(
             user_id=user_id,
@@ -438,7 +579,6 @@ async def create_api_key(
             audit_metadata={"label": body.label, "scope": body.scope},
         )
     )
-
     return APIKeyCreateResponse(
         id=api_key.id,
         api_key=full_key,
@@ -451,17 +591,12 @@ async def create_api_key(
     )
 
 
-@router.get(
-    "/api_keys",
-    response_model=list[APIKeyListItem],
-    summary="列出 own API Keys",
-)
+@router.get("/api_keys", response_model=list[APIKeyListItem], summary="列出 own API Keys")
 async def list_api_keys(
     authorization: str | None = Header(default=None),
     session: AsyncSession = Depends(get_session),
 ) -> list[APIKeyListItem]:
     user_id = await _resolve_active_user_from_jwt(authorization, session)
-
     result = await session.execute(
         select(APIKey).where(APIKey.user_id == user_id).order_by(APIKey.created_at.desc())
     )
@@ -483,9 +618,7 @@ async def list_api_keys(
 
 
 @router.delete(
-    "/api_keys/{key_id}",
-    status_code=status.HTTP_204_NO_CONTENT,
-    summary="吊销 API Key (FR A2)",
+    "/api_keys/{key_id}", status_code=status.HTTP_204_NO_CONTENT, summary="吊销 API Key (FR A2)"
 )
 async def revoke_api_key(
     key_id: uuid.UUID,
@@ -493,16 +626,13 @@ async def revoke_api_key(
     session: AsyncSession = Depends(get_session),
 ) -> None:
     user_id = await _resolve_active_user_from_jwt(authorization, session)
-
     result = await session.execute(
         select(APIKey).where(APIKey.id == key_id, APIKey.user_id == user_id)
     )
     api_key = result.scalar_one_or_none()
     if api_key is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="API key not found")
-
     api_key.revoked_at = datetime.now(UTC)
-
     session.add(
         AuditLog(
             user_id=user_id,
@@ -517,9 +647,7 @@ async def revoke_api_key(
 
 
 @router.get(
-    "/account-deletion",
-    response_model=AccountDeletionStatusResponse,
-    summary="查看账户删除状态",
+    "/account-deletion", response_model=AccountDeletionStatusResponse, summary="查看账户删除状态"
 )
 async def get_account_deletion_status(
     authorization: str | None = Header(default=None),

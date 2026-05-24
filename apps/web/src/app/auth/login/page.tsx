@@ -1,10 +1,3 @@
-/** Login page — Story 1.2 (FR A1 OTP 双因素).
- *
- * 2-step flow:
- *   Step 1: phone + email → POST /v1/auth/otp/request → server returns dev codes (local dev only)
- *   Step 2: dev shows codes inline; user copies into the OTP input fields → POST /v1/auth/login
- *   Success: JWT stored, redirect to /demo/charge.
- */
 "use client";
 
 import { FormEvent, useState } from "react";
@@ -13,10 +6,10 @@ import { useRouter } from "next/navigation";
 import { RFC7807Panel, StatusCard } from "@opticloud/ui";
 
 import {
-  type OTPRequestResponse,
   OptiCloudClientError,
   login,
   requestOTP,
+  type OTPRequestResponse,
 } from "@/lib/api";
 import {
   createInitialOnboardingState,
@@ -43,13 +36,17 @@ export default function LoginPage(): JSX.Element {
   const errorMessage =
     error?.status === 404
       ? "No account found for this phone/email"
-      : error?.status === 403
-        ? "Account frozen, contact support"
-        : error?.status === 401
-          ? "Invalid or expired OTP, try again"
-          : null;
+      : error?.status === 403 && error.detail.includes("age gate pending")
+        ? "Age gate pending, finish guardian confirmation first"
+        : error?.status === 403
+          ? "Account frozen, contact support"
+          : error?.status === 401
+            ? "Invalid or expired OTP, try again"
+            : null;
 
-  const handleRequestOTP = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
+  const handleRequestOTP = async (
+    e: FormEvent<HTMLFormElement>,
+  ): Promise<void> => {
     e.preventDefault();
     setError(null);
     setLoading(true);
@@ -85,15 +82,18 @@ export default function LoginPage(): JSX.Element {
         phone_otp: phoneOtp,
         email_otp: emailOtp,
       });
-      // Match signup's session storage AND also write localStorage so /demo/charge can read it
       sessionStorage.setItem("jwt_access", result.jwt_access);
       sessionStorage.setItem("jwt_refresh", result.jwt_refresh);
       sessionStorage.setItem("user_id", result.user_id);
       sessionStorage.setItem("edu_tier", String(result.edu_tier));
       localStorage.setItem("jwt_access", result.jwt_access);
       const params = new URLSearchParams(window.location.search);
-      if (shouldResumeOnboardingAfterLogin(params, sessionStorage, result.user_id)) {
-        const stored = sessionStorage.getItem(getOnboardingStorageKey(result.user_id));
+      if (
+        shouldResumeOnboardingAfterLogin(params, sessionStorage, result.user_id)
+      ) {
+        const stored = sessionStorage.getItem(
+          getOnboardingStorageKey(result.user_id),
+        );
         const current = stored
           ? safeParseOnboardingState(stored, result.user_id)
           : createInitialOnboardingState(result.user_id);
@@ -187,7 +187,6 @@ export default function LoginPage(): JSX.Element {
                 className="min-h-touch w-full rounded-md border border-border bg-background px-3 py-2 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
               />
             </fieldset>
-
             <fieldset className="mb-4" disabled={loading}>
               <label htmlFor="email" className="mb-1 block text-sm font-medium">
                 邮箱
@@ -203,7 +202,6 @@ export default function LoginPage(): JSX.Element {
                 className="min-h-touch w-full rounded-md border border-border bg-background px-3 py-2 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
               />
             </fieldset>
-
             <button
               type="submit"
               disabled={loading || !phone || !email}
@@ -211,7 +209,6 @@ export default function LoginPage(): JSX.Element {
             >
               {loading ? "正在发送..." : "发送 OTP →"}
             </button>
-
             <p className="mt-4 text-center text-xs text-muted-foreground">
               没有账号？{" "}
               <a href="/auth/signup" className="text-primary hover:underline">
@@ -229,13 +226,16 @@ export default function LoginPage(): JSX.Element {
                 data-testid="login-dev-otps"
               >
                 <strong>(dev mode)</strong> phone OTP:{" "}
-                <code className="font-mono">{otpInfo.dev_phone_otp}</code> · email OTP:{" "}
+                <code className="font-mono">{otpInfo.dev_phone_otp}</code> ·
+                email OTP:{" "}
                 <code className="font-mono">{otpInfo.dev_email_otp}</code>
               </div>
             )}
-
             <fieldset className="mb-4" disabled={loading}>
-              <label htmlFor="phone-otp" className="mb-1 block text-sm font-medium">
+              <label
+                htmlFor="phone-otp"
+                className="mb-1 block text-sm font-medium"
+              >
                 手机 OTP
               </label>
               <input
@@ -251,9 +251,11 @@ export default function LoginPage(): JSX.Element {
                 className="min-h-touch w-full rounded-md border border-border bg-background px-3 py-2 font-mono focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
               />
             </fieldset>
-
             <fieldset className="mb-4" disabled={loading}>
-              <label htmlFor="email-otp" className="mb-1 block text-sm font-medium">
+              <label
+                htmlFor="email-otp"
+                className="mb-1 block text-sm font-medium"
+              >
                 邮箱 OTP
               </label>
               <input
@@ -269,15 +271,15 @@ export default function LoginPage(): JSX.Element {
                 className="min-h-touch w-full rounded-md border border-border bg-background px-3 py-2 font-mono focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
               />
             </fieldset>
-
             <button
               type="submit"
-              disabled={loading || phoneOtp.length !== 6 || emailOtp.length !== 6}
+              disabled={
+                loading || phoneOtp.length !== 6 || emailOtp.length !== 6
+              }
               className="min-h-touch w-full rounded-md bg-primary px-4 py-3 font-semibold text-primary-foreground shadow hover:bg-primary-600 disabled:opacity-50"
             >
               {loading ? "正在登录..." : "登录 →"}
             </button>
-
             <button
               type="button"
               onClick={handleResend}

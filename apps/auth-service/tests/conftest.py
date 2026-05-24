@@ -33,6 +33,7 @@ from auth_service import security  # noqa: E402
 from auth_service.config import settings  # noqa: E402
 from auth_service.db import get_session  # noqa: E402
 from auth_service.main import app  # noqa: E402
+from sqlalchemy import text  # noqa: E402
 
 if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
@@ -87,3 +88,32 @@ async def http_client(engine: AsyncEngine) -> AsyncIterator[AsyncClient]:
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         yield client
     app.dependency_overrides.clear()
+
+
+@pytest_asyncio.fixture(autouse=True)
+async def _ensure_guardian_confirmations_table(engine: AsyncEngine) -> None:
+    maker = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
+    async with maker() as s:
+        await s.execute(
+            text(
+                """
+                CREATE TABLE IF NOT EXISTS guardian_confirmations (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    user_id UUID NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+                    guardian_email VARCHAR(255) NOT NULL,
+                    token_hash TEXT NOT NULL UNIQUE,
+                    token_expires_at TIMESTAMPTZ NOT NULL,
+                    confirmed_at TIMESTAMPTZ NULL,
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                )
+                """
+            )
+        )
+        await s.execute(
+            text(
+                "CREATE UNIQUE INDEX IF NOT EXISTS idx_guardian_confirmations_token_hash "
+                "ON guardian_confirmations(token_hash)"
+            )
+        )
+        await s.commit()

@@ -76,7 +76,7 @@ development_status:
   1-6-pipl-account-delete: done                # 2026-05-20 — PIPL 7 day account deletion shipped; account_deletion_requests + soft-delete/key revoke + tombstone hard-delete CLI + /auth/account + 5 lifecycle tests; code review fixed billing-history cascade risk
   1-7-account-merge-proposal: backlog          # FR A7/A8
   1-8-onboarding-wizard-5steps: done           # FR A9 — 2026-05-23 shared SignupWizard + signup/login/welcome handoff + 5min rescue prompt + J1 smoke
-  1-9-under-14-block: backlog                  # FR A10
+  1-9-under-14-block: done                    # FR A10 — 2026-05-24 <14 hard block + 14-18 guardian confirmation; +9 backend age-gate tests, auth suite 51 passed, web 56 passed
   1-10-language-switch-zh: backlog             # FR A3
   1-11-geo-anomaly-risk: backlog               # NFR-S
   1-12-j7-fraud-freeze-vertical-slice: backlog # J7

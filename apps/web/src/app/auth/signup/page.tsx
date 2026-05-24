@@ -1,12 +1,6 @@
-/** Signup page — Story 1.1a J1 Vertical Slice 第 1a 段.
- *
- * FR A1: 手机号+邮箱双因素验证（OTP stub — 实际 OTP 在 Story 1.x）
- * FR A9: Onboarding Wizard ≤ 5 步骤（v1 实施 stub: 1 步表单 + 1 步成功页）
- * FR A4: 教育版邮箱白名单自动激活
- */
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -31,13 +25,23 @@ const QUICKSTART_URL = "/docs/quickstart";
 interface FormState {
   phone: string;
   email: string;
+  age: string;
+  guardian_email: string;
 }
 
 export default function SignupPage(): JSX.Element {
   const router = useRouter();
-  const [form, setForm] = useState<FormState>({ phone: "", email: "" });
+  const [form, setForm] = useState<FormState>({
+    phone: "",
+    email: "",
+    age: "19",
+    guardian_email: "",
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<OptiCloudClientError | null>(null);
+  const [pendingState, setPendingState] = useState<{
+    guardian_confirmation_url: string;
+  } | null>(null);
   const [wizardState, setWizardState] = useState(() =>
     createInitialOnboardingState(null),
   );
@@ -62,18 +66,41 @@ export default function SignupPage(): JSX.Element {
     return () => window.clearInterval(timeout);
   }, [wizardState]);
 
+  const age = useMemo(() => Number(form.age), [form.age]);
+  const showGuardianField = age >= 14 && age <= 18;
+
   const handleSubmit = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
     setError(null);
+    setPendingState(null);
     setLoading(true);
     try {
-      const result = await signup({ phone: form.phone, email: form.email });
-      // Store JWT in sessionStorage (production: HttpOnly cookie)
-      sessionStorage.setItem("jwt_access", result.jwt_access);
-      sessionStorage.setItem("jwt_refresh", result.jwt_refresh);
+      const result = await signup({
+        phone: form.phone,
+        email: form.email,
+        age,
+        ...(showGuardianField && form.guardian_email
+          ? { guardian_email: form.guardian_email }
+          : {}),
+      });
+
+      if (result.account_status === "pending_guardian_confirmation") {
+        setPendingState({
+          guardian_confirmation_url:
+            result.guardian_confirmation_url ?? "/auth/guardian-confirmation",
+        });
+        return;
+      }
+
+      sessionStorage.setItem("jwt_access", result.jwt_access ?? "");
+      sessionStorage.setItem("jwt_refresh", result.jwt_refresh ?? "");
       sessionStorage.setItem("user_id", result.user_id);
       sessionStorage.setItem("edu_tier", String(result.edu_tier));
-      const completedSignup = markOnboardingStep(wizardState, "signup", "complete");
+      const completedSignup = markOnboardingStep(
+        wizardState,
+        "signup",
+        "complete",
+      );
       const verified = markOnboardingStep(
         { ...completedSignup, userKey: result.user_id },
         "verify",
@@ -123,7 +150,8 @@ export default function SignupPage(): JSX.Element {
           supportPrompt={{
             visible: supportVisible,
             title: "注册卡住了？",
-            description: "可以继续填写注册信息、打开 quickstart，或稍后再完成。",
+            description:
+              "可以继续填写注册信息、打开 quickstart，或稍后再完成。",
             actionLabel: "继续注册",
             onAction: () => setSupportVisible(false),
             secondaryAction: {
@@ -134,6 +162,7 @@ export default function SignupPage(): JSX.Element {
             onDismiss: () => setSupportVisible(false),
           }}
         />
+
         <div className="mx-auto w-full max-w-md rounded-lg border border-border bg-background p-8 shadow-lg">
           <header className="mb-6 text-center">
             <h1 className="text-2xl font-bold">注册 OptiCloud</h1>
@@ -165,13 +194,30 @@ export default function SignupPage(): JSX.Element {
             </div>
           )}
 
+          {pendingState && (
+            <div className="mb-4">
+              <StatusCard
+                variant="warning"
+                title="等待监护人确认"
+                description="账号已创建，但需要监护人完成邮箱确认后才能登录。"
+                ariaLabel="signup.pending.guardian"
+              />
+              <div className="mt-3 rounded-md border border-border bg-muted/40 p-3 text-sm">
+                <p className="font-medium">下一步</p>
+                <a
+                  href={pendingState.guardian_confirmation_url}
+                  className="mt-2 inline-block text-primary hover:underline"
+                >
+                  打开监护人确认链接
+                </a>
+              </div>
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} noValidate>
             <fieldset className="mb-4" disabled={loading}>
               <label htmlFor="phone" className="mb-1 block text-sm font-medium">
-                手机号
-                <span className="ml-1 text-danger" aria-hidden="true">
-                  *
-                </span>
+                手机号 <span className="text-danger">*</span>
               </label>
               <input
                 id="phone"
@@ -191,10 +237,7 @@ export default function SignupPage(): JSX.Element {
 
             <fieldset className="mb-4" disabled={loading}>
               <label htmlFor="email" className="mb-1 block text-sm font-medium">
-                邮箱
-                <span className="ml-1 text-danger" aria-hidden="true">
-                  *
-                </span>
+                邮箱 <span className="text-danger">*</span>
               </label>
               <input
                 id="email"
@@ -205,16 +248,60 @@ export default function SignupPage(): JSX.Element {
                 placeholder="you@example.com"
                 autoComplete="email"
                 className="min-h-touch w-full rounded-md border border-border bg-background px-3 py-2 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                aria-describedby="email-hint"
               />
-              <p id="email-hint" className="mt-1 text-xs text-muted-foreground">
-                .edu / .ac.cn 邮箱自动激活教育版 (Starter 2K/月 永久免费)
+            </fieldset>
+
+            <fieldset className="mb-4" disabled={loading}>
+              <label htmlFor="age" className="mb-1 block text-sm font-medium">
+                年龄 <span className="text-danger">*</span>
+              </label>
+              <input
+                id="age"
+                type="number"
+                min={0}
+                max={120}
+                required
+                value={form.age}
+                onChange={(e) => setForm({ ...form, age: e.target.value })}
+                className="min-h-touch w-full rounded-md border border-border bg-background px-3 py-2 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+              />
+              <p className="mt-1 text-xs text-muted-foreground">
+                14-18 岁需要填写监护人邮箱。
               </p>
             </fieldset>
 
+            {showGuardianField && (
+              <fieldset className="mb-4" disabled={loading}>
+                <label
+                  htmlFor="guardian_email"
+                  className="mb-1 block text-sm font-medium"
+                >
+                  监护人邮箱 <span className="text-danger">*</span>
+                </label>
+                <input
+                  id="guardian_email"
+                  type="email"
+                  required
+                  value={form.guardian_email}
+                  onChange={(e) =>
+                    setForm({ ...form, guardian_email: e.target.value })
+                  }
+                  placeholder="guardian@example.com"
+                  autoComplete="email"
+                  className="min-h-touch w-full rounded-md border border-border bg-background px-3 py-2 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                />
+              </fieldset>
+            )}
+
             <button
               type="submit"
-              disabled={loading || !form.phone || !form.email}
+              disabled={
+                loading ||
+                !form.phone ||
+                !form.email ||
+                !form.age ||
+                (showGuardianField && !form.guardian_email)
+              }
               className="min-h-touch w-full rounded-md bg-primary px-4 py-3 font-semibold text-primary-foreground shadow hover:bg-primary-600 disabled:opacity-50"
             >
               {loading ? "正在注册..." : "立即注册 →"}
@@ -230,18 +317,6 @@ export default function SignupPage(): JSX.Element {
               登录并继续 onboarding
             </Link>
           </div>
-
-          <p className="mt-4 text-center text-xs text-muted-foreground">
-            注册即同意{" "}
-            <a href="/legal/tos" className="text-primary hover:underline">
-              服务条款
-            </a>{" "}
-            +{" "}
-            <a href="/legal/privacy" className="text-primary hover:underline">
-              隐私政策
-            </a>{" "}
-            (PIPL 合规)
-          </p>
         </div>
       </div>
     </main>

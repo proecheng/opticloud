@@ -25,6 +25,21 @@ CREATE INDEX idx_users_phone ON users(phone) WHERE deleted_at IS NULL;
 CREATE INDEX idx_users_email ON users(email) WHERE deleted_at IS NULL;
 CREATE INDEX idx_users_edu_tier ON users(edu_tier) WHERE edu_tier = TRUE;
 
+-- ===== guardian_confirmations (Story 1.9 + FR A10) =====
+CREATE TABLE IF NOT EXISTS guardian_confirmations (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id             UUID NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+    guardian_email      VARCHAR(255) NOT NULL,
+    token_hash          TEXT NOT NULL UNIQUE,
+    token_expires_at    TIMESTAMPTZ NOT NULL,
+    confirmed_at        TIMESTAMPTZ NULL,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_guardian_confirmations_token_hash
+    ON guardian_confirmations(token_hash);
+
 -- ===== api_keys (Story 0.6 + FR A2) =====
 -- D7: HMAC-SHA256 with Vault pepper; 仅 hash 入库，前缀 6 位可见
 -- CRG4 fix: pepper 季度 Vault HSM 轮换 + grace 30d 双 pepper 验证

@@ -25,7 +25,10 @@ def _email() -> str:
 @pytest_asyncio.fixture
 async def signed_in_jwt(http_client: AsyncClient) -> tuple[uuid.UUID, str]:
     """Sign up a fresh user; return (user_id, jwt_access)."""
-    r = await http_client.post("/v1/auth/signup", json={"phone": _phone(), "email": _email()})
+    r = await http_client.post(
+        "/v1/auth/signup",
+        json={"phone": _phone(), "email": _email(), "age": 19},
+    )
     assert r.status_code == 201, r.text
     body = r.json()
     return uuid.UUID(body["user_id"]), body["jwt_access"]
@@ -120,7 +123,10 @@ async def test_create_api_key_with_both_expires_args_returns_422(
 async def test_list_api_keys_returns_only_own_keys(http_client: AsyncClient) -> None:
     """AC3 #6 — cross-tenant isolation: User A sees only their own keys."""
     # User A
-    r_a = await http_client.post("/v1/auth/signup", json={"phone": _phone(), "email": _email()})
+    r_a = await http_client.post(
+        "/v1/auth/signup",
+        json={"phone": _phone(), "email": _email(), "age": 19},
+    )
     jwt_a = r_a.json()["jwt_access"]
     for label in ("a-prod", "a-dev"):
         await http_client.post(
@@ -130,7 +136,10 @@ async def test_list_api_keys_returns_only_own_keys(http_client: AsyncClient) -> 
         )
 
     # User B
-    r_b = await http_client.post("/v1/auth/signup", json={"phone": _phone(), "email": _email()})
+    r_b = await http_client.post(
+        "/v1/auth/signup",
+        json={"phone": _phone(), "email": _email(), "age": 19},
+    )
     jwt_b = r_b.json()["jwt_access"]
     await http_client.post(
         "/v1/auth/api_keys",
@@ -174,7 +183,10 @@ async def test_revoke_own_key_returns_204(
 async def test_revoke_other_users_key_returns_404(http_client: AsyncClient) -> None:
     """AC3 #8 — User A cannot DELETE User B's key (404 not 403; no enum)."""
     # User A signup + create
-    r_a = await http_client.post("/v1/auth/signup", json={"phone": _phone(), "email": _email()})
+    r_a = await http_client.post(
+        "/v1/auth/signup",
+        json={"phone": _phone(), "email": _email(), "age": 19},
+    )
     jwt_a = r_a.json()["jwt_access"]
     create_a = await http_client.post(
         "/v1/auth/api_keys",
@@ -184,7 +196,10 @@ async def test_revoke_other_users_key_returns_404(http_client: AsyncClient) -> N
     a_key_id = create_a.json()["id"]
 
     # User B signup
-    r_b = await http_client.post("/v1/auth/signup", json={"phone": _phone(), "email": _email()})
+    r_b = await http_client.post(
+        "/v1/auth/signup",
+        json={"phone": _phone(), "email": _email(), "age": 19},
+    )
     jwt_b = r_b.json()["jwt_access"]
 
     # B tries to delete A's key

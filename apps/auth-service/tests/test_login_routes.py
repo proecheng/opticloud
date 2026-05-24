@@ -36,7 +36,7 @@ async def signed_up_user(
     email = _email()
     r = await http_client.post(
         "/v1/auth/signup",
-        json={"phone": phone, "email": email},
+        json={"phone": phone, "email": email, "age": 19},
     )
     assert r.status_code == 201, r.text
     return phone, email

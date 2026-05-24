@@ -15,13 +15,43 @@ const BILLING_SERVICE_URL =
 export interface SignupRequest {
   phone: string;
   email: string;
+  age: number;
+  guardian_email?: string;
 }
 
-export interface SignupResponse {
+export interface SignupVerifiedResponse {
+  account_status: "verified";
   user_id: string;
   jwt_access: string;
   jwt_refresh: string;
   edu_tier: boolean;
+  age_verified: true;
+}
+
+export interface SignupPendingResponse {
+  account_status: "pending_guardian_confirmation";
+  user_id: string;
+  jwt_access: null;
+  jwt_refresh: null;
+  edu_tier: boolean;
+  age_verified: false;
+  guardian_email: string;
+  guardian_confirmation_url: string;
+}
+
+export type SignupResponse = SignupVerifiedResponse | SignupPendingResponse;
+
+export interface GuardianConfirmationRequest {
+  token: string;
+}
+
+export interface GuardianConfirmationResponse {
+  confirmation_status: "confirmed" | "already_confirmed";
+  account_status: "verified";
+  user_id: string;
+  guardian_email: string;
+  age_verified: true;
+  confirmed_at: string;
 }
 
 export interface ApiError {
@@ -98,6 +128,18 @@ export async function signup(body: SignupRequest): Promise<SignupResponse> {
     method: "POST",
     body: JSON.stringify(body),
   });
+}
+
+export async function confirmGuardianConfirmation(
+  body: GuardianConfirmationRequest,
+): Promise<GuardianConfirmationResponse> {
+  return request<GuardianConfirmationResponse>(
+    "/v1/auth/guardian-confirmation/confirm",
+    {
+      method: "POST",
+      body: JSON.stringify(body),
+    },
+  );
 }
 
 export interface APIKeyCreateRequest {
@@ -279,7 +321,9 @@ export interface LoginRequest extends OTPRequestBody {
   email_otp: string;
 }
 
-export async function requestOTP(body: OTPRequestBody): Promise<OTPRequestResponse> {
+export async function requestOTP(
+  body: OTPRequestBody,
+): Promise<OTPRequestResponse> {
   return request<OTPRequestResponse>(
     "/v1/auth/otp/request",
     { method: "POST", body: JSON.stringify(body) },
@@ -287,8 +331,10 @@ export async function requestOTP(body: OTPRequestBody): Promise<OTPRequestRespon
   );
 }
 
-export async function login(body: LoginRequest): Promise<SignupResponse> {
-  return request<SignupResponse>(
+export async function login(
+  body: LoginRequest,
+): Promise<SignupVerifiedResponse> {
+  return request<SignupVerifiedResponse>(
     "/v1/auth/login",
     { method: "POST", body: JSON.stringify(body) },
     AUTH_SERVICE_URL,
@@ -343,7 +389,9 @@ export interface APIKeyListItem {
   created_at: string;
 }
 
-export async function listAPIKeys(jwtAccess: string): Promise<APIKeyListItem[]> {
+export async function listAPIKeys(
+  jwtAccess: string,
+): Promise<APIKeyListItem[]> {
   return request<APIKeyListItem[]>(
     "/v1/auth/api_keys",
     { headers: { Authorization: `Bearer ${jwtAccess}` } },
@@ -351,7 +399,10 @@ export async function listAPIKeys(jwtAccess: string): Promise<APIKeyListItem[]> 
   );
 }
 
-export async function revokeAPIKey(jwtAccess: string, keyId: string): Promise<void> {
+export async function revokeAPIKey(
+  jwtAccess: string,
+  keyId: string,
+): Promise<void> {
   await fetch(`${AUTH_SERVICE_URL}/v1/auth/api_keys/${keyId}`, {
     method: "DELETE",
     headers: { Authorization: `Bearer ${jwtAccess}` },
@@ -401,7 +452,10 @@ export interface EstimateResponse {
 
 export async function estimateCharge(
   jwtAccess: string,
-  body: { purpose: "solve" | "predict" | "chat" | "demo"; max_solve_seconds: number },
+  body: {
+    purpose: "solve" | "predict" | "chat" | "demo";
+    max_solve_seconds: number;
+  },
 ): Promise<EstimateResponse> {
   return request<EstimateResponse>(
     "/v1/billing/charges/estimate",
@@ -475,9 +529,9 @@ export interface DemoOptimizationResponse {
   reproducibility?: Reproducibility;
 }
 
-export async function submitOptimizationDemo<TBody extends { task_type: string }>(
-  body: TBody,
-): Promise<DemoOptimizationResponse> {
+export async function submitOptimizationDemo<
+  TBody extends { task_type: string },
+>(body: TBody): Promise<DemoOptimizationResponse> {
   return request<DemoOptimizationResponse>(
     "/v1/optimizations/demo",
     { method: "POST", body: JSON.stringify(body) },

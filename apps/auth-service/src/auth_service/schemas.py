@@ -20,6 +20,17 @@ class SignupRequest(BaseModel):
 
     phone: str = Field(..., description="E.164 phone number (e.g. +8613800138000)")
     email: EmailStr = Field(..., description="Valid email address")
+    age: int = Field(
+        ...,
+        ge=0,
+        le=120,
+        strict=True,
+        description="User age in years. 14-18 requires guardian_email; <14 is rejected.",
+    )
+    guardian_email: EmailStr | None = Field(
+        default=None,
+        description="Required for ages 14-18 inclusive.",
+    )
 
     @field_validator("phone")
     @classmethod
@@ -32,10 +43,25 @@ class SignupRequest(BaseModel):
 class SignupResponse(BaseModel):
     """FR A1 signup response."""
 
+    account_status: Literal["verified", "pending_guardian_confirmation"]
+    user_id: uuid.UUID
+    jwt_access: str | None = None
+    jwt_refresh: str | None = None
+    edu_tier: bool = Field(default=False, description="FR A4 .edu/.ac.cn auto-detected")
+    age_verified: bool
+    guardian_email: EmailStr | None = None
+    guardian_confirmation_url: str | None = None
+
+
+class AuthTokenResponse(BaseModel):
+    """Verified auth response shape shared by login and adult signup."""
+
+    account_status: Literal["verified"]
     user_id: uuid.UUID
     jwt_access: str
     jwt_refresh: str
     edu_tier: bool = Field(default=False, description="FR A4 .edu/.ac.cn auto-detected")
+    age_verified: Literal[True] = True
 
 
 # ===== Story 1.2: login (OTP 2FA) =====
@@ -78,8 +104,25 @@ class LoginRequest(OTPRequestBody):
 
 # LoginResponse shares the SignupResponse shape (same JWT pair + edu_tier).
 # Distinct subclass keeps OpenAPI schemas separate per A1 architect review.
-class LoginResponse(SignupResponse):
-    """POST /v1/auth/login response — same shape as SignupResponse."""
+class LoginResponse(AuthTokenResponse):
+    """POST /v1/auth/login response — verified token response."""
+
+
+class GuardianConfirmationRequest(BaseModel):
+    """POST /v1/auth/guardian-confirmation/confirm body."""
+
+    token: str = Field(..., min_length=16, max_length=512)
+
+
+class GuardianConfirmationResponse(BaseModel):
+    """Guardian confirmation verification response."""
+
+    confirmation_status: Literal["confirmed", "already_confirmed"]
+    account_status: Literal["verified"] = "verified"
+    user_id: uuid.UUID
+    guardian_email: EmailStr
+    age_verified: Literal[True] = True
+    confirmed_at: datetime
 
 
 # ===== Story 1.6: account deletion =====

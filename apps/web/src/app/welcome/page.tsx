@@ -63,7 +63,7 @@ export default function WelcomePage(): JSX.Element {
   useEffect(() => {
     const jwt = sessionStorage.getItem("jwt_access");
     const userId = sessionStorage.getItem("user_id");
-    if (!jwt) {
+    if (!jwt || jwt.trim() === "") {
       router.push("/auth/signup");
       return;
     }
