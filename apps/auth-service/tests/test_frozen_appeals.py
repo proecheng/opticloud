@@ -18,10 +18,16 @@ def _email() -> str:
     return f"frozen-{uuid.uuid4().hex[:10]}@example.com"
 
 
-async def _signup(http_client: AsyncClient, *, domain: str = "example.com") -> tuple[uuid.UUID, str]:
+async def _signup(
+    http_client: AsyncClient, *, domain: str = "example.com"
+) -> tuple[uuid.UUID, str]:
     r = await http_client.post(
         "/v1/auth/signup",
-        json={"phone": _phone(), "email": f"appeal-{uuid.uuid4().hex[:10]}@{domain}", "age_years": 18},
+        json={
+            "phone": _phone(),
+            "email": f"appeal-{uuid.uuid4().hex[:10]}@{domain}",
+            "age_years": 18,
+        },
     )
     assert r.status_code == 201, r.text
     body = r.json()
@@ -146,7 +152,10 @@ async def test_frozen_auth_responses_include_next_action_url(
 
     for path, body in [
         ("/v1/auth/otp/request", {"phone": row.phone, "email": row.email}),
-        ("/v1/auth/login", {"phone": row.phone, "email": row.email, "phone_otp": "000000", "email_otp": "000000"}),
+        (
+            "/v1/auth/login",
+            {"phone": row.phone, "email": row.email, "phone_otp": "000000", "email_otp": "000000"},
+        ),
     ]:
         r = await http_client.post(path, json=body)
         assert r.status_code == 403, r.text
@@ -370,7 +379,9 @@ async def test_expired_appeal_is_rejected_and_marked_expired(
     maker = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
     async with maker() as s:
         await s.execute(
-            text("UPDATE account_freeze_appeals SET expires_at = NOW() - INTERVAL '1 second' WHERE id = :id"),
+            text(
+                "UPDATE account_freeze_appeals SET expires_at = NOW() - INTERVAL '1 second' WHERE id = :id"
+            ),
             {"id": appeal["appeal_id"]},
         )
         await s.commit()

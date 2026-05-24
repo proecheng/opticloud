@@ -54,7 +54,9 @@ def _appeal_status(value: str) -> FrozenAppealStatus:
     }
     if value in statuses:
         return statuses[value]
-    raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="invalid appeal status")
+    raise HTTPException(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="invalid appeal status"
+    )
 
 
 def _next_action_for_proposal(
@@ -116,7 +118,9 @@ async def _lookup_appeal_by_token(
 ) -> AccountFreezeAppeal | None:
     token_hash = _tracking_token_hash(tracking_token)
     appeal = (
-        await session.execute(select(AccountFreezeAppeal).where(AccountFreezeAppeal.id == appeal_id))
+        await session.execute(
+            select(AccountFreezeAppeal).where(AccountFreezeAppeal.id == appeal_id)
+        )
     ).scalar_one_or_none()
     if appeal is None:
         return None
@@ -361,7 +365,9 @@ async def submit_frozen_appeal_proposal(
 ) -> FrozenAppealStatusResponse:
     appeal = await _load_appeal_or_404(session, appeal_id, body.tracking_token)
     if appeal.proposal_id is not None:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="appeal already has proposal")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="appeal already has proposal"
+        )
 
     user = await _load_user(session, appeal.user_id)
     proposal_request = AccountMergeProposalCreateRequest(

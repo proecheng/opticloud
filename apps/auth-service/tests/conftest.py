@@ -3,6 +3,8 @@
 Mirrors the billing-service pattern: session-scoped engine + per-test client.
 """
 
+# ruff: noqa: E402
+
 from __future__ import annotations
 
 import asyncio
