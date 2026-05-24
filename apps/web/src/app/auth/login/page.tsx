@@ -18,6 +18,14 @@ import {
   login,
   requestOTP,
 } from "@/lib/api";
+import {
+  createInitialOnboardingState,
+  getOnboardingStorageKey,
+  markOnboardingStep,
+  safeParseOnboardingState,
+  saveOnboardingState,
+  shouldResumeOnboardingAfterLogin,
+} from "@/lib/onboarding";
 
 type Stage = "credentials" | "otp";
 
@@ -31,6 +39,15 @@ export default function LoginPage(): JSX.Element {
   const [otpInfo, setOtpInfo] = useState<OTPRequestResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<OptiCloudClientError | null>(null);
+
+  const errorMessage =
+    error?.status === 404
+      ? "No account found for this phone/email"
+      : error?.status === 403
+        ? "Account frozen, contact support"
+        : error?.status === 401
+          ? "Invalid or expired OTP, try again"
+          : null;
 
   const handleRequestOTP = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
@@ -74,6 +91,19 @@ export default function LoginPage(): JSX.Element {
       sessionStorage.setItem("user_id", result.user_id);
       sessionStorage.setItem("edu_tier", String(result.edu_tier));
       localStorage.setItem("jwt_access", result.jwt_access);
+      const params = new URLSearchParams(window.location.search);
+      if (shouldResumeOnboardingAfterLogin(params, sessionStorage, result.user_id)) {
+        const stored = sessionStorage.getItem(getOnboardingStorageKey(result.user_id));
+        const current = stored
+          ? safeParseOnboardingState(stored, result.user_id)
+          : createInitialOnboardingState(result.user_id);
+        saveOnboardingState(
+          sessionStorage,
+          markOnboardingStep(current, "verify", "complete"),
+        );
+        router.push("/welcome");
+        return;
+      }
       router.push("/demo/charge");
     } catch (err) {
       if (err instanceof OptiCloudClientError) {
@@ -112,7 +142,14 @@ export default function LoginPage(): JSX.Element {
 
         {error && (
           <div className="mb-4">
-            {error.errors && error.errors.length > 0 ? (
+            {errorMessage ? (
+              <StatusCard
+                variant="error"
+                title="登录失败"
+                description={errorMessage}
+                ariaLabel={`error.login.${error.status}`}
+              />
+            ) : error.errors && error.errors.length > 0 ? (
               <RFC7807Panel
                 payload={{
                   title: error.title,

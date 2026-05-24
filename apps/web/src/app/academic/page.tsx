@@ -22,14 +22,15 @@ export const metadata = {
 // Render per-request (still SSR — crawler-friendly) rather than freezing a
 // build-time prerender: the build runs before solver-orchestrator is
 // guaranteed up, which would otherwise bake the graceful-degrade fallback
-// into a static page. The fetch below keeps a 5-min data cache for
-// thundering-herd protection.
+// into a static page.
 export const dynamic = "force-dynamic";
 
 // This fetch runs server-side (Node.js), where `localhost` resolves to ::1
 // (IPv6) first. The backend services bind 0.0.0.0 (IPv4 only), so a Node
-// `fetch("http://localhost:...")` is refused. Normalize to 127.0.0.1 — the
-// same IPv4-explicit workaround e2e.yml documents for its readiness probes.
+// `fetch("http://localhost:...")` is refused. Normalize the HOST `localhost`
+// to 127.0.0.1 — the same IPv4-explicit workaround e2e.yml documents for its
+// readiness probes. Anchored to the host position (and case-insensitive) so a
+// prod URL that merely contains the substring `localhost` is left untouched.
 // (The browser-side client in lib/api.ts keeps `localhost`: the browser/OS
 // resolver handles it fine; only Node's resolver has the ::1 preference.)
 function normalizeSolverBase(rawBase: string): string {
@@ -63,11 +64,20 @@ const TIER_COLOR: Record<string, string> = {
 };
 
 async function getAlgorithms(): Promise<Algorithm[]> {
+  // 5s timeout — a hung-but-TCP-accepting backend must fall through to the
+  // graceful-degrade path, not stall the whole RSC render indefinitely.
   const res = await fetch(`${SOLVER_BASE}/v1/algorithms`, {
-    next: { revalidate: 300 },
+    signal: AbortSignal.timeout(5000),
   });
   if (!res.ok) throw new Error(`upstream ${res.status}`);
-  return res.json() as Promise<Algorithm[]>;
+  const data: unknown = await res.json();
+  if (!Array.isArray(data)) {
+    // A non-array 200 (e.g. a misrouted error envelope) must NOT reach
+    // `algorithms.map()` at render time — that throws outside the page-level
+    // try/catch and 500s the response. Route it into the catch instead.
+    throw new Error("catalog response is not an array");
+  }
+  return data as Algorithm[];
 }
 
 function FlywheelCard({
@@ -75,19 +85,16 @@ function FlywheelCard({
   title,
   body,
   source,
-  className = "",
 }: {
   step: number;
   title: string;
   body: string;
   source: string;
-  className?: string;
 }): JSX.Element {
   return (
     <div
       data-testid={`flywheel-step-${step}`}
-      aria-describedby="flywheel-explainer"
-      className={`rounded-lg border border-border bg-background p-5 ${className}`}
+      className="rounded-lg border border-border bg-background p-5"
     >
       <div className="text-xs font-semibold text-primary">第 {step} 步</div>
       <div className="mt-1 font-semibold">{title}</div>
@@ -192,9 +199,14 @@ export default async function AcademicPage(): Promise<JSX.Element> {
   let fetchFailed = false;
   try {
     algorithms = await getAlgorithms();
-  } catch {
+  } catch (err) {
+    // Log so a production "引用列表暂时不可用" leaves an operator signal.
+    console.error("[/academic] catalog fetch failed:", err);
     fetchFailed = true;
   }
+  // An empty catalog is as useless to a scholar as a failed fetch — show the
+  // same graceful-degrade card rather than a dangling heading + empty grid.
+  const citationsUnavailable = fetchFailed || algorithms.length === 0;
 
   return (
     <main className="flex min-h-screen flex-col">
@@ -292,14 +304,12 @@ export default async function AcademicPage(): Promise<JSX.Element> {
               title="论文带来新学者"
               body="引用图谱上每多一个指向我们的节点，就有更多学者看见 OptiCloud。"
               source="Story 6.A.3 自动追踪"
-              className="md:col-start-2 md:row-start-3"
             />
             <FlywheelCard
               step={4}
               title="飞轮转起来"
               body="更多学者上车 → 更多论文 → 更多引用，自我强化。"
               source="Innovation #3"
-              className="md:col-start-1 md:row-start-3"
             />
           </div>
           <p
@@ -318,14 +328,15 @@ export default async function AcademicPage(): Promise<JSX.Element> {
       {/* Citations */}
       <section
         id="citations"
+        tabIndex={-1}
         className="scroll-mt-8 bg-background py-16"
         aria-labelledby="citations-heading"
       >
         <div className="mx-auto max-w-5xl px-6">
           <h2 id="citations-heading" className="text-balance text-2xl font-semibold">
-            引用 {algorithms.length > 0 ? algorithms.length : ""} 个算法
+            {citationsUnavailable ? "算法引用列表" : `引用 ${algorithms.length} 个算法`}
           </h2>
-          {fetchFailed ? (
+          {citationsUnavailable ? (
             <div className="mt-6">
               <StatusCard
                 variant="warning"

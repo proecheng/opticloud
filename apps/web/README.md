@@ -2,15 +2,15 @@
 
 OptiCloud Web Console — **Next.js 15 App Router**.
 
-**Currently implemented**: Story 1.1a + 1.1b — J1 Vertical Slice (Landing → Signup → Welcome with API Key Modal + Postman 一键导入).
+**Currently implemented**: Story 1.1a + 1.1b + 1.8 — J1 Vertical Slice (Landing → Signup → 5-step Onboarding Wizard → Welcome with API Key Modal + Postman 一键导入).
 
 ## Routes
 
 | Route | Story | Description |
 |---|---|---|
 | `/` | — | Landing page (UX Direction: Engineer-First / 实证克制) |
-| `/auth/signup` | **1.1a** | 手机+邮箱注册表单 |
-| `/welcome` | **1.1b** | 注册成功 + 自动创建 API Key + ConfirmationModal + Postman 导入 |
+| `/auth/signup` | **1.1a / 1.8** | 手机+邮箱注册表单 + Onboarding Wizard step 1-2 |
+| `/welcome` | **1.1b / 1.8** | 注册成功 + 自动创建 API Key + ConfirmationModal + Postman 导入 + Hello World completion |
 | `/404` | — | EmptyState fallback (Recovery-Forward direction) |
 
 ## Prereqs
@@ -38,16 +38,19 @@ pnpm dev
 1. Open http://localhost:3000 — Landing page
 2. Click "立即注册"
 3. Fill `+8613800138000` + `you@example.com` → "立即注册 →"
-4. Auto-redirect to `/welcome`
-5. ConfirmationModal pops up with full `sk-XXX_...` API Key + cURL example
-6. Click "复制 cURL" → check clipboard
-7. Click "📥 导入 Postman" → download `opticloud-postman-collection.json`
-8. Verify API Key card shows masked key + Reveal toggle (CRG12)
+4. Verify the 5-step Onboarding Wizard appears and marks 注册 / 验证 complete
+5. Auto-redirect to `/welcome`
+6. ConfirmationModal pops up with full `sk-XXX_...` API Key + cURL example
+7. Click "复制 cURL" → check clipboard
+8. Click "📥 导入 Postman" → download `opticloud-postman-collection.json`
+9. Click "试跑 LP 求解" and verify the wizard marks Hello World complete
+10. Verify API Key card shows masked key + Reveal toggle (CRG12)
 
 ## Architecture references
 
 - **Story 1.1a** Web UI 注册 + API Key（FR A1 + A2）
 - **Story 1.1b** ConfirmationModal + cURL + Postman 一键导入（FG1.1 Critical）
+- **Story 1.8** Onboarding Wizard ≤5 steps（FR A9）
 - **CRG12** API Key mask + Reveal toggle + Modal warning
 - **FG1.1** Postman Workspace M1 Critical
 - **P75** Persona-Surface Mapping — 李工 cURL surface

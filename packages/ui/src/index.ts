@@ -50,6 +50,14 @@ export type { SparklineKPIProps } from "./components/SparklineKPI";
 export { StatusCard } from "./components/StatusCard";
 export type { StatusCardProps, StatusVariant } from "./components/StatusCard";
 
+export { SignupWizard } from "./components/SignupWizard";
+export type {
+  SignupWizardProps,
+  SignupWizardStep,
+  SignupWizardStepState,
+  SignupWizardSupportPrompt,
+} from "./components/SignupWizard";
+
 export { Toast } from "./components/Toast";
 export type { ToastProps, ToastVariant } from "./components/Toast";
 

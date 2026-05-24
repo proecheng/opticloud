@@ -572,15 +572,42 @@ Executed T1–T6 in story-spec order. One refinement beyond spec during T5: `/ac
 ### Change Log
 
 - 2026-05-20 — Story 6.A.2 implementation: /academic SSR Landing 页 (hero + 学界变现飞轮 4-card diagram + 8-citation grid + edu-tier CTA) + CodeBlock extraction to shared component + landing-page 学术合作 nav link + 5 Playwright tests. Second pillar of Epic 6.A Innovation #3 arc.
-- 2026-05-20 — Post-implementation code review complete: patched hostname-specific solver URL normalization and flywheel DOM/mobile reading order; `pnpm -C apps/web typecheck` green.
+- 2026-05-20 — Post-implementation code review complete: patched hostname-specific solver URL normalization, flywheel DOM/mobile reading order, and the remaining a11y/test hardening items; `pnpm -C apps/web typecheck` green.
 
 ### Post-Implementation Code Review
 
-**Result:** PASS after two review patches.
+**Result:** PASS after review patches.
 
 Findings fixed:
 - P2 — `SOLVER_BASE.replace("localhost", "127.0.0.1")` could rewrite non-host text in unusual URLs. Replaced with `new URL(...)` hostname normalization and trailing-slash trimming fallback.
 - P2 — Current desktop flywheel patch placed step 4 before step 3 in DOM/mobile reading order. Restored DOM order to 1→2→3→4 and used responsive grid placement to keep the desktop visual loop.
+- P2 — Additional review hardening kept the SSR render resilient to non-array catalog payloads, hung upstream fetches, empty catalog responses, and incomplete external-link assertions.
 
 Verification:
 - `pnpm -C apps/web typecheck` ✅
+
+### Review Findings
+
+Triaged from parallel adversarial review (2026-05-20: Blind Hunter / Edge Case Hunter / Acceptance Auditor). 17 unique findings after dedupe. Statuses below reflect final state after patches.
+
+**Patches applied:**
+
+- [x] [Review][Patch] `res.json() as Algorithm[]` is an unchecked cast — a non-array 200 response (e.g. an error envelope) passes `res.ok`, then `algorithms.map()` throws **at render time, outside the try/catch** → hard 500. Add `Array.isArray` guard inside `getAlgorithms` so a bad shape routes into the existing catch. **[HIGH]** [apps/web/src/app/academic/page.tsx]
+- [x] [Review][Patch] `SOLVER_BASE.replace("localhost", "127.0.0.1")` is an unanchored, case-sensitive substring replace — could mangle a prod host like `localhost-svc` or miss `LOCALHOST`. Anchor to the host position with a regex. [apps/web/src/app/academic/page.tsx]
+- [x] [Review][Patch] Server-side `fetch` has no timeout — a hung (but TCP-accepting) solver-orchestrator hangs the RSC render until platform timeout instead of falling to graceful-degrade. Add `AbortSignal.timeout(5000)`. [apps/web/src/app/academic/page.tsx]
+- [x] [Review][Patch] `catch { fetchFailed = true }` swallows every error with zero logging — production "引用列表暂时不可用" has no operator signal. Add `console.error`. [apps/web/src/app/academic/page.tsx]
+- [x] [Review][Patch] Empty-array success (`200 []`) skips the graceful-degrade branch (only thrown errors set `fetchFailed`) — renders a dangling heading `引用  个算法` (double space) + empty grid. Treat `algorithms.length === 0` like `fetchFailed`. [apps/web/src/app/academic/page.tsx]
+- [x] [Review][Patch] Playwright tests use `waitUntil: "networkidle"` (discouraged/flaky in modern Playwright). Dropped from all 4 `page.goto` calls — web-first `expect().toBeVisible()` already auto-waits. **Partial**: the reviewers also asked for a graceful-degrade test. Attempted via `page.route("**/v1/algorithms")` then reverted — `/academic` fetches the catalog **server-side** (SSR), and `page.route` only intercepts **browser**-issued requests, so it cannot make the SSR fetch fail. A route-block test would pass without ever exercising the degrade branch (false confidence). Left a code comment in the spec explaining why; testing that branch needs a backend-down harness the shared e2e job doesn't provide. [e2e/tests/academic-page.spec.ts]
+- [x] [Review][Patch] The `force-dynamic` + `next: { revalidate: 300 }` comment claims a "5-min data cache for thundering-herd protection" that does not reliably exist under `force-dynamic` (route opts out of caching). Correct the misleading comment. [apps/web/src/app/academic/page.tsx]
+- [x] [Review][Patch] Hero "↓ 跳到引用列表" jumps to `#citations`, a `<section>` with no `tabIndex` — keyboard/SR focus does not move into the section (AC8 claimed it would). Add `tabIndex={-1}`. [apps/web/src/app/academic/page.tsx]
+- [x] [Review][Patch] All 4 flywheel cards share `aria-describedby="flywheel-explainer"` pointing at the long paragraph below — a screen reader reads the whole paragraph 4×. Remove `aria-describedby` from the cards; the paragraph stands as section content. [apps/web/src/app/academic/page.tsx]
+- [x] [Review][Patch] DOI-link test only asserts `rel` contains `noopener` — would still pass if a future edit dropped `noreferrer` or `target=_blank` (AC8 "MUST"). Strengthen the assertion. [e2e/tests/academic-page.spec.ts]
+
+**Dismissed** (noise / false positive / out-of-scope):
+
+- `lang="bash"` is a semantic mislabel for BibTeX content — true, but `label="BibTeX"` already overrides all display output; widening the shared `CodeBlock` `lang` union to add `"bibtex"` would touch the component contract + 6.A.1 callers. Out of scope; the rendered output is correct.
+- Two `<header>` landmarks on the page — the `<article><header>` is valid scoped HTML5 usage; not a real issue (Blind Hunter conceded "valid technically").
+- `/academic` header omits 文档 / 定价 nav links present on the landing page — a focused marketing landing page intentionally runs a leaner nav; AC1 did not enumerate exact items.
+- Edu-CTA copy reworded (dropped the literal `edu_tier=true` token) — copy polish; substance preserved, truth-check against Story 1.4 still holds.
+
+**AC1 deviation note (acknowledged, not a finding):** `force-dynamic` was added beyond the spec's `revalidate: 300` to prevent the e2e build from baking a stale graceful-degrade prerender (build runs before the backgrounded solver-orchestrator is up). All 3 reviewers agreed the rationale holds. The `localhost`→`127.0.0.1` IPv4 normalization is the second deviation (server-component Node fetch resolves `localhost`→`::1`); now documented in the Implementation Plan above and hardened by the anchored-regex patch.

@@ -9,12 +9,9 @@ import asyncio
 import os
 import sys
 from collections.abc import AsyncIterator
+from pathlib import Path
 
 import pytest_asyncio
-from auth_service import security
-from auth_service.config import settings
-from auth_service.db import get_session
-from auth_service.main import app
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
@@ -22,6 +19,20 @@ from sqlalchemy.ext.asyncio import (
     async_sessionmaker,
     create_async_engine,
 )
+
+ROOT = Path(__file__).resolve().parents[3]
+for path in (
+    ROOT / "apps" / "auth-service" / "src",
+    ROOT / "apps" / "solver-orchestrator" / "src",
+    ROOT / "packages" / "shared-py",
+    ROOT / "packages" / "python-sdk" / "src",
+):
+    sys.path.insert(0, str(path))
+
+from auth_service import security  # noqa: E402
+from auth_service.config import settings  # noqa: E402
+from auth_service.db import get_session  # noqa: E402
+from auth_service.main import app  # noqa: E402
 
 if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())

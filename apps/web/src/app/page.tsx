@@ -18,6 +18,9 @@ export default function LandingPage(): JSX.Element {
             >
               算法目录
             </Link>
+            <Link href="/auth/login" className="text-muted-foreground hover:text-foreground">
+              立即登录
+            </Link>
             <Link
               href="/academic"
               className="text-muted-foreground hover:text-foreground"

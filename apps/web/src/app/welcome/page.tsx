@@ -7,6 +7,7 @@
  */
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
@@ -14,6 +15,7 @@ import {
   APIKeyManager,
   ConfirmationModal,
   RFC7807Panel,
+  SignupWizard,
   StatusCard,
 } from "@opticloud/ui";
 
@@ -24,10 +26,23 @@ import {
   createApiKey,
   postOptimization,
 } from "@/lib/api";
+import {
+  buildOnboardingSteps,
+  createInitialOnboardingState,
+  dismissOnboarding,
+  loadOnboardingState,
+  markOnboardingStep,
+  markSupportPromptShown,
+  resumeOnboarding,
+  saveOnboardingState,
+  shouldShowOnboardingSupport,
+} from "@/lib/onboarding";
 import { downloadPostmanCollection } from "@/lib/postman";
 
 const SOLVER_URL =
   process.env.NEXT_PUBLIC_SOLVER_SERVICE_URL ?? "http://localhost:8002";
+const QUICKSTART_URL = "/docs/quickstart";
+const EXCEL_CONSOLE_URL = "/console/excel";
 
 export default function WelcomePage(): JSX.Element {
   const router = useRouter();
@@ -40,13 +55,22 @@ export default function WelcomePage(): JSX.Element {
   const [solving, setSolving] = useState(false);
   const [lpResult, setLpResult] = useState<OptimizationResponse | null>(null);
   const [lpError, setLpError] = useState<OptiCloudClientError | null>(null);
+  const [wizardState, setWizardState] = useState(() =>
+    createInitialOnboardingState(null),
+  );
+  const [supportVisible, setSupportVisible] = useState(false);
 
   useEffect(() => {
     const jwt = sessionStorage.getItem("jwt_access");
+    const userId = sessionStorage.getItem("user_id");
     if (!jwt) {
       router.push("/auth/signup");
       return;
     }
+    const loaded = loadOnboardingState(sessionStorage, userId);
+    const verified = markOnboardingStep(loaded, "verify", "complete");
+    setWizardState(verified);
+    saveOnboardingState(sessionStorage, verified);
     void (async () => {
       try {
         const result = await createApiKey(jwt, {
@@ -54,12 +78,29 @@ export default function WelcomePage(): JSX.Element {
           scope: ["optimize:write", "predict:write", "billing:read"],
         });
         setApiKey(result);
+        const withKey = markOnboardingStep(verified, "api-key", "complete");
+        setWizardState(withKey);
+        saveOnboardingState(sessionStorage, withKey);
         setModalOpen(true);
       } catch (err) {
         setError(String((err as Error).message));
       }
     })();
   }, [router]);
+
+  useEffect(() => {
+    if (wizardState.completed || wizardState.dismissed) return;
+    const timeout = window.setInterval(() => {
+      if (modalOpen) return;
+      if (shouldShowOnboardingSupport(wizardState)) {
+        const shown = markSupportPromptShown(wizardState);
+        setWizardState(shown);
+        saveOnboardingState(sessionStorage, shown);
+        setSupportVisible(true);
+      }
+    }, 1000);
+    return () => window.clearInterval(timeout);
+  }, [modalOpen, wizardState]);
 
   if (error) {
     return (
@@ -101,6 +142,9 @@ export default function WelcomePage(): JSX.Element {
 
   const handlePostman = (): void => {
     downloadPostmanCollection({ apiKey: apiKey.api_key });
+    const next = markOnboardingStep(wizardState, "postman", "complete");
+    setWizardState(next);
+    saveOnboardingState(sessionStorage, next);
   };
 
   const handleSolve = async (): Promise<void> => {
@@ -125,6 +169,11 @@ export default function WelcomePage(): JSX.Element {
         },
       });
       setLpResult(result);
+      if (result.status === "completed") {
+        const next = markOnboardingStep(wizardState, "hello-world", "complete");
+        setWizardState(next);
+        saveOnboardingState(sessionStorage, next);
+      }
     } catch (err) {
       if (err instanceof OptiCloudClientError) {
         setLpError(err);
@@ -145,6 +194,38 @@ export default function WelcomePage(): JSX.Element {
   return (
     <main className="min-h-screen bg-muted p-4">
       <div className="mx-auto max-w-3xl py-12">
+        <SignupWizard
+          className="mb-6"
+          ariaLabel="onboarding.welcome"
+          title="5 步跑通 Hello World"
+          description="你已进入 API Key、Postman 和第一个 LP 求解阶段。"
+          steps={buildOnboardingSteps(wizardState)}
+          onSkip={() => {
+            const dismissed = dismissOnboarding(wizardState);
+            setWizardState(dismissed);
+            setSupportVisible(false);
+            saveOnboardingState(sessionStorage, dismissed);
+          }}
+          onResume={() => {
+            const resumed = resumeOnboarding(wizardState);
+            setWizardState(resumed);
+            setSupportVisible(false);
+            saveOnboardingState(sessionStorage, resumed);
+          }}
+          supportPrompt={{
+            visible: supportVisible,
+            title: "还没跑通？",
+            description: "继续引导、打开 quickstart，或稍后再试。这个提示不会阻塞当前页面。",
+            actionLabel: "继续引导",
+            onAction: () => setSupportVisible(false),
+            dismissLabel: "稍后",
+            onDismiss: () => setSupportVisible(false),
+            secondaryAction: {
+              label: "打开 quickstart",
+              href: QUICKSTART_URL,
+            },
+          }}
+        />
         <header className="mb-8 text-center">
           <div className="mb-3 text-5xl" aria-hidden="true">
             🎉
@@ -289,8 +370,18 @@ export default function WelcomePage(): JSX.Element {
               </a>
             </li>
             <li>
+              📊{" "}
+              <Link
+                href={EXCEL_CONSOLE_URL}
+                data-testid="welcome-excel-upload-link"
+                className="text-primary hover:underline"
+              >
+                上传 Excel
+              </Link>
+            </li>
+            <li>
               📖{" "}
-              <a href="/docs/quickstart" className="text-primary hover:underline">
+              <a href={QUICKSTART_URL} className="text-primary hover:underline">
                 查看完整 Hello World 三件套文档
               </a>
             </li>

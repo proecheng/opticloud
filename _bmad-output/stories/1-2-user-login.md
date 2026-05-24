@@ -3,7 +3,7 @@ story_key: 1-2-user-login
 epic_num: 1
 story_num: 1.2
 epic_name: Account & Identity
-status: ready-for-dev
+status: done
 priority: 🟢 High (demo gap — round-trip incomplete without login; FR A1 partner — signup-only currently)
 sizing: M-L (~5 hours; OTP table + 2 endpoints + web 2-step form + tests)
 type: implementation
@@ -352,3 +352,52 @@ Auth-service URL is already wired via `AUTH_SERVICE_URL` constant.
 | Security | TBA | ☐ | — |
 
 > Owner committee deferred per M0 skip.
+
+---
+
+## Dev Agent Record
+
+### Agent Model Used
+
+claude-opus-4-7 (handoff)
+
+### Implementation Plan
+
+Executed AC1–AC10 in story order. One local-only deviation from the spec: `apps/auth-service/tests/conftest.py` keeps an explicit `sys.path` bootstrap so `uv run pytest` works on Windows in this workspace path. That change is test-only and does not affect the deployed app.
+
+### Debug Log References
+
+- 2026-05-20 — `uv sync --all-packages --extra dev` required so `asyncpg` and the dev test deps were available in `.venv`.
+- 2026-05-20 — `uv run pytest apps/auth-service/tests/test_login_routes.py -v` passed 8/8.
+- 2026-05-20 — `uv run pytest apps/auth-service/tests/ -v` passed 37/37.
+- 2026-05-20 — `pnpm -C apps/web build` passed after the `/auth/login` page and nav link landed.
+
+### Completion Notes
+
+- AC1 ✅ — `infra/local-init/06-user-otps.sql` adds `user_otps` with TTL and unused-index support.
+- AC2-AC3 ✅ — `/v1/auth/otp/request` and `/v1/auth/login` are implemented with frozen-user checks, OTP invalidation, JWT minting, and audit logging.
+- AC4-AC5 ✅ — `OTPRequestBody`, `OTPRequestResponse`, `LoginRequest`, `LoginResponse`, and `UserOTP` are wired into auth-service.
+- AC6-AC7 ✅ — `/auth/login` page, `requestOTP()`, and `login()` helpers are in web; JWT is written to both storage locations so existing authenticated pages keep working.
+- AC8 ✅ — 8 route tests cover unknown user, happy path, invalidation, wrong OTP, expired OTP, replay, and frozen user.
+- AC9-AC10 ✅ — auth-service schema is applied in CI and the web build passes.
+
+### File List
+
+**Created:**
+- `infra/local-init/06-user-otps.sql`
+- `apps/auth-service/tests/test_login_routes.py`
+- `apps/web/src/app/auth/login/page.tsx`
+
+**Modified:**
+- `apps/auth-service/src/auth_service/routes.py`
+- `apps/auth-service/src/auth_service/models.py`
+- `apps/auth-service/src/auth_service/schemas.py`
+- `apps/auth-service/src/auth_service/config.py`
+- `apps/auth-service/tests/conftest.py`
+- `apps/web/src/lib/api.ts`
+- `apps/web/src/app/page.tsx`
+- `.github/workflows/ci.yml`
+
+### Change Log
+
+- 2026-05-20 — Story 1.2 implementation closed: OTP request/login backend, login page, shared API helpers, test suite, and CI schema wiring landed; story status moved to done.
