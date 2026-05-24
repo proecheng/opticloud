@@ -23,6 +23,7 @@ from starlette.responses import Response
 
 from auth_service import __version__
 from auth_service.admin_routes import admin_router
+from auth_service.frozen_appeals import router as frozen_appeals_router
 from auth_service.routes import health_router, router
 
 
@@ -60,6 +61,7 @@ FastAPIInstrumentor.instrument_app(app)
 
 app.include_router(health_router)
 app.include_router(router)
+app.include_router(frozen_appeals_router)
 app.include_router(admin_router)
 
 

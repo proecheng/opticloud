@@ -7,7 +7,7 @@
  */
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { RFC7807Panel, StatusCard } from "@opticloud/ui";
@@ -40,13 +40,23 @@ export default function LoginPage(): JSX.Element {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<OptiCloudClientError | null>(null);
 
-  const errorMessage =
-    error?.status === 404
+  const frozenAppealUrl = useMemo(() => {
+    const params = new URLSearchParams();
+    if (phone) params.set("phone", phone);
+    if (email) params.set("email", email);
+    const qs = params.toString();
+    return qs ? `/auth/frozen-appeal?${qs}` : "/auth/frozen-appeal";
+  }, [email, phone]);
+
+  const isFrozen = error?.status === 403 && error.detail === "account frozen";
+  const errorMessage = isFrozen
+    ? "账户已冻结，请继续申诉流程"
+    : error?.status === 404
       ? "No account found for this phone/email"
-      : error?.status === 403
-        ? "Account frozen, contact support"
-        : error?.status === 401
-          ? "Invalid or expired OTP, try again"
+      : error?.status === 401
+        ? "Invalid or expired OTP, try again"
+        : error?.status === 403
+          ? "Account frozen, contact support"
           : null;
 
   const handleRequestOTP = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
@@ -142,7 +152,17 @@ export default function LoginPage(): JSX.Element {
 
         {error && (
           <div className="mb-4">
-            {errorMessage ? (
+            {isFrozen ? (
+              <RFC7807Panel
+                payload={{
+                  title: error.title,
+                  status: error.status,
+                  detail: error.detail,
+                  errors: error.errors,
+                  next_action_url: error.next_action_url ?? frozenAppealUrl,
+                }}
+              />
+            ) : errorMessage ? (
               <StatusCard
                 variant="error"
                 title="登录失败"
@@ -218,6 +238,17 @@ export default function LoginPage(): JSX.Element {
                 立即注册
               </a>
             </p>
+            {isFrozen && (
+              <p className="mt-3 text-center text-xs">
+                <a
+                  href={frozenAppealUrl}
+                  className="text-primary hover:underline"
+                  data-testid="frozen-appeal-cta"
+                >
+                  前往冻结申诉
+                </a>
+              </p>
+            )}
           </form>
         )}
 

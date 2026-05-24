@@ -53,6 +53,35 @@ export interface ApiError {
   next_action_url?: string;
 }
 
+function extractErrorDetail(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (Array.isArray(value)) {
+    const first = value[0];
+    if (first && typeof first === "object" && "msg" in first && typeof first.msg === "string") {
+      return first.msg;
+    }
+    return JSON.stringify(value);
+  }
+  if (value && typeof value === "object") {
+    return JSON.stringify(value);
+  }
+  return "Request failed";
+}
+
+function normalizeErrorPayload(status: number, body: unknown): ApiError {
+  const payload = body && typeof body === "object" ? (body as Record<string, unknown>) : {};
+  return {
+    status,
+    title: typeof payload.title === "string" ? payload.title : "Request failed",
+    detail: extractErrorDetail(payload.detail),
+    errors: Array.isArray(payload.errors)
+      ? (payload.errors as ApiError["errors"])
+      : undefined,
+    next_action_url:
+      typeof payload.next_action_url === "string" ? payload.next_action_url : undefined,
+  };
+}
+
 export class OptiCloudClientError extends Error {
   status: number;
   title: string;
@@ -90,14 +119,8 @@ async function request<T>(
   if (!response.ok) {
     let payload: ApiError;
     try {
-      const body = (await response.json()) as Partial<ApiError>;
-      payload = {
-        status: response.status,
-        title: body.title ?? "Unknown Error",
-        detail: body.detail ?? "Request failed",
-        errors: body.errors,
-        next_action_url: body.next_action_url,
-      };
+      const body = (await response.json()) as unknown;
+      payload = normalizeErrorPayload(response.status, body);
     } catch {
       payload = {
         status: response.status,
@@ -303,6 +326,59 @@ export interface LoginRequest extends OTPRequestBody {
   email_otp: string;
 }
 
+export interface FrozenAppealStartRequest extends OTPRequestBody {}
+
+export interface FrozenAppealRiskSummary {
+  total_flag_count: number;
+  latest_rule_codes: string[];
+  latest_flag_at: string | null;
+  risk_score: number;
+}
+
+export interface FrozenAppealProposalRequest {
+  tracking_token: string;
+  duplicate_user_ids: string[];
+  reason: string;
+  contact_email: string;
+  supporting_note?: string | null;
+  team_size?: number | null;
+}
+
+export type FrozenAppealNextAction =
+  | "submit_proposal"
+  | "await_review"
+  | "accept_merge"
+  | "completed"
+  | "contact_support";
+
+export interface FrozenAppealStartResponse {
+  appeal_id: string;
+  status: "started" | "proposal_submitted" | "accepted" | "expired";
+  user_id: string;
+  tracking_token: string;
+  tracking_url: string;
+  expires_at: string;
+  risk_summary: FrozenAppealRiskSummary;
+  proposal: AccountMergeProposalResponse | null;
+  next_action: FrozenAppealNextAction;
+}
+
+export interface FrozenAppealStatusResponse {
+  appeal_id: string;
+  status: "started" | "proposal_submitted" | "accepted" | "expired";
+  expires_at: string;
+  last_viewed_at: string | null;
+  risk_summary: FrozenAppealRiskSummary;
+  proposal: AccountMergeProposalResponse | null;
+  next_action: FrozenAppealNextAction;
+}
+
+export interface FrozenAppealAcceptRequest {
+  tracking_token: string;
+}
+
+export interface FrozenAppealAcceptResponse extends FrozenAppealStatusResponse {}
+
 export async function requestOTP(body: OTPRequestBody): Promise<OTPRequestResponse> {
   return request<OTPRequestResponse>(
     "/v1/auth/otp/request",
@@ -315,6 +391,56 @@ export async function login(body: LoginRequest): Promise<SignupResponse> {
   return request<SignupResponse>(
     "/v1/auth/login",
     { method: "POST", body: JSON.stringify(body) },
+    AUTH_SERVICE_URL,
+  );
+}
+
+export async function startFrozenAppeal(
+  body: FrozenAppealStartRequest,
+): Promise<FrozenAppealStartResponse> {
+  return request<FrozenAppealStartResponse>(
+    "/v1/auth/frozen-appeals/start",
+    { method: "POST", body: JSON.stringify(body) },
+    AUTH_SERVICE_URL,
+  );
+}
+
+export async function getFrozenAppeal(
+  appealId: string,
+  trackingToken: string,
+): Promise<FrozenAppealStatusResponse> {
+  const params = new URLSearchParams({ tracking_token: trackingToken });
+  return request<FrozenAppealStatusResponse>(
+    `/v1/auth/frozen-appeals/${encodeURIComponent(appealId)}?${params.toString()}`,
+    {},
+    AUTH_SERVICE_URL,
+  );
+}
+
+export async function submitFrozenAppealProposal(
+  appealId: string,
+  body: FrozenAppealProposalRequest,
+): Promise<FrozenAppealStatusResponse> {
+  return request<FrozenAppealStatusResponse>(
+    `/v1/auth/frozen-appeals/${encodeURIComponent(appealId)}/proposal`,
+    {
+      method: "POST",
+      body: JSON.stringify(body),
+    },
+    AUTH_SERVICE_URL,
+  );
+}
+
+export async function acceptFrozenAppeal(
+  appealId: string,
+  body: FrozenAppealAcceptRequest,
+): Promise<FrozenAppealAcceptResponse> {
+  return request<FrozenAppealAcceptResponse>(
+    `/v1/auth/frozen-appeals/${encodeURIComponent(appealId)}/accept`,
+    {
+      method: "POST",
+      body: JSON.stringify(body),
+    },
     AUTH_SERVICE_URL,
   );
 }
