@@ -7,6 +7,7 @@
  */
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
@@ -43,6 +44,7 @@ import { downloadPostmanCollection } from "@/lib/postman";
 const SOLVER_URL =
   process.env.NEXT_PUBLIC_SOLVER_SERVICE_URL ?? "http://localhost:8002";
 const QUICKSTART_URL = "/docs/quickstart";
+const EXCEL_CONSOLE_URL = "/console/excel";
 
 export default function WelcomePage(): JSX.Element {
   const router = useRouter();
@@ -386,6 +388,15 @@ export default function WelcomePage(): JSX.Element {
               <a href="/algorithms" className="text-primary hover:underline">
                 {t("next.algorithms")}
               </a>
+            </li>
+            <li>
+              <Link
+                href={EXCEL_CONSOLE_URL}
+                data-testid="welcome-excel-upload-link"
+                className="text-primary hover:underline"
+              >
+                {t("next.excel")}
+              </Link>
             </li>
             <li>
               <a href={QUICKSTART_URL} className="text-primary hover:underline">

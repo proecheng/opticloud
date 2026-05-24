@@ -122,7 +122,7 @@ development_status:
   3-e-6-excel-result-download: done                # 2026-05-19 — FR E11 ship: closes upload→download Excel arc; pure-client SheetJS via dynamic import keeps initial bundle small (+1.8 KB on /console/excel route); per-task-type Results sheet (mock with 🚧 demo_marker for 501; real for solved) + Summary sheet (key/value run metadata); 3 preview cards (VRPTW/Schedule/Inventory) each show 📥 button on solved-or-501; xlsx promoted from devDep → dep; +7 Vitest in excel-export.test.ts (38 total) + 1 Playwright; sprint-status BUNDLED into this PR's commit (lesson from 2.5/#26)
   3-e-7-excel-chart-embedding: backlog         # 老张-1 (v1 末)
   3-e-8-zh-ux-friendly-voice: backlog          # 老张-2
-  3-e-9-laozhang-vertical-slice-e2e: backlog
+  3-e-9-laozhang-vertical-slice-e2e: done
 
   # ===== Epic 4.A/B/C: Chat & NL (19 stories) — M3 AIGC gated =====
   epic-4-a: backlog

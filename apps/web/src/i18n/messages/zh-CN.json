@@ -122,6 +122,7 @@
     "next": {
       "title": "下一步",
       "algorithms": "浏览 8 个支持的算法（公开免鉴权 catalog）",
+      "excel": "上传 Excel",
       "quickstart": "查看完整 Hello World 三件套文档",
       "credits": "查看 Credits 余额（已赠送 200 Credits）"
     }
