@@ -3,14 +3,26 @@
 Mirrors the billing-service pattern: session-scoped engine + per-test client.
 """
 
+# ruff: noqa: E402
+
 from __future__ import annotations
 
 import asyncio
 import os
 import sys
 from collections.abc import AsyncIterator
+from pathlib import Path
 
 import pytest_asyncio
+
+APP_SRC_DIR = Path(__file__).resolve().parents[1] / "src"
+ROOT_DIR = Path(__file__).resolve().parents[3]
+SHARED_PKG_DIR = ROOT_DIR / "packages" / "shared-py"
+SOLVER_SRC_DIR = ROOT_DIR / "apps" / "solver-orchestrator" / "src"
+for path in (APP_SRC_DIR, SHARED_PKG_DIR, SOLVER_SRC_DIR):
+    if str(path) not in sys.path:
+        sys.path.insert(0, str(path))
+
 from auth_service import security
 from auth_service.config import settings
 from auth_service.db import get_session
@@ -111,6 +123,42 @@ async def _ensure_account_merge_schema(engine: AsyncEngine) -> None:
             text(
                 "CREATE INDEX IF NOT EXISTS idx_account_merge_proposals_status_due "
                 "ON account_merge_proposals(status, review_due_at)"
+            )
+        )
+        await s.execute(
+            text(
+                """
+                CREATE TABLE IF NOT EXISTS account_freeze_appeals (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    proposal_id UUID NULL REFERENCES account_merge_proposals(id) ON DELETE SET NULL,
+                    tracking_token_hash TEXT NOT NULL UNIQUE,
+                    status VARCHAR(32) NOT NULL DEFAULT 'started',
+                    contact_email VARCHAR(255) NOT NULL,
+                    expires_at TIMESTAMPTZ NOT NULL,
+                    last_viewed_at TIMESTAMPTZ NULL,
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                )
+                """
+            )
+        )
+        await s.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS idx_account_freeze_appeals_user_created_at "
+                "ON account_freeze_appeals(user_id, created_at DESC)"
+            )
+        )
+        await s.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS idx_account_freeze_appeals_proposal "
+                "ON account_freeze_appeals(proposal_id) WHERE proposal_id IS NOT NULL"
+            )
+        )
+        await s.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS idx_account_freeze_appeals_expires_at "
+                "ON account_freeze_appeals(expires_at)"
             )
         )
         await s.execute(

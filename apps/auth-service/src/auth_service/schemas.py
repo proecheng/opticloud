@@ -191,6 +191,109 @@ class AccountMergeProposalResponse(BaseModel):
     next_action: str
 
 
+# ===== Story 1.12: frozen appeals =====
+
+
+class FrozenAuthErrorDetail(BaseModel):
+    field_path: str
+    value: str | None = None
+    constraint: str
+    remediation_hint_key: str
+
+
+class FrozenAuthErrorResponse(BaseModel):
+    status: int
+    title: str
+    detail: str
+    next_action_url: str | None = None
+    errors: list[FrozenAuthErrorDetail] = Field(default_factory=list)
+
+
+class FrozenAppealStartRequest(BaseModel):
+    phone: str = Field(..., description="E.164 phone number (e.g. +8613800138000)")
+    email: EmailStr
+
+    @field_validator("phone")
+    @classmethod
+    def _validate_phone(cls, v: str) -> str:
+        if not PHONE_PATTERN.match(v):
+            raise ValueError("phone must be E.164 format (e.g. +8613800138000)")
+        return v
+
+    @field_validator("email")
+    @classmethod
+    def _normalize_email(cls, v: EmailStr) -> EmailStr:
+        return str(v).lower()
+
+
+class FrozenAppealRiskSummary(BaseModel):
+    total_flag_count: int
+    latest_rule_codes: list[str]
+    latest_flag_at: datetime | None
+    risk_score: float
+
+
+class FrozenAppealStartResponse(BaseModel):
+    appeal_id: uuid.UUID
+    status: Literal["started", "proposal_submitted", "accepted", "expired"]
+    user_id: uuid.UUID
+    tracking_token: str
+    tracking_url: str
+    expires_at: datetime
+    risk_summary: FrozenAppealRiskSummary
+    proposal: AccountMergeProposalResponse | None = None
+    next_action: str | None = None
+
+
+class FrozenAppealProposalRequest(BaseModel):
+    tracking_token: str = Field(..., min_length=16, max_length=255)
+    duplicate_user_ids: list[uuid.UUID] = Field(..., min_length=1)
+    reason: str = Field(..., min_length=4, max_length=500)
+    contact_email: EmailStr
+    supporting_note: str | None = Field(default=None, max_length=1000)
+    team_size: int | None = Field(default=None, ge=1, le=50)
+
+    @field_validator("duplicate_user_ids")
+    @classmethod
+    def validate_duplicate_user_ids(cls, v: list[uuid.UUID]) -> list[uuid.UUID]:
+        if len(set(v)) != len(v):
+            raise ValueError("duplicate_user_ids must be unique")
+        return v
+
+
+class FrozenAppealStatusResponse(BaseModel):
+    appeal_id: uuid.UUID
+    status: Literal["started", "proposal_submitted", "accepted", "expired"]
+    expires_at: datetime
+    last_viewed_at: datetime | None
+    risk_summary: FrozenAppealRiskSummary
+    proposal: AccountMergeProposalResponse | None = None
+    next_action: Literal[
+        "submit_proposal",
+        "await_review",
+        "accept_merge",
+        "completed",
+        "contact_support",
+    ]
+
+
+class FrozenAppealAcceptRequest(BaseModel):
+    tracking_token: str = Field(..., min_length=16, max_length=255)
+
+
+class FrozenAppealAcceptResponse(BaseModel):
+    appeal_id: uuid.UUID
+    status: Literal["started", "proposal_submitted", "accepted", "expired"]
+    proposal: AccountMergeProposalResponse
+    next_action: Literal[
+        "submit_proposal",
+        "await_review",
+        "accept_merge",
+        "completed",
+        "contact_support",
+    ]
+
+
 class AccountMergeAdminReviewRequest(BaseModel):
     decision: Literal["approve", "reject"]
     reason: str = Field(..., min_length=1, max_length=1000)

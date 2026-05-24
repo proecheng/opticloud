@@ -79,6 +79,13 @@ class AuthSettings(BaseSettings):
         description="Dev HMAC pepper for guardian consent token hashes.",
     )
 
+    # ----- Story 1.12 — frozen appeal tracking token -----
+    freeze_appeal_token_pepper_dev: str = Field(
+        default="dev-freeze-appeal-pepper-do-not-use-in-prod-32-bytes",
+        alias="FREEZE_APPEAL_TOKEN_PEPPER_DEV",
+        description="Dev HMAC pepper for frozen appeal tracking token hashes.",
+    )
+
     # ----- Story 1.4 — edu tier auto-activation (FR A4 + B8) -----
     edu_signup_seed_amount: str = Field(
         default="2000.00",

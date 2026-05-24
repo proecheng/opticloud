@@ -86,6 +86,26 @@ def verify_guardian_consent_token(token: str, stored_hash: str) -> bool:
     return hmac.compare_digest(computed, stored_hash)
 
 
+# ===== Frozen Appeal Token Hashing (Story 1.12) =====
+
+
+def generate_freeze_appeal_token() -> str:
+    """Generate a URL-safe one-time frozen-appeal tracking token."""
+    return secrets.token_urlsafe(32)
+
+
+def hash_freeze_appeal_token(token: str) -> str:
+    """HMAC-SHA256 frozen-appeal token hash for DB persistence."""
+    pepper = settings.freeze_appeal_token_pepper_dev.encode("utf-8")
+    return hmac.new(pepper, token.encode("utf-8"), hashlib.sha256).hexdigest()
+
+
+def verify_freeze_appeal_token(token: str, stored_hash: str) -> bool:
+    """Constant-time frozen-appeal token verification."""
+    computed = hash_freeze_appeal_token(token)
+    return secrets.compare_digest(computed, stored_hash)
+
+
 # ===== JWT Ed25519 (D8) =====
 
 _jwt_private_key: Ed25519PrivateKey | None = None

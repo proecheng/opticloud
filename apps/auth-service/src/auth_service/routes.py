@@ -17,7 +17,7 @@ from sqlalchemy import and_, select, text, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from auth_service import account_deletion, account_merge, risk, security
+from auth_service import account_deletion, account_merge, frozen_appeals, risk, security
 from auth_service.config import settings
 from auth_service.db import get_session
 from auth_service.models import APIKey, AuditLog, GuardianConsentRequest, User, UserOTP
@@ -391,7 +391,7 @@ async def _invalidate_unused_otps(session: AsyncSession, user_id: uuid.UUID) -> 
 async def request_otp(
     body: OTPRequestBody,
     session: AsyncSession = Depends(get_session),
-) -> OTPRequestResponse:
+) -> OTPRequestResponse | JSONResponse:
     user = await _lookup_user(session, body.phone, body.email)
     if user is None:
         raise HTTPException(
@@ -404,9 +404,10 @@ async def request_otp(
             detail="account deleted",
         )
     if user.is_frozen:
-        raise HTTPException(
+        return JSONResponse(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="account frozen",
+            content=frozen_appeals.build_frozen_auth_error(),
+            media_type="application/problem+json",
         )
 
     await _invalidate_unused_otps(session, user.id)
@@ -488,7 +489,7 @@ async def _verify_otp(
 async def login(
     body: LoginRequest,
     session: AsyncSession = Depends(get_session),
-) -> LoginResponse:
+) -> LoginResponse | JSONResponse:
     user = await _lookup_user(session, body.phone, body.email)
     if user is None:
         raise HTTPException(
@@ -501,9 +502,10 @@ async def login(
             detail="account deleted",
         )
     if user.is_frozen:
-        raise HTTPException(
+        return JSONResponse(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="account frozen",
+            content=frozen_appeals.build_frozen_auth_error(),
+            media_type="application/problem+json",
         )
 
     # Verify BOTH OTPs without short-circuit (S1 — don't leak which failed first via timing).

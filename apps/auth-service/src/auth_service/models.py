@@ -22,6 +22,7 @@ from sqlalchemy import (
     String,
     Text,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import INET, JSONB, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
@@ -210,6 +211,44 @@ class AccountMergeProposal(Base):
     reviewed_by: Mapped[str | None] = mapped_column(String(255), nullable=True)
     decision_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class AccountFreezeAppeal(Base):
+    """Story 1.12 — frozen appeal tracking token + status ledger."""
+
+    __tablename__ = "account_freeze_appeals"
+    __table_args__ = (
+        Index("idx_account_freeze_appeals_user_created_at", "user_id", "created_at"),
+        Index(
+            "idx_account_freeze_appeals_proposal",
+            "proposal_id",
+            postgresql_where=text("proposal_id IS NOT NULL"),
+        ),
+        Index("idx_account_freeze_appeals_expires_at", "expires_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    proposal_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("account_merge_proposals.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    tracking_token_hash: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="started")
+    contact_email: Mapped[str] = mapped_column(String(255), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    last_viewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
