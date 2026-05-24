@@ -122,6 +122,7 @@
     "next": {
       "title": "Next",
       "algorithms": "Browse 8 supported public algorithms",
+      "excel": "Upload Excel",
       "quickstart": "Open the full Hello World quickstart",
       "credits": "View Credits balance (200 Credits granted)"
     }

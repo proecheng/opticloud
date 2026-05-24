@@ -9,7 +9,7 @@
  * baseURL: env var `PLAYWRIGHT_BASE_URL` (default http://localhost:3000).
  */
 
-import { defineConfig, devices } from "@playwright/test";
+import { devices } from "@playwright/test";
 
 const isCI = !!process.env.CI;
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
@@ -19,7 +19,7 @@ const PYTHON = process.env.PLAYWRIGHT_PYTHON ?? ".\\.venv\\Scripts\\python.exe";
 const AUTH_SERVER_COMMAND = `${PYTHON} scripts/start_service.py auth-service 8001`;
 const SOLVER_SERVER_COMMAND = `${PYTHON} scripts/start_service.py solver-orchestrator 8002`;
 
-export default defineConfig({
+export default {
   testDir: "./tests",
   fullyParallel: true,
   forbidOnly: isCI,
@@ -88,4 +88,4 @@ export default defineConfig({
           cwd: "..",
         },
       ],
-});
+};
