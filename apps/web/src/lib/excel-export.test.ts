@@ -1,6 +1,7 @@
-/** Story 3.E.6 — excel-export.ts Vitest. */
+/** Story 3.E.6/3.E.7 — excel-export.ts Vitest. */
 
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { Workbook } from "exceljs";
 import * as XLSX from "xlsx";
 
 import { buildResultWorkbook, type ExportRequest } from "./excel-export";
@@ -8,6 +9,18 @@ import type { ExcelWorkbookSummary } from "./excel";
 import type { VRPTWPayload } from "./vrptw-template";
 import type { SchedulePayload } from "./schedule-template";
 import type { InventoryPayload } from "./inventory-template";
+
+const PNG_1X1 =
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAFgwJ/lI3rWQAAAABJRU5ErkJggg==";
+
+vi.mock("echarts", () => ({
+  init: vi.fn(() => ({
+    setOption: vi.fn(),
+    on: vi.fn(),
+    getDataURL: vi.fn(() => PNG_1X1),
+    dispose: vi.fn(),
+  })),
+}));
 
 const SRC_SHEET = {
   name: "Sheet1",
@@ -103,27 +116,80 @@ async function readBack(blob: Blob): Promise<XLSX.WorkBook> {
   return XLSX.read(new Uint8Array(buf), { type: "array" });
 }
 
+async function readBackWithExcelJs(blob: Blob): Promise<Workbook> {
+  const workbook = new Workbook();
+  await workbook.xlsx.load((await blob.arrayBuffer()) as Buffer);
+  return workbook;
+}
+
+function rowsToMap(rows: unknown[][]): Map<unknown, unknown> {
+  return new Map(rows.map((row) => [row[0], row[1]]));
+}
+
 describe("buildResultWorkbook", () => {
-  it("VRPTW demo: input + Results + Summary sheets; rows = customer_count; demo_marker present", async () => {
+  beforeEach(() => {
+    const body = {
+      appendChild: vi.fn(),
+    } as unknown as HTMLElement;
+    vi.stubGlobal("document", {
+      body,
+      createElement: vi.fn(() => ({
+        style: {},
+        remove: vi.fn(),
+      })),
+    });
+    vi.stubGlobal("window", {
+      setTimeout: (handler: TimerHandler) => setTimeout(handler, 0),
+      clearTimeout,
+    });
+  });
+
+  it("VRPTW demo: adds Chart Preview sheet with two embedded images and chart metadata", async () => {
     const req: ExportRequest = {
       source: baseSource(),
       payload: VRPTW,
       status: "demo",
     };
     const { blob, sheetNames } = await buildResultWorkbook(req);
-    expect(sheetNames).toEqual(["输入 — Sheet1", "Results", "Summary"]);
+    expect(sheetNames).toEqual([
+      "输入 — Sheet1",
+      "Results",
+      "Summary",
+      "Chart Preview",
+    ]);
 
     const wb = await readBack(blob);
     expect(wb.SheetNames).toContain("Results");
     expect(wb.SheetNames).toContain("Summary");
+    expect(wb.SheetNames).toContain("Chart Preview");
 
-    const resultsRows = XLSX.utils.sheet_to_json<unknown[]>(wb.Sheets["Results"], {
-      header: 1,
-    });
+    const resultsRows = XLSX.utils.sheet_to_json<unknown[]>(
+      wb.Sheets["Results"],
+      {
+        header: 1,
+      },
+    );
     // header + 2 customers
     expect(resultsRows).toHaveLength(VRPTW.customers.length + 1);
     const lastRow = resultsRows[resultsRows.length - 1] as unknown[];
     expect(lastRow[lastRow.length - 1]).toBe("🚧 mock (M2-M3)");
+
+    const summaryRows = XLSX.utils.sheet_to_json<unknown[]>(
+      wb.Sheets["Summary"],
+      {
+        header: 1,
+      },
+    );
+    const summary = rowsToMap(summaryRows);
+    expect(summary.get("chart_mode")).toBe("derived_preview");
+    expect(summary.get("chart_source")).toBe("vrptw_payload");
+    expect(summary.get("chart_sheet_name")).toBe("Chart Preview");
+
+    const excelJsWorkbook = await readBackWithExcelJs(blob);
+    const chartSheet = excelJsWorkbook.getWorksheet("Chart Preview");
+    expect(chartSheet).toBeDefined();
+    expect(chartSheet!.getImages()).toHaveLength(2);
+    expect(excelJsWorkbook.model.media).toHaveLength(2);
   });
 
   it("Schedule demo: rows = task_count; resource assigned by modulo", async () => {
@@ -134,6 +200,8 @@ describe("buildResultWorkbook", () => {
     };
     const { blob } = await buildResultWorkbook(req);
     const wb = await readBack(blob);
+    expect(wb.SheetNames).toEqual(["输入 — Sheet1", "Results", "Summary"]);
+    expect(wb.SheetNames).not.toContain("Chart Preview");
     const rows = XLSX.utils.sheet_to_json<unknown[]>(wb.Sheets["Results"], {
       header: 1,
     });
@@ -152,6 +220,8 @@ describe("buildResultWorkbook", () => {
     };
     const { blob } = await buildResultWorkbook(req);
     const wb = await readBack(blob);
+    expect(wb.SheetNames).toEqual(["输入 — Sheet1", "Results", "Summary"]);
+    expect(wb.SheetNames).not.toContain("Chart Preview");
     const rows = XLSX.utils.sheet_to_json<unknown[]>(wb.Sheets["Results"], {
       header: 1,
     });
@@ -174,6 +244,7 @@ describe("buildResultWorkbook", () => {
     const rows = XLSX.utils.sheet_to_json<unknown[]>(wb.Sheets["Summary"], {
       header: 1,
     });
+    expect(wb.SheetNames).toContain("Chart Preview");
     const objRow = rows.find(
       (r) => Array.isArray(r) && (r as unknown[])[0] === "objective_value",
     ) as unknown[] | undefined;

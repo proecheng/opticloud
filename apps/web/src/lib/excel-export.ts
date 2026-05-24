@@ -19,8 +19,16 @@ import type { ExcelWorkbookSummary } from "./excel";
 import type { InventoryPayload } from "./inventory-template";
 import type { SchedulePayload } from "./schedule-template";
 import type { VRPTWPayload } from "./vrptw-template";
+import {
+  buildVrptwChartArtifact,
+  type VrptwChartContract,
+  type VrptwChartRequest,
+} from "./vrptw-chart";
 
-export type ExportablePayload = VRPTWPayload | SchedulePayload | InventoryPayload;
+export type ExportablePayload =
+  | VRPTWPayload
+  | SchedulePayload
+  | InventoryPayload;
 
 export type ExportResultStatus = "solved" | "demo";
 
@@ -36,6 +44,8 @@ export interface ExportRequest {
   submittedAt?: string;
   /** Optional original filename — surfaced in Summary sheet only (NOT used in output filename). */
   sourceFilename?: string;
+  /** Optional chart hook reserved for VRPTW route-backed previews. */
+  chart?: VrptwChartRequest;
 }
 
 export interface ExportedWorkbook {
@@ -65,10 +75,7 @@ function utcStampForFilename(d: Date): string {
 
 /** Truncate a sheet name to fit Excel's 31-char cap when combined with the input prefix.
  * Appends "(2)", "(3)", ... when the truncated name collides with an earlier sheet. */
-function truncateInputSheetName(
-  rawName: string,
-  used: Set<string>,
-): string {
+function truncateInputSheetName(rawName: string, used: Set<string>): string {
   const allowed = SHEET_NAME_CAP - INPUT_SHEET_PREFIX.length;
   const base = INPUT_SHEET_PREFIX + rawName.slice(0, allowed);
   if (!used.has(base)) {
@@ -77,10 +84,7 @@ function truncateInputSheetName(
   }
   for (let i = 2; i < 1000; i++) {
     const suffix = ` (${i})`;
-    const trimmedBase = rawName.slice(
-      0,
-      Math.max(0, allowed - suffix.length),
-    );
+    const trimmedBase = rawName.slice(0, Math.max(0, allowed - suffix.length));
     const candidate = `${INPUT_SHEET_PREFIX}${trimmedBase}${suffix}`;
     if (!used.has(candidate)) {
       used.add(candidate);
@@ -224,6 +228,7 @@ function buildSummaryRows(
   source: ExcelWorkbookSummary,
   submittedAt: string,
   generatedAt: string,
+  chartMeta?: ChartSummaryMeta,
 ): unknown[][] {
   const objective =
     req.realResult?.objective !== undefined && req.realResult.objective !== null
@@ -233,13 +238,10 @@ function buildSummaryRows(
     req.realResult?.solveSeconds !== undefined
       ? req.realResult.solveSeconds
       : "(demo)";
-  return [
+  const rows: unknown[][] = [
     ["Key", "Value"],
     ["task_type", req.payload.task_type],
-    [
-      "status",
-      req.status === "solved" ? "solved" : "demo (M2-M3 待上线)",
-    ],
+    ["status", req.status === "solved" ? "solved" : "demo (M2-M3 待上线)"],
     ["submitted_at", submittedAt],
     ["source_filename", req.sourceFilename ?? "(unknown)"],
     ["source_total_rows", source.totalRows],
@@ -250,6 +252,122 @@ function buildSummaryRows(
     ["generated_by", "OptiCloud /console/excel (3.E.6)"],
     ["generated_at", generatedAt],
   ];
+  if (chartMeta) {
+    rows.push(
+      ["chart_mode", chartMeta.mode],
+      ["chart_source", chartMeta.source],
+      ["chart_sheet_name", chartMeta.sheetName],
+    );
+  }
+  return rows;
+}
+
+interface ChartSummaryMeta {
+  mode: VrptwChartContract["mode"];
+  source: VrptwChartContract["source"];
+  sheetName: string;
+}
+
+async function buildSheetJsWorkbook(
+  req: ExportRequest,
+  submittedAt: string,
+  generatedAt: string,
+): Promise<ExportedWorkbook> {
+  const XLSX = await import("xlsx");
+  const wb = XLSX.utils.book_new();
+
+  const usedNames = new Set<string>();
+  const sheetNames: string[] = [];
+
+  for (const s of req.source.sheets) {
+    const sheetName = truncateInputSheetName(s.name || "sheet", usedNames);
+    const ws = XLSX.utils.aoa_to_sheet(s.rows ?? []);
+    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+    sheetNames.push(sheetName);
+  }
+
+  const resultsWs = XLSX.utils.aoa_to_sheet(buildResultsRows(req.payload));
+  XLSX.utils.book_append_sheet(wb, resultsWs, "Results");
+  sheetNames.push("Results");
+
+  const summaryWs = XLSX.utils.aoa_to_sheet(
+    buildSummaryRows(req, req.source, submittedAt, generatedAt),
+  );
+  XLSX.utils.book_append_sheet(wb, summaryWs, "Summary");
+  sheetNames.push("Summary");
+
+  const buf = XLSX.write(wb, {
+    type: "array",
+    bookType: "xlsx",
+  }) as ArrayBuffer;
+  const blob = new Blob([buf], { type: XLSX_MIME });
+
+  const filename = `opticloud_${req.payload.task_type}_${utcStampForFilename(new Date(generatedAt))}.xlsx`;
+  return { blob, filename, sheetNames };
+}
+
+async function buildVrptwWorkbook(
+  req: ExportRequest & { payload: VRPTWPayload },
+  submittedAt: string,
+  generatedAt: string,
+): Promise<ExportedWorkbook> {
+  const { Workbook } = await import("exceljs");
+  const workbook = new Workbook();
+  const chartArtifact = await buildVrptwChartArtifact(req.payload, req.chart);
+
+  const usedNames = new Set<string>();
+  const sheetNames: string[] = [];
+
+  for (const s of req.source.sheets) {
+    const sheetName = truncateInputSheetName(s.name || "sheet", usedNames);
+    const ws = workbook.addWorksheet(sheetName);
+    ws.addRows(s.rows ?? []);
+    sheetNames.push(sheetName);
+  }
+
+  const resultsSheet = workbook.addWorksheet("Results");
+  resultsSheet.addRows(buildResultsRows(req.payload));
+  sheetNames.push("Results");
+
+  const summarySheet = workbook.addWorksheet("Summary");
+  summarySheet.addRows(
+    buildSummaryRows(req, req.source, submittedAt, generatedAt, {
+      ...chartArtifact.contract,
+      sheetName: chartArtifact.sheetName,
+    }),
+  );
+  summarySheet.getColumn(1).width = 22;
+  summarySheet.getColumn(2).width = 42;
+  sheetNames.push("Summary");
+
+  const chartSheet = workbook.addWorksheet(chartArtifact.sheetName);
+  chartSheet.addRows(chartArtifact.sheetRows);
+  chartSheet.getRow(1).height = 24;
+  chartSheet.getRow(10).height = 10;
+  chartSheet.getRow(26).height = 10;
+  chartSheet.getColumn(1).width = 24;
+  chartSheet.getColumn(2).width = 22;
+  chartSheet.getColumn(3).width = 22;
+  chartSheet.getColumn(4).width = 22;
+  chartSheet.getColumn(5).width = 22;
+  for (const image of chartArtifact.images) {
+    const imageId = workbook.addImage({
+      base64: image.base64,
+      extension: image.extension,
+    });
+    chartSheet.addImage(imageId, {
+      tl: image.position.tl,
+      ext: image.position.ext,
+    });
+  }
+  sheetNames.push(chartArtifact.sheetName);
+
+  const buf = await workbook.xlsx.writeBuffer();
+  const blob = new Blob([buf], { type: XLSX_MIME });
+  const filename = `opticloud_${req.payload.task_type}_${utcStampForFilename(
+    new Date(generatedAt),
+  )}.xlsx`;
+  return { blob, filename, sheetNames };
 }
 
 export async function buildResultWorkbook(
@@ -266,36 +384,15 @@ export async function buildResultWorkbook(
     }
   }
 
-  const XLSX = await import("xlsx");
-  const wb = XLSX.utils.book_new();
-
-  const usedNames = new Set<string>();
-  const sheetNames: string[] = [];
-
-  for (const s of req.source.sheets) {
-    const sheetName = truncateInputSheetName(s.name || "sheet", usedNames);
-    const ws = XLSX.utils.aoa_to_sheet(s.rows ?? []);
-    XLSX.utils.book_append_sheet(wb, ws, sheetName);
-    sheetNames.push(sheetName);
-  }
-
-  // Results
-  const resultsWs = XLSX.utils.aoa_to_sheet(buildResultsRows(req.payload));
-  XLSX.utils.book_append_sheet(wb, resultsWs, "Results");
-  sheetNames.push("Results");
-
   const now = new Date();
   const submittedAt = req.submittedAt ?? now.toISOString();
   const generatedAt = now.toISOString();
-  const summaryWs = XLSX.utils.aoa_to_sheet(
-    buildSummaryRows(req, req.source, submittedAt, generatedAt),
-  );
-  XLSX.utils.book_append_sheet(wb, summaryWs, "Summary");
-  sheetNames.push("Summary");
-
-  const buf = XLSX.write(wb, { type: "array", bookType: "xlsx" }) as ArrayBuffer;
-  const blob = new Blob([buf], { type: XLSX_MIME });
-
-  const filename = `opticloud_${req.payload.task_type}_${utcStampForFilename(now)}.xlsx`;
-  return { blob, filename, sheetNames };
+  if (req.payload.task_type === "vrptw") {
+    return buildVrptwWorkbook(
+      { ...req, payload: req.payload },
+      submittedAt,
+      generatedAt,
+    );
+  }
+  return buildSheetJsWorkbook(req, submittedAt, generatedAt);
 }
