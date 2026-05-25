@@ -3,7 +3,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { LOCALE_STORAGE_KEY } from "./locale";
-import { listAlgorithms, postOptimization, requestAccountDeletion } from "./api";
+import {
+  OptiCloudClientError,
+  listAlgorithms,
+  postOptimization,
+  requestAccountDeletion,
+  revokeAPIKey,
+} from "./api";
 
 function getFetchHeaders(fetchMock: { mock: { calls: unknown[][] } }): Headers {
   const init = fetchMock.mock.calls[0]?.[1] as RequestInit | undefined;
@@ -124,6 +130,35 @@ describe("API client locale header", () => {
     );
     expect(getFetchHeaders(fetchMock).get("Idempotency-Key")).toBe(
       "00000000-0000-4000-8000-000000000000",
+    );
+    expect(getFetchHeaders(fetchMock).get("Accept-Language")).toBe("en-US");
+  });
+
+  it("throws RFC7807 errors for revoke failures while preserving locale", async () => {
+    window.localStorage.setItem(LOCALE_STORAGE_KEY, "en-US");
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          title: "Not Found",
+          detail: "key not found",
+        }),
+        { status: 404, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+
+    await expect(revokeAPIKey("jwt-test", "key-1")).rejects.toMatchObject({
+      status: 404,
+      title: "Not Found",
+      detail: "key not found",
+    } satisfies Partial<OptiCloudClientError>);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      "http://localhost:8001/v1/auth/api_keys/key-1",
+    );
+    expect((fetchMock.mock.calls[0]?.[1] as RequestInit | undefined)?.method).toBe(
+      "DELETE",
+    );
+    expect(getFetchHeaders(fetchMock).get("Authorization")).toBe(
+      "Bearer jwt-test",
     );
     expect(getFetchHeaders(fetchMock).get("Accept-Language")).toBe("en-US");
   });

@@ -85,6 +85,27 @@ export class OptiCloudClientError extends Error {
   }
 }
 
+async function responseToClientError(response: Response): Promise<OptiCloudClientError> {
+  let payload: ApiError;
+  try {
+    const body = (await response.json()) as Partial<ApiError>;
+    payload = {
+      status: response.status,
+      title: body.title ?? "Unknown Error",
+      detail: body.detail ?? "Request failed",
+      errors: body.errors,
+      next_action_url: body.next_action_url,
+    };
+  } catch {
+    payload = {
+      status: response.status,
+      title: "Network Error",
+      detail: await response.text().catch(() => "无法解析错误响应"),
+    };
+  }
+  return new OptiCloudClientError(payload);
+}
+
 async function request<T>(
   path: string,
   init: RequestInit = {},
@@ -102,24 +123,7 @@ async function request<T>(
   });
 
   if (!response.ok) {
-    let payload: ApiError;
-    try {
-      const body = (await response.json()) as Partial<ApiError>;
-      payload = {
-        status: response.status,
-        title: body.title ?? "Unknown Error",
-        detail: body.detail ?? "Request failed",
-        errors: body.errors,
-        next_action_url: body.next_action_url,
-      };
-    } catch {
-      payload = {
-        status: response.status,
-        title: "Network Error",
-        detail: await response.text().catch(() => "无法解析错误响应"),
-      };
-    }
-    throw new OptiCloudClientError(payload);
+    throw await responseToClientError(response);
   }
 
   return (await response.json()) as T;
@@ -391,6 +395,22 @@ export interface APIKeyListItem {
   last_used_at: string | null;
   revoked_at: string | null;
   created_at: string;
+  risk_warning: APIKeyRiskWarning | null;
+}
+
+export interface APIKeyRiskGeo {
+  code: string;
+  label_zh: string;
+}
+
+export interface APIKeyRiskWarning {
+  risk_score: number;
+  detected_at: string;
+  previous_geo: APIKeyRiskGeo;
+  current_geo: APIKeyRiskGeo;
+  previous_ip: string;
+  current_ip: string;
+  reason: string;
 }
 
 export async function listAPIKeys(
@@ -407,13 +427,17 @@ export async function revokeAPIKey(
   jwtAccess: string,
   keyId: string,
 ): Promise<void> {
-  await fetch(`${AUTH_SERVICE_URL}/v1/auth/api_keys/${keyId}`, {
-    method: "DELETE",
-    headers: {
-      Authorization: `Bearer ${jwtAccess}`,
-      "Accept-Language": getAcceptLanguage(),
-    },
+  const headers = new Headers({
+    Authorization: `Bearer ${jwtAccess}`,
+    "Accept-Language": getAcceptLanguage(),
   });
+  const response = await fetch(`${AUTH_SERVICE_URL}/v1/auth/api_keys/${keyId}`, {
+    method: "DELETE",
+    headers,
+  });
+  if (!response.ok) {
+    throw await responseToClientError(response);
+  }
 }
 
 // ===== Billing (Story 5.A.1) =====

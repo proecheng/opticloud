@@ -97,6 +97,7 @@ async def test_seed_risk_rules_loaded(engine: AsyncEngine) -> None:
         result = await s.execute(text("SELECT code, enabled FROM risk_rules ORDER BY code"))
         rows = {r.code: r.enabled for r in result}
     expected_rules = {
+        "geo_anomaly",
         "fingerprint_high",
         "ip_24_share",
         "calls_24h_over_20",

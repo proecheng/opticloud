@@ -621,12 +621,15 @@ async def test_solver_auth_updates_last_used_at(
         prefix = auth.removeprefix("Bearer ")[:6]
         row = (
             await s.execute(
-                _text("SELECT id, last_used_at FROM api_keys WHERE key_prefix = :p"),
+                _text(
+                    "SELECT id, last_used_at, last_used_ip::text "
+                    "FROM api_keys WHERE key_prefix = :p"
+                ),
                 {"p": prefix},
             )
         ).first()
         assert row is not None
-        api_key_id, last_used_before = row
+        api_key_id, last_used_before, last_used_ip_before = row
 
     # Make a request that will hit verify_api_key
     r = await client_with_db.post(
@@ -638,13 +641,17 @@ async def test_solver_auth_updates_last_used_at(
 
     # Re-read last_used_at — must be populated and recent
     async with maker() as s:
-        new_last_used = (
+        new_last_used, new_last_used_ip = (
             await s.execute(
-                _text("SELECT last_used_at FROM api_keys WHERE id = :id"),
+                _text(
+                    "SELECT last_used_at, last_used_ip::text FROM api_keys WHERE id = :id"
+                ),
                 {"id": api_key_id},
             )
-        ).scalar_one()
+        ).one()
     assert new_last_used is not None
+    assert new_last_used_ip is not None
+    assert new_last_used_ip != last_used_ip_before
     # Sanity: within last 30s
     from datetime import UTC, datetime
 

@@ -57,6 +57,7 @@ jobs:
             # Per-service: only its dir
             auth_service:
               - 'apps/auth-service/**'
+              - 'infra/local-init/08-geo-anomaly-risk.sql'
             billing_service:
               - 'apps/billing-service/**'
               - 'infra/local-init/03-billing-schema.sql'
@@ -68,6 +69,7 @@ jobs:
             solver_orchestrator:
               - 'apps/solver-orchestrator/**'
               - 'infra/local-init/02-solver-schema.sql'
+              - 'infra/local-init/08-geo-anomaly-risk.sql'
             chat_service:
               - 'apps/chat-service/**'
             critic_service:
@@ -180,6 +182,7 @@ jobs:
           psql -h localhost -U opticloud -d opticloud_dev -f infra/local-init/05-bucket-backfill.sql
           psql -h localhost -U opticloud -d opticloud_dev -f infra/local-init/06-user-otps.sql
           psql -h localhost -U opticloud -d opticloud_dev -f infra/local-init/07-risk-control.sql
+          psql -h localhost -U opticloud -d opticloud_dev -f infra/local-init/08-geo-anomaly-risk.sql
       - name: Run tests
         env:
           DATABASE_URL: postgresql+asyncpg://opticloud:opticloud_dev@localhost:5432/opticloud_dev  # pragma: allowlist secret
@@ -259,9 +262,11 @@ jobs:
           psql -h localhost -U opticloud -d opticloud_dev -f infra/local-init/03-billing-schema.sql
           psql -h localhost -U opticloud -d opticloud_dev -f infra/local-init/05-bucket-backfill.sql
           psql -h localhost -U opticloud -d opticloud_dev -f infra/local-init/07-risk-control.sql
+          psql -h localhost -U opticloud -d opticloud_dev -f infra/local-init/08-geo-anomaly-risk.sql
       - name: Run tests
         env:
           DATABASE_URL: postgresql+asyncpg://opticloud:opticloud_dev@localhost:5432/opticloud_dev  # pragma: allowlist secret
+          PYTHONPATH: packages/shared-py:apps/solver-orchestrator/src:packages/python-sdk/src
         run: uv run pytest apps/solver-orchestrator/tests/ -v
 
   # ===== outbox-relayer tests (Story M2.1) =====

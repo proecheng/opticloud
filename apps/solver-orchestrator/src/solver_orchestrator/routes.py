@@ -410,7 +410,8 @@ async def post_optimization(
     session: AsyncSession = Depends(get_session),
 ) -> JSONResponse:
     # ----- AuthN + scope -----
-    user_id, api_key_id, scopes = await verify_api_key(authorization, session)
+    caller_ip = request.client.host if request.client else None
+    user_id, api_key_id, scopes = await verify_api_key(authorization, session, caller_ip=caller_ip)
     require_scope("optimize:write", scopes)
 
     body_dict = payload.model_dump(by_alias=True)
@@ -737,7 +738,8 @@ async def rerun_reproduction(
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
     session: AsyncSession = Depends(get_session),
 ) -> JSONResponse:
-    user_id, api_key_id, scopes = await verify_api_key(authorization, session)
+    caller_ip = request.client.host if request.client else None
+    user_id, api_key_id, scopes = await verify_api_key(authorization, session, caller_ip=caller_ip)
     require_scope("optimize:write", scopes)
 
     request_id = request.headers.get("x-request-id") or str(uuid.uuid4())
@@ -1233,10 +1235,14 @@ async def post_optimization_demo(request: Request) -> JSONResponse:
 )
 async def get_optimization(
     optimization_id: uuid.UUID,
+    request: Request,
     authorization: str | None = Header(default=None),
     session: AsyncSession = Depends(get_session),
 ) -> JSONResponse:
-    user_id, _api_key_id, _scopes = await verify_api_key(authorization, session)
+    caller_ip = request.client.host if request.client else None
+    user_id, _api_key_id, _scopes = await verify_api_key(
+        authorization, session, caller_ip=caller_ip
+    )
     opt = await session.get(Optimization, optimization_id)
     if opt is None or opt.user_id != user_id:
         return _rfc7807_error(

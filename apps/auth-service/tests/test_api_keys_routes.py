@@ -6,11 +6,13 @@ isolation + cross-service "revoke 立即生效" via direct solver auth import.
 
 from __future__ import annotations
 
+import json
 import uuid
 from datetime import UTC, datetime, timedelta
 
 import pytest_asyncio
 from httpx import AsyncClient
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 
@@ -257,3 +259,61 @@ async def test_revoke_invalidates_solver_calls_immediately(
         except HTTPException as e:
             assert e.status_code == 401
             assert "invalid or revoked" in e.detail.lower()
+
+
+async def test_list_api_keys_includes_geo_risk_warning_for_own_key(
+    http_client: AsyncClient,
+    signed_in_jwt: tuple[uuid.UUID, str],
+    engine: AsyncEngine,
+) -> None:
+    """Story 1.11 — own key list includes latest geo_anomaly risk summary."""
+    user_id, jwt = signed_in_jwt
+    create = await http_client.post(
+        "/v1/auth/api_keys",
+        json={"label": "geo-risk", "scope": ["optimize:write"]},
+        headers={"Authorization": f"Bearer {jwt}"},
+    )
+    assert create.status_code == 201, create.text
+    key_id = uuid.UUID(create.json()["id"])
+
+    maker = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
+    async with maker() as s:
+        await s.execute(
+            text("UPDATE users SET risk_score = 0.95 WHERE id = :uid"),
+            {"uid": user_id},
+        )
+        await s.execute(
+            text(
+                "INSERT INTO risk_flags (user_id, rule_code, source, metadata) "
+                "VALUES (:uid, 'geo_anomaly', 'auto', CAST(:metadata AS jsonb))"
+            ),
+            {
+                "uid": user_id,
+                "metadata": json.dumps(
+                    {
+                        "api_key_id": str(key_id),
+                        "previous_ip": "101.6.10.1",
+                        "current_ip": "13.250.1.1",
+                        "previous_geo": {"code": "CN-BJ", "label_zh": "中国北京"},
+                        "current_geo": {"code": "SG", "label_zh": "新加坡"},
+                        "reason": "api_key_geo_changed:CN-BJ->SG",
+                        "score": 0.70,
+                    },
+                    ensure_ascii=False,
+                ),
+            },
+        )
+        await s.commit()
+
+    listed = await http_client.get(
+        "/v1/auth/api_keys",
+        headers={"Authorization": f"Bearer {jwt}"},
+    )
+    assert listed.status_code == 200, listed.text
+    [row] = [item for item in listed.json() if item["id"] == str(key_id)]
+    warning = row["risk_warning"]
+    assert warning["risk_score"] == 0.7
+    assert warning["previous_geo"]["code"] == "CN-BJ"
+    assert warning["current_geo"]["code"] == "SG"
+    assert warning["previous_ip"] == "101.6.10.1"
+    assert warning["current_ip"] == "13.250.1.1"

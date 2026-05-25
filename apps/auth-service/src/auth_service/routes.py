@@ -24,6 +24,8 @@ from auth_service.schemas import (
     APIKeyCreateRequest,
     APIKeyCreateResponse,
     APIKeyListItem,
+    APIKeyRiskGeo,
+    APIKeyRiskWarning,
     GuardianConfirmationRequest,
     GuardianConfirmationResponse,
     LoginRequest,
@@ -601,6 +603,7 @@ async def list_api_keys(
         select(APIKey).where(APIKey.user_id == user_id).order_by(APIKey.created_at.desc())
     )
     keys = result.scalars().all()
+    risk_warnings = await _latest_geo_risk_warnings(session, user_id)
     return [
         APIKeyListItem(
             id=k.id,
@@ -612,9 +615,91 @@ async def list_api_keys(
             last_used_at=k.last_used_at,
             revoked_at=k.revoked_at,
             created_at=k.created_at,
+            risk_warning=risk_warnings.get(k.id),
         )
         for k in keys
     ]
+
+
+def _risk_geo_from_metadata(value: object) -> APIKeyRiskGeo | None:
+    if not isinstance(value, dict):
+        return None
+    code = value.get("code")
+    label_zh = value.get("label_zh")
+    if not isinstance(code, str) or not isinstance(label_zh, str):
+        return None
+    return APIKeyRiskGeo(code=code, label_zh=label_zh)
+
+
+def _risk_warning_from_row(
+    *,
+    metadata: object,
+    created_at: datetime,
+) -> tuple[uuid.UUID, APIKeyRiskWarning] | None:
+    if not isinstance(metadata, dict):
+        return None
+    api_key_id = metadata.get("api_key_id")
+    previous_ip = metadata.get("previous_ip")
+    current_ip = metadata.get("current_ip")
+    reason = metadata.get("reason")
+    risk_score = metadata.get("score")
+    previous_geo = _risk_geo_from_metadata(metadata.get("previous_geo"))
+    current_geo = _risk_geo_from_metadata(metadata.get("current_geo"))
+    if (
+        not isinstance(api_key_id, str)
+        or not isinstance(previous_ip, str)
+        or not isinstance(current_ip, str)
+        or not isinstance(reason, str)
+        or previous_geo is None
+        or current_geo is None
+    ):
+        return None
+    try:
+        parsed_risk_score = float(risk_score)
+    except (TypeError, ValueError):
+        return None
+    try:
+        parsed_key_id = uuid.UUID(api_key_id)
+    except ValueError:
+        return None
+    return parsed_key_id, APIKeyRiskWarning(
+        risk_score=parsed_risk_score,
+        detected_at=created_at,
+        previous_geo=previous_geo,
+        current_geo=current_geo,
+        previous_ip=previous_ip,
+        current_ip=current_ip,
+        reason=reason,
+    )
+
+
+async def _latest_geo_risk_warnings(
+    session: AsyncSession,
+    user_id: uuid.UUID,
+) -> dict[uuid.UUID, APIKeyRiskWarning]:
+    rows = (
+        await session.execute(
+            text(
+                "SELECT rf.metadata AS risk_metadata, rf.created_at "
+                "FROM risk_flags rf "
+                "WHERE rf.user_id = :uid "
+                "AND rf.rule_code = 'geo_anomaly' "
+                "ORDER BY rf.created_at DESC"
+            ),
+            {"uid": user_id},
+        )
+    ).all()
+    warnings: dict[uuid.UUID, APIKeyRiskWarning] = {}
+    for row in rows:
+        parsed = _risk_warning_from_row(
+            metadata=row.risk_metadata,
+            created_at=row.created_at,
+        )
+        if parsed is None:
+            continue
+        key_id, warning = parsed
+        warnings.setdefault(key_id, warning)
+    return warnings
 
 
 @router.delete(

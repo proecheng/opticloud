@@ -85,6 +85,16 @@
     "suspense": "Loading...",
     "networkError": "Network Error"
   },
+  "apiKeys": {
+    "title": "API Keys",
+    "create": "Create new key",
+    "riskBadge": "Geo risk",
+    "riskModalTitle": "Unusual API key geography detected",
+    "riskModalDescription": "This key moved from {previousGeo} to {currentGeo}. Revoke it now if this was not you or your team.",
+    "riskModalBody": "Previous IP: {previousIp}; current IP: {currentIp}; risk score: {riskScore}",
+    "riskRevoke": "Revoke this key",
+    "riskKeep": "Not now"
+  },
   "welcome": {
     "wizardTitle": "Run Hello World in 5 steps",
     "wizardDescription": "You are now at API key, Postman, and first LP solve steps.",

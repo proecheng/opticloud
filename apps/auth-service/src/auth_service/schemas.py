@@ -198,6 +198,21 @@ class APIKeyCreateResponse(BaseModel):
     created_at: datetime
 
 
+class APIKeyRiskGeo(BaseModel):
+    code: str
+    label_zh: str
+
+
+class APIKeyRiskWarning(BaseModel):
+    risk_score: float
+    detected_at: datetime
+    previous_geo: APIKeyRiskGeo
+    current_geo: APIKeyRiskGeo
+    previous_ip: str
+    current_ip: str
+    reason: str
+
+
 class APIKeyListItem(BaseModel):
     """FR A2 api_keys list item."""
 
@@ -210,3 +225,4 @@ class APIKeyListItem(BaseModel):
     last_used_at: datetime | None
     revoked_at: datetime | None
     created_at: datetime
+    risk_warning: APIKeyRiskWarning | None = None

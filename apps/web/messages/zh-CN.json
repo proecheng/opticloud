@@ -85,6 +85,16 @@
     "suspense": "正在加载...",
     "networkError": "Network Error"
   },
+  "apiKeys": {
+    "title": "API Keys",
+    "create": "Create new key",
+    "riskBadge": "地理风险",
+    "riskModalTitle": "检测到 API Key 异常地理调用",
+    "riskModalDescription": "这个 key 的调用位置从 {previousGeo} 变为 {currentGeo}。如果不是你本人或团队操作，请立即吊销。",
+    "riskModalBody": "上次 IP：{previousIp}；本次 IP：{currentIp}；风险评分：{riskScore}",
+    "riskRevoke": "吊销这个 key",
+    "riskKeep": "暂不处理"
+  },
   "welcome": {
     "wizardTitle": "5 步跑通 Hello World",
     "wizardDescription": "你已进入 API Key、Postman 和第一个 LP 求解阶段。",
