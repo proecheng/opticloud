@@ -79,7 +79,7 @@ development_status:
   1-9-under-14-block: done                    # FR A10 — 2026-05-24 <14 hard block + 14-18 guardian confirmation; +9 backend age-gate tests, auth suite 51 passed, web 56 passed
   1-10-language-switch-zh: done                # FR A3 — 2026-05-25 next-intl scaffold + zh/en key-page fallback + locale-aware Accept-Language/Postman; web 71 + ui 50 tests passed
   1-11-geo-anomaly-risk: done                   # 2026-05-25 — NFR-S4 geo anomaly risk scoring: disabled evidence-only geo_anomaly rule + solver IP geo signal + auth warning summary + localized revoke modal; post-review fixes applied
-  1-12-j7-fraud-freeze-vertical-slice: backlog # J7
+  1-12-j7-fraud-freeze-vertical-slice: done         # 2026-05-25 — J7 freeze appeal vertical slice: risk_appeals + public appeal/status/merge accept + admin review + frozen-login CTA; post-review fixes applied
 
   # ===== Epic 2: Algorithm Catalog (8 stories) =====
   epic-2: in-progress

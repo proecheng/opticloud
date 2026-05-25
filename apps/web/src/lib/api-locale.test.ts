@@ -7,6 +7,7 @@ import {
   OptiCloudClientError,
   listAlgorithms,
   postOptimization,
+  submitRiskAppeal,
   requestAccountDeletion,
   revokeAPIKey,
 } from "./api";
@@ -20,6 +21,37 @@ describe("API client locale header", () => {
   afterEach(() => {
     window.localStorage.clear();
     vi.restoreAllMocks();
+  });
+
+  it("sends locale when submitting a risk appeal", async () => {
+    window.localStorage.setItem(LOCALE_STORAGE_KEY, "en-US");
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          appeal_id: "appeal-1",
+          status: "pending",
+          review_mode: "manual_48h",
+          submitted_at: "2026-05-25T00:00:00Z",
+          sla_due_at: "2026-05-27T00:00:00Z",
+          tracking_url: "/auth/appeal?token=t",
+          merge_offer: null,
+        }),
+        { status: 201, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+
+    await submitRiskAppeal({
+      phone: "+8613800138000",
+      email: "user@example.com",
+      reason: "Shared team account appeal",
+      evidence: {},
+      team_size: 3,
+    });
+
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      "http://localhost:8001/v1/auth/risk-appeals",
+    );
+    expect(getFetchHeaders(fetchMock).get("Accept-Language")).toBe("en-US");
   });
 
   it("sends zh-CN by default", async () => {

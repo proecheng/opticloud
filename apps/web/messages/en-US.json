@@ -60,6 +60,7 @@
     "notFound": "No account found for this phone/email",
     "agePending": "Age gate pending, finish guardian confirmation first",
     "frozen": "Account frozen, contact support",
+    "appealCta": "Submit freeze appeal",
     "invalidOtp": "Invalid or expired OTP, try again",
     "phone": "Phone",
     "email": "Email",
@@ -74,6 +75,32 @@
     "loginSubmit": "Log in →",
     "resendOtp": "Send OTP again",
     "networkError": "Network Error"
+  },
+  "appeal": {
+    "title": "Frozen account appeal",
+    "subtitle": "Submit an appeal and use the tracking link to follow review status. Teams of 3 or more go to 48h manual review; 1-2 person teams use automatic review.",
+    "phone": "Phone",
+    "email": "Email",
+    "teamSize": "Team size",
+    "reason": "Appeal reason",
+    "evidenceNote": "Additional evidence",
+    "submit": "Submit appeal",
+    "loading": "Processing appeal...",
+    "networkError": "Network Error",
+    "trackingReady": "Tracking link:",
+    "slaDue": "Due by:",
+    "evidenceTitle": "Risk evidence summary",
+    "acceptMerge": "Accept merge offer and resume access",
+    "returnLogin": "Return to login",
+    "mergeConfirmTitle": "Accept merge offer",
+    "mergeConfirmDescription": "Accepting restores access to this account. Full cross-account data migration is outside this flow.",
+    "status": {
+      "pending": "Appeal submitted, waiting for review",
+      "approved": "Appeal approved, account unfrozen",
+      "rejected": "Appeal rejected",
+      "merge_offered": "Review maintained, merge offer available",
+      "merge_accepted": "Merge offer accepted, account restored"
+    }
   },
   "guardian": {
     "title": "Guardian confirmation",

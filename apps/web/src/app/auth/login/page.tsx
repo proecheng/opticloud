@@ -37,13 +37,14 @@ export default function LoginPage(): JSX.Element {
   const [otpInfo, setOtpInfo] = useState<OTPRequestResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<OptiCloudClientError | null>(null);
+  const isFrozenError = error?.next_action_url === "/auth/appeal";
 
   const errorMessage =
     error?.status === 404
       ? t("login.notFound")
       : error?.status === 403 && error.detail.includes("age gate pending")
         ? t("login.agePending")
-        : error?.status === 403
+        : isFrozenError
           ? t("login.frozen")
           : error?.status === 401
             ? t("login.invalidOtp")
@@ -151,12 +152,23 @@ export default function LoginPage(): JSX.Element {
         {error && (
           <div className="mb-4">
             {errorMessage ? (
-              <StatusCard
-                variant="error"
-                title={t("login.errorTitle")}
-                description={errorMessage}
-                ariaLabel={`error.login.${error.status}`}
-              />
+              <>
+                <StatusCard
+                  variant="error"
+                  title={t("login.errorTitle")}
+                  description={errorMessage}
+                  ariaLabel={`error.login.${error.status}`}
+                />
+                {isFrozenError && (
+                  <button
+                    type="button"
+                    onClick={() => router.push("/auth/appeal")}
+                    className="mt-3 min-h-touch w-full rounded-md bg-primary px-4 py-3 font-semibold text-primary-foreground hover:bg-primary-600"
+                  >
+                    {t("login.appealCta")}
+                  </button>
+                )}
+              </>
             ) : error.errors && error.errors.length > 0 ? (
               <RFC7807Panel
                 payload={{

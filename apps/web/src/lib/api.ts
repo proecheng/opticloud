@@ -349,6 +349,103 @@ export async function login(
   );
 }
 
+// ===== Risk appeals (Story 1.12 — J7 frozen account recovery) =====
+
+export interface RiskAppealSubmitRequest {
+  phone: string;
+  email: string;
+  reason: string;
+  evidence?: Record<string, string>;
+  team_size: number;
+}
+
+export type RiskAppealStatus =
+  | "pending"
+  | "approved"
+  | "rejected"
+  | "merge_offered"
+  | "merge_accepted";
+
+export type RiskAppealReviewMode = "auto_score" | "manual_48h";
+
+export interface RiskMergeOffer {
+  offer_type: "keep_one_account";
+  title: string;
+  description: string;
+  next_action: "accept_merge_to_resume";
+}
+
+export interface RiskEvidenceSummary {
+  rule_code: string;
+  label_zh: string;
+  source: string;
+  created_at: string;
+  summary: string | null;
+}
+
+export interface RiskAppealSubmitResponse {
+  appeal_id: string;
+  status: RiskAppealStatus;
+  review_mode: RiskAppealReviewMode;
+  submitted_at: string;
+  sla_due_at: string | null;
+  tracking_url: string;
+  merge_offer: RiskMergeOffer | null;
+}
+
+export interface RiskAppealStatusResponse {
+  appeal_id: string;
+  status: RiskAppealStatus;
+  review_mode: RiskAppealReviewMode;
+  submitted_at: string;
+  sla_due_at: string | null;
+  decided_at: string | null;
+  decision: "approved" | "maintained" | "rejected" | "merge_accepted" | null;
+  decision_reason: string | null;
+  evidence_summary: RiskEvidenceSummary[];
+  merge_offer: RiskMergeOffer | null;
+  next_action_url: string | null;
+}
+
+export interface RiskAppealMergeAcceptResponse {
+  appeal_id: string;
+  status: "merge_accepted";
+  decision: "merge_accepted";
+  is_frozen: false;
+  next_action_url: string;
+}
+
+export async function submitRiskAppeal(
+  body: RiskAppealSubmitRequest,
+): Promise<RiskAppealSubmitResponse> {
+  return request<RiskAppealSubmitResponse>(
+    "/v1/auth/risk-appeals",
+    { method: "POST", body: JSON.stringify(body) },
+    AUTH_SERVICE_URL,
+  );
+}
+
+export async function getRiskAppealStatus(
+  token: string,
+): Promise<RiskAppealStatusResponse> {
+  return request<RiskAppealStatusResponse>(
+    `/v1/auth/risk-appeals/status?token=${encodeURIComponent(token)}`,
+    {},
+    AUTH_SERVICE_URL,
+  );
+}
+
+export async function acceptRiskAppealMergeOffer(
+  appealId: string,
+  token: string,
+): Promise<RiskAppealMergeAcceptResponse> {
+  return request<RiskAppealMergeAcceptResponse>(
+    `/v1/auth/risk-appeals/${appealId}/merge-offer/accept`,
+    { method: "POST", body: JSON.stringify({ token }) },
+    AUTH_SERVICE_URL,
+  );
+}
+
 // ===== Account deletion (Story 1.6 — PIPL) =====
 
 export interface AccountDeletionStatusResponse {
