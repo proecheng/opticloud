@@ -5,11 +5,16 @@ import { useRouter, useSearchParams } from "next/navigation";
 
 import { RFC7807Panel, StatusCard } from "@opticloud/ui";
 
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { usePreferredLocale } from "@/components/LocaleProvider";
 import { confirmGuardianConfirmation, OptiCloudClientError } from "@/lib/api";
+import { translateWithLocale } from "@/lib/messages";
 
 function GuardianConfirmationContent(): JSX.Element {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { locale } = usePreferredLocale();
+  const t = translateWithLocale(locale);
   const token = searchParams.get("token") ?? "";
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<OptiCloudClientError | null>(null);
@@ -29,7 +34,7 @@ function GuardianConfirmationContent(): JSX.Element {
           setError(
             new OptiCloudClientError({
               status: 0,
-              title: "Network Error",
+              title: t("guardian.networkError"),
               detail: String((err as Error).message),
             }),
           );
@@ -43,23 +48,26 @@ function GuardianConfirmationContent(): JSX.Element {
   return (
     <main className="flex min-h-screen items-center justify-center bg-muted p-4">
       <div className="w-full max-w-md rounded-lg border border-border bg-background p-8 shadow-lg">
-        <h1 className="text-2xl font-bold">监护人确认</h1>
+        <div className="mb-4 flex justify-end">
+          <LanguageSwitcher />
+        </div>
+        <h1 className="text-2xl font-bold">{t("guardian.title")}</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          完成后，用户就可以继续登录。
+          {t("guardian.description")}
         </p>
 
         {loading && (
           <StatusCard
             variant="info"
-            title="正在确认..."
+            title={t("guardian.loading")}
             ariaLabel="guardian.confirmation.loading"
           />
         )}
         {confirmed && (
           <StatusCard
             variant="ok"
-            title="确认完成"
-            description="账号已解锁，可以返回登录页继续。"
+            title={t("guardian.successTitle")}
+            description={t("guardian.successDescription")}
             ariaLabel="guardian.confirmation.success"
           />
         )}
@@ -92,7 +100,7 @@ function GuardianConfirmationContent(): JSX.Element {
             onClick={() => router.push("/auth/login")}
             className="mt-4 min-h-touch w-full rounded-md bg-primary px-4 py-3 font-semibold text-primary-foreground hover:bg-primary-600"
           >
-            返回登录
+            {t("guardian.returnLogin")}
           </button>
         )}
       </div>
@@ -101,6 +109,9 @@ function GuardianConfirmationContent(): JSX.Element {
 }
 
 export default function GuardianConfirmationPage(): JSX.Element {
+  const { locale } = usePreferredLocale();
+  const t = translateWithLocale(locale);
+
   return (
     <Suspense
       fallback={
@@ -108,7 +119,7 @@ export default function GuardianConfirmationPage(): JSX.Element {
           <div className="w-full max-w-md rounded-lg border border-border bg-background p-8 shadow-lg">
             <StatusCard
               variant="info"
-              title="正在加载..."
+              title={t("guardian.suspense")}
               ariaLabel="guardian.confirmation.suspense"
             />
           </div>

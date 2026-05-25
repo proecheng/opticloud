@@ -6,7 +6,10 @@ import { useRouter } from "next/navigation";
 
 import { RFC7807Panel, SignupWizard, StatusCard } from "@opticloud/ui";
 
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { usePreferredLocale } from "@/components/LocaleProvider";
 import { OptiCloudClientError, signup } from "@/lib/api";
+import { translateWithLocale } from "@/lib/messages";
 import {
   buildOnboardingSteps,
   createInitialOnboardingState,
@@ -31,6 +34,8 @@ interface FormState {
 
 export default function SignupPage(): JSX.Element {
   const router = useRouter();
+  const { locale } = usePreferredLocale();
+  const t = translateWithLocale(locale);
   const [form, setForm] = useState<FormState>({
     phone: "",
     email: "",
@@ -68,6 +73,19 @@ export default function SignupPage(): JSX.Element {
 
   const age = useMemo(() => Number(form.age), [form.age]);
   const showGuardianField = age >= 14 && age <= 18;
+  const wizardStateText = {
+    completed: t("signup.stepCompleted"),
+    current: t("signup.stepCurrent"),
+    pending: t("signup.stepPending"),
+    skipped: t("signup.stepSkipped"),
+  };
+  const wizardStepLabels = {
+    signup: t("signup.stepSignup"),
+    verify: t("signup.stepVerify"),
+    "api-key": t("signup.stepApiKey"),
+    postman: t("signup.stepPostman"),
+    "hello-world": t("signup.stepHelloWorld"),
+  };
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
@@ -116,7 +134,7 @@ export default function SignupPage(): JSX.Element {
         setError(
           new OptiCloudClientError({
             status: 0,
-            title: "Network Error",
+            title: t("signup.networkError"),
             detail: String((err as Error).message),
           }),
         );
@@ -132,9 +150,14 @@ export default function SignupPage(): JSX.Element {
         <SignupWizard
           className="mb-4"
           ariaLabel="onboarding.signup"
-          title="5 步跑通 Hello World"
-          description="先注册并完成验证，随后拿到 API Key、导入 Postman，并跑通第一个 LP。"
-          steps={buildOnboardingSteps(wizardState)}
+          title={t("signup.wizardTitle")}
+          description={t("signup.wizardDescription")}
+          steps={buildOnboardingSteps(wizardState, wizardStepLabels)}
+          stateText={wizardStateText}
+          actionLabels={{
+            resume: t("signup.wizardResume"),
+            skip: t("signup.wizardSkip"),
+          }}
           onSkip={() => {
             const dismissed = dismissOnboarding(wizardState);
             setWizardState(dismissed);
@@ -149,25 +172,27 @@ export default function SignupPage(): JSX.Element {
           }}
           supportPrompt={{
             visible: supportVisible,
-            title: "注册卡住了？",
-            description:
-              "可以继续填写注册信息、打开 quickstart，或稍后再完成。",
-            actionLabel: "继续注册",
+            title: t("signup.supportTitle"),
+            description: t("signup.supportDescription"),
+            actionLabel: t("signup.supportAction"),
             onAction: () => setSupportVisible(false),
             secondaryAction: {
-              label: "打开 quickstart",
+              label: t("common.openQuickstart"),
               href: QUICKSTART_URL,
             },
-            dismissLabel: "稍后",
+            dismissLabel: t("common.later"),
             onDismiss: () => setSupportVisible(false),
           }}
         />
 
         <div className="mx-auto w-full max-w-md rounded-lg border border-border bg-background p-8 shadow-lg">
+          <div className="mb-4 flex justify-end">
+            <LanguageSwitcher />
+          </div>
           <header className="mb-6 text-center">
-            <h1 className="text-2xl font-bold">注册 OptiCloud</h1>
+            <h1 className="text-2xl font-bold">{t("signup.title")}</h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              3 分钟拿到 API Key，立即跑 Hello World
+              {t("signup.subtitle")}
             </p>
           </header>
 
@@ -198,17 +223,17 @@ export default function SignupPage(): JSX.Element {
             <div className="mb-4">
               <StatusCard
                 variant="warning"
-                title="等待监护人确认"
-                description="账号已创建，但需要监护人完成邮箱确认后才能登录。"
+                title={t("signup.pendingTitle")}
+                description={t("signup.pendingDescription")}
                 ariaLabel="signup.pending.guardian"
               />
               <div className="mt-3 rounded-md border border-border bg-muted/40 p-3 text-sm">
-                <p className="font-medium">下一步</p>
+                <p className="font-medium">{t("signup.nextStep")}</p>
                 <a
                   href={pendingState.guardian_confirmation_url}
                   className="mt-2 inline-block text-primary hover:underline"
                 >
-                  打开监护人确认链接
+                  {t("signup.openGuardianLink")}
                 </a>
               </div>
             </div>
@@ -217,7 +242,7 @@ export default function SignupPage(): JSX.Element {
           <form onSubmit={handleSubmit} noValidate>
             <fieldset className="mb-4" disabled={loading}>
               <label htmlFor="phone" className="mb-1 block text-sm font-medium">
-                手机号 <span className="text-danger">*</span>
+                {t("signup.phone")} <span className="text-danger">*</span>
               </label>
               <input
                 id="phone"
@@ -231,13 +256,13 @@ export default function SignupPage(): JSX.Element {
                 aria-describedby="phone-hint"
               />
               <p id="phone-hint" className="mt-1 text-xs text-muted-foreground">
-                E.164 国际格式（+86 开头）
+                {t("signup.phoneHint")}
               </p>
             </fieldset>
 
             <fieldset className="mb-4" disabled={loading}>
               <label htmlFor="email" className="mb-1 block text-sm font-medium">
-                邮箱 <span className="text-danger">*</span>
+                {t("signup.email")} <span className="text-danger">*</span>
               </label>
               <input
                 id="email"
@@ -253,7 +278,7 @@ export default function SignupPage(): JSX.Element {
 
             <fieldset className="mb-4" disabled={loading}>
               <label htmlFor="age" className="mb-1 block text-sm font-medium">
-                年龄 <span className="text-danger">*</span>
+                {t("signup.age")} <span className="text-danger">*</span>
               </label>
               <input
                 id="age"
@@ -266,7 +291,7 @@ export default function SignupPage(): JSX.Element {
                 className="min-h-touch w-full rounded-md border border-border bg-background px-3 py-2 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
               />
               <p className="mt-1 text-xs text-muted-foreground">
-                14-18 岁需要填写监护人邮箱。
+                {t("signup.ageHint")}
               </p>
             </fieldset>
 
@@ -276,7 +301,7 @@ export default function SignupPage(): JSX.Element {
                   htmlFor="guardian_email"
                   className="mb-1 block text-sm font-medium"
                 >
-                  监护人邮箱 <span className="text-danger">*</span>
+                  {t("signup.guardianEmail")} <span className="text-danger">*</span>
                 </label>
                 <input
                   id="guardian_email"
@@ -304,17 +329,17 @@ export default function SignupPage(): JSX.Element {
               }
               className="min-h-touch w-full rounded-md bg-primary px-4 py-3 font-semibold text-primary-foreground shadow hover:bg-primary-600 disabled:opacity-50"
             >
-              {loading ? "正在注册..." : "立即注册 →"}
+              {loading ? t("signup.loading") : t("signup.submit")}
             </button>
           </form>
 
           <div className="mt-4 rounded-md border border-border bg-muted/40 p-3 text-sm text-muted-foreground">
-            已经注册但还没完成验证？{" "}
+            {t("signup.resumePrompt")}{" "}
             <Link
               href="/auth/login?onboarding=1"
               className="font-medium text-primary hover:underline"
             >
-              登录并继续 onboarding
+              {t("signup.resumeLink")}
             </Link>
           </div>
         </div>

@@ -5,12 +5,15 @@ import { useRouter } from "next/navigation";
 
 import { RFC7807Panel, StatusCard } from "@opticloud/ui";
 
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { usePreferredLocale } from "@/components/LocaleProvider";
 import {
   OptiCloudClientError,
   login,
   requestOTP,
   type OTPRequestResponse,
 } from "@/lib/api";
+import { translateWithLocale } from "@/lib/messages";
 import {
   createInitialOnboardingState,
   getOnboardingStorageKey,
@@ -24,6 +27,8 @@ type Stage = "credentials" | "otp";
 
 export default function LoginPage(): JSX.Element {
   const router = useRouter();
+  const { locale } = usePreferredLocale();
+  const t = translateWithLocale(locale);
   const [stage, setStage] = useState<Stage>("credentials");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
@@ -35,13 +40,13 @@ export default function LoginPage(): JSX.Element {
 
   const errorMessage =
     error?.status === 404
-      ? "No account found for this phone/email"
+      ? t("login.notFound")
       : error?.status === 403 && error.detail.includes("age gate pending")
-        ? "Age gate pending, finish guardian confirmation first"
+        ? t("login.agePending")
         : error?.status === 403
-          ? "Account frozen, contact support"
+          ? t("login.frozen")
           : error?.status === 401
-            ? "Invalid or expired OTP, try again"
+            ? t("login.invalidOtp")
             : null;
 
   const handleRequestOTP = async (
@@ -61,7 +66,7 @@ export default function LoginPage(): JSX.Element {
         setError(
           new OptiCloudClientError({
             status: 0,
-            title: "Network Error",
+            title: t("login.networkError"),
             detail: String((err as Error).message),
           }),
         );
@@ -112,7 +117,7 @@ export default function LoginPage(): JSX.Element {
         setError(
           new OptiCloudClientError({
             status: 0,
-            title: "Network Error",
+            title: t("login.networkError"),
             detail: String((err as Error).message),
           }),
         );
@@ -133,10 +138,13 @@ export default function LoginPage(): JSX.Element {
   return (
     <main className="flex min-h-screen items-center justify-center bg-muted p-4">
       <div className="w-full max-w-md rounded-lg border border-border bg-background p-8 shadow-lg">
+        <div className="mb-4 flex justify-end">
+          <LanguageSwitcher />
+        </div>
         <header className="mb-6 text-center">
-          <h1 className="text-2xl font-bold">登录 OptiCloud</h1>
+          <h1 className="text-2xl font-bold">{t("login.title")}</h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            手机 + 邮箱 OTP 双因素验证 (FR A1)
+            {t("login.subtitle")}
           </p>
         </header>
 
@@ -145,7 +153,7 @@ export default function LoginPage(): JSX.Element {
             {errorMessage ? (
               <StatusCard
                 variant="error"
-                title="登录失败"
+                title={t("login.errorTitle")}
                 description={errorMessage}
                 ariaLabel={`error.login.${error.status}`}
               />
@@ -174,7 +182,7 @@ export default function LoginPage(): JSX.Element {
           <form onSubmit={handleRequestOTP} noValidate>
             <fieldset className="mb-4" disabled={loading}>
               <label htmlFor="phone" className="mb-1 block text-sm font-medium">
-                手机号
+                {t("login.phone")}
               </label>
               <input
                 id="phone"
@@ -189,7 +197,7 @@ export default function LoginPage(): JSX.Element {
             </fieldset>
             <fieldset className="mb-4" disabled={loading}>
               <label htmlFor="email" className="mb-1 block text-sm font-medium">
-                邮箱
+                {t("login.email")}
               </label>
               <input
                 id="email"
@@ -207,12 +215,12 @@ export default function LoginPage(): JSX.Element {
               disabled={loading || !phone || !email}
               className="min-h-touch w-full rounded-md bg-primary px-4 py-3 font-semibold text-primary-foreground shadow hover:bg-primary-600 disabled:opacity-50"
             >
-              {loading ? "正在发送..." : "发送 OTP →"}
+              {loading ? t("login.sendLoading") : t("login.sendOtp")}
             </button>
             <p className="mt-4 text-center text-xs text-muted-foreground">
-              没有账号？{" "}
+              {t("login.noAccount")}{" "}
               <a href="/auth/signup" className="text-primary hover:underline">
-                立即注册
+                {t("login.signupNow")}
               </a>
             </p>
           </form>
@@ -236,7 +244,7 @@ export default function LoginPage(): JSX.Element {
                 htmlFor="phone-otp"
                 className="mb-1 block text-sm font-medium"
               >
-                手机 OTP
+                {t("login.phoneOtp")}
               </label>
               <input
                 id="phone-otp"
@@ -247,7 +255,7 @@ export default function LoginPage(): JSX.Element {
                 required
                 value={phoneOtp}
                 onChange={(e) => setPhoneOtp(e.target.value.replace(/\D/g, ""))}
-                placeholder="6 位数字"
+                placeholder={t("login.otpPlaceholder")}
                 className="min-h-touch w-full rounded-md border border-border bg-background px-3 py-2 font-mono focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
               />
             </fieldset>
@@ -256,7 +264,7 @@ export default function LoginPage(): JSX.Element {
                 htmlFor="email-otp"
                 className="mb-1 block text-sm font-medium"
               >
-                邮箱 OTP
+                {t("login.emailOtp")}
               </label>
               <input
                 id="email-otp"
@@ -267,7 +275,7 @@ export default function LoginPage(): JSX.Element {
                 required
                 value={emailOtp}
                 onChange={(e) => setEmailOtp(e.target.value.replace(/\D/g, ""))}
-                placeholder="6 位数字"
+                placeholder={t("login.otpPlaceholder")}
                 className="min-h-touch w-full rounded-md border border-border bg-background px-3 py-2 font-mono focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
               />
             </fieldset>
@@ -278,14 +286,14 @@ export default function LoginPage(): JSX.Element {
               }
               className="min-h-touch w-full rounded-md bg-primary px-4 py-3 font-semibold text-primary-foreground shadow hover:bg-primary-600 disabled:opacity-50"
             >
-              {loading ? "正在登录..." : "登录 →"}
+              {loading ? t("login.loginLoading") : t("login.loginSubmit")}
             </button>
             <button
               type="button"
               onClick={handleResend}
               className="mt-2 w-full text-center text-xs text-muted-foreground hover:text-primary"
             >
-              重新发送 OTP
+              {t("login.resendOtp")}
             </button>
           </form>
         )}

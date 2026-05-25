@@ -3,6 +3,8 @@
  * Calls auth-service via fetch; surfaces RFC 7807 errors with errors[] preserved.
  */
 
+import { getAcceptLanguage } from "./locale";
+
 const AUTH_SERVICE_URL =
   process.env.NEXT_PUBLIC_AUTH_SERVICE_URL ?? "http://localhost:8001";
 
@@ -88,13 +90,15 @@ async function request<T>(
   init: RequestInit = {},
   baseUrl: string = AUTH_SERVICE_URL,
 ): Promise<T> {
+  const headers = new Headers(init.headers);
+  if (!headers.has("Content-Type")) headers.set("Content-Type", "application/json");
+  if (!headers.has("Accept-Language")) {
+    headers.set("Accept-Language", getAcceptLanguage());
+  }
+
   const response = await fetch(`${baseUrl}${path}`, {
     ...init,
-    headers: {
-      "Content-Type": "application/json",
-      "Accept-Language": "zh-CN",
-      ...(init.headers ?? {}),
-    },
+    headers,
   });
 
   if (!response.ok) {
@@ -405,7 +409,10 @@ export async function revokeAPIKey(
 ): Promise<void> {
   await fetch(`${AUTH_SERVICE_URL}/v1/auth/api_keys/${keyId}`, {
     method: "DELETE",
-    headers: { Authorization: `Bearer ${jwtAccess}` },
+    headers: {
+      Authorization: `Bearer ${jwtAccess}`,
+      "Accept-Language": getAcceptLanguage(),
+    },
   });
 }
 

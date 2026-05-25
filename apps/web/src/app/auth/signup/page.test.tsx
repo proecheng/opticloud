@@ -54,6 +54,7 @@ vi.mock("@/lib/api", () => ({
 }));
 
 import SignupPage from "./page";
+import { LocaleProvider } from "@/components/LocaleProvider";
 
 describe("SignupPage age gate", () => {
   beforeEach(() => {
@@ -68,6 +69,20 @@ describe("SignupPage age gate", () => {
       target: { value: "14" },
     });
     expect(screen.getByLabelText(/监护人邮箱/)).toBeTruthy();
+  });
+
+  it("renders English fallback copy when locale is en-US", () => {
+    render(
+      <LocaleProvider initialLocale="en-US">
+        <SignupPage />
+      </LocaleProvider>,
+    );
+
+    expect(screen.getByText("Sign up for OptiCloud")).toBeTruthy();
+    fireEvent.change(screen.getByLabelText(/Age/), {
+      target: { value: "14" },
+    });
+    expect(screen.getByLabelText(/Guardian email/)).toBeTruthy();
   });
 
   it("keeps pending guardian users on auth surface", async () => {

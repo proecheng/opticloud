@@ -2,6 +2,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { getAccountDeletionStatus, requestAccountDeletion } from "./api";
 
+function getFetchHeaders(fetchMock: { mock: { calls: unknown[][] } }): Headers {
+  const init = fetchMock.mock.calls[0]?.[1] as RequestInit | undefined;
+  return init?.headers as Headers;
+}
+
 describe("account deletion API client", () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -25,11 +30,11 @@ describe("account deletion API client", () => {
     const result = await getAccountDeletionStatus("jwt-test");
 
     expect(result.status).toBe("none");
-    expect(fetchMock).toHaveBeenCalledWith(
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
       "http://localhost:8001/v1/auth/account-deletion",
-      expect.objectContaining({
-        headers: expect.objectContaining({ Authorization: "Bearer jwt-test" }),
-      }),
+    );
+    expect(getFetchHeaders(fetchMock).get("Authorization")).toBe(
+      "Bearer jwt-test",
     );
   });
 
@@ -51,12 +56,14 @@ describe("account deletion API client", () => {
     const result = await requestAccountDeletion("jwt-test");
 
     expect(result.status).toBe("scheduled");
-    expect(fetchMock).toHaveBeenCalledWith(
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
       "http://localhost:8001/v1/auth/account-deletion",
-      expect.objectContaining({
-        method: "POST",
-        headers: expect.objectContaining({ Authorization: "Bearer jwt-test" }),
-      }),
+    );
+    expect((fetchMock.mock.calls[0]?.[1] as RequestInit | undefined)?.method).toBe(
+      "POST",
+    );
+    expect(getFetchHeaders(fetchMock).get("Authorization")).toBe(
+      "Bearer jwt-test",
     );
   });
 });

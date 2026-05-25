@@ -59,6 +59,34 @@ describe("SignupWizard", () => {
     expect(onResume).toHaveBeenCalledOnce();
   });
 
+  it("supports localized state and action labels", () => {
+    const onSkip = vi.fn();
+    const onResume = vi.fn();
+    render(
+      <SignupWizard
+        steps={steps}
+        ariaLabel="onboarding.wizard"
+        stateText={{
+          completed: "Completed",
+          current: "Current",
+          pending: "Pending",
+          skipped: "Skipped",
+        }}
+        actionLabels={{ resume: "Resume guide", skip: "Skip guide" }}
+        onSkip={onSkip}
+        onResume={onResume}
+      />,
+    );
+
+    expect(screen.getByText("Completed")).toBeInTheDocument();
+    expect(screen.getByText("Current")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Skip guide" }));
+    fireEvent.click(screen.getByRole("button", { name: "Resume guide" }));
+
+    expect(onSkip).toHaveBeenCalledOnce();
+    expect(onResume).toHaveBeenCalledOnce();
+  });
+
   it("shows proactive support banner state", () => {
     render(
       <SignupWizard

@@ -40,6 +40,11 @@ export interface SignupWizardProps {
   ariaLabel: string;
   title?: ReactNode;
   description?: ReactNode;
+  stateText?: Partial<Record<SignupWizardStepState, string>>;
+  actionLabels?: {
+    resume?: string;
+    skip?: string;
+  };
   onSkip?: () => void;
   onResume?: () => void;
   supportPrompt?: SignupWizardSupportPrompt;
@@ -73,12 +78,15 @@ export function SignupWizard({
   ariaLabel,
   title = "Onboarding",
   description,
+  stateText: stateTextOverride,
+  actionLabels,
   onSkip,
   onResume,
   supportPrompt,
   className,
 }: SignupWizardProps): JSX.Element {
   const a11y = useA11y({ ariaLabel });
+  const resolvedStateText = { ...stateText, ...stateTextOverride };
 
   return (
     <section
@@ -106,7 +114,7 @@ export function SignupWizard({
                 onClick={onResume}
                 className="min-h-touch rounded-md border border-primary px-3 py-1.5 text-sm text-primary hover:bg-primary/5"
               >
-                继续引导
+                {actionLabels?.resume ?? "继续引导"}
               </button>
             )}
             {onSkip && (
@@ -115,7 +123,7 @@ export function SignupWizard({
                 onClick={onSkip}
                 className="min-h-touch rounded-md border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted"
               >
-                跳过引导
+                {actionLabels?.skip ?? "跳过引导"}
               </button>
             )}
           </div>
@@ -137,7 +145,7 @@ export function SignupWizard({
               </span>
               <span className="min-w-0 flex-1 truncate font-medium">{step.label}</span>
             </div>
-            <p className="mt-2 text-xs">{stateText[step.state]}</p>
+            <p className="mt-2 text-xs">{resolvedStateText[step.state]}</p>
             {step.description && (
               <p className="mt-1 text-xs text-muted-foreground">{step.description}</p>
             )}

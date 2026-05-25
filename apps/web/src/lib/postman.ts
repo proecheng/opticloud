@@ -9,14 +9,18 @@
  *   + RFC 7807 error response examples
  */
 
+import { getAcceptLanguage, type Locale } from "./locale";
+
 export interface PostmanCollectionOptions {
   apiKey: string;
   apiBaseUrl?: string;
+  locale?: Locale;
 }
 
 export function generatePostmanCollection({
   apiKey,
   apiBaseUrl = "https://api.opticloud.cn",
+  locale = getAcceptLanguage(),
 }: PostmanCollectionOptions): object {
   return {
     info: {
@@ -46,7 +50,7 @@ export function generatePostmanCollection({
               header: [
                 { key: "Content-Type", value: "application/json" },
                 { key: "Idempotency-Key", value: "{{$randomUUID}}" },
-                { key: "Accept-Language", value: "zh-CN" },
+                { key: "Accept-Language", value: locale },
               ],
               body: {
                 mode: "raw",
