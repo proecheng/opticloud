@@ -60,7 +60,7 @@ development_status:
   m3-6e-prod-traffic-replay: done              # RE2-7 — 2026-05-26 Traffic replay static contract + sanitizer/evidence validator + CI gate; post-review closure/JWT/camelCase fixes applied
   m3-7-sandbox-security-audit: done            # PMR3 — 2026-05-26 Sandbox security audit contract + static validator + CI gate; post-review metadata payload boundary fix applied
   m3-8-llm-provider-abstraction: done          # PMR8 — 2026-05-26 LLM provider abstraction + offline 100-prompt parity; post-review redaction fix applied
-  m3-9-image-5y-archival: backlog              # G7 Critical Gap
+  m3-9-image-5y-archival: done                # G7 — 2026-05-26 Image 5y archival pipeline contract + evidence validator + CI gate; post-review schema parity fix applied
   m4-5-gtm-toolkit: backlog                    # RE2-4
   m4-5b-gurobi-benchmark-whitepaper: backlog   # E3
 

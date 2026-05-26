@@ -37,6 +37,7 @@ jobs:
       capability_registry: ${{ steps.filter.outputs.capability_registry }}
       repro_service: ${{ steps.filter.outputs.repro_service }}
       image_archival: ${{ steps.filter.outputs.image_archival }}
+      image_archival_pipeline: ${{ steps.filter.outputs.image_archival_pipeline }}
       k8s_manifests: ${{ steps.filter.outputs.k8s_manifests }}
       chat_load_plan: ${{ steps.filter.outputs.chat_load_plan }}
       api_gateway_perf: ${{ steps.filter.outputs.api_gateway_perf }}
@@ -102,6 +103,14 @@ jobs:
               - 'infra/image-archival/**'
               - 'scripts/validate_image_archival_plan.py'
               - 'tests/test_image_archival_plan.py'
+            image_archival_pipeline:
+              - 'infra/image-archival/**'
+              - 'tools/image_archival/**'
+              - 'scripts/validate_image_archival_pipeline.py'
+              - 'tests/test_image_archival_pipeline.py'
+              - 'docs/runbooks/image-5y-archival-pipeline.md'
+              - 'docs/runbooks/repro-image-restore.md'
+              - 'reports/image-archival/**'
             k8s_manifests:
               - 'infra/k8s/**'
               - 'scripts/validate_k8s_network_policies.py'
@@ -436,6 +445,30 @@ jobs:
         run: uv run python scripts/validate_image_archival_plan.py infra/image-archival/archive-plan.json
       - name: Run archive plan tests
         run: uv run pytest tests/test_image_archival_plan.py -v
+
+  # ===== Image 5y archival pipeline validation (Story M3.9) =====
+  image-archival-pipeline-validation:
+    needs: changes
+    if: needs.changes.outputs.image_archival_pipeline == 'true' || needs.changes.outputs.ci_or_root == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: pip install uv==${{ env.UV_VERSION }}
+      - run: uv sync --all-packages --extra dev
+      - name: Validate image archival pipeline contract
+        run: uv run python scripts/validate_image_archival_pipeline.py
+      - name: Validate real image archival evidence manifests when present
+        run: |
+          shopt -s globstar nullglob
+          manifests=(reports/image-archival/**/evidence_manifest.json)
+          for manifest in "${manifests[@]}"; do
+            uv run python scripts/validate_image_archival_pipeline.py --evidence "$manifest"
+          done
+      - name: Run image archival pipeline tests
+        run: uv run pytest tests/test_image_archival_pipeline.py -v
 
   # ===== K8s namespace / NetworkPolicy validation (Story M3.3a) =====
   k8s-manifest-validation:

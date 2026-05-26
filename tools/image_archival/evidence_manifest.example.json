@@ -1,0 +1,81 @@
+{
+  "source_story": "M3.9",
+  "example_only": true,
+  "run_id": "example-image-archival-20260526",
+  "commit_sha": "example-commit-sha",
+  "archive_plan_sha256": "001ab7d9cd8f13294f8bd50a03f488dd25452be00c9bcb1fdccca20377cfd8a9",
+  "pipeline_plan_sha256": "22cdba80e918acf54a08057790d49f929a21f8fdced2b72b4437ae3bbcb355c9",
+  "environment": "synthetic-example-no-cloud",
+  "started_utc": "2026-05-26T00:00:00Z",
+  "ended_utc": "2026-05-26T00:30:00Z",
+  "tier_results": [
+    {
+      "voucher_id": "repro-2026-EXH001",
+      "voucher_created_at_utc": "2026-05-01T00:00:00Z",
+      "storage_tier": "hot_acr_ee",
+      "image_digest": "sha256:examplehotdigest",
+      "registry_or_object_ref": "acr-ee://redacted-registry/provider-a/example@sha256:examplehotdigest",
+      "artifact_checksum": "sha256:examplehotartifact",
+      "cosign_verified": true,
+      "sbom_verified": true,
+      "kms_backup_ref": "vault-transit-backup://redacted/example-key-hot",
+      "kms_backup_verified": true,
+      "restore_status": "available",
+      "restore_target_minutes": 5,
+      "restore_requested_utc": "2026-05-26T00:01:00Z",
+      "restore_completed_utc": "2026-05-26T00:03:00Z",
+      "outcome": "restored"
+    },
+    {
+      "voucher_id": "repro-2026-EXW091",
+      "voucher_created_at_utc": "2026-02-24T00:00:00Z",
+      "storage_tier": "warm_s3_standard_ia",
+      "image_digest": "sha256:examplewarmdigest",
+      "registry_or_object_ref": "s3://redacted-warm-archive/provider-b/example@sha256:examplewarmdigest",
+      "artifact_checksum": "sha256:examplewarmartifact",
+      "cosign_verified": true,
+      "sbom_verified": true,
+      "kms_backup_ref": "vault-transit-backup://redacted/example-key-warm",
+      "kms_backup_verified": true,
+      "restore_status": "restored",
+      "restore_target_minutes": 1440,
+      "restore_requested_utc": "2026-05-26T00:05:00Z",
+      "restore_completed_utc": "2026-05-26T00:25:00Z",
+      "outcome": "restored"
+    },
+    {
+      "voucher_id": "repro-2025-EXC366",
+      "voucher_created_at_utc": "2025-05-25T00:00:00Z",
+      "storage_tier": "cold_s3_glacier",
+      "image_digest": "sha256:examplecolddigest",
+      "registry_or_object_ref": "s3-glacier://redacted-cold-archive/provider-c/example@sha256:examplecolddigest",
+      "artifact_checksum": "sha256:examplecoldartifact",
+      "cosign_verified": true,
+      "sbom_verified": true,
+      "kms_backup_ref": "vault-transit-backup://redacted/example-key-cold",
+      "kms_backup_verified": true,
+      "restore_status": "restored",
+      "restore_target_minutes": 1440,
+      "restore_requested_utc": "2026-05-26T00:10:00Z",
+      "restore_completed_utc": "2026-05-26T00:28:00Z",
+      "outcome": "restored"
+    }
+  ],
+  "kms_backup_results": [
+    {
+      "kms_key_id": "kms-redacted-example",
+      "kms_key_backup_ref": "vault-transit-backup://redacted/example-key-hot",
+      "backup_created_at_utc": "2026-05-26T00:00:00Z",
+      "backup_checksum": "sha256:examplekmschecksum",
+      "restore_tested_at_utc": "2026-05-26T00:20:00Z",
+      "restore_test_result": "passed"
+    }
+  ],
+  "artifacts": {
+    "restore_report": "reports/image-archival/example-image-archival-20260526/restore-report.json",
+    "redaction_audit": "reports/image-archival/example-image-archival-20260526/redaction-audit.json",
+    "drill_log": "reports/image-archival/example-image-archival-20260526/drill-log.json"
+  },
+  "redaction_reviewed": true,
+  "operator": "synthetic-example"
+}

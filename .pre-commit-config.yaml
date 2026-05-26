@@ -101,5 +101,11 @@ repos:
           # Public M3.8 LLM router reference prompt fixture SHA-256, not a secret.
           - "--exclude-secrets"
           - "8caaadeec34c17bc08b71abab1394605f377943666f7197ce0a49d9b9cc08ca2"
+          # Public M3.9 image archival archive plan SHA-256, not a secret.
+          - "--exclude-secrets"
+          - "001ab7d9cd8f13294f8bd50a03f488dd25452be00c9bcb1fdccca20377cfd8a9"
+          # Public M3.9 image archival pipeline plan SHA-256, not a secret.
+          - "--exclude-secrets"
+          - "22cdba80e918acf54a08057790d49f929a21f8fdced2b72b4437ae3bbcb355c9"
         # pnpm-lock.yaml contains generated integrity hashes that trigger high-entropy false positives.
         exclude: ^(\.env\.example|infra/local-init/.*\.sql|.*\.stories\.tsx|pnpm-lock\.yaml)$

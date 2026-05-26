@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opticloud.local/schemas/image-archival/evidence-manifest.schema.json",
+  "title": "OptiCloud Image Archival Evidence Manifest",
+  "type": "object",
+  "required": [
+    "source_story",
+    "example_only",
+    "run_id",
+    "commit_sha",
+    "archive_plan_sha256",
+    "pipeline_plan_sha256",
+    "environment",
+    "started_utc",
+    "ended_utc",
+    "tier_results",
+    "kms_backup_results",
+    "artifacts",
+    "redaction_reviewed",
+    "operator"
+  ],
+  "properties": {
+    "source_story": {
+      "const": "M3.9"
+    },
+    "example_only": {
+      "type": "boolean"
+    },
+    "run_id": {
+      "type": "string"
+    },
+    "commit_sha": {
+      "type": "string"
+    },
+    "archive_plan_sha256": {
+      "type": "string"
+    },
+    "pipeline_plan_sha256": {
+      "type": "string"
+    },
+    "environment": {
+      "type": "string"
+    },
+    "started_utc": {
+      "type": "string"
+    },
+    "ended_utc": {
+      "type": "string"
+    },
+    "tier_results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "voucher_id",
+          "voucher_created_at_utc",
+          "storage_tier",
+          "image_digest",
+          "registry_or_object_ref",
+          "artifact_checksum",
+          "cosign_verified",
+          "sbom_verified",
+          "kms_backup_ref",
+          "kms_backup_verified",
+          "restore_status",
+          "restore_target_minutes",
+          "restore_requested_utc",
+          "restore_completed_utc",
+          "outcome"
+        ]
+      }
+    },
+    "kms_backup_results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "kms_key_id",
+          "kms_key_backup_ref",
+          "backup_created_at_utc",
+          "backup_checksum",
+          "restore_tested_at_utc",
+          "restore_test_result"
+        ]
+      }
+    },
+    "artifacts": {
+      "type": "object",
+      "required": ["restore_report", "redaction_audit", "drill_log"]
+    },
+    "redaction_reviewed": {
+      "type": "boolean"
+    },
+    "operator": {
+      "type": "string"
+    }
+  }
+}

@@ -1,0 +1,190 @@
+{
+  "plan_version": "image_archival_pipeline_v1",
+  "source_story": "M3.9",
+  "source_gap": "G7",
+  "archive_plan_sha256": "001ab7d9cd8f13294f8bd50a03f488dd25452be00c9bcb1fdccca20377cfd8a9",
+  "evidence_directory": "reports/image-archival",
+  "clock": {
+    "source": "reproduction_vouchers.created_at",
+    "timezone": "UTC"
+  },
+  "tiers": [
+    {
+      "name": "hot_acr_ee",
+      "day_start": 0,
+      "day_end": 90,
+      "storage_class": "Alibaba Cloud ACR Enterprise Edition",
+      "restore_target_minutes": 5
+    },
+    {
+      "name": "warm_s3_standard_ia",
+      "day_start": 91,
+      "day_end": 365,
+      "storage_class": "S3 Standard-IA or equivalent warm object storage",
+      "restore_target_minutes": 1440
+    },
+    {
+      "name": "cold_s3_glacier",
+      "day_start": 366,
+      "day_end": 1826,
+      "storage_class": "S3 Glacier Flexible Retrieval or equivalent",
+      "restore_target_minutes": 1440
+    }
+  ],
+  "stages": [
+    {
+      "stage_id": "provider_image_push",
+      "required_evidence": [
+        "provider_id",
+        "repository_ref",
+        "image_digest",
+        "source_commit_sha",
+        "build_timestamp_utc"
+      ]
+    },
+    {
+      "stage_id": "cosign_sign_and_index",
+      "required_evidence": [
+        "image_digest",
+        "cosign_signature_ref",
+        "sbom_ref",
+        "cosign_verified",
+        "sbom_verified"
+      ]
+    },
+    {
+      "stage_id": "hot_acr_ee_retention",
+      "required_evidence": [
+        "storage_tier",
+        "registry_or_object_ref",
+        "transition_due_utc",
+        "transition_observed_utc"
+      ]
+    },
+    {
+      "stage_id": "warm_s3_standard_ia_transition",
+      "required_evidence": [
+        "storage_tier",
+        "registry_or_object_ref",
+        "artifact_checksum",
+        "transition_due_utc",
+        "transition_observed_utc"
+      ]
+    },
+    {
+      "stage_id": "cold_s3_glacier_transition",
+      "required_evidence": [
+        "storage_tier",
+        "registry_or_object_ref",
+        "artifact_checksum",
+        "transition_due_utc",
+        "transition_observed_utc"
+      ]
+    },
+    {
+      "stage_id": "vault_kms_backup",
+      "required_evidence": [
+        "kms_key_id",
+        "kms_key_backup_ref",
+        "backup_created_at_utc",
+        "backup_checksum",
+        "restore_tested_at_utc",
+        "restore_test_result"
+      ]
+    },
+    {
+      "stage_id": "quarterly_restore_drill",
+      "required_evidence": [
+        "drill_id",
+        "storage_tier",
+        "image_digest",
+        "cosign_verified",
+        "sbom_verified",
+        "kms_backup_verified",
+        "outcome"
+      ]
+    }
+  ],
+  "transition_policy": {
+    "voucher_clock_required": true,
+    "allows_object_age_only_lifecycle": false,
+    "required_fields": [
+      "voucher_created_at_utc",
+      "transition_due_utc",
+      "transition_observed_utc"
+    ],
+    "notes": [
+      "Bucket lifecycle object age may be an implementation mechanism only when evidence also records the voucher SLA clock.",
+      "Do not use image push time, provider exit time, restore request time, or local time as the SLA clock."
+    ]
+  },
+  "identity_policy": {
+    "digest_required": true,
+    "allows_tag_only_reference": false,
+    "tag_usage": "diagnostic_only_with_digest"
+  },
+  "required_image_fields": [
+    "image_digest",
+    "cosign_signature_ref",
+    "sbom_ref",
+    "source_commit_sha",
+    "build_timestamp_utc",
+    "provider_id",
+    "solver",
+    "model_version",
+    "repository_ref"
+  ],
+  "archive_index_required_fields": [
+    "voucher_id",
+    "voucher_created_at_utc",
+    "provider_id",
+    "solver",
+    "model_version",
+    "image_digest",
+    "cosign_signature_ref",
+    "sbom_ref",
+    "storage_tier",
+    "registry_or_object_ref",
+    "kms_key_backup_ref",
+    "transition_due_utc",
+    "transition_observed_utc",
+    "artifact_checksum",
+    "cosign_verified",
+    "sbom_verified"
+  ],
+  "kms_backup_requirements": {
+    "required": true,
+    "reference_field": "kms_key_backup_ref",
+    "minimum_metadata": [
+      "kms_key_id",
+      "kms_key_backup_ref",
+      "backup_created_at_utc",
+      "backup_checksum",
+      "restore_tested_at_utc",
+      "restore_test_result"
+    ],
+    "payload_policy": "do_not_commit_backup_payloads_or_tokens"
+  },
+  "restore_targets": {
+    "hot_acr_ee": {
+      "target_minutes": 5,
+      "allows_five_minute_claim": true
+    },
+    "warm_s3_standard_ia": {
+      "target_minutes": 1440,
+      "allows_five_minute_claim": false
+    },
+    "cold_s3_glacier": {
+      "target_minutes": 1440,
+      "allows_five_minute_claim": false
+    }
+  },
+  "non_goals": [
+    "No CI cloud API calls",
+    "No Docker, cosign, syft, registry, or Vault execution in CI",
+    "No apps/repro-service scaffold",
+    "No voucher issuance or rerun endpoint behavior changes",
+    "No billing, provider migration, solver, UI, or public API changes",
+    "No five-minute cold Glacier restore claim without future provisioned expedited evidence"
+  ]
+}
