@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import (
@@ -22,6 +23,7 @@ from sqlalchemy import (
     String,
     Text,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
@@ -121,4 +123,48 @@ class IdempotencyKey(Base):
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class CostAttribution(Base):
+    """Story M2.3 — shared G3 cost attribution table."""
+
+    __tablename__ = "cost_attribution"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()
+    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    service: Mapped[str] = mapped_column(String(64), nullable=False)
+    cost_unit: Mapped[str] = mapped_column(String(32), nullable=False)
+    value: Mapped[Decimal] = mapped_column(Numeric(18, 6), nullable=False)
+    source_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    metadata_json: Mapped[dict[str, Any]] = mapped_column(
+        "metadata", JSONB, nullable=False, default=dict
+    )
+    recorded_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "cost_unit IN ('llm_token', 'gpu_second', 'solver_second')",
+            name="ck_cost_attribution_cost_unit",
+        ),
+        CheckConstraint("value >= 0", name="ck_cost_attribution_value_nonnegative"),
+        Index(
+            "idx_cost_attr_tenant_service_unit_recorded",
+            "tenant_id",
+            "service",
+            "cost_unit",
+            "recorded_at",
+        ),
+        Index(
+            "idx_cost_attr_source_id",
+            "source_id",
+            postgresql_where=text("source_id IS NOT NULL"),
+        ),
     )
