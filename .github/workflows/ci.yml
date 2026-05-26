@@ -36,6 +36,7 @@ jobs:
       capability_registry: ${{ steps.filter.outputs.capability_registry }}
       repro_service: ${{ steps.filter.outputs.repro_service }}
       image_archival: ${{ steps.filter.outputs.image_archival }}
+      contract_tests: ${{ steps.filter.outputs.contract_tests }}
       web: ${{ steps.filter.outputs.web }}
       ci_or_root: ${{ steps.filter.outputs.ci_or_root }}
     steps:
@@ -87,6 +88,13 @@ jobs:
               - 'infra/image-archival/**'
               - 'scripts/validate_image_archival_plan.py'
               - 'tests/test_image_archival_plan.py'
+            contract_tests:
+              - 'tests/contract/**'
+              - 'packages/shared-py/opticloud_shared/property_test_base/**'
+              - 'packages/shared-py/tests/test_property_base_schemathesis_sample.py'
+              - 'apps/auth-service/src/auth_service/**'
+              - 'scripts/generate_openapi.py'
+              - 'scripts/check_openapi_drift.py'
             web:
               - 'apps/web/**'
             # CI or root config — re-run everything
@@ -362,6 +370,23 @@ jobs:
         run: uv run python scripts/validate_image_archival_plan.py infra/image-archival/archive-plan.json
       - name: Run archive plan tests
         run: uv run pytest tests/test_image_archival_plan.py -v
+
+  # ===== Contract tests (Story M3.2) =====
+  contract-test:
+    needs: changes
+    if: needs.changes.outputs.contract_tests == 'true' || needs.changes.outputs.ci_or_root == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: pip install uv==${{ env.UV_VERSION }}
+      - run: uv sync --all-packages --extra dev
+      - name: Run contract tests
+        env:
+          PYTHONPATH: apps/auth-service/src:packages/shared-py
+        run: uv run pytest tests/contract -v
 
   # ===== TypeScript: web + ui + shared-ts typecheck =====
   ts-typecheck:

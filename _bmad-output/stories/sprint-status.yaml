@@ -46,7 +46,7 @@ development_status:
   m2-3-cost-attribution: done                  # 2026-05-26 — G3 M2 minimum cost attribution: shared cost_telemetry + cost_attribution table + solver_second hook; post-review partial-index fix applied
   m3-0-image-archival-prep: done               # SC8 — 2026-05-26 archive prep contract + validator + CI gate; post-review schema parity fix applied
   m3-1-sandbox-io-pattern: done               # 2026-05-26 sandbox-runner P58/P62 local contract + CI gate; post-review exit directive fix applied
-  m3-2-contract-test-framework: backlog
+  m3-2-contract-test-framework: done                # 2026-05-26 — Schemathesis contract harness + auth-service healthz PR gate; post-review registry/determinism fixes applied
   m3-3a-k8s-namespace-prod: backlog            # 标准档
   m3-3b-docker-compose-blue-green: backlog     # 精简档
   m3-4-aigc-watermark-module: backlog          # G12
