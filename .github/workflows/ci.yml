@@ -38,6 +38,7 @@ jobs:
       repro_service: ${{ steps.filter.outputs.repro_service }}
       image_archival: ${{ steps.filter.outputs.image_archival }}
       k8s_manifests: ${{ steps.filter.outputs.k8s_manifests }}
+      chat_load_plan: ${{ steps.filter.outputs.chat_load_plan }}
       contract_tests: ${{ steps.filter.outputs.contract_tests }}
       blue_green_deploy: ${{ steps.filter.outputs.blue_green_deploy }}
       aigc_filter: ${{ steps.filter.outputs.aigc_filter }}
@@ -101,6 +102,12 @@ jobs:
               - 'infra/k8s/**'
               - 'scripts/validate_k8s_network_policies.py'
               - 'tests/test_k8s_network_policies.py'
+            chat_load_plan:
+              - 'tools/chat_load/**'
+              - 'scripts/validate_chat_load_plan.py'
+              - 'tests/test_chat_load_plan.py'
+              - 'docs/runbooks/chat-staging-load-test.md'
+              - 'reports/chat-load/**'
             blue_green_deploy:
               - 'scripts/deploy/**'
               - 'scripts/validate_blue_green_deploy.py'
@@ -432,6 +439,30 @@ jobs:
         run: uv run pytest tests/test_blue_green_deploy.py -v
       - name: Check deploy script syntax
         run: bash -n scripts/deploy/blue-green.sh
+
+  # ===== Chat staging load-test plan validation (Story M3.6a) =====
+  chat-load-plan-validation:
+    needs: changes
+    if: needs.changes.outputs.chat_load_plan == 'true' || needs.changes.outputs.ci_or_root == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: pip install uv==${{ env.UV_VERSION }}
+      - run: uv sync --all-packages --extra dev
+      - name: Validate chat load plan
+        run: uv run python scripts/validate_chat_load_plan.py
+      - name: Validate real chat load evidence manifests when present
+        run: |
+          shopt -s globstar nullglob
+          manifests=(reports/chat-load/**/evidence_manifest.json)
+          for manifest in "${manifests[@]}"; do
+            uv run python scripts/validate_chat_load_plan.py --evidence "$manifest"
+          done
+      - name: Run chat load plan tests
+        run: uv run pytest tests/test_chat_load_plan.py -v
 
   # ===== AIGC filter + watermark validation (Story M3.4) =====
   aigc-filter-validation:

@@ -1,0 +1,212 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "cluster": {
+      "additionalProperties": false,
+      "properties": {
+        "descriptor": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "environment": {
+          "const": "staging",
+          "type": "string"
+        },
+        "node_count": {
+          "const": 5,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "environment",
+        "descriptor",
+        "node_count"
+      ],
+      "type": "object"
+    },
+    "commit_sha": {
+      "pattern": "^[0-9a-f]{7,40}$",
+      "type": "string"
+    },
+    "endpoint_path": {
+      "pattern": "^/",
+      "type": "string"
+    },
+    "example_only": {
+      "type": "boolean"
+    },
+    "generated_by": {
+      "type": "string"
+    },
+    "profiles": {
+      "additionalProperties": false,
+      "properties": {
+        "baseline": {
+          "$ref": "#/$defs/profileEvidence"
+        },
+        "soak": {
+          "$ref": "#/$defs/profileEvidence"
+        },
+        "stress": {
+          "$ref": "#/$defs/profileEvidence"
+        }
+      },
+      "required": [
+        "baseline",
+        "stress",
+        "soak"
+      ],
+      "type": "object"
+    },
+    "prompt_count": {
+      "const": 100,
+      "type": "integer"
+    },
+    "prompt_fixture": {
+      "const": "tools/chat_load/prompts_v1.json",
+      "type": "string"
+    },
+    "prompt_fixture_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "run_id": {
+      "pattern": "^[a-z0-9][a-z0-9._-]{2,63}$",
+      "type": "string"
+    },
+    "source_story": {
+      "const": "M3.6a",
+      "type": "string"
+    }
+  },
+  "required": [
+    "source_story",
+    "run_id",
+    "example_only",
+    "generated_by",
+    "commit_sha",
+    "cluster",
+    "endpoint_path",
+    "prompt_fixture",
+    "prompt_fixture_sha256",
+    "prompt_count",
+    "profiles"
+  ],
+  "title": "M3.6a Chat staging load-test evidence manifest",
+  "type": "object",
+  "$defs": {
+    "artifactPath": {
+      "pattern": "^reports/chat-load/[a-z0-9][a-z0-9._-]{2,63}/[^\\\\:]+\\.(html|json|png)$",
+      "type": "string"
+    },
+    "profileEvidence": {
+      "additionalProperties": false,
+      "properties": {
+        "end_utc": {
+          "pattern": "^20[0-9]{2}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+          "type": "string"
+        },
+        "grafana_screenshot": {
+          "$ref": "#/$defs/artifactPath"
+        },
+        "locust_report": {
+          "$ref": "#/$defs/artifactPath"
+        },
+        "metrics": {
+          "additionalProperties": false,
+          "properties": {
+            "completed_stream_count": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "deadlock_count": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "e2e_solve_p95_ms": {
+              "minimum": 0,
+              "type": "number"
+            },
+            "first_token_p50_ms": {
+              "minimum": 0,
+              "type": "number"
+            },
+            "first_token_p95_ms": {
+              "minimum": 0,
+              "type": "number"
+            },
+            "http_error_rate": {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            "oom_count": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "request_count": {
+              "minimum": 1,
+              "type": "integer"
+            },
+            "solve_prompt_count": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "streaming_tokens_per_second": {
+              "minimum": 0,
+              "type": "number"
+            },
+            "token_count_method": {
+              "enum": [
+                "provider_usage",
+                "content_unit_approximation"
+              ],
+              "type": "string"
+            },
+            "total_response_p95_ms": {
+              "minimum": 0,
+              "type": "number"
+            }
+          },
+          "required": [
+            "request_count",
+            "completed_stream_count",
+            "first_token_p50_ms",
+            "first_token_p95_ms",
+            "total_response_p95_ms",
+            "streaming_tokens_per_second",
+            "token_count_method",
+            "http_error_rate",
+            "solve_prompt_count",
+            "e2e_solve_p95_ms",
+            "oom_count",
+            "deadlock_count"
+          ],
+          "type": "object"
+        },
+        "profile": {
+          "enum": [
+            "baseline",
+            "stress",
+            "soak"
+          ],
+          "type": "string"
+        },
+        "start_utc": {
+          "pattern": "^20[0-9]{2}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "profile",
+        "start_utc",
+        "end_utc",
+        "locust_report",
+        "grafana_screenshot",
+        "metrics"
+      ],
+      "type": "object"
+    }
+  }
+}

@@ -1,0 +1,807 @@
+{
+  "dataset_version": "chat_load_prompts_v1",
+  "prompt_count": 100,
+  "prompts": [
+    {
+      "category": "optimization",
+      "difficulty": "easy",
+      "expected_path": "solve_expected",
+      "id": "chat-load-v1-001",
+      "locale": "zh-CN",
+      "prompt": "为一家虚构便利店安排 6 名员工的两班制排班，目标是覆盖早晚高峰并最小化总工时。"
+    },
+    {
+      "category": "optimization",
+      "difficulty": "medium",
+      "expected_path": "solve_expected",
+      "id": "chat-load-v1-002",
+      "locale": "en-US",
+      "prompt": "Build a small linear program for assigning four delivery vans to eight synthetic zones while minimizing total travel minutes."
+    },
+    {
+      "category": "optimization",
+      "difficulty": "medium",
+      "expected_path": "solve_expected",
+      "id": "chat-load-v1-003",
+      "locale": "zh-CN",
+      "prompt": "用线性规划描述一个虚构工厂的三种产品产量计划，考虑机器小时和原料上限。"
+    },
+    {
+      "category": "optimization",
+      "difficulty": "hard",
+      "expected_path": "solve_expected",
+      "id": "chat-load-v1-004",
+      "locale": "mixed",
+      "prompt": "Create a VRPTW model for 12 synthetic customers，说明 time window、capacity 和 objective。"
+    },
+    {
+      "category": "optimization",
+      "difficulty": "medium",
+      "expected_path": "solve_expected",
+      "id": "chat-load-v1-005",
+      "locale": "zh-CN",
+      "prompt": "给 5 个仓库和 10 个虚构门店做运输分配，要求总运费最低并满足门店需求。"
+    },
+    {
+      "category": "optimization",
+      "difficulty": "hard",
+      "expected_path": "solve_expected",
+      "id": "chat-load-v1-006",
+      "locale": "en-US",
+      "prompt": "Formulate a mixed-integer scheduling problem for three synthetic machines and ten jobs with setup penalties."
+    },
+    {
+      "category": "optimization",
+      "difficulty": "easy",
+      "expected_path": "solve_expected",
+      "id": "chat-load-v1-007",
+      "locale": "zh-CN",
+      "prompt": "帮我把一个 2 变量利润最大化问题写成标准 LP：产品 A、B，各有人工和材料约束。"
+    },
+    {
+      "category": "optimization",
+      "difficulty": "medium",
+      "expected_path": "solve_expected",
+      "id": "chat-load-v1-008",
+      "locale": "mixed",
+      "prompt": "For a synthetic inventory case，请给出 reorder quantity 的约束和目标函数。"
+    },
+    {
+      "category": "optimization",
+      "difficulty": "medium",
+      "expected_path": "solve_expected",
+      "id": "chat-load-v1-009",
+      "locale": "en-US",
+      "prompt": "Create constraints for selecting five projects from a synthetic portfolio under budget, staffing, and risk caps."
+    },
+    {
+      "category": "optimization",
+      "difficulty": "hard",
+      "expected_path": "solve_expected",
+      "id": "chat-load-v1-010",
+      "locale": "zh-CN",
+      "prompt": "为虚构园区的储能充放电计划建模，目标是降低峰谷电费且满足电池容量约束。"
+    },
+    {
+      "category": "optimization",
+      "difficulty": "medium",
+      "expected_path": "solve_expected",
+      "id": "chat-load-v1-011",
+      "locale": "en-US",
+      "prompt": "Model a synthetic blending problem with four ingredients, minimum quality constraints, and least-cost objective."
+    },
+    {
+      "category": "optimization",
+      "difficulty": "easy",
+      "expected_path": "solve_expected",
+      "id": "chat-load-v1-012",
+      "locale": "mixed",
+      "prompt": "请把 knapsack example 转成 0-1 integer program，items 都是 synthetic。"
+    },
+    {
+      "category": "optimization",
+      "difficulty": "hard",
+      "expected_path": "solve_expected",
+      "id": "chat-load-v1-013",
+      "locale": "zh-CN",
+      "prompt": "设计一个虚构公交发车频率优化模型，兼顾等待时间、车辆数和运营成本。"
+    },
+    {
+      "category": "optimization",
+      "difficulty": "medium",
+      "expected_path": "solve_expected",
+      "id": "chat-load-v1-014",
+      "locale": "en-US",
+      "prompt": "Formulate a capacity planning LP for three synthetic data centers with demand and energy constraints."
+    },
+    {
+      "category": "optimization",
+      "difficulty": "easy",
+      "expected_path": "solve_expected",
+      "id": "chat-load-v1-015",
+      "locale": "zh-CN",
+      "prompt": "给一个虚构小餐厅采购计划建模，目标是满足营养下限并最小化采购成本。"
+    },
+    {
+      "category": "optimization",
+      "difficulty": "hard",
+      "expected_path": "solve_expected",
+      "id": "chat-load-v1-016",
+      "locale": "mixed",
+      "prompt": "Build a synthetic workforce routing model，包含 skills、travel time 和 overtime penalty。"
+    },
+    {
+      "category": "optimization",
+      "difficulty": "medium",
+      "expected_path": "solve_expected",
+      "id": "chat-load-v1-017",
+      "locale": "zh-CN",
+      "prompt": "为 8 个虚构订单做批量生产排序，目标是最小化延期罚金。"
+    },
+    {
+      "category": "optimization",
+      "difficulty": "easy",
+      "expected_path": "solve_expected",
+      "id": "chat-load-v1-018",
+      "locale": "en-US",
+      "prompt": "Write a small transportation LP with two synthetic suppliers and three synthetic demand points."
+    },
+    {
+      "category": "prediction",
+      "difficulty": "easy",
+      "expected_path": "chat_only",
+      "id": "chat-load-v1-019",
+      "locale": "zh-CN",
+      "prompt": "解释如何对虚构门店的每日客流做 7 天预测，并说明需要哪些字段。"
+    },
+    {
+      "category": "prediction",
+      "difficulty": "medium",
+      "expected_path": "chat_only",
+      "id": "chat-load-v1-020",
+      "locale": "en-US",
+      "prompt": "Describe a forecasting workflow for synthetic hourly energy demand with weather-like features."
+    },
+    {
+      "category": "prediction",
+      "difficulty": "medium",
+      "expected_path": "chat_only",
+      "id": "chat-load-v1-021",
+      "locale": "mixed",
+      "prompt": "给我一个 demand forecast plan，数据是 synthetic weekly sales，不包含真实客户。"
+    },
+    {
+      "category": "prediction",
+      "difficulty": "hard",
+      "expected_path": "chat_only",
+      "id": "chat-load-v1-022",
+      "locale": "zh-CN",
+      "prompt": "比较 ARIMA、Chronos 和简单移动平均在虚构库存需求预测中的适用边界。"
+    },
+    {
+      "category": "prediction",
+      "difficulty": "easy",
+      "expected_path": "chat_only",
+      "id": "chat-load-v1-023",
+      "locale": "en-US",
+      "prompt": "What validation split would you use for a synthetic monthly demand time series with two years of data?"
+    },
+    {
+      "category": "prediction",
+      "difficulty": "medium",
+      "expected_path": "chat_only",
+      "id": "chat-load-v1-024",
+      "locale": "zh-CN",
+      "prompt": "请说明虚构销售预测中 MAPE、sMAPE 和 pinball loss 的差异。"
+    },
+    {
+      "category": "prediction",
+      "difficulty": "hard",
+      "expected_path": "chat_only",
+      "id": "chat-load-v1-025",
+      "locale": "mixed",
+      "prompt": "How should I handle holiday effects in a synthetic 中国零售 forecast dataset?"
+    },
+    {
+      "category": "prediction",
+      "difficulty": "medium",
+      "expected_path": "chat_only",
+      "id": "chat-load-v1-026",
+      "locale": "en-US",
+      "prompt": "Outline anomaly checks before forecasting synthetic machine utilization for the next 14 days."
+    },
+    {
+      "category": "prediction",
+      "difficulty": "easy",
+      "expected_path": "chat_only",
+      "id": "chat-load-v1-027",
+      "locale": "zh-CN",
+      "prompt": "如果虚构数据只有 30 天，能否做季度预测？请说明限制。"
+    },
+    {
+      "category": "prediction",
+      "difficulty": "medium",
+      "expected_path": "chat_only",
+      "id": "chat-load-v1-028",
+      "locale": "en-US",
+      "prompt": "Explain how prediction intervals help a synthetic operations planner choose safety stock."
+    },
+    {
+      "category": "prediction",
+      "difficulty": "hard",
+      "expected_path": "chat_only",
+      "id": "chat-load-v1-029",
+      "locale": "zh-CN",
+      "prompt": "为虚构呼叫中心预测排队量，说明趋势、季节性和突发异常如何处理。"
+    },
+    {
+      "category": "prediction",
+      "difficulty": "medium",
+      "expected_path": "chat_only",
+      "id": "chat-load-v1-030",
+      "locale": "mixed",
+      "prompt": "Forecast synthetic warehouse outbound volume，并解释 confidence interval 给业务的含义。"
+    },
+    {
+      "category": "prediction",
+      "difficulty": "easy",
+      "expected_path": "chat_only",
+      "id": "chat-load-v1-031",
+      "locale": "en-US",
+      "prompt": "List the minimum columns needed to forecast a synthetic daily SKU demand series."
+    },
+    {
+      "category": "prediction",
+      "difficulty": "medium",
+      "expected_path": "chat_only",
+      "id": "chat-load-v1-032",
+      "locale": "zh-CN",
+      "prompt": "如何用回测判断一个虚构预测模型是否比季节性 naive baseline 更好？"
+    },
+    {
+      "category": "prediction",
+      "difficulty": "hard",
+      "expected_path": "chat_only",
+      "id": "chat-load-v1-033",
+      "locale": "en-US",
+      "prompt": "Design a synthetic backtest for rolling-origin forecasts across 20 stores and 12 product groups."
+    },
+    {
+      "category": "prediction",
+      "difficulty": "medium",
+      "expected_path": "chat_only",
+      "id": "chat-load-v1-034",
+      "locale": "zh-CN",
+      "prompt": "说明虚构时序数据缺失值、重复日期和异常尖峰的预处理策略。"
+    },
+    {
+      "category": "explanation",
+      "difficulty": "easy",
+      "expected_path": "chat_only",
+      "id": "chat-load-v1-035",
+      "locale": "zh-CN",
+      "prompt": "用业务语言解释线性规划里的目标函数、约束和可行解。"
+    },
+    {
+      "category": "explanation",
+      "difficulty": "easy",
+      "expected_path": "chat_only",
+      "id": "chat-load-v1-036",
+      "locale": "en-US",
+      "prompt": "Explain the difference between a feasible solution and an optimal solution for a synthetic routing case."
+    },
+    {
+      "category": "explanation",
+      "difficulty": "medium",
+      "expected_path": "chat_only",
+      "id": "chat-load-v1-037",
+      "locale": "mixed",
+      "prompt": "请 explain shadow price using a simple synthetic production example。"
+    },
+    {
+      "category": "explanation",
+      "difficulty": "medium",
+      "expected_path": "chat_only",
+      "id": "chat-load-v1-038",
+      "locale": "zh-CN",
+      "prompt": "为什么整数规划通常比线性规划更慢？请用虚构排班例子说明。"
+    },
+    {
+      "category": "explanation",
+      "difficulty": "hard",
+      "expected_path": "chat_only",
+      "id": "chat-load-v1-039",
+      "locale": "en-US",
+      "prompt": "Explain why a synthetic VRPTW model may become infeasible and how to debug it."
+    },
+    {
+      "category": "explanation",
+      "difficulty": "easy",
+      "expected_path": "chat_only",
+      "id": "chat-load-v1-040",
+      "locale": "zh-CN",
+      "prompt": "解释预测模型里训练集、验证集和测试集的区别。"
+    },
+    {
+      "category": "explanation",
+      "difficulty": "medium",
+      "expected_path": "chat_only",
+      "id": "chat-load-v1-041",
+      "locale": "en-US",
+      "prompt": "Explain what a dual variable means in a simple synthetic capacity planning LP."
+    },
+    {
+      "category": "explanation",
+      "difficulty": "hard",
+      "expected_path": "chat_only",
+      "id": "chat-load-v1-042",
+      "locale": "mixed",
+      "prompt": "Explain branch-and-bound，并用 small synthetic integer example 说明节点剪枝。"
+    },
+    {
+      "category": "explanation",
+      "difficulty": "medium",
+      "expected_path": "chat_only",
+      "id": "chat-load-v1-043",
+      "locale": "zh-CN",
+      "prompt": "给非技术经理解释为什么同一个优化模型要记录版本和输入哈希。"
+    },
+    {
+      "category": "explanation",
+      "difficulty": "easy",
+      "expected_path": "chat_only",
+      "id": "chat-load-v1-044",
+      "locale": "en-US",
+      "prompt": "Explain what service-level objective means for a synthetic chat-to-solve workflow."
+    },
+    {
+      "category": "explanation",
+      "difficulty": "medium",
+      "expected_path": "chat_only",
+      "id": "chat-load-v1-045",
+      "locale": "zh-CN",
+      "prompt": "说明 P50、P95、P99 延迟在性能报告中的差异和业务含义。"
+    },
+    {
+      "category": "explanation",
+      "difficulty": "hard",
+      "expected_path": "chat_only",
+      "id": "chat-load-v1-046",
+      "locale": "en-US",
+      "prompt": "Explain why streaming first-token latency and total response latency should be measured separately."
+    },
+    {
+      "category": "explanation",
+      "difficulty": "medium",
+      "expected_path": "chat_only",
+      "id": "chat-load-v1-047",
+      "locale": "mixed",
+      "prompt": "解释 gVisor sandbox overhead and why it matters for Chat solve latency。"
+    },
+    {
+      "category": "explanation",
+      "difficulty": "easy",
+      "expected_path": "chat_only",
+      "id": "chat-load-v1-048",
+      "locale": "zh-CN",
+      "prompt": "用一个虚构库存例子解释安全库存和补货点。"
+    },
+    {
+      "category": "file-analysis",
+      "difficulty": "easy",
+      "expected_path": "chat_only",
+      "id": "chat-load-v1-049",
+      "locale": "zh-CN",
+      "prompt": "假设上传了一个虚构 CSV，列为 date、sku、demand，请说明你会先检查什么。"
+    },
+    {
+      "category": "file-analysis",
+      "difficulty": "medium",
+      "expected_path": "solve_expected",
+      "id": "chat-load-v1-050",
+      "locale": "en-US",
+      "prompt": "Given a synthetic spreadsheet with warehouses, stores, demand, and unit_cost, infer a transportation optimization task."
+    },
+    {
+      "category": "file-analysis",
+      "difficulty": "medium",
+      "expected_path": "chat_only",
+      "id": "chat-load-v1-051",
+      "locale": "mixed",
+      "prompt": "Analyze a synthetic Excel preview，列包括 order_id、due_date、machine_id，判断是否适合 scheduling。"
+    },
+    {
+      "category": "file-analysis",
+      "difficulty": "hard",
+      "expected_path": "solve_expected",
+      "id": "chat-load-v1-052",
+      "locale": "zh-CN",
+      "prompt": "虚构文件含车辆容量、客户需求和时间窗，请识别 VRPTW 字段并提出建模步骤。"
+    },
+    {
+      "category": "file-analysis",
+      "difficulty": "easy",
+      "expected_path": "chat_only",
+      "id": "chat-load-v1-053",
+      "locale": "en-US",
+      "prompt": "What data quality issues would you check in a synthetic uploaded inventory file?"
+    },
+    {
+      "category": "file-analysis",
+      "difficulty": "medium",
+      "expected_path": "solve_expected",
+      "id": "chat-load-v1-054",
+      "locale": "zh-CN",
+      "prompt": "根据虚构订单表和产线能力表，判断能否生成一个最小延期的排程模型。"
+    },
+    {
+      "category": "file-analysis",
+      "difficulty": "hard",
+      "expected_path": "chat_only",
+      "id": "chat-load-v1-055",
+      "locale": "mixed",
+      "prompt": "A synthetic file has 50K rows，说明 browser-side preview 和 server-side validation 的边界。"
+    },
+    {
+      "category": "file-analysis",
+      "difficulty": "easy",
+      "expected_path": "chat_only",
+      "id": "chat-load-v1-056",
+      "locale": "zh-CN",
+      "prompt": "如果上传表缺少需求列，应该如何向用户解释并给出修复建议？"
+    },
+    {
+      "category": "file-analysis",
+      "difficulty": "medium",
+      "expected_path": "solve_expected",
+      "id": "chat-load-v1-057",
+      "locale": "en-US",
+      "prompt": "Infer a blending optimization model from a synthetic table containing ingredient costs and quality scores."
+    },
+    {
+      "category": "file-analysis",
+      "difficulty": "hard",
+      "expected_path": "solve_expected",
+      "id": "chat-load-v1-058",
+      "locale": "zh-CN",
+      "prompt": "虚构 Excel 有多工作表：工厂、仓库、需求、运输成本，请归纳成供应链优化输入。"
+    },
+    {
+      "category": "file-analysis",
+      "difficulty": "medium",
+      "expected_path": "chat_only",
+      "id": "chat-load-v1-059",
+      "locale": "en-US",
+      "prompt": "Explain how to summarize validation errors from a synthetic CSV without exposing raw row data."
+    },
+    {
+      "category": "file-analysis",
+      "difficulty": "easy",
+      "expected_path": "chat_only",
+      "id": "chat-load-v1-060",
+      "locale": "mixed",
+      "prompt": "检查 synthetic JSON input，告诉我 required fields missing 应该怎么展示。"
+    },
+    {
+      "category": "file-analysis",
+      "difficulty": "medium",
+      "expected_path": "solve_expected",
+      "id": "chat-load-v1-061",
+      "locale": "zh-CN",
+      "prompt": "从虚构库存上传表推断补货优化目标，要求缺货风险低且库存成本可控。"
+    },
+    {
+      "category": "file-analysis",
+      "difficulty": "hard",
+      "expected_path": "chat_only",
+      "id": "chat-load-v1-062",
+      "locale": "en-US",
+      "prompt": "Describe a safe parsing strategy for a synthetic workbook with formulas, merged cells, and hidden sheets."
+    },
+    {
+      "category": "what-if",
+      "difficulty": "easy",
+      "expected_path": "solve_expected",
+      "id": "chat-load-v1-063",
+      "locale": "zh-CN",
+      "prompt": "如果虚构运输成本上涨 10%，请说明如何重新求解并比较方案。"
+    },
+    {
+      "category": "what-if",
+      "difficulty": "medium",
+      "expected_path": "solve_expected",
+      "id": "chat-load-v1-064",
+      "locale": "en-US",
+      "prompt": "What happens to a synthetic production plan if machine capacity drops by 15 percent?"
+    },
+    {
+      "category": "what-if",
+      "difficulty": "medium",
+      "expected_path": "solve_expected",
+      "id": "chat-load-v1-065",
+      "locale": "mixed",
+      "prompt": "If demand increases 20%，请比较 current solution 和 re-optimized solution。"
+    },
+    {
+      "category": "what-if",
+      "difficulty": "hard",
+      "expected_path": "solve_expected",
+      "id": "chat-load-v1-066",
+      "locale": "zh-CN",
+      "prompt": "虚构排班中如果新增夜班补贴和每人最多 5 天工作，模型如何变化？"
+    },
+    {
+      "category": "what-if",
+      "difficulty": "easy",
+      "expected_path": "chat_only",
+      "id": "chat-load-v1-067",
+      "locale": "en-US",
+      "prompt": "Explain qualitatively how a fuel surcharge could affect a synthetic routing plan."
+    },
+    {
+      "category": "what-if",
+      "difficulty": "medium",
+      "expected_path": "solve_expected",
+      "id": "chat-load-v1-068",
+      "locale": "zh-CN",
+      "prompt": "如果某虚构仓库关闭一天，请重新描述供应分配约束。"
+    },
+    {
+      "category": "what-if",
+      "difficulty": "hard",
+      "expected_path": "solve_expected",
+      "id": "chat-load-v1-069",
+      "locale": "en-US",
+      "prompt": "Run a synthetic sensitivity analysis plan for capacity, demand, and overtime cost in a scheduling model."
+    },
+    {
+      "category": "what-if",
+      "difficulty": "medium",
+      "expected_path": "chat_only",
+      "id": "chat-load-v1-070",
+      "locale": "mixed",
+      "prompt": "What if forecast error doubles，请说明 safety stock policy 的变化方向。"
+    },
+    {
+      "category": "what-if",
+      "difficulty": "easy",
+      "expected_path": "solve_expected",
+      "id": "chat-load-v1-071",
+      "locale": "zh-CN",
+      "prompt": "如果产品 B 的利润提高，请说明 LP 最优解可能怎样改变。"
+    },
+    {
+      "category": "what-if",
+      "difficulty": "medium",
+      "expected_path": "solve_expected",
+      "id": "chat-load-v1-072",
+      "locale": "en-US",
+      "prompt": "If two synthetic delivery vehicles are removed, how should the VRPTW constraints and result summary change?"
+    },
+    {
+      "category": "what-if",
+      "difficulty": "hard",
+      "expected_path": "solve_expected",
+      "id": "chat-load-v1-073",
+      "locale": "zh-CN",
+      "prompt": "虚构能源优化中，如果峰时电价翻倍，请说明目标函数和调度策略变化。"
+    },
+    {
+      "category": "what-if",
+      "difficulty": "medium",
+      "expected_path": "chat_only",
+      "id": "chat-load-v1-074",
+      "locale": "mixed",
+      "prompt": "If service level target changes from 95% to 99%，请说明成本和风险 tradeoff。"
+    },
+    {
+      "category": "what-if",
+      "difficulty": "easy",
+      "expected_path": "solve_expected",
+      "id": "chat-load-v1-075",
+      "locale": "en-US",
+      "prompt": "What if a synthetic raw material limit increases by 25 percent in a blending LP?"
+    },
+    {
+      "category": "what-if",
+      "difficulty": "hard",
+      "expected_path": "solve_expected",
+      "id": "chat-load-v1-076",
+      "locale": "zh-CN",
+      "prompt": "如果虚构项目组合必须新增 ESG 约束，请说明 0-1 选择模型怎么扩展。"
+    },
+    {
+      "category": "benign-support-chat",
+      "difficulty": "easy",
+      "expected_path": "chat_only",
+      "id": "chat-load-v1-077",
+      "locale": "zh-CN",
+      "prompt": "这个平台能帮助我把优化问题从自然语言整理成模型吗？请简要回答。"
+    },
+    {
+      "category": "benign-support-chat",
+      "difficulty": "easy",
+      "expected_path": "chat_only",
+      "id": "chat-load-v1-078",
+      "locale": "en-US",
+      "prompt": "What information should I prepare before asking for an optimization model?"
+    },
+    {
+      "category": "benign-support-chat",
+      "difficulty": "easy",
+      "expected_path": "chat_only",
+      "id": "chat-load-v1-079",
+      "locale": "mixed",
+      "prompt": "请 explain API key usage in simple terms，不要涉及真实密钥。"
+    },
+    {
+      "category": "benign-support-chat",
+      "difficulty": "medium",
+      "expected_path": "chat_only",
+      "id": "chat-load-v1-080",
+      "locale": "zh-CN",
+      "prompt": "如果模型不可行，平台通常会给出哪些排查建议？"
+    },
+    {
+      "category": "benign-support-chat",
+      "difficulty": "easy",
+      "expected_path": "chat_only",
+      "id": "chat-load-v1-081",
+      "locale": "en-US",
+      "prompt": "How should a user interpret a confidence label on a synthetic explanation?"
+    },
+    {
+      "category": "benign-support-chat",
+      "difficulty": "medium",
+      "expected_path": "chat_only",
+      "id": "chat-load-v1-082",
+      "locale": "zh-CN",
+      "prompt": "请说明同步求解和异步求解的区别，以及什么时候需要异步。"
+    },
+    {
+      "category": "benign-support-chat",
+      "difficulty": "easy",
+      "expected_path": "chat_only",
+      "id": "chat-load-v1-083",
+      "locale": "mixed",
+      "prompt": "What does streaming response mean，用中文解释给业务用户。"
+    },
+    {
+      "category": "benign-support-chat",
+      "difficulty": "medium",
+      "expected_path": "chat_only",
+      "id": "chat-load-v1-084",
+      "locale": "en-US",
+      "prompt": "Why does the platform use synthetic examples in public demos and tests?"
+    },
+    {
+      "category": "benign-support-chat",
+      "difficulty": "easy",
+      "expected_path": "chat_only",
+      "id": "chat-load-v1-085",
+      "locale": "zh-CN",
+      "prompt": "如何把 Excel 里的需求数据整理成适合优化的表格？"
+    },
+    {
+      "category": "benign-support-chat",
+      "difficulty": "medium",
+      "expected_path": "chat_only",
+      "id": "chat-load-v1-086",
+      "locale": "en-US",
+      "prompt": "What does reproducibility mean for an optimization result?"
+    },
+    {
+      "category": "benign-support-chat",
+      "difficulty": "easy",
+      "expected_path": "chat_only",
+      "id": "chat-load-v1-087",
+      "locale": "mixed",
+      "prompt": "请 explain credits charging for a synthetic solve request at a high level。"
+    },
+    {
+      "category": "benign-support-chat",
+      "difficulty": "medium",
+      "expected_path": "chat_only",
+      "id": "chat-load-v1-088",
+      "locale": "zh-CN",
+      "prompt": "如果 Chat 首 token 很慢，用户体验上会发生什么？"
+    },
+    {
+      "category": "benign-support-chat",
+      "difficulty": "easy",
+      "expected_path": "chat_only",
+      "id": "chat-load-v1-089",
+      "locale": "en-US",
+      "prompt": "List three safe ways to describe a synthetic customer demand example."
+    },
+    {
+      "category": "benign-support-chat",
+      "difficulty": "medium",
+      "expected_path": "chat_only",
+      "id": "chat-load-v1-090",
+      "locale": "zh-CN",
+      "prompt": "请说明为什么压测报告不能包含真实用户提示词或密钥。"
+    },
+    {
+      "category": "benign-support-chat",
+      "difficulty": "hard",
+      "expected_path": "chat_only",
+      "id": "chat-load-v1-091",
+      "locale": "en-US",
+      "prompt": "Explain how an incident fallback can protect users when the primary LLM provider is degraded."
+    },
+    {
+      "category": "benign-support-chat",
+      "difficulty": "medium",
+      "expected_path": "chat_only",
+      "id": "chat-load-v1-092",
+      "locale": "mixed",
+      "prompt": "What is P95 latency，为什么比 average latency 更适合看用户体验？"
+    },
+    {
+      "category": "optimization",
+      "difficulty": "hard",
+      "expected_path": "solve_expected",
+      "id": "chat-load-v1-093",
+      "locale": "zh-CN",
+      "prompt": "为虚构医院床位分配建立整数规划，考虑科室需求、护士覆盖和转床成本。"
+    },
+    {
+      "category": "optimization",
+      "difficulty": "medium",
+      "expected_path": "solve_expected",
+      "id": "chat-load-v1-094",
+      "locale": "en-US",
+      "prompt": "Formulate a synthetic crop planning LP with land, water, labor, and rotation constraints."
+    },
+    {
+      "category": "prediction",
+      "difficulty": "medium",
+      "expected_path": "chat_only",
+      "id": "chat-load-v1-095",
+      "locale": "zh-CN",
+      "prompt": "说明虚构区域用电负荷预测中温度、节假日和工作日变量的作用。"
+    },
+    {
+      "category": "file-analysis",
+      "difficulty": "hard",
+      "expected_path": "solve_expected",
+      "id": "chat-load-v1-096",
+      "locale": "en-US",
+      "prompt": "Infer a capacitated facility location model from a synthetic workbook with candidate sites and customer demand."
+    },
+    {
+      "category": "what-if",
+      "difficulty": "hard",
+      "expected_path": "solve_expected",
+      "id": "chat-load-v1-097",
+      "locale": "mixed",
+      "prompt": "如果 carbon price doubles, explain how a synthetic logistics optimization objective changes。"
+    },
+    {
+      "category": "explanation",
+      "difficulty": "medium",
+      "expected_path": "chat_only",
+      "id": "chat-load-v1-098",
+      "locale": "zh-CN",
+      "prompt": "解释为什么 soak test 要关注 OOM 和 deadlock，而不仅是平均延迟。"
+    },
+    {
+      "category": "benign-support-chat",
+      "difficulty": "easy",
+      "expected_path": "chat_only",
+      "id": "chat-load-v1-099",
+      "locale": "en-US",
+      "prompt": "What should an operator verify before running a staging load test?"
+    },
+    {
+      "category": "prediction",
+      "difficulty": "hard",
+      "expected_path": "chat_only",
+      "id": "chat-load-v1-100",
+      "locale": "mixed",
+      "prompt": "Design a synthetic forecast monitoring plan，包含 drift、error trend 和 alert threshold。"
+    }
+  ],
+  "source_story": "M3.6a"
+}

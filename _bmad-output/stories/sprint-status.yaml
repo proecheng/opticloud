@@ -53,7 +53,7 @@ development_status:
   m3-4b-aigc-filter-contract-test: done          # A-S2 — 2026-05-26 AIGC module contract snapshot + 183d deprecation metadata + CI gate; post-review negative-policy assertion fix applied
   m3-5a-critic-calibration: done               # G9 — 2026-05-26 Critic confidence calibration CLI + 30-sample ground truth + SOP + CI gate; post-review CI drift masking fix applied
   m3-5b-critic-ground-truth-annotation: done               # G9 — 2026-05-26 Critic ground truth weekly annotation batch + Console review surface + monthly calibration report; post-review batch-order/progress fixes applied
-  m3-6a-chat-staging-load-test: backlog        # G6 Critical Gap
+  m3-6a-chat-staging-load-test: done           # G6 — 2026-05-26 Chat staging load-test harness + evidence contract + CI gate; post-review evidence threshold/path fixes applied
   m3-6b-chat-single-node-baseline: backlog
   m3-6c-chat-incident-fallback: backlog
   m3-6d-api-gateway-perf-baseline: backlog     # Q-T3

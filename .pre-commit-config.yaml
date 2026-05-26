@@ -68,5 +68,8 @@ repos:
           - "KeywordDetector"
           - "--disable-plugin"
           - "BasicAuthDetector"
+          # Public chat-load prompt fixture SHA-256, not a secret.
+          - "--exclude-secrets"
+          - "57a47193517b19cca0983c5f00c17b246197c80620db9f87d17cdd16db79529c"
         # pnpm-lock.yaml contains generated integrity hashes that trigger high-entropy false positives.
         exclude: ^(\.env\.example|infra/local-init/.*\.sql|.*\.stories\.tsx|pnpm-lock\.yaml)$
