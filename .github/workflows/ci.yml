@@ -108,8 +108,10 @@ jobs:
               - 'tests/test_chat_load_plan.py'
               - 'docs/runbooks/chat-staging-load-test.md'
               - 'docs/runbooks/chat-single-node-baseline.md'
+              - 'docs/runbooks/chat-incident-fallback.md'
               - 'reports/chat-load/**'
               - 'reports/chat-single-node/**'
+              - 'reports/chat-incident-fallback/**'
             blue_green_deploy:
               - 'scripts/deploy/**'
               - 'scripts/validate_blue_green_deploy.py'
@@ -469,6 +471,13 @@ jobs:
           manifests=(reports/chat-single-node/**/evidence_manifest.json)
           for manifest in "${manifests[@]}"; do
             uv run python scripts/validate_chat_load_plan.py --single-node-evidence "$manifest"
+          done
+      - name: Validate real chat incident fallback evidence manifests when present
+        run: |
+          shopt -s globstar nullglob
+          manifests=(reports/chat-incident-fallback/**/evidence_manifest.json)
+          for manifest in "${manifests[@]}"; do
+            uv run python scripts/validate_chat_load_plan.py --incident-fallback-evidence "$manifest"
           done
       - name: Run chat load plan tests
         run: uv run pytest tests/test_chat_load_plan.py -v
