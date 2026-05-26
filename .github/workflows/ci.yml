@@ -35,6 +35,7 @@ jobs:
       sandbox_runner: ${{ steps.filter.outputs.sandbox_runner }}
       capability_registry: ${{ steps.filter.outputs.capability_registry }}
       repro_service: ${{ steps.filter.outputs.repro_service }}
+      image_archival: ${{ steps.filter.outputs.image_archival }}
       web: ${{ steps.filter.outputs.web }}
       ci_or_root: ${{ steps.filter.outputs.ci_or_root }}
     steps:
@@ -82,6 +83,10 @@ jobs:
               - 'apps/capability-registry/**'
             repro_service:
               - 'apps/repro-service/**'
+            image_archival:
+              - 'infra/image-archival/**'
+              - 'scripts/validate_image_archival_plan.py'
+              - 'tests/test_image_archival_plan.py'
             web:
               - 'apps/web/**'
             # CI or root config — re-run everything
@@ -324,6 +329,23 @@ jobs:
 
   # ===== Other service stubs (will populate as services come online) =====
   # api-gateway-test, solver-orchestrator-test, ...
+
+  # ===== Image archival prep validation (Story M3.0) =====
+  image-archival-plan:
+    needs: changes
+    if: needs.changes.outputs.image_archival == 'true' || needs.changes.outputs.ci_or_root == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: pip install uv==${{ env.UV_VERSION }}
+      - run: uv sync --all-packages --extra dev
+      - name: Validate archive plan
+        run: uv run python scripts/validate_image_archival_plan.py infra/image-archival/archive-plan.json
+      - name: Run archive plan tests
+        run: uv run pytest tests/test_image_archival_plan.py -v
 
   # ===== TypeScript: web + ui + shared-ts typecheck =====
   ts-typecheck:
