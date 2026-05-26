@@ -50,7 +50,7 @@ development_status:
   m3-3a-k8s-namespace-prod: done                # 2026-05-26 — standard-tier prod-core/prod-ai/prod-data NetworkPolicy manifests + CI validator; post-review boundary fixes applied
   m3-3b-docker-compose-blue-green: done          # 2026-05-26 — lean docker-compose blue/green deploy assets + static CI validator; post-review rollback/health/port fixes applied
   m3-4-aigc-watermark-module: done             # G12 — 2026-05-26 AIGC filter/watermark module + deterministic 200 red-team / 100 benign gates; post-review blocked-watermark and dataset-drift fixes applied
-  m3-4b-aigc-filter-contract-test: backlog     # A-S2
+  m3-4b-aigc-filter-contract-test: done          # A-S2 — 2026-05-26 AIGC module contract snapshot + 183d deprecation metadata + CI gate; post-review negative-policy assertion fix applied
   m3-5a-critic-calibration: backlog            # G9
   m3-5b-critic-ground-truth-annotation: backlog
   m3-6a-chat-staging-load-test: backlog        # G6 Critical Gap

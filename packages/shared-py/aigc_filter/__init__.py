@@ -18,6 +18,9 @@ __version__ = "0.1.0"
 
 Tier = Literal["strict", "loose"]
 
+AIGC_CONTRACT_NAME = "aigc_filter_module"
+AIGC_CONTRACT_VERSION = "1.0.0"
+AIGC_DEPRECATION_NOTICE_DAYS = 183
 AIGC_ARIA_LABEL = "本回答由 AI 生成，仅供参考"
 AIGC_VISIBLE_MARKER = "本回答由 AI 生成，仅供参考"
 INTERNAL_SCOPE_HEADER = "X-OptiCloud-Internal-Scope"
@@ -62,6 +65,9 @@ class FilterResult:
     aria_label: str
     watermark: WatermarkMetadata
     metadata: dict[str, object]
+
+
+Filtered = FilterResult
 
 
 @dataclass(frozen=True)
@@ -156,6 +162,35 @@ def is_internal_self_loop(context: Mapping[str, str]) -> bool:
     return context.get(INTERNAL_SCOPE_HEADER) == INTERNAL_SCOPE_VALUE
 
 
+def contract_metadata() -> dict[str, object]:
+    """Return the stable module contract used by PR contract tests."""
+
+    return {
+        "contract_name": AIGC_CONTRACT_NAME,
+        "contract_version": AIGC_CONTRACT_VERSION,
+        "deprecation_notice_days": AIGC_DEPRECATION_NOTICE_DAYS,
+        "filter_signature": {
+            "parameters": [
+                {"name": "text", "required": True},
+                {"default": "strict", "name": "tier", "required": False},
+                {"default": None, "name": "context", "required": False},
+            ]
+        },
+        "public_exports": sorted(__all__),
+        "result_fields": [
+            "text",
+            "blocked",
+            "reason_codes",
+            "tier",
+            "trace_id",
+            "aria_label",
+            "watermark",
+            "metadata",
+        ],
+        "watermark_fields": ["trace_id", "module_version", "provider"],
+    }
+
+
 def _validate_tier(tier: str) -> Tier:
     if tier not in ("strict", "loose"):
         raise ValueError("tier must be 'strict' or 'loose'")
@@ -211,14 +246,19 @@ def _decode_zero_width(payload: str) -> str:
 
 __all__ = [
     "AIGC_ARIA_LABEL",
+    "AIGC_CONTRACT_NAME",
+    "AIGC_CONTRACT_VERSION",
+    "AIGC_DEPRECATION_NOTICE_DAYS",
     "AIGC_VISIBLE_MARKER",
     "FilterResult",
+    "Filtered",
     "INTERNAL_SCOPE_HEADER",
     "INTERNAL_SCOPE_VALUE",
     "PROVIDER_MARKER",
     "WatermarkDetection",
     "WatermarkMetadata",
     "add_watermark",
+    "contract_metadata",
     "detect_watermark",
     "filter",
     "is_internal_self_loop",

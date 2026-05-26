@@ -1,0 +1,57 @@
+{
+  "contract_name": "aigc_filter_module",
+  "contract_version": "1.0.0",
+  "deprecation_notice_days": 183,
+  "filter_signature": {
+    "parameters": [
+      {
+        "name": "text",
+        "required": true
+      },
+      {
+        "default": "strict",
+        "name": "tier",
+        "required": false
+      },
+      {
+        "default": null,
+        "name": "context",
+        "required": false
+      }
+    ]
+  },
+  "public_exports": [
+    "AIGC_ARIA_LABEL",
+    "AIGC_CONTRACT_NAME",
+    "AIGC_CONTRACT_VERSION",
+    "AIGC_DEPRECATION_NOTICE_DAYS",
+    "AIGC_VISIBLE_MARKER",
+    "FilterResult",
+    "Filtered",
+    "INTERNAL_SCOPE_HEADER",
+    "INTERNAL_SCOPE_VALUE",
+    "PROVIDER_MARKER",
+    "WatermarkDetection",
+    "WatermarkMetadata",
+    "add_watermark",
+    "contract_metadata",
+    "detect_watermark",
+    "filter",
+    "is_internal_self_loop"
+  ],
+  "result_fields": [
+    "text",
+    "blocked",
+    "reason_codes",
+    "tier",
+    "trace_id",
+    "aria_label",
+    "watermark",
+    "metadata"
+  ],
+  "watermark_fields": [
+    "trace_id",
+    "module_version",
+    "provider"
+  ]
+}
