@@ -1,8 +1,8 @@
-"""Validate M3.6a/M3.6b Chat load-test plan assets.
+"""Validate M3.6a/M3.6b/M3.6c Chat load-test plan assets.
 
 The validator is static by default. It validates real operator evidence only
 when an explicit evidence manifest is passed with --evidence or
---single-node-evidence.
+--single-node-evidence or --incident-fallback-evidence.
 """
 
 from __future__ import annotations
@@ -13,6 +13,7 @@ import json
 import re
 import sys
 from collections import Counter
+from datetime import UTC, datetime
 from hashlib import sha256
 from pathlib import Path
 from typing import Any
@@ -28,8 +29,42 @@ SINGLE_NODE_PROFILES_PATH = CHAT_LOAD_DIR / "single_node_profiles.json"
 SINGLE_NODE_LOCUSTFILE_PATH = CHAT_LOAD_DIR / "single_node_locustfile.py"
 SINGLE_NODE_SCHEMA_PATH = CHAT_LOAD_DIR / "single_node_evidence_manifest.schema.json"
 SINGLE_NODE_EXAMPLE_MANIFEST_PATH = CHAT_LOAD_DIR / "single_node_evidence_manifest.example.json"
+INCIDENT_FALLBACK_PLAN_PATH = CHAT_LOAD_DIR / "incident_fallback_plan.json"
+INCIDENT_FALLBACK_SCHEMA_PATH = CHAT_LOAD_DIR / "incident_fallback_evidence_manifest.schema.json"
+INCIDENT_FALLBACK_EXAMPLE_MANIFEST_PATH = (
+    CHAT_LOAD_DIR / "incident_fallback_evidence_manifest.example.json"
+)
 REQUIRED_PROFILES = {"baseline", "stress", "soak"}
 SINGLE_NODE_PROFILE = "single_node_baseline"
+INCIDENT_FALLBACK_ARTIFACTS = {
+    "locust_report",
+    "provider_health_snapshot",
+    "fallback_decision_log",
+    "operator_timeline",
+    "latency_snapshot",
+}
+INCIDENT_FALLBACK_TIMELINE_FIELDS = {
+    "incident_started_utc",
+    "provider_health_failed_utc",
+    "operator_decision_utc",
+    "fallback_confirmed_utc",
+    "measurement_started_utc",
+    "measurement_ended_utc",
+}
+INCIDENT_FALLBACK_METRICS = {
+    "request_count",
+    "completed_stream_count",
+    "http_error_rate",
+    "fallback_route_ratio",
+    "switch_duration_seconds",
+    "detection_window_seconds",
+    "fallback_first_token_p95_ms",
+    "fallback_total_response_p95_ms",
+    "fallback_streaming_tokens_per_second",
+    "schema_parity_pass_count",
+    "schema_parity_total_count",
+    "fallback_provider_error_count",
+}
 REQUIRED_CATEGORIES = {
     "optimization",
     "prediction",
@@ -98,8 +133,12 @@ def canonical_json_bytes(data: Any) -> bytes:
     ).encode("utf-8")
 
 
-def prompt_fixture_hash(data: dict[str, Any]) -> str:
+def canonical_sha256(data: Any) -> str:
     return sha256(canonical_json_bytes(data)).hexdigest()
+
+
+def prompt_fixture_hash(data: dict[str, Any]) -> str:
+    return canonical_sha256(data)
 
 
 def _walk_values(value: Any, path: str = "$") -> list[tuple[str, Any]]:
@@ -350,6 +389,40 @@ def validate_single_node_profiles(data: dict[str, Any], expected_hash: str) -> l
     return errors
 
 
+def validate_incident_fallback_plan(data: dict[str, Any], expected_hash: str) -> list[str]:
+    errors: list[str] = []
+    expected_values: dict[str, Any] = {
+        "dataset_version": "chat_incident_fallback_plan_v1",
+        "source_story": "M3.6c",
+        "primary_provider": "deepseek-v3.5",
+        "fallback_provider": "qwen-max",
+        "simulated_incident_trigger": "provider_health_deepseek_failure",
+        "manual_operation": "operator_manual_switch_to_fallback",
+        "switch_budget_seconds": 300,
+        "fallback_first_token_p95_max_ms": 5000,
+        "fallback_route_ratio_min": 1.0,
+        "schema_parity_required": True,
+        "drill_only": True,
+        "evidence_directory": "reports/chat-incident-fallback",
+        "prompt_fixture": "tools/chat_load/prompts_v1.json",
+        "prompt_count": 100,
+    }
+    for key, value in expected_values.items():
+        if data.get(key) != value:
+            errors.append(f"incident_fallback_plan.json {key} must be {value}")
+    if data.get("prompt_fixture_sha256") != expected_hash:
+        errors.append("incident_fallback_plan.json prompt_fixture_sha256 does not match")
+    artifact_fields = data.get("artifact_fields")
+    if not isinstance(artifact_fields, list):
+        errors.append("incident_fallback_plan.json artifact_fields must be a list")
+    elif set(artifact_fields) != INCIDENT_FALLBACK_ARTIFACTS:
+        errors.append("incident_fallback_plan.json artifact_fields drifted")
+    for key in ("switch_budget_seconds", "fallback_first_token_p95_max_ms"):
+        _require_numeric(data, key, errors, "incident_fallback_plan")
+    errors.extend(validate_no_secret_like_values(data, "incident_fallback_plan.json"))
+    return errors
+
+
 def validate_locustfile(path: Path = LOCUSTFILE_PATH) -> list[str]:
     errors: list[str] = []
     text = path.read_text(encoding="utf-8")
@@ -544,6 +617,69 @@ def validate_single_node_schema(schema: dict[str, Any]) -> list[str]:
     return errors
 
 
+def validate_incident_fallback_schema(schema: dict[str, Any]) -> list[str]:
+    errors: list[str] = []
+    root_required = _schema_required(schema, [])
+    expected_root = {
+        "source_story",
+        "run_id",
+        "example_only",
+        "generated_by",
+        "commit_sha",
+        "environment",
+        "endpoint_path",
+        "primary_provider",
+        "fallback_provider",
+        "prompt_fixture",
+        "prompt_fixture_sha256",
+        "prompt_count",
+        "drill_plan_sha256",
+        "artifacts",
+        "timeline",
+        "metrics",
+    }
+    if root_required != expected_root:
+        errors.append("incident fallback evidence schema root required fields drifted")
+    properties = schema.get("properties", {})
+    if not isinstance(properties, dict):
+        return errors + ["incident fallback evidence schema properties must be an object"]
+    environment = properties.get("environment")
+    if not isinstance(environment, dict) or environment.get("const") != "staging-incident-drill":
+        errors.append(
+            "incident fallback evidence schema environment must be staging-incident-drill"
+        )
+    primary_provider = properties.get("primary_provider")
+    if not isinstance(primary_provider, dict) or primary_provider.get("const") != "deepseek-v3.5":
+        errors.append("incident fallback evidence schema primary_provider must be deepseek-v3.5")
+    fallback_provider = properties.get("fallback_provider")
+    if not isinstance(fallback_provider, dict) or fallback_provider.get("const") != "qwen-max":
+        errors.append("incident fallback evidence schema fallback_provider must be qwen-max")
+    artifacts_required = _schema_required(schema, ["properties", "artifacts"])
+    if artifacts_required != INCIDENT_FALLBACK_ARTIFACTS:
+        errors.append("incident fallback evidence schema artifact fields drifted")
+    timeline_required = _schema_required(schema, ["$defs", "timeline"])
+    if timeline_required != INCIDENT_FALLBACK_TIMELINE_FIELDS:
+        errors.append("incident fallback evidence schema timeline fields drifted")
+    metrics_required = _schema_required(schema, ["$defs", "metrics"])
+    if metrics_required != INCIDENT_FALLBACK_METRICS:
+        errors.append("incident fallback evidence schema metric fields drifted")
+    locust_pattern = schema["$defs"]["locustReportPath"]["pattern"]
+    json_pattern = schema["$defs"]["jsonArtifactPath"]["pattern"]
+    if (
+        "reports/chat-incident-fallback" not in locust_pattern
+        or "\\.(html|json)" not in locust_pattern
+    ):
+        errors.append("incident fallback locust artifact schema must restrict html/json reports")
+    if "reports/chat-incident-fallback" not in json_pattern or "\\.json" not in json_pattern:
+        errors.append("incident fallback JSON artifact schema must restrict to json")
+    if "(?!.*\\.\\.)" not in locust_pattern or "(?!.*\\.\\.)" not in json_pattern:
+        errors.append("incident fallback artifact schema must reject traversal segments")
+    errors.extend(
+        validate_no_secret_like_values(schema, "incident_fallback_evidence_manifest.schema.json")
+    )
+    return errors
+
+
 def _artifact_path_errors(
     path_value: str,
     run_id: str,
@@ -593,6 +729,64 @@ def _single_node_artifact_path_errors(
     if artifact_key == "metrics_snapshot" and suffix != ".json":
         errors.append(f"{source} metrics snapshot must be .json: {path_value}")
     return errors
+
+
+def _incident_fallback_artifact_path_errors(
+    path_value: str,
+    run_id: str,
+    source: str,
+    artifact_key: str,
+) -> list[str]:
+    errors: list[str] = []
+    if "://" in path_value:
+        errors.append(f"{source} artifact path must not be a URL: {path_value}")
+    if path_value.startswith(("/", "\\")) or re.match(r"^[A-Za-z]:[\\/]", path_value):
+        errors.append(f"{source} artifact path must be repository-relative: {path_value}")
+    normalized = Path(path_value)
+    if ".." in normalized.parts:
+        errors.append(f"{source} artifact path must not traverse directories: {path_value}")
+    required_prefix = f"reports/chat-incident-fallback/{run_id}/"
+    if not path_value.startswith(required_prefix):
+        errors.append(f"{source} artifact path must stay under {required_prefix}: {path_value}")
+    suffix = Path(path_value).suffix.lower()
+    if artifact_key == "locust_report" and suffix not in {".html", ".json"}:
+        errors.append(f"{source} Locust report must be .html or .json: {path_value}")
+    if artifact_key != "locust_report" and suffix != ".json":
+        errors.append(f"{source} {artifact_key} must be .json: {path_value}")
+    return errors
+
+
+def _parse_utc_timestamp(value: Any) -> datetime | None:
+    if not isinstance(value, str):
+        return None
+    try:
+        return datetime.strptime(value, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=UTC)
+    except ValueError:
+        return None
+
+
+def validate_evidence_path_mode(path: Path, mode: str) -> list[str]:
+    relative = path.as_posix()
+    expected_by_mode = {
+        "staging": (
+            "reports/chat-load/",
+            "--evidence path must be reports/chat-load/<run_id>/evidence_manifest.json",
+        ),
+        "single-node": (
+            "reports/chat-single-node/",
+            "--single-node-evidence path must be "
+            "reports/chat-single-node/<run_id>/evidence_manifest.json",
+        ),
+        "incident-fallback": (
+            "reports/chat-incident-fallback/",
+            "--incident fallback evidence path must be "
+            "reports/chat-incident-fallback/<run_id>/evidence_manifest.json",
+        ),
+    }
+    prefix, message = expected_by_mode[mode]
+    if not relative.startswith(prefix) or not relative.endswith("/evidence_manifest.json"):
+        return [message]
+    return []
 
 
 def validate_manifest(
@@ -827,9 +1021,155 @@ def validate_single_node_manifest(
     return errors
 
 
+def validate_incident_fallback_manifest(
+    manifest: dict[str, Any],
+    expected_hash: str,
+    plan_hash: str,
+    *,
+    source: str,
+    real_evidence: bool,
+    plan_config: dict[str, Any] | None = None,
+) -> list[str]:
+    errors: list[str] = []
+    run_id = manifest.get("run_id")
+    if not isinstance(run_id, str):
+        return [f"{source} run_id must be a string"]
+    if manifest.get("source_story") != "M3.6c":
+        errors.append(f"{source} source_story must be M3.6c")
+    if manifest.get("environment") != "staging-incident-drill":
+        errors.append(f"{source} environment must be staging-incident-drill")
+    if manifest.get("primary_provider") != "deepseek-v3.5":
+        errors.append(f"{source} primary_provider must be deepseek-v3.5")
+    if manifest.get("fallback_provider") != "qwen-max":
+        errors.append(f"{source} fallback_provider must be qwen-max")
+    if manifest.get("prompt_fixture") != "tools/chat_load/prompts_v1.json":
+        errors.append(f"{source} prompt_fixture must reference prompts_v1.json")
+    if manifest.get("prompt_fixture_sha256") != expected_hash:
+        errors.append(f"{source} prompt_fixture_sha256 does not match prompts_v1.json")
+    if manifest.get("prompt_count") != 100:
+        errors.append(f"{source} prompt_count must be 100")
+    if manifest.get("drill_plan_sha256") != plan_hash:
+        errors.append(f"{source} drill_plan_sha256 does not match incident fallback plan")
+
+    example_only = manifest.get("example_only")
+    if real_evidence and example_only is not False:
+        errors.append(f"{source} real incident fallback evidence must set example_only=false")
+    if not real_evidence and example_only is not True:
+        errors.append(f"{source} example incident fallback manifest must set example_only=true")
+
+    for path, value in _walk_values(manifest):
+        if (
+            path.endswith(".hard_gate_candidate")
+            or path.endswith(".hard_gate_pass")
+            or path.endswith(".staging_pass")
+        ) and value:
+            errors.append(
+                f"{source} incident fallback evidence cannot claim hard-gate or staging pass"
+            )
+
+    artifacts = manifest.get("artifacts")
+    if not isinstance(artifacts, dict):
+        errors.append(f"{source} artifacts must be an object")
+    else:
+        if set(artifacts) != INCIDENT_FALLBACK_ARTIFACTS:
+            errors.append(f"{source} artifact fields drifted")
+        for artifact_key in sorted(INCIDENT_FALLBACK_ARTIFACTS & set(artifacts)):
+            value = artifacts.get(artifact_key)
+            if not isinstance(value, str):
+                errors.append(f"{source} {artifact_key} must be a string")
+            else:
+                errors.extend(
+                    _incident_fallback_artifact_path_errors(
+                        value, run_id, f"{source} {artifact_key}", artifact_key
+                    )
+                )
+
+    timeline = manifest.get("timeline")
+    if not isinstance(timeline, dict):
+        errors.append(f"{source} timeline must be an object")
+    else:
+        if set(timeline) != INCIDENT_FALLBACK_TIMELINE_FIELDS:
+            errors.append(f"{source} timeline fields drifted")
+        operator_decision = _parse_utc_timestamp(timeline.get("operator_decision_utc"))
+        fallback_confirmed = _parse_utc_timestamp(timeline.get("fallback_confirmed_utc"))
+        measurement_started = _parse_utc_timestamp(timeline.get("measurement_started_utc"))
+        measurement_ended = _parse_utc_timestamp(timeline.get("measurement_ended_utc"))
+        incident_started = _parse_utc_timestamp(timeline.get("incident_started_utc"))
+        provider_health_failed = _parse_utc_timestamp(timeline.get("provider_health_failed_utc"))
+        if operator_decision is None or fallback_confirmed is None:
+            errors.append(
+                f"{source} operator_decision_utc and fallback_confirmed_utc must be valid"
+            )
+        elif fallback_confirmed <= operator_decision:
+            errors.append(f"{source} fallback_confirmed_utc must be after operator_decision_utc")
+        elif isinstance(manifest.get("metrics"), dict):
+            expected_switch_seconds = (fallback_confirmed - operator_decision).total_seconds()
+            if manifest["metrics"].get("switch_duration_seconds") != expected_switch_seconds:
+                errors.append(f"{source} switch_duration_seconds must match timeline")
+        if measurement_started is None or measurement_ended is None:
+            errors.append(f"{source} measurement timestamps must be valid")
+        elif measurement_ended <= measurement_started:
+            errors.append(f"{source} measurement_ended_utc must be after measurement_started_utc")
+        if incident_started is None or provider_health_failed is None:
+            errors.append(f"{source} provider health detection timestamps must be valid")
+        elif provider_health_failed < incident_started:
+            errors.append(
+                f"{source} provider_health_failed_utc must not precede incident_started_utc"
+            )
+        elif isinstance(manifest.get("metrics"), dict):
+            expected_detection_seconds = (provider_health_failed - incident_started).total_seconds()
+            if manifest["metrics"].get("detection_window_seconds") != expected_detection_seconds:
+                errors.append(f"{source} detection_window_seconds must match timeline")
+
+    metrics = manifest.get("metrics")
+    if not isinstance(metrics, dict):
+        return errors + [f"{source} metrics must be an object"]
+    if set(metrics) != INCIDENT_FALLBACK_METRICS:
+        errors.append(f"{source} metric fields drifted")
+    if metrics.get("completed_stream_count", 0) > metrics.get("request_count", 0):
+        errors.append(f"{source} completed_stream_count exceeds request_count")
+    if metrics.get("schema_parity_total_count", 0) == 0:
+        errors.append(f"{source} schema_parity_total_count must be greater than 0")
+    if metrics.get("schema_parity_pass_count") != metrics.get("schema_parity_total_count"):
+        errors.append(f"{source} schema parity counts must match")
+    for metric_key in metrics:
+        if metric_key.endswith("_seconds"):
+            continue
+        if "latency" in metric_key and not metric_key.endswith("_ms"):
+            errors.append(f"{source} metric {metric_key} must use ms fields")
+    if real_evidence and plan_config is not None:
+        switch_budget = plan_config.get("switch_budget_seconds")
+        if (
+            isinstance(switch_budget, int | float)
+            and isinstance(metrics.get("switch_duration_seconds"), int | float)
+            and metrics["switch_duration_seconds"] > switch_budget
+        ):
+            errors.append(f"{source} switch_duration_seconds fails threshold")
+        fallback_p95_max = plan_config.get("fallback_first_token_p95_max_ms")
+        if (
+            isinstance(fallback_p95_max, int | float)
+            and isinstance(metrics.get("fallback_first_token_p95_ms"), int | float)
+            and metrics["fallback_first_token_p95_ms"] >= fallback_p95_max
+        ):
+            errors.append(f"{source} fallback_first_token_p95_ms fails threshold")
+        route_ratio_min = plan_config.get("fallback_route_ratio_min")
+        if (
+            isinstance(route_ratio_min, int | float)
+            and isinstance(metrics.get("fallback_route_ratio"), int | float)
+            and metrics["fallback_route_ratio"] < route_ratio_min
+        ):
+            errors.append(f"{source} fallback_route_ratio fails threshold")
+        if metrics.get("fallback_provider_error_count", 0) > 0:
+            errors.append(f"{source} fallback_provider_error_count must be 0")
+
+    errors.extend(validate_no_secret_like_values(manifest, source))
+    return errors
+
+
 def validate_all(
     evidence_path: Path | None = None,
     single_node_evidence_path: Path | None = None,
+    incident_fallback_evidence_path: Path | None = None,
 ) -> list[str]:
     errors: list[str] = []
     prompts = load_json(PROMPTS_PATH)
@@ -839,9 +1179,13 @@ def validate_all(
     single_node_profiles = load_json(SINGLE_NODE_PROFILES_PATH)
     single_node_schema = load_json(SINGLE_NODE_SCHEMA_PATH)
     single_node_example_manifest = load_json(SINGLE_NODE_EXAMPLE_MANIFEST_PATH)
+    incident_fallback_plan = load_json(INCIDENT_FALLBACK_PLAN_PATH)
+    incident_fallback_schema = load_json(INCIDENT_FALLBACK_SCHEMA_PATH)
+    incident_fallback_example_manifest = load_json(INCIDENT_FALLBACK_EXAMPLE_MANIFEST_PATH)
     if not isinstance(prompts, dict):
         return ["prompts_v1.json must contain an object"]
     expected_hash = prompt_fixture_hash(prompts)
+    incident_plan_hash = canonical_sha256(incident_fallback_plan)
     profiles_config = profiles.get("profiles") if isinstance(profiles, dict) else None
     hard_gate_config = profiles.get("hard_gate_thresholds") if isinstance(profiles, dict) else None
     errors.extend(validate_prompts(prompts))
@@ -853,6 +1197,10 @@ def validate_all(
         errors.append("single_node_profiles.json must contain an object")
     else:
         errors.extend(validate_single_node_profiles(single_node_profiles, expected_hash))
+    if not isinstance(incident_fallback_plan, dict):
+        errors.append("incident_fallback_plan.json must contain an object")
+    else:
+        errors.extend(validate_incident_fallback_plan(incident_fallback_plan, expected_hash))
     if not isinstance(schema, dict):
         errors.append("evidence_manifest.schema.json must contain an object")
     else:
@@ -861,6 +1209,10 @@ def validate_all(
         errors.append("single_node_evidence_manifest.schema.json must contain an object")
     else:
         errors.extend(validate_single_node_schema(single_node_schema))
+    if not isinstance(incident_fallback_schema, dict):
+        errors.append("incident_fallback_evidence_manifest.schema.json must contain an object")
+    else:
+        errors.extend(validate_incident_fallback_schema(incident_fallback_schema))
     if not isinstance(example_manifest, dict):
         errors.append("evidence_manifest.example.json must contain an object")
     else:
@@ -883,6 +1235,18 @@ def validate_all(
                 real_evidence=False,
             )
         )
+    if not isinstance(incident_fallback_example_manifest, dict):
+        errors.append("incident_fallback_evidence_manifest.example.json must contain an object")
+    else:
+        errors.extend(
+            validate_incident_fallback_manifest(
+                incident_fallback_example_manifest,
+                expected_hash,
+                incident_plan_hash,
+                source="incident_fallback_evidence_manifest.example.json",
+                real_evidence=False,
+            )
+        )
     errors.extend(validate_locustfile())
     errors.extend(validate_single_node_locustfile())
 
@@ -896,12 +1260,7 @@ def validate_all(
             except ValueError:
                 relative = evidence_path.as_posix()
                 errors.append("--evidence path must be inside the repository")
-            if not relative.startswith("reports/chat-load/") or not relative.endswith(
-                "/evidence_manifest.json"
-            ):
-                errors.append(
-                    "--evidence path must be reports/chat-load/<run_id>/evidence_manifest.json"
-                )
+            errors.extend(validate_evidence_path_mode(Path(relative), "staging"))
             errors.extend(
                 validate_manifest(
                     evidence,
@@ -926,13 +1285,7 @@ def validate_all(
             except ValueError:
                 relative = single_node_evidence_path.as_posix()
                 errors.append("--single-node-evidence path must be inside the repository")
-            if not relative.startswith("reports/chat-single-node/") or not relative.endswith(
-                "/evidence_manifest.json"
-            ):
-                errors.append(
-                    "--single-node-evidence path must be "
-                    "reports/chat-single-node/<run_id>/evidence_manifest.json"
-                )
+            errors.extend(validate_evidence_path_mode(Path(relative), "single-node"))
             single_node_profiles_config = (
                 single_node_profiles.get("profiles", {})
                 if isinstance(single_node_profiles, dict)
@@ -952,6 +1305,33 @@ def validate_all(
                     profile_config=profile_config if isinstance(profile_config, dict) else None,
                 )
             )
+    if incident_fallback_evidence_path is not None:
+        evidence = load_json(incident_fallback_evidence_path)
+        if not isinstance(evidence, dict):
+            errors.append(f"{incident_fallback_evidence_path} must contain an object")
+        else:
+            try:
+                relative = (
+                    incident_fallback_evidence_path.resolve()
+                    .relative_to(REPO_ROOT.resolve())
+                    .as_posix()
+                )
+            except ValueError:
+                relative = incident_fallback_evidence_path.as_posix()
+                errors.append("--incident-fallback-evidence path must be inside the repository")
+            errors.extend(validate_evidence_path_mode(Path(relative), "incident-fallback"))
+            errors.extend(
+                validate_incident_fallback_manifest(
+                    evidence,
+                    expected_hash,
+                    incident_plan_hash,
+                    source=relative,
+                    real_evidence=True,
+                    plan_config=incident_fallback_plan
+                    if isinstance(incident_fallback_plan, dict)
+                    else None,
+                )
+            )
     return errors
 
 
@@ -967,9 +1347,21 @@ def main(argv: list[str] | None = None) -> int:
         type=Path,
         help="Optional real single-node evidence manifest under reports/chat-single-node/<run_id>/",
     )
+    parser.add_argument(
+        "--incident-fallback-evidence",
+        type=Path,
+        help=(
+            "Optional real incident fallback evidence manifest under "
+            "reports/chat-incident-fallback/<run_id>/"
+        ),
+    )
     args = parser.parse_args(argv)
 
-    errors = validate_all(args.evidence, args.single_node_evidence)
+    errors = validate_all(
+        args.evidence,
+        args.single_node_evidence,
+        args.incident_fallback_evidence,
+    )
     if errors:
         for error in errors:
             print(f"ERROR: {error}", file=sys.stderr)  # noqa: T201

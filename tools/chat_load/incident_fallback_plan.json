@@ -1,0 +1,24 @@
+{
+  "artifact_fields": [
+    "locust_report",
+    "provider_health_snapshot",
+    "fallback_decision_log",
+    "operator_timeline",
+    "latency_snapshot"
+  ],
+  "dataset_version": "chat_incident_fallback_plan_v1",
+  "drill_only": true,
+  "evidence_directory": "reports/chat-incident-fallback",
+  "fallback_first_token_p95_max_ms": 5000,
+  "fallback_provider": "qwen-max",
+  "fallback_route_ratio_min": 1.0,
+  "manual_operation": "operator_manual_switch_to_fallback",
+  "primary_provider": "deepseek-v3.5",
+  "prompt_count": 100,
+  "prompt_fixture": "tools/chat_load/prompts_v1.json",
+  "prompt_fixture_sha256": "57a47193517b19cca0983c5f00c17b246197c80620db9f87d17cdd16db79529c",
+  "schema_parity_required": true,
+  "simulated_incident_trigger": "provider_health_deepseek_failure",
+  "source_story": "M3.6c",
+  "switch_budget_seconds": 300
+}

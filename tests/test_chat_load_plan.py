@@ -18,6 +18,10 @@ SINGLE_NODE_PROFILES_PATH = REPO_ROOT / "tools" / "chat_load" / "single_node_pro
 SINGLE_NODE_EXAMPLE_MANIFEST_PATH = (
     REPO_ROOT / "tools" / "chat_load" / "single_node_evidence_manifest.example.json"
 )
+INCIDENT_FALLBACK_PLAN_PATH = REPO_ROOT / "tools" / "chat_load" / "incident_fallback_plan.json"
+INCIDENT_FALLBACK_EXAMPLE_MANIFEST_PATH = (
+    REPO_ROOT / "tools" / "chat_load" / "incident_fallback_evidence_manifest.example.json"
+)
 
 
 def _load_validator() -> ModuleType:
@@ -484,3 +488,230 @@ def test_single_node_real_evidence_advisory_threshold_failures_are_rejected() ->
     _assert_invalid(errors, "first_token_p95_ms fails advisory threshold")
     _assert_invalid(errors, "streaming_tokens_per_second fails advisory threshold")
     _assert_invalid(errors, "sandbox_startup_p95_ms fails advisory threshold")
+
+
+def test_incident_fallback_plan_pins_providers_thresholds_and_prompt_hash() -> None:
+    validator = _load_validator()
+    prompts = _load_json(PROMPTS_PATH)
+    plan = _load_json(INCIDENT_FALLBACK_PLAN_PATH)
+
+    assert (
+        validator.validate_incident_fallback_plan(plan, validator.prompt_fixture_hash(prompts))
+        == []
+    )
+
+
+def test_incident_fallback_plan_provider_and_threshold_drift_is_rejected() -> None:
+    validator = _load_validator()
+    prompts = _load_json(PROMPTS_PATH)
+    plan = _load_json(INCIDENT_FALLBACK_PLAN_PATH)
+    plan["primary_provider"] = "qwen-max"
+    plan["fallback_first_token_p95_max_ms"] = 3000
+    plan["fallback_route_ratio_min"] = 0.95
+
+    errors = validator.validate_incident_fallback_plan(plan, validator.prompt_fixture_hash(prompts))
+
+    _assert_invalid(errors, "primary_provider must be deepseek-v3.5")
+    _assert_invalid(errors, "fallback_first_token_p95_max_ms must be 5000")
+    _assert_invalid(errors, "fallback_route_ratio_min must be 1.0")
+
+
+def test_incident_fallback_schema_pins_artifacts_timeline_and_metrics() -> None:
+    validator = _load_validator()
+    schema = _load_json(
+        REPO_ROOT / "tools" / "chat_load" / "incident_fallback_evidence_manifest.schema.json"
+    )
+
+    assert validator.validate_incident_fallback_schema(schema) == []
+    assert "(?!.*\\.\\.)" in schema["$defs"]["locustReportPath"]["pattern"]
+    assert "(?!.*\\.\\.)" in schema["$defs"]["jsonArtifactPath"]["pattern"]
+
+
+def test_incident_fallback_example_manifest_is_valid_but_not_real_evidence() -> None:
+    validator = _load_validator()
+    prompts = _load_json(PROMPTS_PATH)
+    plan = _load_json(INCIDENT_FALLBACK_PLAN_PATH)
+    manifest = _load_json(INCIDENT_FALLBACK_EXAMPLE_MANIFEST_PATH)
+    expected_hash = validator.prompt_fixture_hash(prompts)
+    plan_hash = validator.canonical_sha256(plan)
+
+    assert (
+        validator.validate_incident_fallback_manifest(
+            manifest,
+            expected_hash,
+            plan_hash,
+            source="incident-example",
+            real_evidence=False,
+        )
+        == []
+    )
+    errors = validator.validate_incident_fallback_manifest(
+        manifest,
+        expected_hash,
+        plan_hash,
+        source="incident-example",
+        real_evidence=True,
+        plan_config=plan,
+    )
+    _assert_invalid(errors, "real incident fallback evidence must set example_only=false")
+
+
+def test_incident_fallback_evidence_path_mode_accepts_redacted_manifest() -> None:
+    manifest = _load_json(INCIDENT_FALLBACK_EXAMPLE_MANIFEST_PATH)
+    manifest["example_only"] = False
+    run_dir = REPO_ROOT / "reports" / "chat-incident-fallback" / "test-incident-20260526"
+    run_dir.mkdir(parents=True, exist_ok=True)
+    path = run_dir / "evidence_manifest.json"
+    adjusted = copy.deepcopy(manifest)
+    adjusted["run_id"] = "test-incident-20260526"
+    for key, value in adjusted["artifacts"].items():
+        adjusted["artifacts"][key] = value.replace(
+            "example-incident-fallback-20260526", "test-incident-20260526"
+        )
+    path.write_text(json.dumps(adjusted, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+    result = subprocess.run(
+        [sys.executable, str(VALIDATOR_PATH), "--incident-fallback-evidence", str(path)],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    try:
+        assert result.returncode == 0, result.stdout + result.stderr
+    finally:
+        path.unlink(missing_ok=True)
+        run_dir.rmdir()
+
+
+def test_incident_fallback_manifest_rejects_path_traversal_and_wrong_extensions() -> None:
+    validator = _load_validator()
+    prompts = _load_json(PROMPTS_PATH)
+    plan = _load_json(INCIDENT_FALLBACK_PLAN_PATH)
+    manifest = _load_json(INCIDENT_FALLBACK_EXAMPLE_MANIFEST_PATH)
+    manifest["artifacts"]["locust_report"] = (
+        "reports/chat-incident-fallback/other-run/../incident.txt"
+    )
+    manifest["artifacts"]["provider_health_snapshot"] = (
+        "reports/chat-incident-fallback/example-incident-fallback-20260526/provider-health.html"
+    )
+
+    errors = validator.validate_incident_fallback_manifest(
+        manifest,
+        validator.prompt_fixture_hash(prompts),
+        validator.canonical_sha256(plan),
+        source="incident",
+        real_evidence=False,
+    )
+
+    _assert_invalid(errors, "must not traverse")
+    _assert_invalid(
+        errors,
+        "must stay under reports/chat-incident-fallback/example-incident-fallback-20260526/",
+    )
+    _assert_invalid(errors, "Locust report must be .html or .json")
+    _assert_invalid(errors, "provider_health_snapshot must be .json")
+
+
+def test_incident_fallback_real_evidence_threshold_failures_are_rejected() -> None:
+    validator = _load_validator()
+    prompts = _load_json(PROMPTS_PATH)
+    plan = _load_json(INCIDENT_FALLBACK_PLAN_PATH)
+    manifest = _load_json(INCIDENT_FALLBACK_EXAMPLE_MANIFEST_PATH)
+    manifest["example_only"] = False
+    metrics = manifest["metrics"]
+    metrics["switch_duration_seconds"] = 301
+    metrics["fallback_first_token_p95_ms"] = 5000
+    metrics["fallback_route_ratio"] = 0.99
+    metrics["schema_parity_pass_count"] = 99
+    metrics["fallback_provider_error_count"] = 1
+
+    errors = validator.validate_incident_fallback_manifest(
+        manifest,
+        validator.prompt_fixture_hash(prompts),
+        validator.canonical_sha256(plan),
+        source="incident-real",
+        real_evidence=True,
+        plan_config=plan,
+    )
+
+    _assert_invalid(errors, "switch_duration_seconds fails threshold")
+    _assert_invalid(errors, "fallback_first_token_p95_ms fails threshold")
+    _assert_invalid(errors, "fallback_route_ratio fails threshold")
+    _assert_invalid(errors, "schema parity counts must match")
+    _assert_invalid(errors, "fallback_provider_error_count must be 0")
+
+
+def test_incident_fallback_manifest_rejects_invalid_timeline_order_and_hard_gate_claims() -> None:
+    validator = _load_validator()
+    prompts = _load_json(PROMPTS_PATH)
+    plan = _load_json(INCIDENT_FALLBACK_PLAN_PATH)
+    manifest = _load_json(INCIDENT_FALLBACK_EXAMPLE_MANIFEST_PATH)
+    manifest["timeline"]["fallback_confirmed_utc"] = "2026-05-26T10:01:00Z"
+    manifest["timeline"]["operator_decision_utc"] = "2026-05-26T10:03:00Z"
+    manifest["timeline"]["measurement_ended_utc"] = "2026-05-26T10:06:00Z"
+    manifest["timeline"]["measurement_started_utc"] = "2026-05-26T10:08:00Z"
+    manifest["hard_gate_pass"] = True
+    manifest["metrics"]["staging_pass"] = True
+
+    errors = validator.validate_incident_fallback_manifest(
+        manifest,
+        validator.prompt_fixture_hash(prompts),
+        validator.canonical_sha256(plan),
+        source="incident",
+        real_evidence=False,
+    )
+
+    _assert_invalid(errors, "fallback_confirmed_utc must be after operator_decision_utc")
+    _assert_invalid(errors, "measurement_ended_utc must be after measurement_started_utc")
+    _assert_invalid(errors, "incident fallback evidence cannot claim hard-gate or staging pass")
+
+
+def test_incident_fallback_manifest_rejects_timeline_metric_mismatch() -> None:
+    validator = _load_validator()
+    prompts = _load_json(PROMPTS_PATH)
+    plan = _load_json(INCIDENT_FALLBACK_PLAN_PATH)
+    manifest = _load_json(INCIDENT_FALLBACK_EXAMPLE_MANIFEST_PATH)
+    manifest["metrics"]["switch_duration_seconds"] = 179
+    manifest["metrics"]["detection_window_seconds"] = 299
+
+    errors = validator.validate_incident_fallback_manifest(
+        manifest,
+        validator.prompt_fixture_hash(prompts),
+        validator.canonical_sha256(plan),
+        source="incident",
+        real_evidence=False,
+    )
+
+    _assert_invalid(errors, "switch_duration_seconds must match timeline")
+    _assert_invalid(errors, "detection_window_seconds must match timeline")
+
+
+def test_evidence_path_modes_remain_separate() -> None:
+    validator = _load_validator()
+
+    assert (
+        validator.validate_evidence_path_mode(
+            Path("reports/chat-load/run-123/evidence_manifest.json"), "staging"
+        )
+        == []
+    )
+    assert (
+        validator.validate_evidence_path_mode(
+            Path("reports/chat-single-node/run-123/evidence_manifest.json"), "single-node"
+        )
+        == []
+    )
+    assert (
+        validator.validate_evidence_path_mode(
+            Path("reports/chat-incident-fallback/run-123/evidence_manifest.json"),
+            "incident-fallback",
+        )
+        == []
+    )
+    _assert_invalid(
+        validator.validate_evidence_path_mode(
+            Path("reports/chat-load/run-123/evidence_manifest.json"), "incident-fallback"
+        ),
+        "incident fallback evidence path must be",
+    )

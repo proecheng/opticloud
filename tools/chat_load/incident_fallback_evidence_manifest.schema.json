@@ -1,0 +1,226 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "artifacts": {
+      "additionalProperties": false,
+      "properties": {
+        "fallback_decision_log": {
+          "$ref": "#/$defs/jsonArtifactPath"
+        },
+        "latency_snapshot": {
+          "$ref": "#/$defs/jsonArtifactPath"
+        },
+        "locust_report": {
+          "$ref": "#/$defs/locustReportPath"
+        },
+        "operator_timeline": {
+          "$ref": "#/$defs/jsonArtifactPath"
+        },
+        "provider_health_snapshot": {
+          "$ref": "#/$defs/jsonArtifactPath"
+        }
+      },
+      "required": [
+        "locust_report",
+        "provider_health_snapshot",
+        "fallback_decision_log",
+        "operator_timeline",
+        "latency_snapshot"
+      ],
+      "type": "object"
+    },
+    "commit_sha": {
+      "pattern": "^[0-9a-f]{7,40}$",
+      "type": "string"
+    },
+    "drill_plan_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "endpoint_path": {
+      "pattern": "^/",
+      "type": "string"
+    },
+    "environment": {
+      "const": "staging-incident-drill",
+      "type": "string"
+    },
+    "example_only": {
+      "type": "boolean"
+    },
+    "fallback_provider": {
+      "const": "qwen-max",
+      "type": "string"
+    },
+    "generated_by": {
+      "type": "string"
+    },
+    "metrics": {
+      "$ref": "#/$defs/metrics"
+    },
+    "primary_provider": {
+      "const": "deepseek-v3.5",
+      "type": "string"
+    },
+    "prompt_count": {
+      "const": 100,
+      "type": "integer"
+    },
+    "prompt_fixture": {
+      "const": "tools/chat_load/prompts_v1.json",
+      "type": "string"
+    },
+    "prompt_fixture_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "run_id": {
+      "pattern": "^[a-z0-9][a-z0-9._-]{2,63}$",
+      "type": "string"
+    },
+    "source_story": {
+      "const": "M3.6c",
+      "type": "string"
+    },
+    "timeline": {
+      "$ref": "#/$defs/timeline"
+    }
+  },
+  "required": [
+    "source_story",
+    "run_id",
+    "example_only",
+    "generated_by",
+    "commit_sha",
+    "environment",
+    "endpoint_path",
+    "primary_provider",
+    "fallback_provider",
+    "prompt_fixture",
+    "prompt_fixture_sha256",
+    "prompt_count",
+    "drill_plan_sha256",
+    "artifacts",
+    "timeline",
+    "metrics"
+  ],
+  "title": "M3.6c Chat incident fallback evidence manifest",
+  "type": "object",
+  "$defs": {
+    "jsonArtifactPath": {
+      "pattern": "^reports/chat-incident-fallback/[a-z0-9][a-z0-9._-]{2,63}/(?!.*\\.\\.)[^\\\\:]+\\.json$",
+      "type": "string"
+    },
+    "locustReportPath": {
+      "pattern": "^reports/chat-incident-fallback/[a-z0-9][a-z0-9._-]{2,63}/(?!.*\\.\\.)[^\\\\:]+\\.(html|json)$",
+      "type": "string"
+    },
+    "metrics": {
+      "additionalProperties": false,
+      "properties": {
+        "completed_stream_count": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "detection_window_seconds": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "fallback_first_token_p95_ms": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "fallback_provider_error_count": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "fallback_route_ratio": {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        "fallback_streaming_tokens_per_second": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "fallback_total_response_p95_ms": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "http_error_rate": {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        "request_count": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "schema_parity_pass_count": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "schema_parity_total_count": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "switch_duration_seconds": {
+          "minimum": 0,
+          "type": "number"
+        }
+      },
+      "required": [
+        "request_count",
+        "completed_stream_count",
+        "http_error_rate",
+        "fallback_route_ratio",
+        "switch_duration_seconds",
+        "detection_window_seconds",
+        "fallback_first_token_p95_ms",
+        "fallback_total_response_p95_ms",
+        "fallback_streaming_tokens_per_second",
+        "schema_parity_pass_count",
+        "schema_parity_total_count",
+        "fallback_provider_error_count"
+      ],
+      "type": "object"
+    },
+    "timestamp": {
+      "pattern": "^20[0-9]{2}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+      "type": "string"
+    },
+    "timeline": {
+      "additionalProperties": false,
+      "properties": {
+        "fallback_confirmed_utc": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "incident_started_utc": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "measurement_ended_utc": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "measurement_started_utc": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "operator_decision_utc": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "provider_health_failed_utc": {
+          "$ref": "#/$defs/timestamp"
+        }
+      },
+      "required": [
+        "incident_started_utc",
+        "provider_health_failed_utc",
+        "operator_decision_utc",
+        "fallback_confirmed_utc",
+        "measurement_started_utc",
+        "measurement_ended_utc"
+      ],
+      "type": "object"
+    }
+  }
+}

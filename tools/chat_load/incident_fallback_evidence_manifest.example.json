@@ -1,0 +1,44 @@
+{
+  "artifacts": {
+    "fallback_decision_log": "reports/chat-incident-fallback/example-incident-fallback-20260526/fallback-decision-log.json",
+    "latency_snapshot": "reports/chat-incident-fallback/example-incident-fallback-20260526/latency-snapshot.json",
+    "locust_report": "reports/chat-incident-fallback/example-incident-fallback-20260526/incident-fallback-locust.html",
+    "operator_timeline": "reports/chat-incident-fallback/example-incident-fallback-20260526/operator-timeline.json",
+    "provider_health_snapshot": "reports/chat-incident-fallback/example-incident-fallback-20260526/provider-health-snapshot.json"
+  },
+  "commit_sha": "0000000",
+  "drill_plan_sha256": "fff65b0ea93792b34dcd185f94798677f4b48274e5fbd0fc0d395af7dc74fe94",
+  "endpoint_path": "/v1/chat/stream",
+  "environment": "staging-incident-drill",
+  "example_only": true,
+  "fallback_provider": "qwen-max",
+  "generated_by": "M3.6c example manifest; not real incident fallback evidence",
+  "metrics": {
+    "completed_stream_count": 120,
+    "detection_window_seconds": 300,
+    "fallback_first_token_p95_ms": 4300,
+    "fallback_provider_error_count": 0,
+    "fallback_route_ratio": 1.0,
+    "fallback_streaming_tokens_per_second": 22,
+    "fallback_total_response_p95_ms": 6800,
+    "http_error_rate": 0,
+    "request_count": 120,
+    "schema_parity_pass_count": 100,
+    "schema_parity_total_count": 100,
+    "switch_duration_seconds": 180
+  },
+  "primary_provider": "deepseek-v3.5",
+  "prompt_count": 100,
+  "prompt_fixture": "tools/chat_load/prompts_v1.json",
+  "prompt_fixture_sha256": "57a47193517b19cca0983c5f00c17b246197c80620db9f87d17cdd16db79529c",
+  "run_id": "example-incident-fallback-20260526",
+  "source_story": "M3.6c",
+  "timeline": {
+    "fallback_confirmed_utc": "2026-05-26T10:08:00Z",
+    "incident_started_utc": "2026-05-26T10:00:00Z",
+    "measurement_ended_utc": "2026-05-26T10:20:00Z",
+    "measurement_started_utc": "2026-05-26T10:08:30Z",
+    "operator_decision_utc": "2026-05-26T10:05:00Z",
+    "provider_health_failed_utc": "2026-05-26T10:05:00Z"
+  }
+}
