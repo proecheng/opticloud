@@ -1,0 +1,132 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "capture_id": {
+      "pattern": "^[a-z0-9][a-z0-9._-]{2,63}$",
+      "type": "string"
+    },
+    "captured_window": {
+      "additionalProperties": false,
+      "properties": {
+        "ended_utc": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "started_utc": {
+          "$ref": "#/$defs/timestamp"
+        }
+      },
+      "required": [
+        "started_utc",
+        "ended_utc"
+      ],
+      "type": "object"
+    },
+    "dataset_version": {
+      "const": "prod_traffic_replay_capture_v1",
+      "type": "string"
+    },
+    "example_only": {
+      "type": "boolean"
+    },
+    "generated_by": {
+      "type": "string"
+    },
+    "redaction_profile": {
+      "type": "string"
+    },
+    "requests": {
+      "items": {
+        "$ref": "#/$defs/requestShape"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "source_story": {
+      "const": "M3.6e",
+      "type": "string"
+    }
+  },
+  "required": [
+    "dataset_version",
+    "source_story",
+    "example_only",
+    "capture_id",
+    "redaction_profile",
+    "generated_by",
+    "captured_window",
+    "requests"
+  ],
+  "title": "M3.6e production traffic replay capture fixture",
+  "type": "object",
+  "$defs": {
+    "pathTemplate": {
+      "pattern": "^(?!.*https?://)/[A-Za-z0-9_{}./:-]*$",
+      "type": "string"
+    },
+    "requestShape": {
+      "additionalProperties": false,
+      "properties": {
+        "body_shape": {
+          "type": "object"
+        },
+        "expected_status_family": {
+          "enum": [
+            "2xx",
+            "4xx",
+            "5xx"
+          ],
+          "type": "string"
+        },
+        "header_shape": {
+          "type": "object"
+        },
+        "lane": {
+          "enum": [
+            "api_gateway_public",
+            "chat_streaming",
+            "contract_fuzz"
+          ],
+          "type": "string"
+        },
+        "method": {
+          "enum": [
+            "GET",
+            "POST"
+          ],
+          "type": "string"
+        },
+        "path_template": {
+          "$ref": "#/$defs/pathTemplate"
+        },
+        "query_shape": {
+          "type": "object"
+        },
+        "request_id": {
+          "pattern": "^[a-z0-9][a-z0-9._-]{2,63}$",
+          "type": "string"
+        },
+        "weight": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "request_id",
+        "lane",
+        "method",
+        "path_template",
+        "query_shape",
+        "body_shape",
+        "header_shape",
+        "expected_status_family",
+        "weight"
+      ],
+      "type": "object"
+    },
+    "timestamp": {
+      "pattern": "^20[0-9]{2}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+      "type": "string"
+    }
+  }
+}

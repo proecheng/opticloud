@@ -1,0 +1,29 @@
+{
+  "capture_source": "production_logs_redacted_export",
+  "dataset_version": "prod_traffic_replay_plan_v1",
+  "evidence_directory": "reports/prod-traffic-replay",
+  "redaction_required": true,
+  "replay_environment": "staging",
+  "replay_mode": "sanitized_contract_replay",
+  "sampling_strategy": "deterministic_hash_bucket",
+  "source_decision": "RE2-7",
+  "source_gap": "G6",
+  "source_story": "M3.6e",
+  "lanes": [
+    {
+      "lane": "api_gateway_public",
+      "target_service_class": "api-gateway",
+      "threshold_reference": "M3.6d"
+    },
+    {
+      "lane": "chat_streaming",
+      "target_service_class": "chat-service",
+      "threshold_reference": "M3.6a"
+    },
+    {
+      "lane": "contract_fuzz",
+      "target_service_class": "contract-tests",
+      "threshold_reference": "M3.2"
+    }
+  ]
+}

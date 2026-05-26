@@ -1,0 +1,62 @@
+{
+  "capture_id": "example-prod-replay-20260526",
+  "captured_window": {
+    "ended_utc": "2026-05-26T09:15:00Z",
+    "started_utc": "2026-05-26T09:00:00Z"
+  },
+  "dataset_version": "prod_traffic_replay_capture_v1",
+  "example_only": true,
+  "generated_by": "M3.6e synthetic example fixture; no production data",
+  "redaction_profile": "synthetic-example-no-production-data",
+  "requests": [
+    {
+      "body_shape": {},
+      "expected_status_family": "2xx",
+      "header_shape": {
+        "accept": "json"
+      },
+      "lane": "api_gateway_public",
+      "method": "GET",
+      "path_template": "/v1/algorithms",
+      "query_shape": {
+        "tier": "enum"
+      },
+      "request_id": "example-public-001",
+      "weight": 5
+    },
+    {
+      "body_shape": {
+        "content_category": "optimization",
+        "content_locale": "zh-CN",
+        "content_redacted": true
+      },
+      "expected_status_family": "2xx",
+      "header_shape": {
+        "accept": "event-stream"
+      },
+      "lane": "chat_streaming",
+      "method": "POST",
+      "path_template": "/v1/chat/stream",
+      "query_shape": {},
+      "request_id": "example-chat-001",
+      "weight": 3
+    },
+    {
+      "body_shape": {
+        "schema_case": "generated",
+        "status_family": "2xx"
+      },
+      "expected_status_family": "2xx",
+      "header_shape": {
+        "accept": "json"
+      },
+      "lane": "contract_fuzz",
+      "method": "GET",
+      "path_template": "/healthz",
+      "query_shape": {},
+      "request_id": "example-contract-001",
+      "weight": 1
+    }
+  ],
+  "source_story": "M3.6e"
+}

@@ -1,0 +1,52 @@
+{
+  "artifacts": {
+    "contract_seed_report": "reports/prod-traffic-replay/example-prod-replay-20260526/contract-seed-report.json",
+    "latency_summary": "reports/prod-traffic-replay/example-prod-replay-20260526/latency-summary.json",
+    "redaction_audit": "reports/prod-traffic-replay/example-prod-replay-20260526/redaction-audit.json",
+    "replay_report": "reports/prod-traffic-replay/example-prod-replay-20260526/replay-report.html"
+  },
+  "capture_fixture_sha256": "37b098c3e1a128088563f2d29062b1abe724a02f7c669a45c414bbf9dbcc9fc1",
+  "capture_id": "example-prod-replay-20260526",
+  "commit_sha": "0000000",
+  "duration_seconds": 900,
+  "ended_utc": "2026-05-26T10:15:00Z",
+  "environment": "staging-traffic-replay",
+  "example_only": true,
+  "lane_results": [
+    {
+      "http_error_rate": 0,
+      "lane": "api_gateway_public",
+      "p95_ms": 140,
+      "redaction_violation_count": 0,
+      "replay_drift_rate": 0,
+      "request_count": 100,
+      "success_count": 100,
+      "threshold_reference": "M3.6d"
+    },
+    {
+      "http_error_rate": 0.01,
+      "lane": "chat_streaming",
+      "p95_ms": 2600,
+      "redaction_violation_count": 0,
+      "replay_drift_rate": 0.01,
+      "request_count": 100,
+      "success_count": 99,
+      "threshold_reference": "M3.6a"
+    },
+    {
+      "http_error_rate": 0,
+      "lane": "contract_fuzz",
+      "p95_ms": 80,
+      "redaction_violation_count": 0,
+      "replay_drift_rate": 0,
+      "request_count": 30,
+      "success_count": 30,
+      "threshold_reference": "M3.2"
+    }
+  ],
+  "plan_sha256": "c40d27b3e2855d4634c84460d859351bae2fec6b2f92ca8badb5a6cd62136d6a",
+  "redaction_profile": "synthetic-example-no-production-data",
+  "run_id": "example-prod-replay-20260526",
+  "source_story": "M3.6e",
+  "started_utc": "2026-05-26T10:00:00Z"
+}
