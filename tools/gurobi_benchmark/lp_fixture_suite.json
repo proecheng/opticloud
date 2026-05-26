@@ -1,0 +1,2066 @@
+{
+  "suite_id": "m45b-gurobi-lp-suite-v1",
+  "story_key": "m4-5b-gurobi-benchmark-whitepaper",
+  "stage": "M4.5",
+  "fixture_count": 30,
+  "license_boundary": "Synthetic LP fixtures only; no Gurobi output or license data is committed.",
+  "fixtures": [
+    {
+      "id": "lp-001",
+      "category": "small_bounded",
+      "sense": "minimize",
+      "objective": [
+        1,
+        2
+      ],
+      "constraints": {
+        "A": [
+          [
+            1,
+            1
+          ],
+          [
+            1,
+            0
+          ],
+          [
+            0,
+            1
+          ]
+        ],
+        "b": [
+          8,
+          6,
+          5
+        ]
+      },
+      "bounds": {
+        "lower": [
+          0,
+          0
+        ],
+        "upper": [
+          10,
+          10
+        ]
+      },
+      "expected_status": "optimal",
+      "expected_highs": {
+        "status": "optimal",
+        "objective": 0.0,
+        "objective_tolerance": 1e-07
+      },
+      "source": "synthetic",
+      "notes": "Tiny feasible bounded minimization sanity case."
+    },
+    {
+      "id": "lp-002",
+      "category": "small_bounded",
+      "sense": "maximize",
+      "objective": [
+        3,
+        1
+      ],
+      "constraints": {
+        "A": [
+          [
+            1,
+            1
+          ],
+          [
+            2,
+            1
+          ]
+        ],
+        "b": [
+          4,
+          6
+        ]
+      },
+      "bounds": {
+        "lower": [
+          0,
+          0
+        ],
+        "upper": [
+          4,
+          4
+        ]
+      },
+      "expected_status": "optimal",
+      "expected_highs": {
+        "status": "optimal",
+        "objective": 9.0,
+        "objective_tolerance": 1e-07
+      },
+      "source": "synthetic",
+      "notes": "Small maximization with binding upper envelope."
+    },
+    {
+      "id": "lp-003",
+      "category": "small_bounded",
+      "sense": "minimize",
+      "objective": [
+        -1,
+        4
+      ],
+      "constraints": {
+        "A": [
+          [
+            1,
+            2
+          ],
+          [
+            3,
+            1
+          ]
+        ],
+        "b": [
+          10,
+          12
+        ]
+      },
+      "bounds": {
+        "lower": [
+          0,
+          0
+        ],
+        "upper": [
+          5,
+          5
+        ]
+      },
+      "expected_status": "optimal",
+      "expected_highs": {
+        "status": "optimal",
+        "objective": -4.0,
+        "objective_tolerance": 1e-07
+      },
+      "source": "synthetic",
+      "notes": "Bounded negative-cost variable exercises upper-bound handling."
+    },
+    {
+      "id": "lp-004",
+      "category": "small_bounded",
+      "sense": "maximize",
+      "objective": [
+        1,
+        1,
+        1
+      ],
+      "constraints": {
+        "A": [
+          [
+            1,
+            1,
+            0
+          ],
+          [
+            0,
+            1,
+            1
+          ],
+          [
+            1,
+            0,
+            1
+          ]
+        ],
+        "b": [
+          5,
+          5,
+          5
+        ]
+      },
+      "bounds": {
+        "lower": [
+          0,
+          0,
+          0
+        ],
+        "upper": [
+          4,
+          4,
+          4
+        ]
+      },
+      "expected_status": "optimal",
+      "expected_highs": {
+        "status": "optimal",
+        "objective": 7.5,
+        "objective_tolerance": 1e-07
+      },
+      "source": "synthetic",
+      "notes": "Three-variable symmetric bounded LP."
+    },
+    {
+      "id": "lp-005",
+      "category": "small_bounded",
+      "sense": "minimize",
+      "objective": [
+        2,
+        -3,
+        1
+      ],
+      "constraints": {
+        "A": [
+          [
+            1,
+            1,
+            1
+          ],
+          [
+            2,
+            0,
+            1
+          ]
+        ],
+        "b": [
+          9,
+          8
+        ]
+      },
+      "bounds": {
+        "lower": [
+          0,
+          0,
+          0
+        ],
+        "upper": [
+          5,
+          4,
+          6
+        ]
+      },
+      "expected_status": "optimal",
+      "expected_highs": {
+        "status": "optimal",
+        "objective": -12.0,
+        "objective_tolerance": 1e-07
+      },
+      "source": "synthetic",
+      "notes": "Mixed objective signs with finite variable bounds."
+    },
+    {
+      "id": "lp-006",
+      "category": "resource_allocation",
+      "sense": "maximize",
+      "objective": [
+        6,
+        5,
+        4
+      ],
+      "constraints": {
+        "A": [
+          [
+            2,
+            1,
+            1
+          ],
+          [
+            1,
+            2,
+            1
+          ],
+          [
+            1,
+            1,
+            2
+          ]
+        ],
+        "b": [
+          14,
+          14,
+          14
+        ]
+      },
+      "bounds": {
+        "lower": [
+          0,
+          0,
+          0
+        ],
+        "upper": [
+          8,
+          8,
+          8
+        ]
+      },
+      "expected_status": "optimal",
+      "expected_highs": {
+        "status": "optimal",
+        "objective": 52.5,
+        "objective_tolerance": 1e-07
+      },
+      "source": "synthetic",
+      "notes": "Resource allocation with three shared constraints."
+    },
+    {
+      "id": "lp-007",
+      "category": "resource_allocation",
+      "sense": "maximize",
+      "objective": [
+        8,
+        7,
+        3,
+        2
+      ],
+      "constraints": {
+        "A": [
+          [
+            3,
+            2,
+            1,
+            1
+          ],
+          [
+            1,
+            3,
+            2,
+            1
+          ]
+        ],
+        "b": [
+          20,
+          18
+        ]
+      },
+      "bounds": {
+        "lower": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "upper": [
+          7,
+          6,
+          8,
+          8
+        ]
+      },
+      "expected_status": "optimal",
+      "expected_highs": {
+        "status": "optimal",
+        "objective": 61.42857142857143,
+        "objective_tolerance": 1e-07
+      },
+      "source": "synthetic",
+      "notes": "Four project activities sharing two resource pools."
+    },
+    {
+      "id": "lp-008",
+      "category": "resource_allocation",
+      "sense": "minimize",
+      "objective": [
+        4,
+        6,
+        3
+      ],
+      "constraints": {
+        "A": [
+          [
+            -1,
+            -1,
+            0
+          ],
+          [
+            0,
+            -1,
+            -1
+          ],
+          [
+            1,
+            1,
+            1
+          ]
+        ],
+        "b": [
+          -5,
+          -4,
+          12
+        ]
+      },
+      "bounds": {
+        "lower": [
+          0,
+          0,
+          0
+        ],
+        "upper": [
+          8,
+          8,
+          8
+        ]
+      },
+      "expected_status": "optimal",
+      "expected_highs": {
+        "status": "optimal",
+        "objective": 28.0,
+        "objective_tolerance": 1e-07
+      },
+      "source": "synthetic",
+      "notes": "Demand constraints represented through <= form."
+    },
+    {
+      "id": "lp-009",
+      "category": "resource_allocation",
+      "sense": "maximize",
+      "objective": [
+        5,
+        9,
+        4,
+        7
+      ],
+      "constraints": {
+        "A": [
+          [
+            2,
+            4,
+            1,
+            3
+          ],
+          [
+            3,
+            1,
+            2,
+            2
+          ],
+          [
+            1,
+            1,
+            1,
+            1
+          ]
+        ],
+        "b": [
+          24,
+          22,
+          10
+        ]
+      },
+      "bounds": {
+        "lower": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "upper": [
+          6,
+          5,
+          7,
+          4
+        ]
+      },
+      "expected_status": "optimal",
+      "expected_highs": {
+        "status": "optimal",
+        "objective": 63.33333333333336,
+        "objective_tolerance": 1e-07
+      },
+      "source": "synthetic",
+      "notes": "Dense resource allocation benchmark."
+    },
+    {
+      "id": "lp-010",
+      "category": "resource_allocation",
+      "sense": "minimize",
+      "objective": [
+        7,
+        2,
+        5,
+        3
+      ],
+      "constraints": {
+        "A": [
+          [
+            -2,
+            -1,
+            -1,
+            0
+          ],
+          [
+            -1,
+            0,
+            -2,
+            -1
+          ],
+          [
+            1,
+            1,
+            1,
+            1
+          ]
+        ],
+        "b": [
+          -8,
+          -7,
+          15
+        ]
+      },
+      "bounds": {
+        "lower": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "upper": [
+          6,
+          6,
+          6,
+          6
+        ]
+      },
+      "expected_status": "optimal",
+      "expected_highs": {
+        "status": "optimal",
+        "objective": 26.5,
+        "objective_tolerance": 1e-07
+      },
+      "source": "synthetic",
+      "notes": "Minimum-cost coverage-style resource allocation."
+    },
+    {
+      "id": "lp-011",
+      "category": "blending",
+      "sense": "minimize",
+      "objective": [
+        2,
+        3,
+        5
+      ],
+      "constraints": {
+        "A": [
+          [
+            -1,
+            -1,
+            -1
+          ],
+          [
+            -0.2,
+            -0.5,
+            -0.8
+          ],
+          [
+            0.7,
+            0.4,
+            0.2
+          ]
+        ],
+        "b": [
+          -10,
+          -5,
+          6
+        ]
+      },
+      "bounds": {
+        "lower": [
+          0,
+          0,
+          0
+        ],
+        "upper": [
+          10,
+          10,
+          10
+        ]
+      },
+      "expected_status": "optimal",
+      "expected_highs": {
+        "status": "optimal",
+        "objective": 30.0,
+        "objective_tolerance": 1e-07
+      },
+      "source": "synthetic",
+      "notes": "Blending with minimum volume and quality lower bound."
+    },
+    {
+      "id": "lp-012",
+      "category": "blending",
+      "sense": "minimize",
+      "objective": [
+        1,
+        4,
+        6,
+        2
+      ],
+      "constraints": {
+        "A": [
+          [
+            -1,
+            -1,
+            -1,
+            -1
+          ],
+          [
+            -0.1,
+            -0.6,
+            -0.9,
+            -0.3
+          ],
+          [
+            0.8,
+            0.5,
+            0.2,
+            0.7
+          ]
+        ],
+        "b": [
+          -12,
+          -6,
+          7
+        ]
+      },
+      "bounds": {
+        "lower": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "upper": [
+          12,
+          12,
+          12,
+          12
+        ]
+      },
+      "expected_status": "optimal",
+      "expected_highs": {
+        "status": "optimal",
+        "objective": 40.0,
+        "objective_tolerance": 1e-07
+      },
+      "source": "synthetic",
+      "notes": "Four-ingredient blend with upper impurity bound."
+    },
+    {
+      "id": "lp-013",
+      "category": "blending",
+      "sense": "maximize",
+      "objective": [
+        9,
+        7,
+        6
+      ],
+      "constraints": {
+        "A": [
+          [
+            1,
+            1,
+            1
+          ],
+          [
+            0.4,
+            0.7,
+            0.9
+          ],
+          [
+            -0.6,
+            -0.3,
+            -0.1
+          ]
+        ],
+        "b": [
+          15,
+          10,
+          -3
+        ]
+      },
+      "bounds": {
+        "lower": [
+          0,
+          0,
+          0
+        ],
+        "upper": [
+          8,
+          8,
+          8
+        ]
+      },
+      "expected_status": "optimal",
+      "expected_highs": {
+        "status": "optimal",
+        "objective": 121.0,
+        "objective_tolerance": 1e-07
+      },
+      "source": "synthetic",
+      "notes": "Profit-maximizing blend with quality band."
+    },
+    {
+      "id": "lp-014",
+      "category": "blending",
+      "sense": "minimize",
+      "objective": [
+        5,
+        1,
+        4,
+        3
+      ],
+      "constraints": {
+        "A": [
+          [
+            -1,
+            -1,
+            -1,
+            -1
+          ],
+          [
+            -0.5,
+            -0.2,
+            -0.7,
+            -0.4
+          ],
+          [
+            0.3,
+            0.8,
+            0.2,
+            0.6
+          ]
+        ],
+        "b": [
+          -9,
+          -4,
+          5
+        ]
+      },
+      "bounds": {
+        "lower": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "upper": [
+          9,
+          9,
+          9,
+          9
+        ]
+      },
+      "expected_status": "optimal",
+      "expected_highs": {
+        "status": "optimal",
+        "objective": 22.115384615384617,
+        "objective_tolerance": 1e-07
+      },
+      "source": "synthetic",
+      "notes": "Low-cost ingredient favored under quality limits."
+    },
+    {
+      "id": "lp-015",
+      "category": "blending",
+      "sense": "maximize",
+      "objective": [
+        4,
+        5,
+        8,
+        6
+      ],
+      "constraints": {
+        "A": [
+          [
+            1,
+            1,
+            1,
+            1
+          ],
+          [
+            0.2,
+            0.5,
+            0.8,
+            0.4
+          ],
+          [
+            -0.8,
+            -0.5,
+            -0.2,
+            -0.6
+          ]
+        ],
+        "b": [
+          16,
+          9,
+          -4
+        ]
+      },
+      "bounds": {
+        "lower": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "upper": [
+          10,
+          10,
+          10,
+          10
+        ]
+      },
+      "expected_status": "optimal",
+      "expected_highs": {
+        "status": "optimal",
+        "objective": 109.0,
+        "objective_tolerance": 1e-07
+      },
+      "source": "synthetic",
+      "notes": "Bounded blend with maximize objective."
+    },
+    {
+      "id": "lp-016",
+      "category": "transportation_style",
+      "sense": "minimize",
+      "objective": [
+        4,
+        6,
+        5,
+        3
+      ],
+      "constraints": {
+        "A": [
+          [
+            1,
+            1,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            1,
+            1
+          ],
+          [
+            -1,
+            0,
+            -1,
+            0
+          ],
+          [
+            0,
+            -1,
+            0,
+            -1
+          ]
+        ],
+        "b": [
+          10,
+          8,
+          -6,
+          -7
+        ]
+      },
+      "bounds": {
+        "lower": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "upper": [
+          10,
+          10,
+          8,
+          8
+        ]
+      },
+      "expected_status": "optimal",
+      "expected_highs": {
+        "status": "optimal",
+        "objective": 45.0,
+        "objective_tolerance": 1e-07
+      },
+      "source": "synthetic",
+      "notes": "Two-source two-destination transportation-style LP."
+    },
+    {
+      "id": "lp-017",
+      "category": "transportation_style",
+      "sense": "minimize",
+      "objective": [
+        2,
+        7,
+        4,
+        5,
+        3,
+        6
+      ],
+      "constraints": {
+        "A": [
+          [
+            1,
+            1,
+            1,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            1,
+            1,
+            1
+          ],
+          [
+            -1,
+            0,
+            0,
+            -1,
+            0,
+            0
+          ],
+          [
+            0,
+            -1,
+            0,
+            0,
+            -1,
+            0
+          ],
+          [
+            0,
+            0,
+            -1,
+            0,
+            0,
+            -1
+          ]
+        ],
+        "b": [
+          14,
+          12,
+          -8,
+          -7,
+          -6
+        ]
+      },
+      "bounds": {
+        "lower": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "upper": [
+          14,
+          14,
+          14,
+          12,
+          12,
+          12
+        ]
+      },
+      "expected_status": "optimal",
+      "expected_highs": {
+        "status": "optimal",
+        "objective": 61.0,
+        "objective_tolerance": 1e-07
+      },
+      "source": "synthetic",
+      "notes": "Two-source three-destination flow allocation."
+    },
+    {
+      "id": "lp-018",
+      "category": "transportation_style",
+      "sense": "minimize",
+      "objective": [
+        5,
+        2,
+        8,
+        4
+      ],
+      "constraints": {
+        "A": [
+          [
+            1,
+            1,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            1,
+            1
+          ],
+          [
+            -1,
+            0,
+            -1,
+            0
+          ],
+          [
+            0,
+            -1,
+            0,
+            -1
+          ]
+        ],
+        "b": [
+          7,
+          9,
+          -6,
+          -5
+        ]
+      },
+      "bounds": {
+        "lower": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "upper": [
+          7,
+          7,
+          9,
+          9
+        ]
+      },
+      "expected_status": "optimal",
+      "expected_highs": {
+        "status": "optimal",
+        "objective": 48.0,
+        "objective_tolerance": 1e-07
+      },
+      "source": "synthetic",
+      "notes": "Transportation-style case with asymmetric route costs."
+    },
+    {
+      "id": "lp-019",
+      "category": "transportation_style",
+      "sense": "minimize",
+      "objective": [
+        3,
+        4,
+        6,
+        2,
+        5,
+        7
+      ],
+      "constraints": {
+        "A": [
+          [
+            1,
+            1,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            1,
+            1,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            1,
+            1
+          ],
+          [
+            -1,
+            0,
+            -1,
+            0,
+            -1,
+            0
+          ],
+          [
+            0,
+            -1,
+            0,
+            -1,
+            0,
+            -1
+          ]
+        ],
+        "b": [
+          6,
+          8,
+          7,
+          -9,
+          -10
+        ]
+      },
+      "bounds": {
+        "lower": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "upper": [
+          6,
+          6,
+          8,
+          8,
+          7,
+          7
+        ]
+      },
+      "expected_status": "optimal",
+      "expected_highs": {
+        "status": "optimal",
+        "objective": 61.0,
+        "objective_tolerance": 1e-07
+      },
+      "source": "synthetic",
+      "notes": "Three-source two-destination flow allocation."
+    },
+    {
+      "id": "lp-020",
+      "category": "transportation_style",
+      "sense": "minimize",
+      "objective": [
+        9,
+        1,
+        4,
+        6
+      ],
+      "constraints": {
+        "A": [
+          [
+            1,
+            1,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            1,
+            1
+          ],
+          [
+            -1,
+            0,
+            -1,
+            0
+          ],
+          [
+            0,
+            -1,
+            0,
+            -1
+          ]
+        ],
+        "b": [
+          5,
+          11,
+          -4,
+          -10
+        ]
+      },
+      "bounds": {
+        "lower": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "upper": [
+          5,
+          5,
+          11,
+          11
+        ]
+      },
+      "expected_status": "optimal",
+      "expected_highs": {
+        "status": "optimal",
+        "objective": 51.0,
+        "objective_tolerance": 1e-07
+      },
+      "source": "synthetic",
+      "notes": "Route-cost skew stresses destination assignment."
+    },
+    {
+      "id": "lp-021",
+      "category": "scheduling_style",
+      "sense": "minimize",
+      "objective": [
+        4,
+        2,
+        6,
+        3
+      ],
+      "constraints": {
+        "A": [
+          [
+            -1,
+            -1,
+            0,
+            0
+          ],
+          [
+            0,
+            -1,
+            -1,
+            0
+          ],
+          [
+            0,
+            0,
+            -1,
+            -1
+          ],
+          [
+            1,
+            1,
+            1,
+            1
+          ]
+        ],
+        "b": [
+          -3,
+          -4,
+          -2,
+          9
+        ]
+      },
+      "bounds": {
+        "lower": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "upper": [
+          5,
+          5,
+          5,
+          5
+        ]
+      },
+      "expected_status": "optimal",
+      "expected_highs": {
+        "status": "optimal",
+        "objective": 14.0,
+        "objective_tolerance": 1e-07
+      },
+      "source": "synthetic",
+      "notes": "Coverage over adjacent time blocks."
+    },
+    {
+      "id": "lp-022",
+      "category": "scheduling_style",
+      "sense": "minimize",
+      "objective": [
+        3,
+        5,
+        2,
+        4,
+        6
+      ],
+      "constraints": {
+        "A": [
+          [
+            -1,
+            -1,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            -1,
+            -1,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            -1,
+            -1,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            -1,
+            -1
+          ],
+          [
+            1,
+            1,
+            1,
+            1,
+            1
+          ]
+        ],
+        "b": [
+          -4,
+          -3,
+          -5,
+          -2,
+          12
+        ]
+      },
+      "bounds": {
+        "lower": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "upper": [
+          6,
+          6,
+          6,
+          6,
+          6
+        ]
+      },
+      "expected_status": "optimal",
+      "expected_highs": {
+        "status": "optimal",
+        "objective": 26.0,
+        "objective_tolerance": 1e-07
+      },
+      "source": "synthetic",
+      "notes": "Five-slot fractional staffing benchmark."
+    },
+    {
+      "id": "lp-023",
+      "category": "scheduling_style",
+      "sense": "maximize",
+      "objective": [
+        5,
+        4,
+        7,
+        3
+      ],
+      "constraints": {
+        "A": [
+          [
+            1,
+            1,
+            0,
+            0
+          ],
+          [
+            0,
+            1,
+            1,
+            0
+          ],
+          [
+            0,
+            0,
+            1,
+            1
+          ],
+          [
+            1,
+            1,
+            1,
+            1
+          ]
+        ],
+        "b": [
+          5,
+          6,
+          5,
+          10
+        ]
+      },
+      "bounds": {
+        "lower": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "upper": [
+          4,
+          4,
+          4,
+          4
+        ]
+      },
+      "expected_status": "optimal",
+      "expected_highs": {
+        "status": "optimal",
+        "objective": 55.0,
+        "objective_tolerance": 1e-07
+      },
+      "source": "synthetic",
+      "notes": "Maximize value under overlapping capacity windows."
+    },
+    {
+      "id": "lp-024",
+      "category": "scheduling_style",
+      "sense": "minimize",
+      "objective": [
+        6,
+        1,
+        3,
+        5,
+        2
+      ],
+      "constraints": {
+        "A": [
+          [
+            -1,
+            0,
+            -1,
+            0,
+            0
+          ],
+          [
+            0,
+            -1,
+            0,
+            -1,
+            0
+          ],
+          [
+            0,
+            0,
+            -1,
+            0,
+            -1
+          ],
+          [
+            1,
+            1,
+            1,
+            1,
+            1
+          ]
+        ],
+        "b": [
+          -3,
+          -4,
+          -3,
+          11
+        ]
+      },
+      "bounds": {
+        "lower": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "upper": [
+          5,
+          5,
+          5,
+          5,
+          5
+        ]
+      },
+      "expected_status": "optimal",
+      "expected_highs": {
+        "status": "optimal",
+        "objective": 13.0,
+        "objective_tolerance": 1e-07
+      },
+      "source": "synthetic",
+      "notes": "Alternating-slot coverage case."
+    },
+    {
+      "id": "lp-025",
+      "category": "scheduling_style",
+      "sense": "maximize",
+      "objective": [
+        2,
+        8,
+        5,
+        4,
+        7
+      ],
+      "constraints": {
+        "A": [
+          [
+            1,
+            1,
+            1,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            1,
+            1,
+            1
+          ],
+          [
+            1,
+            1,
+            1,
+            1,
+            1
+          ]
+        ],
+        "b": [
+          9,
+          8,
+          13
+        ]
+      },
+      "bounds": {
+        "lower": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "upper": [
+          4,
+          4,
+          4,
+          4,
+          4
+        ]
+      },
+      "expected_status": "optimal",
+      "expected_highs": {
+        "status": "optimal",
+        "objective": 82.0,
+        "objective_tolerance": 1e-07
+      },
+      "source": "synthetic",
+      "notes": "Scheduling-style capacity split across two windows."
+    },
+    {
+      "id": "lp-026",
+      "category": "stress_scale_synthetic",
+      "sense": "minimize",
+      "objective": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "constraints": {
+        "A": [
+          [
+            1,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            1,
+            1,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            1,
+            1,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            1
+          ],
+          [
+            -1,
+            0,
+            -1,
+            0,
+            -1,
+            0,
+            -1,
+            0
+          ]
+        ],
+        "b": [
+          10,
+          10,
+          10,
+          10,
+          -12
+        ]
+      },
+      "bounds": {
+        "lower": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "upper": [
+          10,
+          10,
+          10,
+          10,
+          10,
+          10,
+          10,
+          10
+        ]
+      },
+      "expected_status": "optimal",
+      "expected_highs": {
+        "status": "optimal",
+        "objective": 16.0,
+        "objective_tolerance": 1e-07
+      },
+      "source": "synthetic",
+      "notes": "Eight-variable sparse synthetic scale case."
+    },
+    {
+      "id": "lp-027",
+      "category": "stress_scale_synthetic",
+      "sense": "maximize",
+      "objective": [
+        9,
+        8,
+        7,
+        6,
+        5,
+        4,
+        3,
+        2
+      ],
+      "constraints": {
+        "A": [
+          [
+            1,
+            1,
+            1,
+            1,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            1,
+            1,
+            1,
+            1
+          ],
+          [
+            1,
+            0,
+            1,
+            0,
+            1,
+            0,
+            1,
+            0
+          ],
+          [
+            0,
+            1,
+            0,
+            1,
+            0,
+            1,
+            0,
+            1
+          ]
+        ],
+        "b": [
+          18,
+          16,
+          15,
+          14
+        ]
+      },
+      "bounds": {
+        "lower": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "upper": [
+          6,
+          6,
+          6,
+          6,
+          6,
+          6,
+          6,
+          6
+        ]
+      },
+      "expected_status": "optimal",
+      "expected_highs": {
+        "status": "optimal",
+        "objective": 191.0,
+        "objective_tolerance": 1e-07
+      },
+      "source": "synthetic",
+      "notes": "Dense enough to exercise matrix conversion without large runtime."
+    },
+    {
+      "id": "lp-028",
+      "category": "stress_scale_synthetic",
+      "sense": "minimize",
+      "objective": [
+        3,
+        1,
+        4,
+        1,
+        5,
+        9,
+        2,
+        6,
+        5,
+        3
+      ],
+      "constraints": {
+        "A": [
+          [
+            1,
+            1,
+            1,
+            1,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            1,
+            1,
+            1,
+            1
+          ],
+          [
+            -1,
+            0,
+            -1,
+            0,
+            -1,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            -1,
+            0,
+            -1,
+            0,
+            -1
+          ]
+        ],
+        "b": [
+          20,
+          18,
+          -8,
+          -7
+        ]
+      },
+      "bounds": {
+        "lower": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "upper": [
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8
+        ]
+      },
+      "expected_status": "optimal",
+      "expected_highs": {
+        "status": "optimal",
+        "objective": 45.0,
+        "objective_tolerance": 1e-07
+      },
+      "source": "synthetic",
+      "notes": "Ten-variable grouped synthetic case."
+    },
+    {
+      "id": "lp-029",
+      "category": "stress_scale_synthetic",
+      "sense": "maximize",
+      "objective": [
+        1,
+        3,
+        5,
+        7,
+        9,
+        2,
+        4,
+        6,
+        8,
+        10
+      ],
+      "constraints": {
+        "A": [
+          [
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1
+          ],
+          [
+            2,
+            0,
+            2,
+            0,
+            2,
+            0,
+            2,
+            0,
+            2,
+            0
+          ],
+          [
+            0,
+            3,
+            0,
+            3,
+            0,
+            3,
+            0,
+            3,
+            0,
+            3
+          ]
+        ],
+        "b": [
+          30,
+          28,
+          27
+        ]
+      },
+      "bounds": {
+        "lower": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "upper": [
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5
+        ]
+      },
+      "expected_status": "optimal",
+      "expected_highs": {
+        "status": "optimal",
+        "objective": 183.0,
+        "objective_tolerance": 1e-07
+      },
+      "source": "synthetic",
+      "notes": "Ten-variable maximize case with patterned constraints."
+    },
+    {
+      "id": "lp-030",
+      "category": "stress_scale_synthetic",
+      "sense": "minimize",
+      "objective": [
+        2,
+        4,
+        6,
+        8,
+        10,
+        1,
+        3,
+        5,
+        7,
+        9
+      ],
+      "constraints": {
+        "A": [
+          [
+            1,
+            0,
+            1,
+            0,
+            1,
+            0,
+            1,
+            0,
+            1,
+            0
+          ],
+          [
+            0,
+            1,
+            0,
+            1,
+            0,
+            1,
+            0,
+            1,
+            0,
+            1
+          ],
+          [
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1
+          ]
+        ],
+        "b": [
+          16,
+          17,
+          -9,
+          -8
+        ]
+      },
+      "bounds": {
+        "lower": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "upper": [
+          7,
+          7,
+          7,
+          7,
+          7,
+          7,
+          7,
+          7,
+          7,
+          7
+        ]
+      },
+      "expected_status": "optimal",
+      "expected_highs": {
+        "status": "optimal",
+        "objective": 32.0,
+        "objective_tolerance": 1e-07
+      },
+      "source": "synthetic",
+      "notes": "Final stress fixture with grouped lower-demand constraints."
+    }
+  ]
+}

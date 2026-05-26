@@ -1,0 +1,70 @@
+{
+  "source_story": "m4-5b-gurobi-benchmark-whitepaper",
+  "example_only": true,
+  "run_id": "example-gurobi-benchmark-20260527",
+  "fixture_suite_id": "m45b-gurobi-lp-suite-v1",
+  "environment_summary": {
+    "os_family": "example-linux",
+    "cpu_class": "example-cpu-class",
+    "memory_gb": 16,
+    "containerized": false
+  },
+  "solver_versions": {
+    "opticloud_highs": "highspy-example-version",
+    "gurobi": "operator-provided-version-pending"
+  },
+  "run_policy": {
+    "warmup_runs": 1,
+    "timed_runs": 3,
+    "timeout_seconds": 30,
+    "objective_tolerance": 1e-7
+  },
+  "aggregate_metrics": {
+    "fixture_count": 30,
+    "comparable_count": 0,
+    "status_parity_count": 30,
+    "objective_tolerance_pass_count": 0,
+    "timeout_count": 0,
+    "error_count": 0
+  },
+  "per_fixture_results": [
+    { "fixture_id": "lp-001", "opticloud_highs_status": "not_run", "gurobi_status": "not_run", "opticloud_runtime_seconds": null, "gurobi_runtime_seconds": null, "opticloud_objective": null, "gurobi_objective": null, "not_available_reason": "operator_evidence_required", "objective_delta": null, "primal_feasibility_residual": null, "notes": "Example placeholder only." },
+    { "fixture_id": "lp-002", "opticloud_highs_status": "not_run", "gurobi_status": "not_run", "opticloud_runtime_seconds": null, "gurobi_runtime_seconds": null, "opticloud_objective": null, "gurobi_objective": null, "not_available_reason": "operator_evidence_required", "objective_delta": null, "primal_feasibility_residual": null, "notes": "Example placeholder only." },
+    { "fixture_id": "lp-003", "opticloud_highs_status": "not_run", "gurobi_status": "not_run", "opticloud_runtime_seconds": null, "gurobi_runtime_seconds": null, "opticloud_objective": null, "gurobi_objective": null, "not_available_reason": "operator_evidence_required", "objective_delta": null, "primal_feasibility_residual": null, "notes": "Example placeholder only." },
+    { "fixture_id": "lp-004", "opticloud_highs_status": "not_run", "gurobi_status": "not_run", "opticloud_runtime_seconds": null, "gurobi_runtime_seconds": null, "opticloud_objective": null, "gurobi_objective": null, "not_available_reason": "operator_evidence_required", "objective_delta": null, "primal_feasibility_residual": null, "notes": "Example placeholder only." },
+    { "fixture_id": "lp-005", "opticloud_highs_status": "not_run", "gurobi_status": "not_run", "opticloud_runtime_seconds": null, "gurobi_runtime_seconds": null, "opticloud_objective": null, "gurobi_objective": null, "not_available_reason": "operator_evidence_required", "objective_delta": null, "primal_feasibility_residual": null, "notes": "Example placeholder only." },
+    { "fixture_id": "lp-006", "opticloud_highs_status": "not_run", "gurobi_status": "not_run", "opticloud_runtime_seconds": null, "gurobi_runtime_seconds": null, "opticloud_objective": null, "gurobi_objective": null, "not_available_reason": "operator_evidence_required", "objective_delta": null, "primal_feasibility_residual": null, "notes": "Example placeholder only." },
+    { "fixture_id": "lp-007", "opticloud_highs_status": "not_run", "gurobi_status": "not_run", "opticloud_runtime_seconds": null, "gurobi_runtime_seconds": null, "opticloud_objective": null, "gurobi_objective": null, "not_available_reason": "operator_evidence_required", "objective_delta": null, "primal_feasibility_residual": null, "notes": "Example placeholder only." },
+    { "fixture_id": "lp-008", "opticloud_highs_status": "not_run", "gurobi_status": "not_run", "opticloud_runtime_seconds": null, "gurobi_runtime_seconds": null, "opticloud_objective": null, "gurobi_objective": null, "not_available_reason": "operator_evidence_required", "objective_delta": null, "primal_feasibility_residual": null, "notes": "Example placeholder only." },
+    { "fixture_id": "lp-009", "opticloud_highs_status": "not_run", "gurobi_status": "not_run", "opticloud_runtime_seconds": null, "gurobi_runtime_seconds": null, "opticloud_objective": null, "gurobi_objective": null, "not_available_reason": "operator_evidence_required", "objective_delta": null, "primal_feasibility_residual": null, "notes": "Example placeholder only." },
+    { "fixture_id": "lp-010", "opticloud_highs_status": "not_run", "gurobi_status": "not_run", "opticloud_runtime_seconds": null, "gurobi_runtime_seconds": null, "opticloud_objective": null, "gurobi_objective": null, "not_available_reason": "operator_evidence_required", "objective_delta": null, "primal_feasibility_residual": null, "notes": "Example placeholder only." },
+    { "fixture_id": "lp-011", "opticloud_highs_status": "not_run", "gurobi_status": "not_run", "opticloud_runtime_seconds": null, "gurobi_runtime_seconds": null, "opticloud_objective": null, "gurobi_objective": null, "not_available_reason": "operator_evidence_required", "objective_delta": null, "primal_feasibility_residual": null, "notes": "Example placeholder only." },
+    { "fixture_id": "lp-012", "opticloud_highs_status": "not_run", "gurobi_status": "not_run", "opticloud_runtime_seconds": null, "gurobi_runtime_seconds": null, "opticloud_objective": null, "gurobi_objective": null, "not_available_reason": "operator_evidence_required", "objective_delta": null, "primal_feasibility_residual": null, "notes": "Example placeholder only." },
+    { "fixture_id": "lp-013", "opticloud_highs_status": "not_run", "gurobi_status": "not_run", "opticloud_runtime_seconds": null, "gurobi_runtime_seconds": null, "opticloud_objective": null, "gurobi_objective": null, "not_available_reason": "operator_evidence_required", "objective_delta": null, "primal_feasibility_residual": null, "notes": "Example placeholder only." },
+    { "fixture_id": "lp-014", "opticloud_highs_status": "not_run", "gurobi_status": "not_run", "opticloud_runtime_seconds": null, "gurobi_runtime_seconds": null, "opticloud_objective": null, "gurobi_objective": null, "not_available_reason": "operator_evidence_required", "objective_delta": null, "primal_feasibility_residual": null, "notes": "Example placeholder only." },
+    { "fixture_id": "lp-015", "opticloud_highs_status": "not_run", "gurobi_status": "not_run", "opticloud_runtime_seconds": null, "gurobi_runtime_seconds": null, "opticloud_objective": null, "gurobi_objective": null, "not_available_reason": "operator_evidence_required", "objective_delta": null, "primal_feasibility_residual": null, "notes": "Example placeholder only." },
+    { "fixture_id": "lp-016", "opticloud_highs_status": "not_run", "gurobi_status": "not_run", "opticloud_runtime_seconds": null, "gurobi_runtime_seconds": null, "opticloud_objective": null, "gurobi_objective": null, "not_available_reason": "operator_evidence_required", "objective_delta": null, "primal_feasibility_residual": null, "notes": "Example placeholder only." },
+    { "fixture_id": "lp-017", "opticloud_highs_status": "not_run", "gurobi_status": "not_run", "opticloud_runtime_seconds": null, "gurobi_runtime_seconds": null, "opticloud_objective": null, "gurobi_objective": null, "not_available_reason": "operator_evidence_required", "objective_delta": null, "primal_feasibility_residual": null, "notes": "Example placeholder only." },
+    { "fixture_id": "lp-018", "opticloud_highs_status": "not_run", "gurobi_status": "not_run", "opticloud_runtime_seconds": null, "gurobi_runtime_seconds": null, "opticloud_objective": null, "gurobi_objective": null, "not_available_reason": "operator_evidence_required", "objective_delta": null, "primal_feasibility_residual": null, "notes": "Example placeholder only." },
+    { "fixture_id": "lp-019", "opticloud_highs_status": "not_run", "gurobi_status": "not_run", "opticloud_runtime_seconds": null, "gurobi_runtime_seconds": null, "opticloud_objective": null, "gurobi_objective": null, "not_available_reason": "operator_evidence_required", "objective_delta": null, "primal_feasibility_residual": null, "notes": "Example placeholder only." },
+    { "fixture_id": "lp-020", "opticloud_highs_status": "not_run", "gurobi_status": "not_run", "opticloud_runtime_seconds": null, "gurobi_runtime_seconds": null, "opticloud_objective": null, "gurobi_objective": null, "not_available_reason": "operator_evidence_required", "objective_delta": null, "primal_feasibility_residual": null, "notes": "Example placeholder only." },
+    { "fixture_id": "lp-021", "opticloud_highs_status": "not_run", "gurobi_status": "not_run", "opticloud_runtime_seconds": null, "gurobi_runtime_seconds": null, "opticloud_objective": null, "gurobi_objective": null, "not_available_reason": "operator_evidence_required", "objective_delta": null, "primal_feasibility_residual": null, "notes": "Example placeholder only." },
+    { "fixture_id": "lp-022", "opticloud_highs_status": "not_run", "gurobi_status": "not_run", "opticloud_runtime_seconds": null, "gurobi_runtime_seconds": null, "opticloud_objective": null, "gurobi_objective": null, "not_available_reason": "operator_evidence_required", "objective_delta": null, "primal_feasibility_residual": null, "notes": "Example placeholder only." },
+    { "fixture_id": "lp-023", "opticloud_highs_status": "not_run", "gurobi_status": "not_run", "opticloud_runtime_seconds": null, "gurobi_runtime_seconds": null, "opticloud_objective": null, "gurobi_objective": null, "not_available_reason": "operator_evidence_required", "objective_delta": null, "primal_feasibility_residual": null, "notes": "Example placeholder only." },
+    { "fixture_id": "lp-024", "opticloud_highs_status": "not_run", "gurobi_status": "not_run", "opticloud_runtime_seconds": null, "gurobi_runtime_seconds": null, "opticloud_objective": null, "gurobi_objective": null, "not_available_reason": "operator_evidence_required", "objective_delta": null, "primal_feasibility_residual": null, "notes": "Example placeholder only." },
+    { "fixture_id": "lp-025", "opticloud_highs_status": "not_run", "gurobi_status": "not_run", "opticloud_runtime_seconds": null, "gurobi_runtime_seconds": null, "opticloud_objective": null, "gurobi_objective": null, "not_available_reason": "operator_evidence_required", "objective_delta": null, "primal_feasibility_residual": null, "notes": "Example placeholder only." },
+    { "fixture_id": "lp-026", "opticloud_highs_status": "not_run", "gurobi_status": "not_run", "opticloud_runtime_seconds": null, "gurobi_runtime_seconds": null, "opticloud_objective": null, "gurobi_objective": null, "not_available_reason": "operator_evidence_required", "objective_delta": null, "primal_feasibility_residual": null, "notes": "Example placeholder only." },
+    { "fixture_id": "lp-027", "opticloud_highs_status": "not_run", "gurobi_status": "not_run", "opticloud_runtime_seconds": null, "gurobi_runtime_seconds": null, "opticloud_objective": null, "gurobi_objective": null, "not_available_reason": "operator_evidence_required", "objective_delta": null, "primal_feasibility_residual": null, "notes": "Example placeholder only." },
+    { "fixture_id": "lp-028", "opticloud_highs_status": "not_run", "gurobi_status": "not_run", "opticloud_runtime_seconds": null, "gurobi_runtime_seconds": null, "opticloud_objective": null, "gurobi_objective": null, "not_available_reason": "operator_evidence_required", "objective_delta": null, "primal_feasibility_residual": null, "notes": "Example placeholder only." },
+    { "fixture_id": "lp-029", "opticloud_highs_status": "not_run", "gurobi_status": "not_run", "opticloud_runtime_seconds": null, "gurobi_runtime_seconds": null, "opticloud_objective": null, "gurobi_objective": null, "not_available_reason": "operator_evidence_required", "objective_delta": null, "primal_feasibility_residual": null, "notes": "Example placeholder only." },
+    { "fixture_id": "lp-030", "opticloud_highs_status": "not_run", "gurobi_status": "not_run", "opticloud_runtime_seconds": null, "gurobi_runtime_seconds": null, "opticloud_objective": null, "gurobi_objective": null, "not_available_reason": "operator_evidence_required", "objective_delta": null, "primal_feasibility_residual": null, "notes": "Example placeholder only." }
+  ],
+  "artifacts": {
+    "summary_table": "reports/gurobi-benchmark/example-gurobi-benchmark-20260527/summary-table.csv",
+    "raw_result_manifest": "reports/gurobi-benchmark/example-gurobi-benchmark-20260527/raw-result-manifest.json",
+    "redaction_notes": "reports/gurobi-benchmark/example-gurobi-benchmark-20260527/redaction-notes.md"
+  },
+  "redaction_reviewed": false,
+  "operator": "example-operator",
+  "approval_status": "operator_draft"
+}

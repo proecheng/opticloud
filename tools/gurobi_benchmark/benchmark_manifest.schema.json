@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "OptiCloud M4.5b Gurobi Benchmark Manifest",
+  "type": "object",
+  "required": [
+    "story_key",
+    "stage",
+    "source_gap",
+    "fixture_count",
+    "last_updated",
+    "license_boundary",
+    "assets"
+  ],
+  "properties": {
+    "story_key": { "const": "m4-5b-gurobi-benchmark-whitepaper" },
+    "stage": { "const": "M4.5" },
+    "source_gap": { "const": "E3" },
+    "fixture_count": { "const": 30 },
+    "last_updated": { "type": "string" },
+    "license_boundary": { "type": "string" },
+    "assets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "path",
+          "category",
+          "owner",
+          "status",
+          "claim_status",
+          "evidence_status",
+          "source_refs",
+          "required_fields",
+          "validation_checks"
+        ],
+        "properties": {
+          "path": { "type": "string" },
+          "category": {
+            "enum": [
+              "fixture_suite",
+              "methodology",
+              "whitepaper",
+              "evidence_schema",
+              "operator_runbook"
+            ]
+          },
+          "owner": { "type": "string" },
+          "status": {
+            "enum": [
+              "draft",
+              "internal_ready",
+              "evidence_required",
+              "operator_run_required",
+              "legal_review_required",
+              "published"
+            ]
+          },
+          "claim_status": {
+            "enum": [
+              "hypothesis",
+              "methodology_ready",
+              "operator_evidence_required",
+              "gurobi_license_required",
+              "verified"
+            ]
+          },
+          "evidence_status": {
+            "enum": [
+              "hypothesis",
+              "methodology_ready",
+              "operator_evidence_required",
+              "gurobi_license_required",
+              "verified"
+            ]
+          },
+          "source_refs": { "type": "array", "items": { "type": "string" } },
+          "required_fields": { "type": "array", "items": { "type": "string" } },
+          "validation_checks": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    }
+  }
+}

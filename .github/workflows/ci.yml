@@ -45,6 +45,7 @@ jobs:
       sandbox_security_audit: ${{ steps.filter.outputs.sandbox_security_audit }}
       llm_router: ${{ steps.filter.outputs.llm_router }}
       gtm_toolkit: ${{ steps.filter.outputs.gtm_toolkit }}
+      gurobi_benchmark: ${{ steps.filter.outputs.gurobi_benchmark }}
       contract_tests: ${{ steps.filter.outputs.contract_tests }}
       blue_green_deploy: ${{ steps.filter.outputs.blue_green_deploy }}
       aigc_filter: ${{ steps.filter.outputs.aigc_filter }}
@@ -161,6 +162,13 @@ jobs:
               - 'apps/web/src/app/pricing/page.tsx'
               - 'apps/web/src/i18n/messages/zh-CN.json'
               - 'apps/web/src/i18n/messages/en-US.json'
+            gurobi_benchmark:
+              - 'docs/benchmarks/**'
+              - 'docs/runbooks/gurobi-lp-benchmark.md'
+              - 'tools/gurobi_benchmark/**'
+              - 'scripts/validate_gurobi_benchmark.py'
+              - 'tests/test_gurobi_benchmark.py'
+              - 'reports/gurobi-benchmark/**'
             blue_green_deploy:
               - 'scripts/deploy/**'
               - 'scripts/validate_blue_green_deploy.py'
@@ -671,6 +679,30 @@ jobs:
         run: uv run python scripts/validate_gtm_toolkit.py
       - name: Run GTM toolkit tests
         run: uv run pytest tests/test_gtm_toolkit.py -v
+
+  # ===== Gurobi LP benchmark package validation (Story M4.5b) =====
+  gurobi-benchmark-validation:
+    needs: changes
+    if: needs.changes.outputs.gurobi_benchmark == 'true' || needs.changes.outputs.ci_or_root == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: pip install uv==${{ env.UV_VERSION }}
+      - run: uv sync --all-packages --extra dev
+      - name: Validate Gurobi benchmark package
+        run: uv run python scripts/validate_gurobi_benchmark.py
+      - name: Validate committed Gurobi benchmark evidence manifests when present
+        run: |
+          shopt -s globstar nullglob
+          manifests=(reports/gurobi-benchmark/**/evidence_manifest.json)
+          for manifest in "${manifests[@]}"; do
+            uv run python scripts/validate_gurobi_benchmark.py --evidence "$manifest"
+          done
+      - name: Run Gurobi benchmark tests
+        run: uv run pytest tests/test_gurobi_benchmark.py -v
 
   # ===== AIGC filter + watermark validation (Story M3.4) =====
   aigc-filter-validation:

@@ -1,0 +1,155 @@
+{
+  "story_key": "m4-5b-gurobi-benchmark-whitepaper",
+  "stage": "M4.5",
+  "source_gap": "E3",
+  "fixture_count": 30,
+  "last_updated": "2026-05-27",
+  "license_boundary": "This package commits methodology, fixtures, schemas, and an evidence-gated whitepaper only. It commits no Gurobi solver output, license, token, customer data, or benchmark superiority claim.",
+  "assets": [
+    {
+      "path": "tools/gurobi_benchmark/lp_fixture_suite.json",
+      "category": "fixture_suite",
+      "owner": "Solver Owner",
+      "status": "internal_ready",
+      "claim_status": "methodology_ready",
+      "evidence_status": "methodology_ready",
+      "source_refs": [
+        "_bmad-output/planning/epics.md:2080",
+        "_bmad-output/planning/prd.md:797"
+      ],
+      "required_fields": [
+        "suite_id",
+        "story_key",
+        "fixture_count",
+        "fixtures"
+      ],
+      "validation_checks": [
+        "exact_30_fixtures",
+        "shape_consistency",
+        "category_coverage",
+        "no_sensitive_data"
+      ]
+    },
+    {
+      "path": "tools/gurobi_benchmark/evidence_manifest.schema.json",
+      "category": "evidence_schema",
+      "owner": "Solver Owner",
+      "status": "internal_ready",
+      "claim_status": "methodology_ready",
+      "evidence_status": "operator_evidence_required",
+      "source_refs": [
+        "_bmad-output/planning/epics.md:2080",
+        "_bmad-output/stories/m4-5-gtm-toolkit.md"
+      ],
+      "required_fields": [
+        "$schema",
+        "title",
+        "required",
+        "properties"
+      ],
+      "validation_checks": [
+        "schema_required_fields",
+        "real_evidence_contract"
+      ]
+    },
+    {
+      "path": "tools/gurobi_benchmark/evidence_manifest.example.json",
+      "category": "evidence_schema",
+      "owner": "Solver Owner",
+      "status": "operator_run_required",
+      "claim_status": "operator_evidence_required",
+      "evidence_status": "operator_evidence_required",
+      "source_refs": [
+        "_bmad-output/planning/epics.md:2080",
+        "_bmad-output/stories/m4-5-gtm-toolkit.md"
+      ],
+      "required_fields": [
+        "source_story",
+        "example_only",
+        "run_id",
+        "fixture_suite_id",
+        "per_fixture_results"
+      ],
+      "validation_checks": [
+        "example_only_true",
+        "not_accepted_as_real_evidence"
+      ]
+    },
+    {
+      "path": "docs/benchmarks/gurobi-lp-benchmark-methodology.md",
+      "category": "methodology",
+      "owner": "Marketing / Solver Owner",
+      "status": "internal_ready",
+      "claim_status": "methodology_ready",
+      "evidence_status": "operator_evidence_required",
+      "source_refs": [
+        "_bmad-output/planning/epics.md:2080",
+        "_bmad-output/planning/architecture.md:3146"
+      ],
+      "required_fields": [
+        "owner",
+        "status",
+        "claim_status",
+        "evidence_status",
+        "story_key"
+      ],
+      "validation_checks": [
+        "required_sections",
+        "no_superiority_claims",
+        "license_boundary"
+      ]
+    },
+    {
+      "path": "docs/benchmarks/gurobi-lp-benchmark-whitepaper.md",
+      "category": "whitepaper",
+      "owner": "Marketing / Founder",
+      "status": "evidence_required",
+      "claim_status": "operator_evidence_required",
+      "evidence_status": "operator_evidence_required",
+      "source_refs": [
+        "_bmad-output/planning/epics.md:2080",
+        "_bmad-output/planning/implementation-readiness-report-2026-05-17-v3.md:268"
+      ],
+      "required_fields": [
+        "owner",
+        "status",
+        "claim_status",
+        "evidence_status",
+        "story_key",
+        "source_gap",
+        "intended_audience",
+        "approvals_required",
+        "last_updated"
+      ],
+      "validation_checks": [
+        "evidence_required_status",
+        "pending_result_tables",
+        "no_superiority_claims"
+      ]
+    },
+    {
+      "path": "docs/runbooks/gurobi-lp-benchmark.md",
+      "category": "operator_runbook",
+      "owner": "Solver Owner",
+      "status": "internal_ready",
+      "claim_status": "methodology_ready",
+      "evidence_status": "operator_evidence_required",
+      "source_refs": [
+        "_bmad-output/planning/epics.md:2080",
+        "_bmad-output/planning/prd.md:786"
+      ],
+      "required_fields": [
+        "owner",
+        "status",
+        "claim_status",
+        "evidence_status",
+        "story_key"
+      ],
+      "validation_checks": [
+        "operator_steps",
+        "redaction_boundary",
+        "reports_path"
+      ]
+    }
+  ]
+}
