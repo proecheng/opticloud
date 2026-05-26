@@ -41,7 +41,8 @@ def test_filter_signature_matches_snapshot() -> None:
     expected = snapshot["filter_signature"]["parameters"]  # type: ignore[index]
 
     assert [parameter.name for parameter in parameters] == [
-        item["name"] for item in expected  # type: ignore[index]
+        item["name"]
+        for item in expected  # type: ignore[index]
     ]
     assert parameters[0].default is inspect.Signature.empty
     assert parameters[1].default == "strict"
