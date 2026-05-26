@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "OptiCloud M4.5b Gurobi LP Benchmark Evidence Manifest",
+  "type": "object",
+  "required": [
+    "source_story",
+    "example_only",
+    "run_id",
+    "fixture_suite_id",
+    "environment_summary",
+    "solver_versions",
+    "run_policy",
+    "aggregate_metrics",
+    "per_fixture_results",
+    "artifacts",
+    "redaction_reviewed",
+    "operator",
+    "approval_status"
+  ],
+  "properties": {
+    "source_story": { "const": "m4-5b-gurobi-benchmark-whitepaper" },
+    "example_only": { "type": "boolean" },
+    "run_id": { "type": "string" },
+    "fixture_suite_id": { "const": "m45b-gurobi-lp-suite-v1" },
+    "environment_summary": {
+      "type": "object",
+      "required": ["os_family", "cpu_class", "memory_gb", "containerized"],
+      "properties": {
+        "os_family": { "type": "string" },
+        "cpu_class": { "type": "string" },
+        "memory_gb": { "type": "number" },
+        "containerized": { "type": "boolean" }
+      }
+    },
+    "solver_versions": {
+      "type": "object",
+      "required": ["opticloud_highs", "gurobi"],
+      "properties": {
+        "opticloud_highs": { "type": "string" },
+        "gurobi": { "type": "string" }
+      }
+    },
+    "run_policy": {
+      "type": "object",
+      "required": ["warmup_runs", "timed_runs", "timeout_seconds", "objective_tolerance"],
+      "properties": {
+        "warmup_runs": { "type": "integer" },
+        "timed_runs": { "type": "integer" },
+        "timeout_seconds": { "type": "number" },
+        "objective_tolerance": { "type": "number" }
+      }
+    },
+    "aggregate_metrics": {
+      "type": "object",
+      "required": [
+        "fixture_count",
+        "comparable_count",
+        "status_parity_count",
+        "objective_tolerance_pass_count",
+        "timeout_count",
+        "error_count"
+      ]
+    },
+    "per_fixture_results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "fixture_id",
+          "opticloud_highs_status",
+          "gurobi_status",
+          "opticloud_runtime_seconds",
+          "gurobi_runtime_seconds",
+          "opticloud_objective",
+          "gurobi_objective",
+          "not_available_reason",
+          "objective_delta",
+          "primal_feasibility_residual",
+          "notes"
+        ]
+      }
+    },
+    "artifacts": {
+      "type": "object",
+      "required": ["summary_table", "raw_result_manifest", "redaction_notes"]
+    },
+    "redaction_reviewed": { "type": "boolean" },
+    "operator": { "type": "string" },
+    "approval_status": {
+      "enum": [
+        "operator_draft",
+        "redaction_passed",
+        "legal_review_required",
+        "approved_for_publication"
+      ]
+    }
+  }
+}
