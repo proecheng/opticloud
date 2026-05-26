@@ -17,6 +17,10 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DATASET_VERSION = "ground_truth_v1"
 TARGET_STAGE = "M3"
+TARGET_SAMPLE_COUNTS = {
+    "M3": 30,
+    "M3.5b": 50,
+}
 THRESHOLD_MIN = 0.55
 THRESHOLD_MAX = 0.65
 TARGET_THRESHOLD = 0.60
@@ -40,6 +44,16 @@ REQUIRED_CATEGORIES = {
     "low_risk_style",
 }
 SAMPLE_ID_PATTERN = re.compile(r"^critic-cal-v1-\d{3}$")
+MAX_LLM_OUTPUT_EXCERPT_LENGTH = 280
+FORBIDDEN_REDACTION_MARKERS = (
+    "API_KEY",
+    "AUTHORIZATION:",
+    "BEARER ",
+    "PRIVATE KEY",
+    "SECRET=",
+    "SK-LIVE",
+    "TOKEN=",
+)
 
 
 class CalibrationError(ValueError):
@@ -70,16 +84,19 @@ def validate_dataset(dataset: dict[str, Any]) -> None:
 
     if dataset.get("dataset_version") != DATASET_VERSION:
         errors.append("dataset_version must be ground_truth_v1")
-    if dataset.get("target_stage") != TARGET_STAGE:
-        errors.append("target_stage must be M3")
+    target_stage = dataset.get("target_stage")
+    if target_stage not in TARGET_SAMPLE_COUNTS:
+        errors.append("target_stage must be one of: M3, M3.5b")
     if not isinstance(dataset.get("policy"), dict):
         errors.append("policy must be an object")
 
     samples = dataset.get("samples")
     if not isinstance(samples, list):
         raise CalibrationError("samples must be a list")
-    if len(samples) != 30:
-        errors.append("samples must contain exactly 30 entries")
+    if isinstance(target_stage, str) and target_stage in TARGET_SAMPLE_COUNTS:
+        expected_count = TARGET_SAMPLE_COUNTS[target_stage]
+        if len(samples) != expected_count:
+            errors.append(f"{target_stage} datasets must contain exactly {expected_count} samples")
 
     seen_ids: set[str] = set()
     categories: set[str] = set()
@@ -120,6 +137,18 @@ def validate_dataset(dataset: dict[str, Any]) -> None:
 
         if isinstance(sample.get("category"), str):
             categories.add(sample["category"])
+
+        if sample.get("source_story") == "M3.5b":
+            excerpt = sample.get("llm_output_excerpt")
+            if not isinstance(excerpt, str) or not excerpt.strip():
+                errors.append(f"{sample_id} llm_output_excerpt must be a non-empty string")
+            elif len(excerpt) > MAX_LLM_OUTPUT_EXCERPT_LENGTH:
+                errors.append(
+                    f"{sample_id} llm_output_excerpt must be <= "
+                    f"{MAX_LLM_OUTPUT_EXCERPT_LENGTH} characters"
+                )
+            elif any(marker in excerpt.upper() for marker in FORBIDDEN_REDACTION_MARKERS):
+                errors.append(f"{sample_id} llm_output_excerpt contains forbidden secret markers")
 
     missing_categories = sorted(REQUIRED_CATEGORIES - categories)
     if missing_categories:
