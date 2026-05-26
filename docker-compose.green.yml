@@ -1,0 +1,49 @@
+# Lean blue/green deployment manifest. The existing docker-compose.yml remains
+# the local-development dependency stack and is intentionally not replaced.
+name: opticloud-green
+
+services:
+  web:
+    image: "${OPTICLOUD_WEB_IMAGE_REPO:-ghcr.io/proecheng/opticloud-web}:${OPTICLOUD_IMAGE_TAG:-latest}"
+    container_name: opticloud-green-web
+    environment:
+      OPTICLOUD_SLOT: green
+      NODE_ENV: production
+    ports:
+      - "${GREEN_WEB_PORT:-3002}:3000"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:3000/healthz || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+
+  api-gateway:
+    image: "${OPTICLOUD_API_GATEWAY_IMAGE_REPO:-ghcr.io/proecheng/opticloud-api-gateway}:${OPTICLOUD_IMAGE_TAG:-latest}"
+    container_name: opticloud-green-api-gateway
+    environment:
+      OPTICLOUD_SLOT: green
+      ENVIRONMENT: production
+    ports:
+      - "${GREEN_API_GATEWAY_PORT:-8002}:8000"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:8000/healthz || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+
+  solver-orchestrator:
+    image: "${OPTICLOUD_SOLVER_IMAGE_REPO:-ghcr.io/proecheng/opticloud-solver-orchestrator}:${OPTICLOUD_IMAGE_TAG:-latest}"
+    container_name: opticloud-green-solver-orchestrator
+    environment:
+      OPTICLOUD_SLOT: green
+      ENVIRONMENT: production
+    ports:
+      - "${GREEN_SOLVER_PORT:-8102}:8000"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:8000/healthz || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 6

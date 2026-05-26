@@ -13,6 +13,8 @@ This runbook defines how OptiCloud treats image archival recovery for reproducib
 
 This document is the operational reference for the archive path. It does not claim that the full G7 hot / warm / cold archive pipeline has already shipped.
 
+Story M3.0 adds the local prep contract for that future pipeline: [`../../infra/image-archival/README.md`](../../infra/image-archival/README.md) and [`../../infra/image-archival/archive-plan.json`](../../infra/image-archival/archive-plan.json). The contract validates tier boundaries and required restore metadata only. It does not provision ACR EE, create S3 lifecycle policies, submit Glacier restore jobs, write Vault / KMS backups, or prove the M3.9 cloud pipeline is live.
+
 ---
 
 ## Scope
@@ -25,12 +27,14 @@ In scope:
 - Archive availability checks across hot ACR EE, warm object storage, and cold Glacier-class storage.
 - Restore evidence records and exception records.
 - Quarterly drill checklist.
+- M3.0 prep validation for the local archive plan contract.
 
 Out of scope:
 
 - Changing voucher issuance, rerun, billing, or provider migration code.
 - Legal advice or contract drafting.
 - Creating the G7 archival pipeline itself.
+- Treating M3.0 prep validation as evidence that real ACR EE retention, S3 lifecycle transition, Glacier restore, Vault / KMS backup automation, or ≤5 minute cold restore has shipped.
 
 ---
 
@@ -77,6 +81,7 @@ If the G7 archival index is not available yet, record the request as an archive-
    - Hot: ACR EE image available within the hot retention window.
    - Warm: object storage copy available after hot expiry.
    - Cold: Glacier-class archive restore required.
+   - Prep validation: the desired tier boundaries are documented in [`../../infra/image-archival/archive-plan.json`](../../infra/image-archival/archive-plan.json), but M3.9 must still implement the real cloud lifecycle and restore operations.
 5. If no matching archived image exists, create an unavailable-restore exception record.
 6. If the image restores, verify digest, signature, and locked metadata before rerun or audit use.
 
