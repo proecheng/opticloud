@@ -14,9 +14,7 @@ VALIDATOR_PATH = REPO_ROOT / "scripts" / "validate_k8s_network_policies.py"
 
 
 def _load_validator() -> ModuleType:
-    spec = importlib.util.spec_from_file_location(
-        "validate_k8s_network_policies", VALIDATOR_PATH
-    )
+    spec = importlib.util.spec_from_file_location("validate_k8s_network_policies", VALIDATOR_PATH)
     assert spec is not None
     assert spec.loader is not None
     module = importlib.util.module_from_spec(spec)

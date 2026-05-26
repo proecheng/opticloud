@@ -54,7 +54,9 @@ class SandboxExecutionResponse(BaseModel):
 
 
 class SandboxPolicyError(Exception):
-    def __init__(self, error_code: SandboxErrorCode, message: str, *, executor_invoked: bool) -> None:
+    def __init__(
+        self, error_code: SandboxErrorCode, message: str, *, executor_invoked: bool
+    ) -> None:
         super().__init__(message)
         self.error_code = error_code
         self.message = message

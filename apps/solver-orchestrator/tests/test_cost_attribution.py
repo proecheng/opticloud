@@ -134,8 +134,7 @@ async def _count_cost_rows(
             params["uid"] = user_id
             params["sid"] = source_id
             query = text(
-                "SELECT COUNT(*) FROM cost_attribution "
-                "WHERE tenant_id = :uid AND source_id = :sid"
+                "SELECT COUNT(*) FROM cost_attribution WHERE tenant_id = :uid AND source_id = :sid"
             )
         elif user_id is not None:
             params["uid"] = user_id
@@ -152,14 +151,18 @@ async def _fetch_cost_row(engine: AsyncEngine, source_id: uuid.UUID) -> dict[str
     maker = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
     async with maker() as s:
         row = (
-            await s.execute(
-                text(
-                    "SELECT tenant_id, service, cost_unit, value, source_id, metadata "
-                    "FROM cost_attribution WHERE source_id = :sid"
-                ),
-                {"sid": source_id},
+            (
+                await s.execute(
+                    text(
+                        "SELECT tenant_id, service, cost_unit, value, source_id, metadata "
+                        "FROM cost_attribution WHERE source_id = :sid"
+                    ),
+                    {"sid": source_id},
+                )
             )
-        ).mappings().one()
+            .mappings()
+            .one()
+        )
         return dict(row)
 
 

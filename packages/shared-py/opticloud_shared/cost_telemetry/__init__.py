@@ -19,7 +19,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 class CostUnit(StrEnum):
     """Canonical cost attribution units locked by the DB constraint."""
 
-    LLM_TOKEN = "llm_token"  # noqa: S105 - cost unit name, not a secret token
+    LLM_TOKEN = "llm_token"  # noqa: S105  # nosec B105 - cost unit name, not a secret token
     GPU_SECOND = "gpu_second"
     SOLVER_SECOND = "solver_second"
 

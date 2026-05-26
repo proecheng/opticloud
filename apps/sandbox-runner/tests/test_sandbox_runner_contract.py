@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+
 from fastapi.testclient import TestClient
 from sandbox_runner.main import app
 
@@ -14,6 +16,8 @@ def test_health_endpoint() -> None:
 
 
 def test_execute_success_returns_p58_channels_and_result_metadata() -> None:
+    expected_result_hash = hashlib.sha256(b'{"answer":42}').hexdigest()
+
     response = client.post(
         "/v1/sandbox/execute",
         json={
@@ -21,7 +25,7 @@ def test_execute_success_returns_p58_channels_and_result_metadata() -> None:
                 [
                     "stdout:hello from sandbox",
                     "stderr:diagnostic line",
-                    "result:answer.json={\"answer\":42}",
+                    'result:answer.json={"answer":42}',
                     "exit:0",
                 ]
             ),
@@ -41,7 +45,7 @@ def test_execute_success_returns_p58_channels_and_result_metadata() -> None:
         {
             "path": "answer.json",
             "size_bytes": 13,
-            "sha256": "ecf59a2696ca44a417e20e2a7eabb1b26e82c779f8546bea354a2cc80e8e1eed",
+            "sha256": expected_result_hash,
         }
     ]
 

@@ -9,7 +9,6 @@ from pathlib import Path
 from types import ModuleType
 from typing import Any
 
-
 REPO_ROOT = Path(__file__).resolve().parents[1]
 PLAN_PATH = REPO_ROOT / "infra" / "image-archival" / "archive-plan.json"
 VALIDATOR_PATH = REPO_ROOT / "scripts" / "validate_image_archival_plan.py"
@@ -107,13 +106,11 @@ def test_schema_reference_pins_validator_field_sets() -> None:
         schema["properties"]["required_archive_record_fields"]["items"]["enum"]
     )
     kms_field_enum = set(
-        schema["properties"]["kms_backup_requirements"]["properties"]["minimum_metadata"][
-            "items"
-        ]["enum"]
+        schema["properties"]["kms_backup_requirements"]["properties"]["minimum_metadata"]["items"][
+            "enum"
+        ]
     )
-    drill_field_enum = set(
-        schema["properties"]["restore_drill_evidence_fields"]["items"]["enum"]
-    )
+    drill_field_enum = set(schema["properties"]["restore_drill_evidence_fields"]["items"]["enum"])
     exception_field_enum = set(
         schema["properties"]["unavailable_restore_exception_fields"]["items"]["enum"]
     )

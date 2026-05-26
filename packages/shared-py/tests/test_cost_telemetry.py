@@ -67,7 +67,17 @@ def test_rejects_invalid_event_fields(field: str, value: object) -> None:
 
 @pytest.mark.parametrize(
     "blocked_key",
-    ["prompt", "completion", "api_key", "authorization", "jwt", "phone", "email", "password", "token"],
+    [
+        "prompt",
+        "completion",
+        "api_key",
+        "authorization",
+        "jwt",
+        "phone",
+        "email",
+        "password",
+        "token",
+    ],
 )
 def test_rejects_blocked_metadata_keys(blocked_key: str) -> None:
     """M2.3 AC3 — metadata cannot carry common PII or secret-bearing keys."""
