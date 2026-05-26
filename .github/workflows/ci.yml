@@ -38,6 +38,7 @@ jobs:
       image_archival: ${{ steps.filter.outputs.image_archival }}
       k8s_manifests: ${{ steps.filter.outputs.k8s_manifests }}
       contract_tests: ${{ steps.filter.outputs.contract_tests }}
+      blue_green_deploy: ${{ steps.filter.outputs.blue_green_deploy }}
       web: ${{ steps.filter.outputs.web }}
       ci_or_root: ${{ steps.filter.outputs.ci_or_root }}
     steps:
@@ -93,6 +94,12 @@ jobs:
               - 'infra/k8s/**'
               - 'scripts/validate_k8s_network_policies.py'
               - 'tests/test_k8s_network_policies.py'
+            blue_green_deploy:
+              - 'scripts/deploy/**'
+              - 'scripts/validate_blue_green_deploy.py'
+              - 'tests/test_blue_green_deploy.py'
+              - 'docker-compose.blue.yml'
+              - 'docker-compose.green.yml'
             contract_tests:
               - 'tests/contract/**'
               - 'packages/shared-py/opticloud_shared/property_test_base/**'
@@ -392,6 +399,25 @@ jobs:
         run: uv run python scripts/validate_k8s_network_policies.py infra/k8s/production
       - name: Run K8s policy tests
         run: uv run pytest tests/test_k8s_network_policies.py -v
+
+  # ===== Lean docker-compose blue/green validation (Story M3.3b) =====
+  blue-green-deploy-validation:
+    needs: changes
+    if: needs.changes.outputs.blue_green_deploy == 'true' || needs.changes.outputs.ci_or_root == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: pip install uv==${{ env.UV_VERSION }}
+      - run: uv sync --all-packages --extra dev
+      - name: Validate blue/green deploy assets
+        run: uv run python scripts/validate_blue_green_deploy.py
+      - name: Run blue/green deploy tests
+        run: uv run pytest tests/test_blue_green_deploy.py -v
+      - name: Check deploy script syntax
+        run: bash -n scripts/deploy/blue-green.sh
 
   # ===== Contract tests (Story M3.2) =====
   contract-test:
