@@ -32,6 +32,7 @@ jobs:
       billing_service: ${{ steps.filter.outputs.billing_service }}
       chat_service: ${{ steps.filter.outputs.chat_service }}
       critic_service: ${{ steps.filter.outputs.critic_service }}
+      critic_calibration: ${{ steps.filter.outputs.critic_calibration }}
       sandbox_runner: ${{ steps.filter.outputs.sandbox_runner }}
       capability_registry: ${{ steps.filter.outputs.capability_registry }}
       repro_service: ${{ steps.filter.outputs.repro_service }}
@@ -81,6 +82,11 @@ jobs:
               - 'apps/chat-service/**'
             critic_service:
               - 'apps/critic-service/**'
+            critic_calibration:
+              - 'tools/critic_calibration/**'
+              - 'docs/critic-annotation-sop.md'
+              - 'apps/critic-service/config/critic-calibration.json'
+              - 'tests/test_critic_calibration.py'
             sandbox_runner:
               - 'apps/sandbox-runner/**'
             capability_registry:
@@ -447,6 +453,23 @@ jobs:
         env:
           PYTHONPATH: packages/shared-py
         run: uv run python scripts/report_aigc_filter_metrics.py
+
+  # ===== Critic confidence calibration validation (Story M3.5a) =====
+  critic-calibration-validation:
+    needs: changes
+    if: needs.changes.outputs.critic_calibration == 'true' || needs.changes.outputs.ci_or_root == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: pip install uv==${{ env.UV_VERSION }}
+      - run: uv sync --all-packages --extra dev
+      - name: Generate critic calibration config
+        run: uv run python tools/critic_calibration/calibrate.py --dataset tools/critic_calibration/ground_truth_v1.json --output /tmp/critic-calibration.json
+      - name: Run critic calibration tests
+        run: uv run pytest tests/test_critic_calibration.py -v
 
   # ===== Contract tests (Story M3.2) =====
   contract-test:
