@@ -32,6 +32,7 @@ Critic Lead 负责样本质量、分歧裁决、月度校准重跑，以及把
 
 - `id`: 稳定 ID，格式为 `critic-cal-v1-###`
 - `prompt`: 合成或已脱敏 prompt
+- `llm_output_excerpt`: M3.5b 起新增，短的合成或已脱敏模型输出摘要，用于标注 ticket
 - `expected_escalate`: boolean ground-truth 标签
 - `critic_confidence`: `[0, 1]` 数值分数
 - `critic_reason_zh`: 简短中文裁决理由
@@ -46,8 +47,12 @@ Critic Lead 负责样本质量、分歧裁决、月度校准重跑，以及把
 4. 如两名标注者不一致，由 Critic Lead 裁决，并把裁决依据写入 `critic_reason_zh`。
 5. 运行：
    `uv run python tools/critic_calibration/calibrate.py --dataset tools/critic_calibration/ground_truth_v1.json --output apps/critic-service/config/critic-calibration.json`
-6. 运行 `uv run pytest tests/test_critic_calibration.py -q`。
-7. 数据集、配置、测试和 SOP 必须同 PR 提交。
+6. 生成当周 Linear-compatible ticket payload：
+   `uv run python tools/critic_calibration/create_annotation_batch.py batch --dataset tools/critic_calibration/ground_truth_v1.json --week-start 2026-05-25 --count 20 --output tools/critic_calibration/annotation_batches/2026-05-25.json`
+7. 生成月度 calibration report：
+   `uv run python tools/critic_calibration/create_annotation_batch.py monthly-report --dataset tools/critic_calibration/ground_truth_v1.json --batch tools/critic_calibration/annotation_batches/2026-05-25.json --config apps/critic-service/config/critic-calibration.json --month 2026-05 --output tools/critic_calibration/monthly_reports/2026-05.json`
+8. 运行 `uv run pytest tests/test_critic_calibration.py -q`。
+9. 数据集、配置、batch payload、monthly report、测试和 SOP 必须同 PR 提交。
 
 ## 质量 Gate
 
@@ -89,9 +94,15 @@ M3.5b 每周流程：
 3. 保持类别覆盖均衡。
 4. 本地重跑 calibration。
 5. 复核推荐阈值是否仍接近 0.60。
+6. 生成 `tools/critic_calibration/annotation_batches/<week-start>.json`，其中 ticket
+   指向 `/console/critic-annotation?sample=<id>`。
+7. batch payload 可以交给后续真实 Linear API / cron story 使用；本阶段不需要 Linear
+   credential，也不得把 token 写入 repo。
 
 月度交接：
 
 1. Critic Lead 重跑 calibration。
 2. NFR-S owner 复核指标变化和误升级样本。
-3. 后续 critic-service runtime story 消费已提交的 `critic-calibration.json`，并增加 service-level contract tests。
+3. 提交 `tools/critic_calibration/monthly_reports/YYYY-MM.json`，记录样本数、阈值、指标、
+   当月 batch IDs、M5 200 样本目标和剩余样本数。
+4. 后续 critic-service runtime story 消费已提交的 `critic-calibration.json`，并增加 service-level contract tests。

@@ -468,6 +468,10 @@ jobs:
       - run: uv sync --all-packages --extra dev
       - name: Generate critic calibration config
         run: uv run python tools/critic_calibration/calibrate.py --dataset tools/critic_calibration/ground_truth_v1.json --output /tmp/critic-calibration.json
+      - name: Generate critic annotation batch
+        run: uv run python tools/critic_calibration/create_annotation_batch.py batch --dataset tools/critic_calibration/ground_truth_v1.json --week-start 2026-05-25 --count 20 --output /tmp/critic-annotation-batch.json
+      - name: Generate critic monthly report
+        run: uv run python tools/critic_calibration/create_annotation_batch.py monthly-report --dataset tools/critic_calibration/ground_truth_v1.json --batch tools/critic_calibration/annotation_batches/2026-05-25.json --config apps/critic-service/config/critic-calibration.json --month 2026-05 --output /tmp/critic-monthly-report.json
       - name: Run critic calibration tests
         run: uv run pytest tests/test_critic_calibration.py -v
 

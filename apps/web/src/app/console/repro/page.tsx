@@ -140,6 +140,12 @@ export default function ReproConsolePage(): JSX.Element {
             >
               Attribution
             </Link>
+            <Link
+              href="/console/critic-annotation"
+              className="text-muted-foreground hover:text-foreground"
+            >
+              Critic
+            </Link>
           </nav>
         </div>
       </header>
