@@ -212,3 +212,19 @@ async def test_login_frozen_user_returns_403(
 
     r = await http_client.post("/v1/auth/otp/request", json={"phone": phone, "email": email})
     assert r.status_code == 403, r.text
+    assert r.headers["content-type"].startswith("application/problem+json")
+    body = r.json()
+    assert body["type"] == "https://api.opticloud.cn/errors/account-frozen"
+    assert body["next_action_url"] == "/auth/appeal"
+
+    r2 = await http_client.post(
+        "/v1/auth/login",
+        json={
+            "phone": phone,
+            "email": email,
+            "phone_otp": "000000",
+            "email_otp": "000000",
+        },
+    )
+    assert r2.status_code == 403, r2.text
+    assert r2.json()["next_action_url"] == "/auth/appeal"

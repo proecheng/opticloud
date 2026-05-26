@@ -226,3 +226,125 @@ class APIKeyListItem(BaseModel):
     revoked_at: datetime | None
     created_at: datetime
     risk_warning: APIKeyRiskWarning | None = None
+
+
+# ===== Story 1.12: risk freeze appeals =====
+
+AppealStatus = Literal["pending", "approved", "rejected", "merge_offered", "merge_accepted"]
+AppealReviewMode = Literal["auto_score", "manual_48h"]
+AppealDecision = Literal["approved", "maintained", "rejected", "merge_accepted"]
+
+ALLOWED_APPEAL_EVIDENCE_KEYS = {
+    "team_context",
+    "shared_device",
+    "roommate_registration",
+    "business_reason",
+    "contact_note",
+}
+
+
+class RiskAppealSubmitRequest(BaseModel):
+    phone: str = Field(..., description="E.164 phone for the frozen account")
+    email: EmailStr
+    reason: str = Field(..., min_length=10, max_length=2000)
+    evidence: dict[str, str] = Field(default_factory=dict)
+    team_size: int = Field(..., ge=1, le=500)
+
+    @field_validator("phone")
+    @classmethod
+    def _validate_appeal_phone(cls, v: str) -> str:
+        if not PHONE_PATTERN.match(v):
+            raise ValueError("phone must be E.164 format (e.g. +8613800138000)")
+        return v
+
+    @field_validator("evidence")
+    @classmethod
+    def _validate_evidence(cls, v: dict[str, str]) -> dict[str, str]:
+        invalid = set(v) - ALLOWED_APPEAL_EVIDENCE_KEYS
+        if invalid:
+            raise ValueError(
+                "invalid evidence keys: "
+                f"{sorted(invalid)}; allowed: {sorted(ALLOWED_APPEAL_EVIDENCE_KEYS)}"
+            )
+        for key, value in v.items():
+            if not isinstance(value, str):
+                raise ValueError(f"evidence.{key} must be a string")
+            if len(value) > 500:
+                raise ValueError(f"evidence.{key} must be <= 500 characters")
+        return v
+
+
+class RiskEvidenceSummary(BaseModel):
+    rule_code: str
+    label_zh: str
+    source: str
+    created_at: datetime
+    summary: str | None = None
+
+
+class RiskMergeOffer(BaseModel):
+    offer_type: Literal["keep_one_account"]
+    title: str
+    description: str
+    next_action: Literal["accept_merge_to_resume"]
+
+
+class RiskAppealSubmitResponse(BaseModel):
+    appeal_id: uuid.UUID
+    status: AppealStatus
+    review_mode: AppealReviewMode
+    submitted_at: datetime
+    sla_due_at: datetime | None
+    tracking_url: str
+    merge_offer: RiskMergeOffer | None = None
+
+
+class RiskAppealStatusResponse(BaseModel):
+    appeal_id: uuid.UUID
+    status: AppealStatus
+    review_mode: AppealReviewMode
+    submitted_at: datetime
+    sla_due_at: datetime | None
+    decided_at: datetime | None
+    decision: AppealDecision | None
+    decision_reason: str | None
+    evidence_summary: list[RiskEvidenceSummary]
+    merge_offer: RiskMergeOffer | None = None
+    next_action_url: str | None = None
+
+
+class RiskAppealMergeAcceptRequest(BaseModel):
+    token: str = Field(..., min_length=16, max_length=512)
+
+
+class RiskAppealMergeAcceptResponse(BaseModel):
+    appeal_id: uuid.UUID
+    status: Literal["merge_accepted"]
+    decision: Literal["merge_accepted"]
+    is_frozen: Literal[False]
+    next_action_url: str
+
+
+class AdminRiskAppealDecisionRequest(BaseModel):
+    decision: Literal["approve", "reject"]
+    reason: str = Field(..., min_length=1, max_length=1000)
+
+
+class AdminRiskAppealItem(BaseModel):
+    appeal_id: uuid.UUID
+    user_id: uuid.UUID
+    status: AppealStatus
+    review_mode: AppealReviewMode
+    team_size: int
+    submitted_at: datetime
+    sla_due_at: datetime | None
+    decided_at: datetime | None
+
+
+class AdminRiskAppealDetail(AdminRiskAppealItem):
+    reason: str
+    evidence: dict[str, str]
+    decision: AppealDecision | None
+    decision_reason: str | None
+    evidence_summary: list[RiskEvidenceSummary]
+    merge_offer: RiskMergeOffer | None = None

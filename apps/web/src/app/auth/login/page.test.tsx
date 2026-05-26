@@ -20,17 +20,20 @@ vi.mock("@/lib/api", () => ({
     title: string;
     detail: string;
     errors?: unknown[];
+    next_action_url?: string;
     constructor(payload: {
       status: number;
       title: string;
       detail: string;
       errors?: unknown[];
+      next_action_url?: string;
     }) {
       super(payload.detail);
       this.status = payload.status;
       this.title = payload.title;
       this.detail = payload.detail;
       this.errors = payload.errors;
+      this.next_action_url = payload.next_action_url;
     }
   },
 }));
@@ -69,5 +72,36 @@ describe("LoginPage age gate", () => {
         ),
       ).toBeTruthy(),
     );
+  });
+});
+
+describe("LoginPage frozen appeal CTA", () => {
+  beforeEach(() => {
+    mocks.requestOTP.mockReset();
+    mocks.push.mockReset();
+  });
+
+  it("links frozen users to the appeal flow when backend returns next_action_url", async () => {
+    mocks.requestOTP.mockRejectedValue(
+      new OptiCloudClientError({
+        status: 403,
+        title: "Account Frozen",
+        detail: "account frozen",
+        next_action_url: "/auth/appeal",
+      }),
+    );
+
+    render(<LoginPage />);
+    fireEvent.change(screen.getByLabelText(/手机号/), {
+      target: { value: "+8613800138000" },
+    });
+    fireEvent.change(screen.getByLabelText(/邮箱/), {
+      target: { value: "user@example.com" },
+    });
+    fireEvent.click(screen.getByText(/发送 OTP/));
+
+    await waitFor(() => expect(screen.getByText("提交冻结申诉")).toBeTruthy());
+    fireEvent.click(screen.getByText("提交冻结申诉"));
+    expect(mocks.push).toHaveBeenCalledWith("/auth/appeal");
   });
 });

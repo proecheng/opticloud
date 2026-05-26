@@ -12,18 +12,26 @@ from __future__ import annotations
 import secrets
 import uuid
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, cast
 
 import structlog
 from fastapi import APIRouter, Depends, Header, HTTPException, status
 from pydantic import BaseModel, Field
-from sqlalchemy import select, update
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from auth_service import risk
+from auth_service import appeals, risk
 from auth_service.config import settings
 from auth_service.db import get_session
-from auth_service.models import AuditLog, RiskFlag, RiskRule, User
+from auth_service.models import AuditLog, RiskAppeal, RiskFlag, RiskRule, User
+from auth_service.schemas import (
+    AdminRiskAppealDecisionRequest,
+    AdminRiskAppealDetail,
+    AdminRiskAppealItem,
+    AppealDecision,
+    AppealReviewMode,
+    AppealStatus,
+)
 
 _log = structlog.get_logger("auth_service.admin")
 
@@ -193,20 +201,113 @@ async def admin_unfreeze_user(
             detail=f"user not found: {user_id}",
         )
 
-    await session.execute(update(User).where(User.id == user_id).values(is_frozen=False))
-    session.add(
-        AuditLog(
-            user_id=user_id,
-            actor="admin",
-            action="user.unfreeze",
-            resource_type="user",
-            resource_id=user_id,
-            audit_metadata={"reason": body.reason} if body.reason else {},
-        )
+    await appeals.unfreeze_user_with_audit(
+        session,
+        user_id=user_id,
+        actor="admin",
+        reason=body.reason,
     )
     await session.commit()
     _log.info("admin.user.unfreeze", user_id=str(user_id), reason=body.reason)
     return AdminUnfreezeResponse(user_id=user_id, is_frozen=False)
+
+
+def _admin_appeal_item(appeal: RiskAppeal) -> AdminRiskAppealItem:
+    return AdminRiskAppealItem(
+        appeal_id=appeal.id,
+        user_id=appeal.user_id,
+        status=cast(AppealStatus, appeal.status),
+        review_mode=cast(AppealReviewMode, appeal.review_mode),
+        team_size=appeal.team_size,
+        submitted_at=appeal.created_at,
+        sla_due_at=appeals.sla_due_at(appeal),
+        decided_at=appeal.decided_at,
+    )
+
+
+async def _admin_appeal_detail(
+    session: AsyncSession,
+    appeal: RiskAppeal,
+) -> AdminRiskAppealDetail:
+    item = _admin_appeal_item(appeal)
+    return AdminRiskAppealDetail(
+        **item.model_dump(),
+        reason=appeal.reason,
+        evidence=appeal.evidence,
+        decision=cast(AppealDecision | None, appeal.decision),
+        decision_reason=appeal.decision_reason,
+        evidence_summary=await appeals.evidence_summary(session, appeal.user_id),
+        merge_offer=appeals.parse_merge_offer(appeal.merge_offer),
+    )
+
+
+@admin_router.get(
+    "/risk-appeals",
+    response_model=list[AdminRiskAppealItem],
+    summary="List J7 risk appeals pending review",
+)
+async def admin_list_risk_appeals(
+    _auth: None = Depends(require_admin_secret),
+    session: AsyncSession = Depends(get_session),
+) -> list[AdminRiskAppealItem]:
+    result = await session.execute(
+        select(RiskAppeal)
+        .where(RiskAppeal.status.in_(["pending", "merge_offered"]))
+        .order_by(RiskAppeal.created_at.asc())
+    )
+    return [_admin_appeal_item(appeal) for appeal in result.scalars().all()]
+
+
+@admin_router.get(
+    "/risk-appeals/{appeal_id}",
+    response_model=AdminRiskAppealDetail,
+    summary="Inspect a J7 risk appeal with safe risk evidence",
+)
+async def admin_get_risk_appeal(
+    appeal_id: uuid.UUID,
+    _auth: None = Depends(require_admin_secret),
+    session: AsyncSession = Depends(get_session),
+) -> AdminRiskAppealDetail:
+    appeal = (
+        await session.execute(select(RiskAppeal).where(RiskAppeal.id == appeal_id))
+    ).scalar_one_or_none()
+    if appeal is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"appeal not found: {appeal_id}",
+        )
+    return await _admin_appeal_detail(session, appeal)
+
+
+@admin_router.post(
+    "/risk-appeals/{appeal_id}/decision",
+    response_model=AdminRiskAppealDetail,
+    summary="Approve or maintain a J7 risk appeal decision",
+)
+async def admin_decide_risk_appeal(
+    appeal_id: uuid.UUID,
+    body: AdminRiskAppealDecisionRequest,
+    _auth: None = Depends(require_admin_secret),
+    session: AsyncSession = Depends(get_session),
+) -> AdminRiskAppealDetail:
+    appeal = (
+        await session.execute(select(RiskAppeal).where(RiskAppeal.id == appeal_id))
+    ).scalar_one_or_none()
+    if appeal is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"appeal not found: {appeal_id}",
+        )
+    if appeal.status not in {"pending", "merge_offered"}:
+        return await _admin_appeal_detail(session, appeal)
+
+    if body.decision == "approve":
+        await appeals.approve_appeal(session, appeal=appeal, actor="admin", reason=body.reason)
+    else:
+        await appeals.offer_merge(session, appeal=appeal, actor="admin", reason=body.reason)
+    await session.commit()
+    await session.refresh(appeal)
+    return await _admin_appeal_detail(session, appeal)
 
 
 @admin_router.get(

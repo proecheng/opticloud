@@ -117,3 +117,51 @@ async def _ensure_guardian_confirmations_table(engine: AsyncEngine) -> None:
             )
         )
         await s.commit()
+
+
+@pytest_asyncio.fixture(autouse=True)
+async def _ensure_risk_appeals_table(engine: AsyncEngine) -> None:
+    maker = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
+    async with maker() as s:
+        await s.execute(
+            text(
+                """
+                CREATE TABLE IF NOT EXISTS risk_appeals (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    status VARCHAR(32) NOT NULL DEFAULT 'pending',
+                    reason TEXT NOT NULL,
+                    evidence JSONB NOT NULL DEFAULT '{}'::jsonb,
+                    team_size INTEGER NOT NULL,
+                    review_mode VARCHAR(32) NOT NULL,
+                    decision VARCHAR(32) NULL,
+                    decision_reason TEXT NULL,
+                    tracking_token_hash TEXT NOT NULL UNIQUE,
+                    tracking_token_expires_at TIMESTAMPTZ NOT NULL,
+                    merge_offer JSONB NOT NULL DEFAULT '{}'::jsonb,
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    decided_at TIMESTAMPTZ NULL
+                )
+                """
+            )
+        )
+        await s.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS idx_risk_appeals_user_status "
+                "ON risk_appeals(user_id, status)"
+            )
+        )
+        await s.execute(
+            text(
+                "CREATE UNIQUE INDEX IF NOT EXISTS idx_risk_appeals_user_active "
+                "ON risk_appeals(user_id) WHERE status IN ('pending', 'merge_offered')"
+            )
+        )
+        await s.execute(
+            text(
+                "CREATE UNIQUE INDEX IF NOT EXISTS idx_risk_appeals_tracking_token_hash "
+                "ON risk_appeals(tracking_token_hash)"
+            )
+        )
+        await s.commit()

@@ -1,0 +1,101 @@
+{
+  "version": "2026-05-26.m3-0",
+  "scope": "prep-only",
+  "owner": "DevOps / SRE + Solver Lead",
+  "status": "m3-0-contract-ready",
+  "clock": {
+    "source": "reproduction_vouchers.created_at",
+    "timezone": "UTC",
+    "notes": [
+      "Tier age is calculated from the durable voucher row creation time.",
+      "Do not use image push time, provider exit time, restore request time, or local time."
+    ]
+  },
+  "tiers": [
+    {
+      "name": "hot_acr_ee",
+      "day_start": 0,
+      "day_end": 90,
+      "storage_class": "Alibaba Cloud ACR Enterprise Edition",
+      "purpose": "Fast registry lookup for recent voucher-backed images",
+      "m3_9_owner": "Configure live ACR EE retention and registry lookup"
+    },
+    {
+      "name": "warm_s3_standard_ia",
+      "day_start": 91,
+      "day_end": 365,
+      "storage_class": "S3 Standard-IA or equivalent warm object storage",
+      "purpose": "Lower-cost warm copy before cold archive transition",
+      "m3_9_owner": "Configure lifecycle transition and verified restore staging"
+    },
+    {
+      "name": "cold_s3_glacier",
+      "day_start": 366,
+      "day_end": 1826,
+      "storage_class": "S3 Glacier Flexible Retrieval or equivalent",
+      "purpose": "Five-year archival retention for voucher-backed image restore",
+      "m3_9_owner": "Configure cold archive, restore requests, and drill evidence"
+    }
+  ],
+  "required_archive_record_fields": [
+    "voucher_id",
+    "voucher_created_at_utc",
+    "provider_id",
+    "solver",
+    "model_version",
+    "image_digest",
+    "cosign_signature_ref",
+    "sbom_ref",
+    "storage_tier",
+    "registry_or_object_ref",
+    "kms_key_backup_ref"
+  ],
+  "kms_backup_requirements": {
+    "required": true,
+    "reference_field": "kms_key_backup_ref",
+    "minimum_metadata": [
+      "kms_key_id",
+      "backup_location_ref",
+      "backup_created_at_utc",
+      "backup_checksum"
+    ],
+    "m3_9_owner": "Automate encrypted KMS key backup and restore verification"
+  },
+  "restore_drill_evidence_fields": [
+    "drill_id",
+    "drill_started_at_utc",
+    "voucher_id",
+    "voucher_created_at_utc",
+    "storage_tier",
+    "registry_or_object_ref",
+    "image_digest",
+    "cosign_signature_ref",
+    "sbom_ref",
+    "kms_key_backup_ref",
+    "operator",
+    "outcome"
+  ],
+  "unavailable_restore_exception_fields": [
+    "exception_id",
+    "detected_at_utc",
+    "voucher_id",
+    "voucher_created_at_utc",
+    "storage_tier",
+    "missing_or_corrupt_ref",
+    "within_5y_clock",
+    "user_visible_remediation_owner",
+    "engineering_owner",
+    "severity",
+    "outcome"
+  ],
+  "non_goals": [
+    "No ACR EE API calls",
+    "No S3 or Glacier API calls",
+    "No Vault writes",
+    "No Kubernetes CronJob",
+    "No GitHub scheduled workflow",
+    "No repro-service scaffold",
+    "No voucher rerun behavior changes"
+  ],
+  "downstream_story": "M3.9 Image 5y layered archival pipeline"
+}

@@ -6,7 +6,7 @@ import hashlib
 import secrets
 import uuid
 from datetime import UTC, datetime, timedelta
-from typing import Literal
+from typing import Literal, cast
 
 import structlog
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
@@ -15,10 +15,10 @@ from sqlalchemy import and_, select, text, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from auth_service import account_deletion, risk, security
+from auth_service import account_deletion, appeals, risk, security
 from auth_service.config import settings
 from auth_service.db import get_session
-from auth_service.models import APIKey, AuditLog, GuardianConfirmation, User, UserOTP
+from auth_service.models import APIKey, AuditLog, GuardianConfirmation, RiskAppeal, User, UserOTP
 from auth_service.schemas import (
     AccountDeletionStatusResponse,
     APIKeyCreateRequest,
@@ -26,12 +26,21 @@ from auth_service.schemas import (
     APIKeyListItem,
     APIKeyRiskGeo,
     APIKeyRiskWarning,
+    AppealDecision,
+    AppealReviewMode,
+    AppealStatus,
     GuardianConfirmationRequest,
     GuardianConfirmationResponse,
     LoginRequest,
     LoginResponse,
     OTPRequestBody,
     OTPRequestResponse,
+    RiskAppealMergeAcceptRequest,
+    RiskAppealMergeAcceptResponse,
+    RiskAppealStatusResponse,
+    RiskAppealSubmitRequest,
+    RiskAppealSubmitResponse,
+    RiskEvidenceSummary,
     SignupRequest,
     SignupResponse,
 )
@@ -154,6 +163,16 @@ def _age_gate_pending_error() -> HTTPException:
     return HTTPException(
         status_code=status.HTTP_403_FORBIDDEN,
         detail="age gate pending: finish guardian confirmation first",
+    )
+
+
+def _frozen_account_error() -> JSONResponse:
+    return _problem_response(
+        status_code=status.HTTP_403_FORBIDDEN,
+        title="Account Frozen",
+        detail="account frozen",
+        next_action_url="/auth/appeal",
+        type_uri="https://api.opticloud.cn/errors/account-frozen",
     )
 
 
@@ -333,7 +352,7 @@ async def _invalidate_unused_otps(session: AsyncSession, user_id: uuid.UUID) -> 
 async def request_otp(
     body: OTPRequestBody,
     session: AsyncSession = Depends(get_session),
-) -> OTPRequestResponse:
+) -> OTPRequestResponse | JSONResponse:
     user = await _lookup_user(session, body.phone, body.email)
     if user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="user not found")
@@ -342,7 +361,7 @@ async def request_otp(
     if not user.age_verified:
         raise _age_gate_pending_error()
     if user.is_frozen:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="account frozen")
+        return _frozen_account_error()
 
     await _invalidate_unused_otps(session, user.id)
     now = datetime.now(UTC)
@@ -403,7 +422,7 @@ async def _verify_otp(
 async def login(
     body: LoginRequest,
     session: AsyncSession = Depends(get_session),
-) -> LoginResponse:
+) -> LoginResponse | JSONResponse:
     user = await _lookup_user(session, body.phone, body.email)
     if user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="user not found")
@@ -412,7 +431,7 @@ async def login(
     if not user.age_verified:
         raise _age_gate_pending_error()
     if user.is_frozen:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="account frozen")
+        return _frozen_account_error()
 
     phone_ok = await _verify_otp(session, user.id, "phone", body.phone_otp)
     email_ok = await _verify_otp(session, user.id, "email", body.email_otp)
@@ -507,6 +526,128 @@ async def confirm_guardian(
         guardian_email=confirmation.guardian_email,
         age_verified=True,
         confirmed_at=now,
+    )
+
+
+# ===== Story 1.12: J7 risk freeze appeals =====
+
+
+def _appeal_forbidden_response(detail: str) -> JSONResponse:
+    return _problem_response(
+        status_code=status.HTTP_403_FORBIDDEN,
+        title="Risk Appeal Not Available",
+        detail=detail,
+        next_action_url="/auth/login",
+        type_uri="https://api.opticloud.cn/errors/risk-appeal-not-available",
+    )
+
+
+def _appeal_status_response(
+    *,
+    appeal: RiskAppeal,
+    evidence_summary: list[RiskEvidenceSummary],
+) -> RiskAppealStatusResponse:
+    return RiskAppealStatusResponse(
+        appeal_id=appeal.id,
+        status=cast(AppealStatus, appeal.status),
+        review_mode=cast(AppealReviewMode, appeal.review_mode),
+        submitted_at=appeal.created_at,
+        sla_due_at=appeals.sla_due_at(appeal),
+        decided_at=appeal.decided_at,
+        decision=cast(AppealDecision | None, appeal.decision),
+        decision_reason=appeal.decision_reason,
+        evidence_summary=evidence_summary,
+        merge_offer=appeals.parse_merge_offer(appeal.merge_offer),
+        next_action_url="/auth/login" if appeal.status in {"approved", "merge_accepted"} else None,
+    )
+
+
+@router.post(
+    "/risk-appeals",
+    response_model=RiskAppealSubmitResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Submit a risk freeze appeal (J7)",
+)
+async def submit_risk_appeal(
+    body: RiskAppealSubmitRequest,
+    session: AsyncSession = Depends(get_session),
+) -> RiskAppealSubmitResponse | JSONResponse:
+    user = await _lookup_user(session, body.phone, str(body.email))
+    if user is None:
+        return _problem_response(
+            status_code=status.HTTP_404_NOT_FOUND,
+            title="Risk Appeal Account Not Found",
+            detail="No matching frozen account was found for the submitted phone and email.",
+            next_action_url="/auth/signup",
+            type_uri="https://api.opticloud.cn/errors/risk-appeal-account-not-found",
+        )
+    if user.deleted_at is not None:
+        return _appeal_forbidden_response("account deleted")
+    if not user.is_frozen:
+        return _appeal_forbidden_response("account is not frozen")
+
+    appeal, token = await appeals.create_appeal(
+        session,
+        user=user,
+        reason=body.reason,
+        evidence=body.evidence,
+        team_size=body.team_size,
+    )
+    await session.commit()
+    await session.refresh(appeal)
+    return RiskAppealSubmitResponse(
+        appeal_id=appeal.id,
+        status=cast(AppealStatus, appeal.status),
+        review_mode=cast(AppealReviewMode, appeal.review_mode),
+        submitted_at=appeal.created_at,
+        sla_due_at=appeals.sla_due_at(appeal),
+        tracking_url=appeals.tracking_url(token),
+        merge_offer=appeals.parse_merge_offer(appeal.merge_offer),
+    )
+
+
+@router.get(
+    "/risk-appeals/status",
+    response_model=RiskAppealStatusResponse,
+    summary="Track risk appeal status by secure token",
+)
+async def get_risk_appeal_status(
+    token: str,
+    session: AsyncSession = Depends(get_session),
+) -> RiskAppealStatusResponse:
+    appeal = await appeals.get_appeal_by_token(session, token)
+    if appeal is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="appeal not found")
+    summary = await appeals.evidence_summary(session, appeal.user_id)
+    return _appeal_status_response(appeal=appeal, evidence_summary=summary)
+
+
+@router.post(
+    "/risk-appeals/{appeal_id}/merge-offer/accept",
+    response_model=RiskAppealMergeAcceptResponse,
+    summary="Accept a minimal merge offer and resume access",
+)
+async def accept_risk_appeal_merge_offer(
+    appeal_id: uuid.UUID,
+    body: RiskAppealMergeAcceptRequest,
+    session: AsyncSession = Depends(get_session),
+) -> RiskAppealMergeAcceptResponse:
+    appeal = await appeals.get_appeal_by_token(session, body.token)
+    if appeal is None or appeal.id != appeal_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="appeal not found")
+    if appeal.status not in {"merge_offered", "merge_accepted"}:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="appeal does not have an active merge offer",
+        )
+    await appeals.accept_merge_offer(session, appeal)
+    await session.commit()
+    return RiskAppealMergeAcceptResponse(
+        appeal_id=appeal.id,
+        status="merge_accepted",
+        decision="merge_accepted",
+        is_frozen=False,
+        next_action_url="/auth/login",
     )
 
 
@@ -653,6 +794,8 @@ def _risk_warning_from_row(
         or previous_geo is None
         or current_geo is None
     ):
+        return None
+    if not isinstance(risk_score, int | float | str):
         return None
     try:
         parsed_risk_score = float(risk_score)

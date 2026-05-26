@@ -60,6 +60,7 @@
     "notFound": "No account found for this phone/email",
     "agePending": "Age gate pending, finish guardian confirmation first",
     "frozen": "Account frozen, contact support",
+    "appealCta": "提交冻结申诉",
     "invalidOtp": "Invalid or expired OTP, try again",
     "phone": "手机号",
     "email": "邮箱",
@@ -74,6 +75,32 @@
     "loginSubmit": "登录 →",
     "resendOtp": "重新发送 OTP",
     "networkError": "Network Error"
+  },
+  "appeal": {
+    "title": "冻结账号申诉",
+    "subtitle": "提交申诉后可通过跟踪链接查看复审状态。团队人数 3 人及以上进入 48h 人工复核，1-2 人进入自动评分复审。",
+    "phone": "手机号",
+    "email": "邮箱",
+    "teamSize": "团队人数",
+    "reason": "申诉说明",
+    "evidenceNote": "补充证据",
+    "submit": "提交申诉",
+    "loading": "正在处理申诉...",
+    "networkError": "Network Error",
+    "trackingReady": "状态跟踪链接：",
+    "slaDue": "预计完成：",
+    "evidenceTitle": "风控证据摘要",
+    "acceptMerge": "接受合并提议并恢复访问",
+    "returnLogin": "返回登录",
+    "mergeConfirmTitle": "确认接受合并提议",
+    "mergeConfirmDescription": "接受后当前账号会恢复访问。完整跨账号数据迁移不在本次流程内。",
+    "status": {
+      "pending": "申诉已提交，等待复核",
+      "approved": "申诉通过，账号已解冻",
+      "rejected": "申诉未通过",
+      "merge_offered": "复核维持原判，可接受合并提议",
+      "merge_accepted": "已接受合并提议，账号已恢复"
+    }
   },
   "guardian": {
     "title": "监护人确认",

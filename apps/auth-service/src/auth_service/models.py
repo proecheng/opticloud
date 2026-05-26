@@ -13,6 +13,7 @@ from typing import Any
 from sqlalchemy import (
     ARRAY,
     Boolean,
+    CheckConstraint,
     DateTime,
     ForeignKey,
     Index,
@@ -21,6 +22,7 @@ from sqlalchemy import (
     String,
     Text,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import INET, JSONB, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
@@ -199,6 +201,67 @@ class RiskFlag(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
+
+
+class RiskAppeal(Base):
+    """Story 1.12 — J7 risk freeze appeal lifecycle state."""
+
+    __tablename__ = "risk_appeals"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('pending', 'approved', 'rejected', 'merge_offered', 'merge_accepted')",
+            name="ck_risk_appeals_status",
+        ),
+        CheckConstraint(
+            "review_mode IN ('auto_score', 'manual_48h')",
+            name="ck_risk_appeals_review_mode",
+        ),
+        CheckConstraint(
+            "decision IS NULL OR decision IN "
+            "('approved', 'maintained', 'rejected', 'merge_accepted')",
+            name="ck_risk_appeals_decision",
+        ),
+        CheckConstraint("team_size >= 1", name="ck_risk_appeals_team_size"),
+        Index("idx_risk_appeals_user_status", "user_id", "status"),
+        Index(
+            "idx_risk_appeals_user_active",
+            "user_id",
+            unique=True,
+            postgresql_where=text("status IN ('pending', 'merge_offered')"),
+        ),
+        Index(
+            "idx_risk_appeals_pending_review",
+            "created_at",
+            postgresql_where=text("status = 'pending'"),
+        ),
+        Index("idx_risk_appeals_tracking_token_hash", "tracking_token_hash", unique=True),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="pending")
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
+    evidence: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+    team_size: Mapped[int] = mapped_column(Integer, nullable=False)
+    review_mode: Mapped[str] = mapped_column(String(32), nullable=False)
+    decision: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    decision_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    tracking_token_hash: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
+    tracking_token_expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    merge_offer: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class AuditLog(Base):
