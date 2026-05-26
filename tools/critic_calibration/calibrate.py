@@ -276,9 +276,8 @@ def calibrate_dataset(
 
 def write_config(config: dict[str, Any], output_path: Path) -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(
-        json.dumps(config, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
+    output_path.open("w", encoding="utf-8", newline="\n").write(
+        json.dumps(config, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
     )
 
 

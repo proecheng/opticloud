@@ -239,6 +239,8 @@ GPT-5 Codex
 - 2026-05-26 — Final validation passed: `uv run ruff format --check tools/critic_calibration tests/test_critic_calibration.py`.
 - 2026-05-26 — Final validation passed: `git diff --check`.
 - 2026-05-26 — Final validation passed: `uv run pre-commit run --all-files --show-diff-on-failure`.
+- 2026-05-26 — CI lint failed because Windows-generated config used CRLF; fixed CLI `write_config()` to force LF output via `newline="\n"` and regenerated the committed config.
+- 2026-05-26 — Validation passed after CI lint fix: `uv run pytest tests/test_critic_calibration.py -q` (14 passed), `uv run mypy tools/critic_calibration/calibrate.py`, `uv run ruff check tools/critic_calibration tests/test_critic_calibration.py`, `git diff --check`, and `uv run pre-commit run --all-files --show-diff-on-failure`.
 
 ### Completion Notes List
 
@@ -276,3 +278,4 @@ Findings fixed:
 - 2026-05-26 — Round 3 boundary and closure review fixes applied; story ready for development.
 - 2026-05-26 — Implemented calibration CLI, dataset, config, SOP, tests, and CI validation gate.
 - 2026-05-26 — Code review fixes applied for CI config drift masking and threshold-grid validation.
+- 2026-05-26 — CI lint fix applied: calibration config generation now writes LF line endings deterministically across Windows and Linux.
