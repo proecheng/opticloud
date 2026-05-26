@@ -44,7 +44,7 @@ development_status:
   m2-2c-billing-reconciler-job: done             # 2026-05-19 — auto-remediation counterpart to 5.A.7; retries failed finalizes; +6 solver tests
   ci-add-solver-orchestrator-test-job: done    # 2026-05-19 — closed CI gap from 1.3; new solver-orchestrator-test job mirrors billing-service-test
   m2-3-cost-attribution: done                  # 2026-05-26 — G3 M2 minimum cost attribution: shared cost_telemetry + cost_attribution table + solver_second hook; post-review partial-index fix applied
-  m3-0-image-archival-prep: backlog            # SC8
+  m3-0-image-archival-prep: done               # SC8 — 2026-05-26 archive prep contract + validator + CI gate; post-review schema parity fix applied
   m3-1-sandbox-io-pattern: backlog
   m3-2-contract-test-framework: backlog
   m3-3a-k8s-namespace-prod: backlog            # 标准档
