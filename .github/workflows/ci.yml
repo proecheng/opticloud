@@ -36,6 +36,7 @@ jobs:
       capability_registry: ${{ steps.filter.outputs.capability_registry }}
       repro_service: ${{ steps.filter.outputs.repro_service }}
       image_archival: ${{ steps.filter.outputs.image_archival }}
+      k8s_manifests: ${{ steps.filter.outputs.k8s_manifests }}
       contract_tests: ${{ steps.filter.outputs.contract_tests }}
       web: ${{ steps.filter.outputs.web }}
       ci_or_root: ${{ steps.filter.outputs.ci_or_root }}
@@ -88,6 +89,10 @@ jobs:
               - 'infra/image-archival/**'
               - 'scripts/validate_image_archival_plan.py'
               - 'tests/test_image_archival_plan.py'
+            k8s_manifests:
+              - 'infra/k8s/**'
+              - 'scripts/validate_k8s_network_policies.py'
+              - 'tests/test_k8s_network_policies.py'
             contract_tests:
               - 'tests/contract/**'
               - 'packages/shared-py/opticloud_shared/property_test_base/**'
@@ -369,6 +374,23 @@ jobs:
         run: uv run python scripts/validate_image_archival_plan.py infra/image-archival/archive-plan.json
       - name: Run archive plan tests
         run: uv run pytest tests/test_image_archival_plan.py -v
+
+  # ===== K8s namespace / NetworkPolicy validation (Story M3.3a) =====
+  k8s-manifest-validation:
+    needs: changes
+    if: needs.changes.outputs.k8s_manifests == 'true' || needs.changes.outputs.ci_or_root == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: pip install uv==${{ env.UV_VERSION }}
+      - run: uv sync --all-packages --extra dev
+      - name: Validate production K8s policies
+        run: uv run python scripts/validate_k8s_network_policies.py infra/k8s/production
+      - name: Run K8s policy tests
+        run: uv run pytest tests/test_k8s_network_policies.py -v
 
   # ===== Contract tests (Story M3.2) =====
   contract-test:
