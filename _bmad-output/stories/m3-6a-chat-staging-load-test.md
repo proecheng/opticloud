@@ -248,10 +248,12 @@ Status: PASS after fixes. Story is ready for development.
 - Bound profile config to the committed 100-prompt fixture through canonical SHA-256.
 - Added default plan/example validation plus explicit future `--evidence reports/chat-load/<run_id>/evidence_manifest.json` validation mode.
 - Post-implementation review fixes applied: artifact extensions are now checked by manifest field, real evidence is threshold-checked, and hard-gate thresholds apply across all real evidence profiles.
+- PR CI lint follow-up applied: renamed token-count method constants to avoid Bandit/Ruff false positives and added a narrow detect-secrets exclusion for the public prompt fixture SHA-256.
 
 ### File List
 
 - `.github/workflows/ci.yml`
+- `.pre-commit-config.yaml`
 - `docs/runbooks/chat-staging-load-test.md`
 - `scripts/validate_chat_load_plan.py`
 - `tests/test_chat_load_plan.py`
@@ -271,6 +273,10 @@ Status: PASS after fixes. Story is ready for development.
 - `uv run ruff format --check scripts/validate_chat_load_plan.py tests/test_chat_load_plan.py` — PASS
 - `git diff --check` — PASS
 - `uv run pre-commit run --all-files --show-diff-on-failure` — PASS
+- `uv run pre-commit run --all-files --show-diff-on-failure` — PASS after PR CI lint follow-up
+- `uv run python scripts/validate_chat_load_plan.py` — PASS after PR CI lint follow-up
+- `uv run pytest tests/test_chat_load_plan.py -q` — PASS, 16 tests after PR CI lint follow-up
+- `git diff --check` — PASS after PR CI lint follow-up
 
 ## Senior Developer Review (AI)
 
@@ -293,3 +299,4 @@ Residual risk:
 - 2026-05-26: Completed post-implementation code review and applied validator threshold/path fixes.
 - 2026-05-26: Moved story to code-review after implementation and review fixes.
 - 2026-05-26: Final validation passed and story moved to done.
+- 2026-05-26: Fixed PR CI lint false positives for token-count constants and public prompt fixture hash scanning.

@@ -32,8 +32,8 @@ PROMPTS_PATH = REPO_ROOT / "tools" / "chat_load" / "prompts_v1.json"
 PROFILES_PATH = REPO_ROOT / "tools" / "chat_load" / "staging_profiles.json"
 DEFAULT_ENDPOINT = "/v1/chat/stream"
 KNOWN_PROFILES = {"baseline", "stress", "soak"}
-TOKEN_METHOD_PROVIDER = "provider_usage"
-TOKEN_METHOD_APPROXIMATION = "content_unit_approximation"
+COUNT_METHOD_PROVIDER = "provider_usage"
+COUNT_METHOD_APPROXIMATION = "content_unit_approximation"
 
 
 @dataclass(frozen=True)
@@ -136,14 +136,14 @@ def extract_token_units(data: str) -> tuple[int, str]:
     payload = _json_payload(data)
     if payload is None:
         stripped = data.strip()
-        return (1 if stripped and stripped != "[DONE]" else 0, TOKEN_METHOD_APPROXIMATION)
+        return (1 if stripped and stripped != "[DONE]" else 0, COUNT_METHOD_APPROXIMATION)
 
     usage = payload.get("usage")
     if isinstance(usage, dict):
         for key in ("completion_tokens", "output_tokens", "tokens"):
             value = usage.get(key)
             if isinstance(value, int) and value > 0:
-                return value, TOKEN_METHOD_PROVIDER
+                return value, COUNT_METHOD_PROVIDER
 
     candidates: list[str] = []
     for key in ("content", "token", "text"):
@@ -155,7 +155,7 @@ def extract_token_units(data: str) -> tuple[int, str]:
         candidates.append(delta["content"])
 
     unit_count = sum(max(1, len(value.strip().split())) for value in candidates if value.strip())
-    return unit_count, TOKEN_METHOD_APPROXIMATION
+    return unit_count, COUNT_METHOD_APPROXIMATION
 
 
 def calculate_stream_metrics(
@@ -174,20 +174,20 @@ def calculate_stream_metrics(
         if first_token_at is None:
             first_token_at = event_at
         token_units += units
-        used_provider_usage = used_provider_usage or method == TOKEN_METHOD_PROVIDER
+        used_provider_usage = used_provider_usage or method == COUNT_METHOD_PROVIDER
 
     if first_token_at is None:
         return StreamMetrics(
             first_token_latency_ms=None,
             total_response_latency_ms=(completed_at - started_at) * 1000,
             streaming_tokens_per_second=0.0,
-            token_count_method=TOKEN_METHOD_APPROXIMATION,
+            token_count_method=COUNT_METHOD_APPROXIMATION,
             token_units=0,
             completed=False,
         )
 
     streaming_seconds = max(completed_at - first_token_at, 0.001)
-    method = TOKEN_METHOD_PROVIDER if used_provider_usage else TOKEN_METHOD_APPROXIMATION
+    method = COUNT_METHOD_PROVIDER if used_provider_usage else COUNT_METHOD_APPROXIMATION
     return StreamMetrics(
         first_token_latency_ms=(first_token_at - started_at) * 1000,
         total_response_latency_ms=(completed_at - started_at) * 1000,
