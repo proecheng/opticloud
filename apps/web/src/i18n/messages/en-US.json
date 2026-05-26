@@ -149,12 +149,36 @@
   },
   "pricing": {
     "title": "Pricing",
-    "description": "v1 pricing shell: plans start from ¥6 per month, and academic emails receive an automatic education tier. Full commercial packaging will be published after legal and billing policy review.",
-    "plansTitle": "Currently available",
+    "description": "M4.5 buyer-safe pricing copy: this page explains Free, Starter, Pro, Team, and Enterprise packaging hypotheses. Actual billing follows implemented Credits behavior and later legal / billing review.",
+    "buyerSafeTitle": "Buyer-safe boundary",
+    "buyerSafeCaveat": "Commercial packages, enterprise terms, SLA, certification status, and refund rules still require legal, finance, and billing implementation review. This page is not a contract, production SLA, SOC 2 / ISO 27001 claim, or customer case-study proof.",
+    "docsCta": "Open quickstart",
     "plans": {
-      "starter": "Starter: signup grants baseline Credits for the first LP or forecasting task.",
-      "academic": "Academic: .edu / .ac.cn emails activate education-tier Credits automatically.",
-      "api": "API: tasks consume Credits; failed and cancelled refund rules are completed by later billing stories."
+      "free": {
+        "name": "Free",
+        "status": "Current runtime",
+        "summary": "For signup, Hello World, API key setup, and a first LP or forecasting task. Exact grants follow current product behavior."
+      },
+      "starter": {
+        "name": "Starter",
+        "status": "Commercial hypothesis",
+        "summary": "For lightweight repeat users. Validates whether Credits can be explained clearly by task before final pricing."
+      },
+      "pro": {
+        "name": "Pro",
+        "status": "Commercial hypothesis",
+        "summary": "For individual professional and academic-trial conversion paths with higher monthly usage and reproducible outputs."
+      },
+      "team": {
+        "name": "Team",
+        "status": "Commercial hypothesis",
+        "summary": "For small-team buying motions with shared use, invoice readiness, and founder-led support workflow."
+      },
+      "enterprise": {
+        "name": "Enterprise",
+        "status": "Review required",
+        "summary": "For procurement, legal, and technical evaluation. Terms, SLA, and security materials require separate review."
+      }
     }
   },
   "legal": {

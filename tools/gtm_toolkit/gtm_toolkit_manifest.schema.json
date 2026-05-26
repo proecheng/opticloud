@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "OptiCloud M4.5 GTM Toolkit Manifest",
+  "type": "object",
+  "required": [
+    "story_key",
+    "stage",
+    "source_gap",
+    "last_updated",
+    "status_values",
+    "claim_status_values",
+    "evidence_status_values",
+    "assets",
+    "out_of_scope"
+  ],
+  "properties": {
+    "story_key": {
+      "const": "m4-5-gtm-toolkit"
+    },
+    "stage": {
+      "const": "M4.5"
+    },
+    "source_gap": {
+      "type": "string"
+    },
+    "last_updated": {
+      "type": "string"
+    },
+    "status_values": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "draft",
+          "internal_ready",
+          "legal_review_required",
+          "evidence_required",
+          "published"
+        ]
+      }
+    },
+    "claim_status_values": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "hypothesis",
+          "source_supported",
+          "operator_evidence_required",
+          "consent_required",
+          "verified"
+        ]
+      }
+    },
+    "evidence_status_values": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "hypothesis",
+          "source_supported",
+          "operator_evidence_required",
+          "consent_required",
+          "verified"
+        ]
+      }
+    },
+    "assets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "path",
+          "category",
+          "owner",
+          "stage",
+          "status",
+          "claim_status",
+          "evidence_status",
+          "source_refs",
+          "required_fields",
+          "validation_checks"
+        ]
+      }
+    },
+    "out_of_scope": {
+      "type": "array",
+      "items": {
+        "const": "m4-5b-gurobi-benchmark-whitepaper"
+      }
+    }
+  }
+}

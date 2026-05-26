@@ -1,0 +1,371 @@
+{
+  "story_key": "m4-5-gtm-toolkit",
+  "stage": "M4.5",
+  "source_gap": "RE2-4/G19",
+  "last_updated": "2026-05-26",
+  "status_values": [
+    "draft",
+    "internal_ready",
+    "legal_review_required",
+    "evidence_required",
+    "published"
+  ],
+  "claim_status_values": [
+    "hypothesis",
+    "source_supported",
+    "operator_evidence_required",
+    "consent_required",
+    "verified"
+  ],
+  "evidence_status_values": [
+    "hypothesis",
+    "source_supported",
+    "operator_evidence_required",
+    "consent_required",
+    "verified"
+  ],
+  "out_of_scope": [
+    "m4-5b-gurobi-benchmark-whitepaper"
+  ],
+  "assets": [
+    {
+      "path": "docs/enterprise-gtm-toolkit.md",
+      "category": "sales_collateral",
+      "owner": "Marketing / Sales / Customer Success + Founder",
+      "stage": "M4.5",
+      "status": "internal_ready",
+      "claim_status": "source_supported",
+      "evidence_status": "hypothesis",
+      "source_refs": [
+        "_bmad-output/planning/architecture.md:3020",
+        "_bmad-output/planning/prd.md:428"
+      ],
+      "required_fields": [
+        "owner",
+        "status"
+      ],
+      "validation_checks": [
+        "asset index",
+        "controlled status values",
+        "boundary statements"
+      ]
+    },
+    {
+      "path": "docs/gtm/customer-stories/logistics-dispatch-spotlight.md",
+      "category": "customer_story",
+      "owner": "Marketing / Founder",
+      "stage": "M4.5",
+      "status": "draft",
+      "claim_status": "hypothesis",
+      "evidence_status": "operator_evidence_required",
+      "source_refs": [
+        "_bmad-output/planning/epics.md:2062",
+        "docs/industry-use-cases.md"
+      ],
+      "required_fields": [
+        "status",
+        "claim_status",
+        "evidence_status",
+        "consent_status",
+        "owner"
+      ],
+      "validation_checks": [
+        "customer story sections",
+        "no PII",
+        "no production proof claim"
+      ]
+    },
+    {
+      "path": "docs/gtm/customer-stories/energy-forecasting-spotlight.md",
+      "category": "customer_story",
+      "owner": "Marketing / Founder",
+      "stage": "M4.5",
+      "status": "draft",
+      "claim_status": "hypothesis",
+      "evidence_status": "operator_evidence_required",
+      "source_refs": [
+        "_bmad-output/planning/epics.md:2062",
+        "docs/industry-use-cases.md"
+      ],
+      "required_fields": [
+        "status",
+        "claim_status",
+        "evidence_status",
+        "consent_status",
+        "owner"
+      ],
+      "validation_checks": [
+        "customer story sections",
+        "no PII",
+        "no production proof claim"
+      ]
+    },
+    {
+      "path": "docs/gtm/pricing-page-optimization.md",
+      "category": "pricing_optimization",
+      "owner": "Marketing / Product",
+      "stage": "M4.5",
+      "status": "internal_ready",
+      "claim_status": "source_supported",
+      "evidence_status": "hypothesis",
+      "source_refs": [
+        "_bmad-output/planning/prd.md:428",
+        "apps/web/src/app/pricing/page.tsx"
+      ],
+      "required_fields": [
+        "status",
+        "claim_status",
+        "evidence_status",
+        "owner"
+      ],
+      "validation_checks": [
+        "plan labels",
+        "buyer-safe caveat",
+        "pricing route binding"
+      ]
+    },
+    {
+      "path": "docs/customer-faqs/commercial-buyer-faq.md",
+      "category": "customer_faq",
+      "owner": "Customer Success / Founder",
+      "stage": "M4.5",
+      "status": "internal_ready",
+      "claim_status": "source_supported",
+      "evidence_status": "source_supported",
+      "source_refs": [
+        "_bmad-output/planning/prd.md:428",
+        "docs/legal-templates.md"
+      ],
+      "required_fields": [
+        "status",
+        "claim_status",
+        "evidence_status",
+        "owner"
+      ],
+      "validation_checks": [
+        "FAQ coverage",
+        "no unsupported claims"
+      ]
+    },
+    {
+      "path": "docs/customer-faqs/technical-evaluator-faq.md",
+      "category": "customer_faq",
+      "owner": "Customer Success / Engineering",
+      "stage": "M4.5",
+      "status": "internal_ready",
+      "claim_status": "source_supported",
+      "evidence_status": "source_supported",
+      "source_refs": [
+        "_bmad-output/planning/architecture.md:3144",
+        "docs/runbooks/repro-image-restore.md"
+      ],
+      "required_fields": [
+        "status",
+        "claim_status",
+        "evidence_status",
+        "owner"
+      ],
+      "validation_checks": [
+        "FAQ coverage",
+        "no unsupported claims"
+      ]
+    },
+    {
+      "path": "docs/gtm/po-checklist.md",
+      "category": "procurement_template",
+      "owner": "Sales / Finance",
+      "stage": "M4.5",
+      "status": "legal_review_required",
+      "claim_status": "source_supported",
+      "evidence_status": "consent_required",
+      "source_refs": [
+        "_bmad-output/planning/architecture.md:3144",
+        "docs/legal-templates.md"
+      ],
+      "required_fields": [
+        "status",
+        "claim_status",
+        "evidence_status",
+        "owner",
+        "required_approvals"
+      ],
+      "validation_checks": [
+        "legal placeholder",
+        "approval owner"
+      ]
+    },
+    {
+      "path": "docs/gtm/sow-template.md",
+      "category": "procurement_template",
+      "owner": "Sales / Legal",
+      "stage": "M4.5",
+      "status": "legal_review_required",
+      "claim_status": "source_supported",
+      "evidence_status": "consent_required",
+      "source_refs": [
+        "_bmad-output/planning/architecture.md:3020",
+        "docs/legal-templates.md"
+      ],
+      "required_fields": [
+        "status",
+        "claim_status",
+        "evidence_status",
+        "owner",
+        "required_approvals"
+      ],
+      "validation_checks": [
+        "legal placeholder",
+        "approval owner"
+      ]
+    },
+    {
+      "path": "docs/gtm/msa-checklist.md",
+      "category": "procurement_template",
+      "owner": "Sales / Legal",
+      "stage": "M4.5",
+      "status": "legal_review_required",
+      "claim_status": "source_supported",
+      "evidence_status": "consent_required",
+      "source_refs": [
+        "_bmad-output/planning/architecture.md:3020",
+        "docs/legal-templates.md"
+      ],
+      "required_fields": [
+        "status",
+        "claim_status",
+        "evidence_status",
+        "owner",
+        "required_approvals"
+      ],
+      "validation_checks": [
+        "legal placeholder",
+        "approval owner"
+      ]
+    },
+    {
+      "path": "docs/gtm/sales-one-pager.md",
+      "category": "sales_collateral",
+      "owner": "Marketing / Founder",
+      "stage": "M4.5",
+      "status": "internal_ready",
+      "claim_status": "source_supported",
+      "evidence_status": "hypothesis",
+      "source_refs": [
+        "_bmad-output/planning/prd.md:428",
+        "_bmad-output/planning/ux-design-specification.md:616"
+      ],
+      "required_fields": [
+        "status",
+        "claim_status",
+        "evidence_status",
+        "owner"
+      ],
+      "validation_checks": [
+        "buyer-safe copy",
+        "no unsupported claims"
+      ]
+    },
+    {
+      "path": "docs/gtm/customer-success-onboarding.md",
+      "category": "customer_success",
+      "owner": "Customer Success",
+      "stage": "M4.5",
+      "status": "internal_ready",
+      "claim_status": "source_supported",
+      "evidence_status": "hypothesis",
+      "source_refs": [
+        "_bmad-output/planning/prd.md:428",
+        "_bmad-output/planning/architecture.md:3153"
+      ],
+      "required_fields": [
+        "status",
+        "claim_status",
+        "evidence_status",
+        "owner"
+      ],
+      "validation_checks": [
+        "customer success workflow",
+        "no SLA promise"
+      ]
+    },
+    {
+      "path": "docs/gtm/lighthouse-customer-slo.md",
+      "category": "lighthouse_slo",
+      "owner": "Founder / Marketing",
+      "stage": "M4.5",
+      "status": "internal_ready",
+      "claim_status": "source_supported",
+      "evidence_status": "operator_evidence_required",
+      "source_refs": [
+        "_bmad-output/planning/epics.md:2081"
+      ],
+      "required_fields": [
+        "status",
+        "claim_status",
+        "evidence_status",
+        "owner"
+      ],
+      "validation_checks": [
+        "monthly process target",
+        "no signed-logo claim"
+      ]
+    },
+    {
+      "path": "apps/web/src/app/pricing/page.tsx",
+      "category": "pricing_optimization",
+      "owner": "Product / Web",
+      "stage": "M4.5",
+      "status": "internal_ready",
+      "claim_status": "source_supported",
+      "evidence_status": "hypothesis",
+      "source_refs": [
+        "docs/gtm/pricing-page-optimization.md"
+      ],
+      "required_fields": [
+        "route"
+      ],
+      "validation_checks": [
+        "next-intl pricing keys",
+        "buyer-safe caveat"
+      ]
+    },
+    {
+      "path": "apps/web/src/i18n/messages/zh-CN.json",
+      "category": "pricing_optimization",
+      "owner": "Product / Web",
+      "stage": "M4.5",
+      "status": "internal_ready",
+      "claim_status": "source_supported",
+      "evidence_status": "hypothesis",
+      "source_refs": [
+        "apps/web/src/app/pricing/page.tsx"
+      ],
+      "required_fields": [
+        "pricing"
+      ],
+      "validation_checks": [
+        "plan labels",
+        "buyer-safe caveat"
+      ]
+    },
+    {
+      "path": "apps/web/src/i18n/messages/en-US.json",
+      "category": "pricing_optimization",
+      "owner": "Product / Web",
+      "stage": "M4.5",
+      "status": "internal_ready",
+      "claim_status": "source_supported",
+      "evidence_status": "hypothesis",
+      "source_refs": [
+        "apps/web/src/app/pricing/page.tsx"
+      ],
+      "required_fields": [
+        "pricing"
+      ],
+      "validation_checks": [
+        "plan labels",
+        "buyer-safe caveat"
+      ]
+    }
+  ]
+}

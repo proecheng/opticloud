@@ -44,6 +44,7 @@ jobs:
       traffic_replay: ${{ steps.filter.outputs.traffic_replay }}
       sandbox_security_audit: ${{ steps.filter.outputs.sandbox_security_audit }}
       llm_router: ${{ steps.filter.outputs.llm_router }}
+      gtm_toolkit: ${{ steps.filter.outputs.gtm_toolkit }}
       contract_tests: ${{ steps.filter.outputs.contract_tests }}
       blue_green_deploy: ${{ steps.filter.outputs.blue_green_deploy }}
       aigc_filter: ${{ steps.filter.outputs.aigc_filter }}
@@ -150,6 +151,16 @@ jobs:
               - 'scripts/validate_llm_router_contract.py'
               - 'tests/llm_router/**'
               - 'docs/runbooks/llm-provider-abstraction.md'
+            gtm_toolkit:
+              - 'docs/gtm/**'
+              - 'docs/customer-faqs/**'
+              - 'docs/enterprise-gtm-toolkit.md'
+              - 'tools/gtm_toolkit/**'
+              - 'scripts/validate_gtm_toolkit.py'
+              - 'tests/test_gtm_toolkit.py'
+              - 'apps/web/src/app/pricing/page.tsx'
+              - 'apps/web/src/i18n/messages/zh-CN.json'
+              - 'apps/web/src/i18n/messages/en-US.json'
             blue_green_deploy:
               - 'scripts/deploy/**'
               - 'scripts/validate_blue_green_deploy.py'
@@ -643,6 +654,23 @@ jobs:
         env:
           PYTHONPATH: packages/shared-py
         run: uv run pytest tests/llm_router/test_implementations_parity.py -v
+
+  # ===== GTM toolkit validation (Story M4.5) =====
+  gtm-toolkit-validation:
+    needs: changes
+    if: needs.changes.outputs.gtm_toolkit == 'true' || needs.changes.outputs.web == 'true' || needs.changes.outputs.ci_or_root == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: pip install uv==${{ env.UV_VERSION }}
+      - run: uv sync --all-packages --extra dev
+      - name: Validate GTM toolkit
+        run: uv run python scripts/validate_gtm_toolkit.py
+      - name: Run GTM toolkit tests
+        run: uv run pytest tests/test_gtm_toolkit.py -v
 
   # ===== AIGC filter + watermark validation (Story M3.4) =====
   aigc-filter-validation:
