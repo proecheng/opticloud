@@ -1,0 +1,81 @@
+{
+  "cluster": {
+    "descriptor": "example-staging-ack-5-node-redacted",
+    "environment": "staging",
+    "node_count": 5
+  },
+  "commit_sha": "0000000",
+  "endpoint_path": "/v1/chat/stream",
+  "example_only": true,
+  "generated_by": "M3.6a example manifest; not real staging evidence",
+  "profiles": {
+    "baseline": {
+      "end_utc": "2026-05-26T09:10:00Z",
+      "grafana_screenshot": "reports/chat-load/example-run-20260526/baseline-grafana.png",
+      "locust_report": "reports/chat-load/example-run-20260526/baseline-locust.html",
+      "metrics": {
+        "completed_stream_count": 3000,
+        "deadlock_count": 0,
+        "e2e_solve_p95_ms": 65000,
+        "first_token_p50_ms": 900,
+        "first_token_p95_ms": 1800,
+        "http_error_rate": 0,
+        "oom_count": 0,
+        "request_count": 3000,
+        "solve_prompt_count": 1170,
+        "streaming_tokens_per_second": 24,
+        "token_count_method": "content_unit_approximation",
+        "total_response_p95_ms": 4300
+      },
+      "profile": "baseline",
+      "start_utc": "2026-05-26T09:00:00Z"
+    },
+    "soak": {
+      "end_utc": "2026-05-26T21:00:00Z",
+      "grafana_screenshot": "reports/chat-load/example-run-20260526/soak-grafana.png",
+      "locust_report": "reports/chat-load/example-run-20260526/soak-locust.html",
+      "metrics": {
+        "completed_stream_count": 432000,
+        "deadlock_count": 0,
+        "e2e_solve_p95_ms": 76000,
+        "first_token_p50_ms": 1000,
+        "first_token_p95_ms": 2500,
+        "http_error_rate": 0.001,
+        "oom_count": 0,
+        "request_count": 432000,
+        "solve_prompt_count": 168480,
+        "streaming_tokens_per_second": 22,
+        "token_count_method": "content_unit_approximation",
+        "total_response_p95_ms": 5600
+      },
+      "profile": "soak",
+      "start_utc": "2026-05-26T09:00:00Z"
+    },
+    "stress": {
+      "end_utc": "2026-05-26T09:30:00Z",
+      "grafana_screenshot": "reports/chat-load/example-run-20260526/stress-grafana.png",
+      "locust_report": "reports/chat-load/example-run-20260526/stress-locust.html",
+      "metrics": {
+        "completed_stream_count": 180000,
+        "deadlock_count": 0,
+        "e2e_solve_p95_ms": 83000,
+        "first_token_p50_ms": 1300,
+        "first_token_p95_ms": 2800,
+        "http_error_rate": 0.002,
+        "oom_count": 0,
+        "request_count": 180000,
+        "solve_prompt_count": 70200,
+        "streaming_tokens_per_second": 21,
+        "token_count_method": "content_unit_approximation",
+        "total_response_p95_ms": 6200
+      },
+      "profile": "stress",
+      "start_utc": "2026-05-26T09:00:00Z"
+    }
+  },
+  "prompt_count": 100,
+  "prompt_fixture": "tools/chat_load/prompts_v1.json",
+  "prompt_fixture_sha256": "57a47193517b19cca0983c5f00c17b246197c80620db9f87d17cdd16db79529c",
+  "run_id": "example-run-20260526",
+  "source_story": "M3.6a"
+}
