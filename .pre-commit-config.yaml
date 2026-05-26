@@ -98,5 +98,8 @@ repos:
           # Public M3.7 sandbox security supply-chain policy SHA-256, not a secret.
           - "--exclude-secrets"
           - "e096ea9a05866b90380f86b9d2eec14a29848b7d65aa8b02e9534b8da41b513f"
+          # Public M3.8 LLM router reference prompt fixture SHA-256, not a secret.
+          - "--exclude-secrets"
+          - "8caaadeec34c17bc08b71abab1394605f377943666f7197ce0a49d9b9cc08ca2"
         # pnpm-lock.yaml contains generated integrity hashes that trigger high-entropy false positives.
         exclude: ^(\.env\.example|infra/local-init/.*\.sql|.*\.stories\.tsx|pnpm-lock\.yaml)$

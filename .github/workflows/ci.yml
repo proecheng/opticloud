@@ -42,6 +42,7 @@ jobs:
       api_gateway_perf: ${{ steps.filter.outputs.api_gateway_perf }}
       traffic_replay: ${{ steps.filter.outputs.traffic_replay }}
       sandbox_security_audit: ${{ steps.filter.outputs.sandbox_security_audit }}
+      llm_router: ${{ steps.filter.outputs.llm_router }}
       contract_tests: ${{ steps.filter.outputs.contract_tests }}
       blue_green_deploy: ${{ steps.filter.outputs.blue_green_deploy }}
       aigc_filter: ${{ steps.filter.outputs.aigc_filter }}
@@ -133,6 +134,13 @@ jobs:
               - 'tests/sandbox/security/**'
               - 'docs/runbooks/sandbox-security-audit.md'
               - 'reports/sandbox-security/**'
+            llm_router:
+              - 'packages/shared-py/opticloud_shared/llm_router/**'
+              - 'packages/shared-py/opticloud_shared/__init__.py'
+              - 'tools/llm_router/**'
+              - 'scripts/validate_llm_router_contract.py'
+              - 'tests/llm_router/**'
+              - 'docs/runbooks/llm-provider-abstraction.md'
             blue_green_deploy:
               - 'scripts/deploy/**'
               - 'scripts/validate_blue_green_deploy.py'
@@ -581,6 +589,27 @@ jobs:
           done
       - name: Run sandbox security audit tests
         run: uv run pytest tests/sandbox/security -v
+
+  # ===== LLM provider abstraction validation (Story M3.8) =====
+  llm-router-validation:
+    needs: changes
+    if: needs.changes.outputs.llm_router == 'true' || needs.changes.outputs.shared_py == 'true' || needs.changes.outputs.ci_or_root == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: pip install uv==${{ env.UV_VERSION }}
+      - run: uv sync --all-packages --extra dev
+      - name: Validate LLM router contract
+        env:
+          PYTHONPATH: packages/shared-py
+        run: uv run python scripts/validate_llm_router_contract.py
+      - name: Run LLM router parity tests
+        env:
+          PYTHONPATH: packages/shared-py
+        run: uv run pytest tests/llm_router/test_implementations_parity.py -v
 
   # ===== AIGC filter + watermark validation (Story M3.4) =====
   aigc-filter-validation:

@@ -1,0 +1,3307 @@
+{
+  "dataset_version": "llm_router_reference_prompts_v1",
+  "source_story": "M3.8",
+  "prompt_count": 100,
+  "prompts": [
+    {
+      "prompt_id": "llm-router-ref-001",
+      "task": "router_intent",
+      "locale": "zh-CN",
+      "messages": [
+        {
+          "role": "system",
+          "content": "判断用户输入属于 VRPTW、库存优化、排程还是预测任务，并输出 task_type/confidence/reasoning。"
+        },
+        {
+          "role": "user",
+          "content": "scenario-01: 客户有 4 个站点、2 个时间窗、预算上限 1017，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-01"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-002",
+      "task": "router_intent",
+      "locale": "zh-CN",
+      "messages": [
+        {
+          "role": "system",
+          "content": "判断用户输入属于 VRPTW、库存优化、排程还是预测任务，并输出 task_type/confidence/reasoning。"
+        },
+        {
+          "role": "user",
+          "content": "scenario-02: 客户有 5 个站点、4 个时间窗、预算上限 1034，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-02"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-003",
+      "task": "router_intent",
+      "locale": "mixed",
+      "messages": [
+        {
+          "role": "system",
+          "content": "判断用户输入属于 VRPTW、库存优化、排程还是预测任务，并输出 task_type/confidence/reasoning。"
+        },
+        {
+          "role": "user",
+          "content": "scenario-03: 客户有 6 个站点、6 个时间窗、预算上限 1051，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-03"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-004",
+      "task": "router_intent",
+      "locale": "zh-CN",
+      "messages": [
+        {
+          "role": "system",
+          "content": "判断用户输入属于 VRPTW、库存优化、排程还是预测任务，并输出 task_type/confidence/reasoning。"
+        },
+        {
+          "role": "user",
+          "content": "scenario-04: 客户有 7 个站点、8 个时间窗、预算上限 1068，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-04"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-005",
+      "task": "router_intent",
+      "locale": "zh-CN",
+      "messages": [
+        {
+          "role": "system",
+          "content": "判断用户输入属于 VRPTW、库存优化、排程还是预测任务，并输出 task_type/confidence/reasoning。"
+        },
+        {
+          "role": "user",
+          "content": "scenario-05: 客户有 8 个站点、10 个时间窗、预算上限 1085，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-05"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-006",
+      "task": "router_intent",
+      "locale": "mixed",
+      "messages": [
+        {
+          "role": "system",
+          "content": "判断用户输入属于 VRPTW、库存优化、排程还是预测任务，并输出 task_type/confidence/reasoning。"
+        },
+        {
+          "role": "user",
+          "content": "scenario-06: 客户有 9 个站点、12 个时间窗、预算上限 1102，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-06"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-007",
+      "task": "router_intent",
+      "locale": "zh-CN",
+      "messages": [
+        {
+          "role": "system",
+          "content": "判断用户输入属于 VRPTW、库存优化、排程还是预测任务，并输出 task_type/confidence/reasoning。"
+        },
+        {
+          "role": "user",
+          "content": "scenario-07: 客户有 10 个站点、14 个时间窗、预算上限 1119，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-07"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-008",
+      "task": "router_intent",
+      "locale": "zh-CN",
+      "messages": [
+        {
+          "role": "system",
+          "content": "判断用户输入属于 VRPTW、库存优化、排程还是预测任务，并输出 task_type/confidence/reasoning。"
+        },
+        {
+          "role": "user",
+          "content": "scenario-08: 客户有 11 个站点、16 个时间窗、预算上限 1136，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-08"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-009",
+      "task": "router_intent",
+      "locale": "mixed",
+      "messages": [
+        {
+          "role": "system",
+          "content": "判断用户输入属于 VRPTW、库存优化、排程还是预测任务，并输出 task_type/confidence/reasoning。"
+        },
+        {
+          "role": "user",
+          "content": "scenario-09: 客户有 12 个站点、18 个时间窗、预算上限 1153，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-09"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-010",
+      "task": "router_intent",
+      "locale": "zh-CN",
+      "messages": [
+        {
+          "role": "system",
+          "content": "判断用户输入属于 VRPTW、库存优化、排程还是预测任务，并输出 task_type/confidence/reasoning。"
+        },
+        {
+          "role": "user",
+          "content": "scenario-10: 客户有 13 个站点、20 个时间窗、预算上限 1170，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-10"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-011",
+      "task": "router_intent",
+      "locale": "zh-CN",
+      "messages": [
+        {
+          "role": "system",
+          "content": "判断用户输入属于 VRPTW、库存优化、排程还是预测任务，并输出 task_type/confidence/reasoning。"
+        },
+        {
+          "role": "user",
+          "content": "scenario-11: 客户有 14 个站点、22 个时间窗、预算上限 1187，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-11"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-012",
+      "task": "router_intent",
+      "locale": "mixed",
+      "messages": [
+        {
+          "role": "system",
+          "content": "判断用户输入属于 VRPTW、库存优化、排程还是预测任务，并输出 task_type/confidence/reasoning。"
+        },
+        {
+          "role": "user",
+          "content": "scenario-12: 客户有 15 个站点、24 个时间窗、预算上限 1204，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-12"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-013",
+      "task": "router_intent",
+      "locale": "zh-CN",
+      "messages": [
+        {
+          "role": "system",
+          "content": "判断用户输入属于 VRPTW、库存优化、排程还是预测任务，并输出 task_type/confidence/reasoning。"
+        },
+        {
+          "role": "user",
+          "content": "scenario-13: 客户有 16 个站点、26 个时间窗、预算上限 1221，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-13"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-014",
+      "task": "router_intent",
+      "locale": "zh-CN",
+      "messages": [
+        {
+          "role": "system",
+          "content": "判断用户输入属于 VRPTW、库存优化、排程还是预测任务，并输出 task_type/confidence/reasoning。"
+        },
+        {
+          "role": "user",
+          "content": "scenario-14: 客户有 17 个站点、28 个时间窗、预算上限 1238，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-14"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-015",
+      "task": "router_intent",
+      "locale": "mixed",
+      "messages": [
+        {
+          "role": "system",
+          "content": "判断用户输入属于 VRPTW、库存优化、排程还是预测任务，并输出 task_type/confidence/reasoning。"
+        },
+        {
+          "role": "user",
+          "content": "scenario-15: 客户有 18 个站点、30 个时间窗、预算上限 1255，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-15"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-016",
+      "task": "router_intent",
+      "locale": "zh-CN",
+      "messages": [
+        {
+          "role": "system",
+          "content": "判断用户输入属于 VRPTW、库存优化、排程还是预测任务，并输出 task_type/confidence/reasoning。"
+        },
+        {
+          "role": "user",
+          "content": "scenario-16: 客户有 19 个站点、32 个时间窗、预算上限 1272，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-16"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-017",
+      "task": "router_intent",
+      "locale": "zh-CN",
+      "messages": [
+        {
+          "role": "system",
+          "content": "判断用户输入属于 VRPTW、库存优化、排程还是预测任务，并输出 task_type/confidence/reasoning。"
+        },
+        {
+          "role": "user",
+          "content": "scenario-17: 客户有 20 个站点、34 个时间窗、预算上限 1289，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-17"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-018",
+      "task": "router_intent",
+      "locale": "mixed",
+      "messages": [
+        {
+          "role": "system",
+          "content": "判断用户输入属于 VRPTW、库存优化、排程还是预测任务，并输出 task_type/confidence/reasoning。"
+        },
+        {
+          "role": "user",
+          "content": "scenario-18: 客户有 21 个站点、36 个时间窗、预算上限 1306，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-18"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-019",
+      "task": "router_intent",
+      "locale": "zh-CN",
+      "messages": [
+        {
+          "role": "system",
+          "content": "判断用户输入属于 VRPTW、库存优化、排程还是预测任务，并输出 task_type/confidence/reasoning。"
+        },
+        {
+          "role": "user",
+          "content": "scenario-19: 客户有 22 个站点、38 个时间窗、预算上限 1323，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-19"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-020",
+      "task": "router_intent",
+      "locale": "zh-CN",
+      "messages": [
+        {
+          "role": "system",
+          "content": "判断用户输入属于 VRPTW、库存优化、排程还是预测任务，并输出 task_type/confidence/reasoning。"
+        },
+        {
+          "role": "user",
+          "content": "scenario-20: 客户有 23 个站点、40 个时间窗、预算上限 1340，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-20"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-021",
+      "task": "formulator_extraction",
+      "locale": "zh-CN",
+      "messages": [
+        {
+          "role": "system",
+          "content": "从中文业务描述提取变量、约束、目标函数和数据字段，保持可复核。"
+        },
+        {
+          "role": "user",
+          "content": "scenario-01: 客户有 4 个站点、2 个时间窗、预算上限 1017，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-01"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-022",
+      "task": "formulator_extraction",
+      "locale": "zh-CN",
+      "messages": [
+        {
+          "role": "system",
+          "content": "从中文业务描述提取变量、约束、目标函数和数据字段，保持可复核。"
+        },
+        {
+          "role": "user",
+          "content": "scenario-02: 客户有 5 个站点、4 个时间窗、预算上限 1034，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-02"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-023",
+      "task": "formulator_extraction",
+      "locale": "mixed",
+      "messages": [
+        {
+          "role": "system",
+          "content": "从中文业务描述提取变量、约束、目标函数和数据字段，保持可复核。"
+        },
+        {
+          "role": "user",
+          "content": "scenario-03: 客户有 6 个站点、6 个时间窗、预算上限 1051，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-03"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-024",
+      "task": "formulator_extraction",
+      "locale": "zh-CN",
+      "messages": [
+        {
+          "role": "system",
+          "content": "从中文业务描述提取变量、约束、目标函数和数据字段，保持可复核。"
+        },
+        {
+          "role": "user",
+          "content": "scenario-04: 客户有 7 个站点、8 个时间窗、预算上限 1068，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-04"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-025",
+      "task": "formulator_extraction",
+      "locale": "zh-CN",
+      "messages": [
+        {
+          "role": "system",
+          "content": "从中文业务描述提取变量、约束、目标函数和数据字段，保持可复核。"
+        },
+        {
+          "role": "user",
+          "content": "scenario-05: 客户有 8 个站点、10 个时间窗、预算上限 1085，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-05"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-026",
+      "task": "formulator_extraction",
+      "locale": "mixed",
+      "messages": [
+        {
+          "role": "system",
+          "content": "从中文业务描述提取变量、约束、目标函数和数据字段，保持可复核。"
+        },
+        {
+          "role": "user",
+          "content": "scenario-06: 客户有 9 个站点、12 个时间窗、预算上限 1102，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-06"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-027",
+      "task": "formulator_extraction",
+      "locale": "zh-CN",
+      "messages": [
+        {
+          "role": "system",
+          "content": "从中文业务描述提取变量、约束、目标函数和数据字段，保持可复核。"
+        },
+        {
+          "role": "user",
+          "content": "scenario-07: 客户有 10 个站点、14 个时间窗、预算上限 1119，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-07"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-028",
+      "task": "formulator_extraction",
+      "locale": "zh-CN",
+      "messages": [
+        {
+          "role": "system",
+          "content": "从中文业务描述提取变量、约束、目标函数和数据字段，保持可复核。"
+        },
+        {
+          "role": "user",
+          "content": "scenario-08: 客户有 11 个站点、16 个时间窗、预算上限 1136，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-08"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-029",
+      "task": "formulator_extraction",
+      "locale": "mixed",
+      "messages": [
+        {
+          "role": "system",
+          "content": "从中文业务描述提取变量、约束、目标函数和数据字段，保持可复核。"
+        },
+        {
+          "role": "user",
+          "content": "scenario-09: 客户有 12 个站点、18 个时间窗、预算上限 1153，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-09"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-030",
+      "task": "formulator_extraction",
+      "locale": "zh-CN",
+      "messages": [
+        {
+          "role": "system",
+          "content": "从中文业务描述提取变量、约束、目标函数和数据字段，保持可复核。"
+        },
+        {
+          "role": "user",
+          "content": "scenario-10: 客户有 13 个站点、20 个时间窗、预算上限 1170，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-10"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-031",
+      "task": "formulator_extraction",
+      "locale": "zh-CN",
+      "messages": [
+        {
+          "role": "system",
+          "content": "从中文业务描述提取变量、约束、目标函数和数据字段，保持可复核。"
+        },
+        {
+          "role": "user",
+          "content": "scenario-11: 客户有 14 个站点、22 个时间窗、预算上限 1187，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-11"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-032",
+      "task": "formulator_extraction",
+      "locale": "mixed",
+      "messages": [
+        {
+          "role": "system",
+          "content": "从中文业务描述提取变量、约束、目标函数和数据字段，保持可复核。"
+        },
+        {
+          "role": "user",
+          "content": "scenario-12: 客户有 15 个站点、24 个时间窗、预算上限 1204，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-12"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-033",
+      "task": "formulator_extraction",
+      "locale": "zh-CN",
+      "messages": [
+        {
+          "role": "system",
+          "content": "从中文业务描述提取变量、约束、目标函数和数据字段，保持可复核。"
+        },
+        {
+          "role": "user",
+          "content": "scenario-13: 客户有 16 个站点、26 个时间窗、预算上限 1221，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-13"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-034",
+      "task": "formulator_extraction",
+      "locale": "zh-CN",
+      "messages": [
+        {
+          "role": "system",
+          "content": "从中文业务描述提取变量、约束、目标函数和数据字段，保持可复核。"
+        },
+        {
+          "role": "user",
+          "content": "scenario-14: 客户有 17 个站点、28 个时间窗、预算上限 1238，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-14"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-035",
+      "task": "formulator_extraction",
+      "locale": "mixed",
+      "messages": [
+        {
+          "role": "system",
+          "content": "从中文业务描述提取变量、约束、目标函数和数据字段，保持可复核。"
+        },
+        {
+          "role": "user",
+          "content": "scenario-15: 客户有 18 个站点、30 个时间窗、预算上限 1255，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-15"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-036",
+      "task": "formulator_extraction",
+      "locale": "zh-CN",
+      "messages": [
+        {
+          "role": "system",
+          "content": "从中文业务描述提取变量、约束、目标函数和数据字段，保持可复核。"
+        },
+        {
+          "role": "user",
+          "content": "scenario-16: 客户有 19 个站点、32 个时间窗、预算上限 1272，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-16"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-037",
+      "task": "formulator_extraction",
+      "locale": "zh-CN",
+      "messages": [
+        {
+          "role": "system",
+          "content": "从中文业务描述提取变量、约束、目标函数和数据字段，保持可复核。"
+        },
+        {
+          "role": "user",
+          "content": "scenario-17: 客户有 20 个站点、34 个时间窗、预算上限 1289，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-17"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-038",
+      "task": "formulator_extraction",
+      "locale": "mixed",
+      "messages": [
+        {
+          "role": "system",
+          "content": "从中文业务描述提取变量、约束、目标函数和数据字段，保持可复核。"
+        },
+        {
+          "role": "user",
+          "content": "scenario-18: 客户有 21 个站点、36 个时间窗、预算上限 1306，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-18"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-039",
+      "task": "formulator_extraction",
+      "locale": "zh-CN",
+      "messages": [
+        {
+          "role": "system",
+          "content": "从中文业务描述提取变量、约束、目标函数和数据字段，保持可复核。"
+        },
+        {
+          "role": "user",
+          "content": "scenario-19: 客户有 22 个站点、38 个时间窗、预算上限 1323，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-19"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-040",
+      "task": "formulator_extraction",
+      "locale": "zh-CN",
+      "messages": [
+        {
+          "role": "system",
+          "content": "从中文业务描述提取变量、约束、目标函数和数据字段，保持可复核。"
+        },
+        {
+          "role": "user",
+          "content": "scenario-20: 客户有 23 个站点、40 个时间窗、预算上限 1340，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-20"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-041",
+      "task": "coder_generation",
+      "locale": "zh-CN",
+      "messages": [
+        {
+          "role": "system",
+          "content": "根据已确认模型生成 Python 求解函数骨架，包含输入校验和确定性输出。"
+        },
+        {
+          "role": "user",
+          "content": "scenario-01: 客户有 4 个站点、2 个时间窗、预算上限 1017，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-01"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-042",
+      "task": "coder_generation",
+      "locale": "zh-CN",
+      "messages": [
+        {
+          "role": "system",
+          "content": "根据已确认模型生成 Python 求解函数骨架，包含输入校验和确定性输出。"
+        },
+        {
+          "role": "user",
+          "content": "scenario-02: 客户有 5 个站点、4 个时间窗、预算上限 1034，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-02"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-043",
+      "task": "coder_generation",
+      "locale": "mixed",
+      "messages": [
+        {
+          "role": "system",
+          "content": "根据已确认模型生成 Python 求解函数骨架，包含输入校验和确定性输出。"
+        },
+        {
+          "role": "user",
+          "content": "scenario-03: 客户有 6 个站点、6 个时间窗、预算上限 1051，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-03"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-044",
+      "task": "coder_generation",
+      "locale": "zh-CN",
+      "messages": [
+        {
+          "role": "system",
+          "content": "根据已确认模型生成 Python 求解函数骨架，包含输入校验和确定性输出。"
+        },
+        {
+          "role": "user",
+          "content": "scenario-04: 客户有 7 个站点、8 个时间窗、预算上限 1068，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-04"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-045",
+      "task": "coder_generation",
+      "locale": "zh-CN",
+      "messages": [
+        {
+          "role": "system",
+          "content": "根据已确认模型生成 Python 求解函数骨架，包含输入校验和确定性输出。"
+        },
+        {
+          "role": "user",
+          "content": "scenario-05: 客户有 8 个站点、10 个时间窗、预算上限 1085，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-05"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-046",
+      "task": "coder_generation",
+      "locale": "mixed",
+      "messages": [
+        {
+          "role": "system",
+          "content": "根据已确认模型生成 Python 求解函数骨架，包含输入校验和确定性输出。"
+        },
+        {
+          "role": "user",
+          "content": "scenario-06: 客户有 9 个站点、12 个时间窗、预算上限 1102，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-06"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-047",
+      "task": "coder_generation",
+      "locale": "zh-CN",
+      "messages": [
+        {
+          "role": "system",
+          "content": "根据已确认模型生成 Python 求解函数骨架，包含输入校验和确定性输出。"
+        },
+        {
+          "role": "user",
+          "content": "scenario-07: 客户有 10 个站点、14 个时间窗、预算上限 1119，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-07"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-048",
+      "task": "coder_generation",
+      "locale": "zh-CN",
+      "messages": [
+        {
+          "role": "system",
+          "content": "根据已确认模型生成 Python 求解函数骨架，包含输入校验和确定性输出。"
+        },
+        {
+          "role": "user",
+          "content": "scenario-08: 客户有 11 个站点、16 个时间窗、预算上限 1136，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-08"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-049",
+      "task": "coder_generation",
+      "locale": "mixed",
+      "messages": [
+        {
+          "role": "system",
+          "content": "根据已确认模型生成 Python 求解函数骨架，包含输入校验和确定性输出。"
+        },
+        {
+          "role": "user",
+          "content": "scenario-09: 客户有 12 个站点、18 个时间窗、预算上限 1153，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-09"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-050",
+      "task": "coder_generation",
+      "locale": "zh-CN",
+      "messages": [
+        {
+          "role": "system",
+          "content": "根据已确认模型生成 Python 求解函数骨架，包含输入校验和确定性输出。"
+        },
+        {
+          "role": "user",
+          "content": "scenario-10: 客户有 13 个站点、20 个时间窗、预算上限 1170，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-10"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-051",
+      "task": "coder_generation",
+      "locale": "zh-CN",
+      "messages": [
+        {
+          "role": "system",
+          "content": "根据已确认模型生成 Python 求解函数骨架，包含输入校验和确定性输出。"
+        },
+        {
+          "role": "user",
+          "content": "scenario-11: 客户有 14 个站点、22 个时间窗、预算上限 1187，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-11"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-052",
+      "task": "coder_generation",
+      "locale": "mixed",
+      "messages": [
+        {
+          "role": "system",
+          "content": "根据已确认模型生成 Python 求解函数骨架，包含输入校验和确定性输出。"
+        },
+        {
+          "role": "user",
+          "content": "scenario-12: 客户有 15 个站点、24 个时间窗、预算上限 1204，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-12"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-053",
+      "task": "coder_generation",
+      "locale": "zh-CN",
+      "messages": [
+        {
+          "role": "system",
+          "content": "根据已确认模型生成 Python 求解函数骨架，包含输入校验和确定性输出。"
+        },
+        {
+          "role": "user",
+          "content": "scenario-13: 客户有 16 个站点、26 个时间窗、预算上限 1221，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-13"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-054",
+      "task": "coder_generation",
+      "locale": "zh-CN",
+      "messages": [
+        {
+          "role": "system",
+          "content": "根据已确认模型生成 Python 求解函数骨架，包含输入校验和确定性输出。"
+        },
+        {
+          "role": "user",
+          "content": "scenario-14: 客户有 17 个站点、28 个时间窗、预算上限 1238，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-14"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-055",
+      "task": "coder_generation",
+      "locale": "mixed",
+      "messages": [
+        {
+          "role": "system",
+          "content": "根据已确认模型生成 Python 求解函数骨架，包含输入校验和确定性输出。"
+        },
+        {
+          "role": "user",
+          "content": "scenario-15: 客户有 18 个站点、30 个时间窗、预算上限 1255，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-15"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-056",
+      "task": "coder_generation",
+      "locale": "zh-CN",
+      "messages": [
+        {
+          "role": "system",
+          "content": "根据已确认模型生成 Python 求解函数骨架，包含输入校验和确定性输出。"
+        },
+        {
+          "role": "user",
+          "content": "scenario-16: 客户有 19 个站点、32 个时间窗、预算上限 1272，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-16"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-057",
+      "task": "coder_generation",
+      "locale": "zh-CN",
+      "messages": [
+        {
+          "role": "system",
+          "content": "根据已确认模型生成 Python 求解函数骨架，包含输入校验和确定性输出。"
+        },
+        {
+          "role": "user",
+          "content": "scenario-17: 客户有 20 个站点、34 个时间窗、预算上限 1289，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-17"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-058",
+      "task": "coder_generation",
+      "locale": "mixed",
+      "messages": [
+        {
+          "role": "system",
+          "content": "根据已确认模型生成 Python 求解函数骨架，包含输入校验和确定性输出。"
+        },
+        {
+          "role": "user",
+          "content": "scenario-18: 客户有 21 个站点、36 个时间窗、预算上限 1306，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-18"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-059",
+      "task": "coder_generation",
+      "locale": "zh-CN",
+      "messages": [
+        {
+          "role": "system",
+          "content": "根据已确认模型生成 Python 求解函数骨架，包含输入校验和确定性输出。"
+        },
+        {
+          "role": "user",
+          "content": "scenario-19: 客户有 22 个站点、38 个时间窗、预算上限 1323，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-19"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-060",
+      "task": "coder_generation",
+      "locale": "zh-CN",
+      "messages": [
+        {
+          "role": "system",
+          "content": "根据已确认模型生成 Python 求解函数骨架，包含输入校验和确定性输出。"
+        },
+        {
+          "role": "user",
+          "content": "scenario-20: 客户有 23 个站点、40 个时间窗、预算上限 1340，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-20"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-061",
+      "task": "critic_validation",
+      "locale": "zh-CN",
+      "messages": [
+        {
+          "role": "system",
+          "content": "审查候选模型/代码是否有 schema、逻辑、安全或沙箱风险，并给出置信度。"
+        },
+        {
+          "role": "user",
+          "content": "scenario-01: 客户有 4 个站点、2 个时间窗、预算上限 1017，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-01"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-062",
+      "task": "critic_validation",
+      "locale": "zh-CN",
+      "messages": [
+        {
+          "role": "system",
+          "content": "审查候选模型/代码是否有 schema、逻辑、安全或沙箱风险，并给出置信度。"
+        },
+        {
+          "role": "user",
+          "content": "scenario-02: 客户有 5 个站点、4 个时间窗、预算上限 1034，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-02"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-063",
+      "task": "critic_validation",
+      "locale": "mixed",
+      "messages": [
+        {
+          "role": "system",
+          "content": "审查候选模型/代码是否有 schema、逻辑、安全或沙箱风险，并给出置信度。"
+        },
+        {
+          "role": "user",
+          "content": "scenario-03: 客户有 6 个站点、6 个时间窗、预算上限 1051，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-03"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-064",
+      "task": "critic_validation",
+      "locale": "zh-CN",
+      "messages": [
+        {
+          "role": "system",
+          "content": "审查候选模型/代码是否有 schema、逻辑、安全或沙箱风险，并给出置信度。"
+        },
+        {
+          "role": "user",
+          "content": "scenario-04: 客户有 7 个站点、8 个时间窗、预算上限 1068，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-04"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-065",
+      "task": "critic_validation",
+      "locale": "zh-CN",
+      "messages": [
+        {
+          "role": "system",
+          "content": "审查候选模型/代码是否有 schema、逻辑、安全或沙箱风险，并给出置信度。"
+        },
+        {
+          "role": "user",
+          "content": "scenario-05: 客户有 8 个站点、10 个时间窗、预算上限 1085，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-05"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-066",
+      "task": "critic_validation",
+      "locale": "mixed",
+      "messages": [
+        {
+          "role": "system",
+          "content": "审查候选模型/代码是否有 schema、逻辑、安全或沙箱风险，并给出置信度。"
+        },
+        {
+          "role": "user",
+          "content": "scenario-06: 客户有 9 个站点、12 个时间窗、预算上限 1102，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-06"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-067",
+      "task": "critic_validation",
+      "locale": "zh-CN",
+      "messages": [
+        {
+          "role": "system",
+          "content": "审查候选模型/代码是否有 schema、逻辑、安全或沙箱风险，并给出置信度。"
+        },
+        {
+          "role": "user",
+          "content": "scenario-07: 客户有 10 个站点、14 个时间窗、预算上限 1119，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-07"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-068",
+      "task": "critic_validation",
+      "locale": "zh-CN",
+      "messages": [
+        {
+          "role": "system",
+          "content": "审查候选模型/代码是否有 schema、逻辑、安全或沙箱风险，并给出置信度。"
+        },
+        {
+          "role": "user",
+          "content": "scenario-08: 客户有 11 个站点、16 个时间窗、预算上限 1136，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-08"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-069",
+      "task": "critic_validation",
+      "locale": "mixed",
+      "messages": [
+        {
+          "role": "system",
+          "content": "审查候选模型/代码是否有 schema、逻辑、安全或沙箱风险，并给出置信度。"
+        },
+        {
+          "role": "user",
+          "content": "scenario-09: 客户有 12 个站点、18 个时间窗、预算上限 1153，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-09"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-070",
+      "task": "critic_validation",
+      "locale": "zh-CN",
+      "messages": [
+        {
+          "role": "system",
+          "content": "审查候选模型/代码是否有 schema、逻辑、安全或沙箱风险，并给出置信度。"
+        },
+        {
+          "role": "user",
+          "content": "scenario-10: 客户有 13 个站点、20 个时间窗、预算上限 1170，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-10"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-071",
+      "task": "critic_validation",
+      "locale": "zh-CN",
+      "messages": [
+        {
+          "role": "system",
+          "content": "审查候选模型/代码是否有 schema、逻辑、安全或沙箱风险，并给出置信度。"
+        },
+        {
+          "role": "user",
+          "content": "scenario-11: 客户有 14 个站点、22 个时间窗、预算上限 1187，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-11"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-072",
+      "task": "critic_validation",
+      "locale": "mixed",
+      "messages": [
+        {
+          "role": "system",
+          "content": "审查候选模型/代码是否有 schema、逻辑、安全或沙箱风险，并给出置信度。"
+        },
+        {
+          "role": "user",
+          "content": "scenario-12: 客户有 15 个站点、24 个时间窗、预算上限 1204，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-12"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-073",
+      "task": "critic_validation",
+      "locale": "zh-CN",
+      "messages": [
+        {
+          "role": "system",
+          "content": "审查候选模型/代码是否有 schema、逻辑、安全或沙箱风险，并给出置信度。"
+        },
+        {
+          "role": "user",
+          "content": "scenario-13: 客户有 16 个站点、26 个时间窗、预算上限 1221，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-13"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-074",
+      "task": "critic_validation",
+      "locale": "zh-CN",
+      "messages": [
+        {
+          "role": "system",
+          "content": "审查候选模型/代码是否有 schema、逻辑、安全或沙箱风险，并给出置信度。"
+        },
+        {
+          "role": "user",
+          "content": "scenario-14: 客户有 17 个站点、28 个时间窗、预算上限 1238，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-14"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-075",
+      "task": "critic_validation",
+      "locale": "mixed",
+      "messages": [
+        {
+          "role": "system",
+          "content": "审查候选模型/代码是否有 schema、逻辑、安全或沙箱风险，并给出置信度。"
+        },
+        {
+          "role": "user",
+          "content": "scenario-15: 客户有 18 个站点、30 个时间窗、预算上限 1255，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-15"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-076",
+      "task": "critic_validation",
+      "locale": "zh-CN",
+      "messages": [
+        {
+          "role": "system",
+          "content": "审查候选模型/代码是否有 schema、逻辑、安全或沙箱风险，并给出置信度。"
+        },
+        {
+          "role": "user",
+          "content": "scenario-16: 客户有 19 个站点、32 个时间窗、预算上限 1272，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-16"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-077",
+      "task": "critic_validation",
+      "locale": "zh-CN",
+      "messages": [
+        {
+          "role": "system",
+          "content": "审查候选模型/代码是否有 schema、逻辑、安全或沙箱风险，并给出置信度。"
+        },
+        {
+          "role": "user",
+          "content": "scenario-17: 客户有 20 个站点、34 个时间窗、预算上限 1289，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-17"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-078",
+      "task": "critic_validation",
+      "locale": "mixed",
+      "messages": [
+        {
+          "role": "system",
+          "content": "审查候选模型/代码是否有 schema、逻辑、安全或沙箱风险，并给出置信度。"
+        },
+        {
+          "role": "user",
+          "content": "scenario-18: 客户有 21 个站点、36 个时间窗、预算上限 1306，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-18"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-079",
+      "task": "critic_validation",
+      "locale": "zh-CN",
+      "messages": [
+        {
+          "role": "system",
+          "content": "审查候选模型/代码是否有 schema、逻辑、安全或沙箱风险，并给出置信度。"
+        },
+        {
+          "role": "user",
+          "content": "scenario-19: 客户有 22 个站点、38 个时间窗、预算上限 1323，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-19"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-080",
+      "task": "critic_validation",
+      "locale": "zh-CN",
+      "messages": [
+        {
+          "role": "system",
+          "content": "审查候选模型/代码是否有 schema、逻辑、安全或沙箱风险，并给出置信度。"
+        },
+        {
+          "role": "user",
+          "content": "scenario-20: 客户有 23 个站点、40 个时间窗、预算上限 1340，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-20"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-081",
+      "task": "mixed_language_summary",
+      "locale": "zh-CN",
+      "messages": [
+        {
+          "role": "system",
+          "content": "Summarize the optimization result in mixed Chinese and English for business users."
+        },
+        {
+          "role": "user",
+          "content": "scenario-01: 客户有 4 个站点、2 个时间窗、预算上限 1017，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-01"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-082",
+      "task": "mixed_language_summary",
+      "locale": "zh-CN",
+      "messages": [
+        {
+          "role": "system",
+          "content": "Summarize the optimization result in mixed Chinese and English for business users."
+        },
+        {
+          "role": "user",
+          "content": "scenario-02: 客户有 5 个站点、4 个时间窗、预算上限 1034，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-02"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-083",
+      "task": "mixed_language_summary",
+      "locale": "mixed",
+      "messages": [
+        {
+          "role": "system",
+          "content": "Summarize the optimization result in mixed Chinese and English for business users."
+        },
+        {
+          "role": "user",
+          "content": "scenario-03: 客户有 6 个站点、6 个时间窗、预算上限 1051，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-03"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-084",
+      "task": "mixed_language_summary",
+      "locale": "zh-CN",
+      "messages": [
+        {
+          "role": "system",
+          "content": "Summarize the optimization result in mixed Chinese and English for business users."
+        },
+        {
+          "role": "user",
+          "content": "scenario-04: 客户有 7 个站点、8 个时间窗、预算上限 1068，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-04"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-085",
+      "task": "mixed_language_summary",
+      "locale": "zh-CN",
+      "messages": [
+        {
+          "role": "system",
+          "content": "Summarize the optimization result in mixed Chinese and English for business users."
+        },
+        {
+          "role": "user",
+          "content": "scenario-05: 客户有 8 个站点、10 个时间窗、预算上限 1085，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-05"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-086",
+      "task": "mixed_language_summary",
+      "locale": "mixed",
+      "messages": [
+        {
+          "role": "system",
+          "content": "Summarize the optimization result in mixed Chinese and English for business users."
+        },
+        {
+          "role": "user",
+          "content": "scenario-06: 客户有 9 个站点、12 个时间窗、预算上限 1102，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-06"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-087",
+      "task": "mixed_language_summary",
+      "locale": "zh-CN",
+      "messages": [
+        {
+          "role": "system",
+          "content": "Summarize the optimization result in mixed Chinese and English for business users."
+        },
+        {
+          "role": "user",
+          "content": "scenario-07: 客户有 10 个站点、14 个时间窗、预算上限 1119，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-07"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-088",
+      "task": "mixed_language_summary",
+      "locale": "zh-CN",
+      "messages": [
+        {
+          "role": "system",
+          "content": "Summarize the optimization result in mixed Chinese and English for business users."
+        },
+        {
+          "role": "user",
+          "content": "scenario-08: 客户有 11 个站点、16 个时间窗、预算上限 1136，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-08"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-089",
+      "task": "mixed_language_summary",
+      "locale": "mixed",
+      "messages": [
+        {
+          "role": "system",
+          "content": "Summarize the optimization result in mixed Chinese and English for business users."
+        },
+        {
+          "role": "user",
+          "content": "scenario-09: 客户有 12 个站点、18 个时间窗、预算上限 1153，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-09"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-090",
+      "task": "mixed_language_summary",
+      "locale": "zh-CN",
+      "messages": [
+        {
+          "role": "system",
+          "content": "Summarize the optimization result in mixed Chinese and English for business users."
+        },
+        {
+          "role": "user",
+          "content": "scenario-10: 客户有 13 个站点、20 个时间窗、预算上限 1170，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-10"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-091",
+      "task": "mixed_language_summary",
+      "locale": "zh-CN",
+      "messages": [
+        {
+          "role": "system",
+          "content": "Summarize the optimization result in mixed Chinese and English for business users."
+        },
+        {
+          "role": "user",
+          "content": "scenario-11: 客户有 14 个站点、22 个时间窗、预算上限 1187，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-11"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-092",
+      "task": "mixed_language_summary",
+      "locale": "mixed",
+      "messages": [
+        {
+          "role": "system",
+          "content": "Summarize the optimization result in mixed Chinese and English for business users."
+        },
+        {
+          "role": "user",
+          "content": "scenario-12: 客户有 15 个站点、24 个时间窗、预算上限 1204，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-12"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-093",
+      "task": "mixed_language_summary",
+      "locale": "zh-CN",
+      "messages": [
+        {
+          "role": "system",
+          "content": "Summarize the optimization result in mixed Chinese and English for business users."
+        },
+        {
+          "role": "user",
+          "content": "scenario-13: 客户有 16 个站点、26 个时间窗、预算上限 1221，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-13"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-094",
+      "task": "mixed_language_summary",
+      "locale": "zh-CN",
+      "messages": [
+        {
+          "role": "system",
+          "content": "Summarize the optimization result in mixed Chinese and English for business users."
+        },
+        {
+          "role": "user",
+          "content": "scenario-14: 客户有 17 个站点、28 个时间窗、预算上限 1238，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-14"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-095",
+      "task": "mixed_language_summary",
+      "locale": "mixed",
+      "messages": [
+        {
+          "role": "system",
+          "content": "Summarize the optimization result in mixed Chinese and English for business users."
+        },
+        {
+          "role": "user",
+          "content": "scenario-15: 客户有 18 个站点、30 个时间窗、预算上限 1255，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-15"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-096",
+      "task": "mixed_language_summary",
+      "locale": "zh-CN",
+      "messages": [
+        {
+          "role": "system",
+          "content": "Summarize the optimization result in mixed Chinese and English for business users."
+        },
+        {
+          "role": "user",
+          "content": "scenario-16: 客户有 19 个站点、32 个时间窗、预算上限 1272，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-16"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-097",
+      "task": "mixed_language_summary",
+      "locale": "zh-CN",
+      "messages": [
+        {
+          "role": "system",
+          "content": "Summarize the optimization result in mixed Chinese and English for business users."
+        },
+        {
+          "role": "user",
+          "content": "scenario-17: 客户有 20 个站点、34 个时间窗、预算上限 1289，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-17"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-098",
+      "task": "mixed_language_summary",
+      "locale": "mixed",
+      "messages": [
+        {
+          "role": "system",
+          "content": "Summarize the optimization result in mixed Chinese and English for business users."
+        },
+        {
+          "role": "user",
+          "content": "scenario-18: 客户有 21 个站点、36 个时间窗、预算上限 1306，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-18"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-099",
+      "task": "mixed_language_summary",
+      "locale": "zh-CN",
+      "messages": [
+        {
+          "role": "system",
+          "content": "Summarize the optimization result in mixed Chinese and English for business users."
+        },
+        {
+          "role": "user",
+          "content": "scenario-19: 客户有 22 个站点、38 个时间窗、预算上限 1323，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-19"
+      }
+    },
+    {
+      "prompt_id": "llm-router-ref-100",
+      "task": "mixed_language_summary",
+      "locale": "zh-CN",
+      "messages": [
+        {
+          "role": "system",
+          "content": "Summarize the optimization result in mixed Chinese and English for business users."
+        },
+        {
+          "role": "user",
+          "content": "scenario-20: 客户有 23 个站点、40 个时间窗、预算上限 1340，需要稳定输出可解释结果。"
+        }
+      ],
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "fixture": "m3.8-offline",
+        "scenario": "scenario-20"
+      }
+    }
+  ]
+}
