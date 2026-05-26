@@ -8,7 +8,7 @@ Modules (built progressively per epics.md Story 0.x):
 - property_test_base: Hypothesis + Schemathesis fixtures (Story 0.5b)
 """
 
-from opticloud_shared import otel_setup, schemas
+from opticloud_shared import cost_telemetry, otel_setup, schemas
 
 __version__ = "0.0.1"
-__all__ = ["otel_setup", "schemas"]
+__all__ = ["cost_telemetry", "otel_setup", "schemas"]

@@ -25,7 +25,7 @@ class GeoAnomaly:
     score: float = GEO_ANOMALY_SCORE
 
 
-_NETWORKS: tuple[tuple[ipaddress.IPv4Network, GeoRegion], ...] = (
+_NETWORKS: tuple[tuple[ipaddress.IPv4Network | ipaddress.IPv6Network, GeoRegion], ...] = (
     (ipaddress.ip_network("101.6.0.0/16"), GeoRegion("CN-BJ", "中国北京")),
     (ipaddress.ip_network("13.250.0.0/15"), GeoRegion("SG", "新加坡")),
     (ipaddress.ip_network("8.8.8.0/24"), GeoRegion("US", "美国")),

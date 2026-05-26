@@ -6,10 +6,13 @@ import hashlib
 import json
 import uuid
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from typing import Any, Literal
 
+import structlog
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from fastapi.responses import JSONResponse
+from opticloud_shared.cost_telemetry import CostTelemetryEvent, CostUnit, record_cost_event
 from opticloud_shared.schemas.errors import ErrorDetail, ErrorResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -24,7 +27,12 @@ from solver_orchestrator.catalog import (
     find_by_task_type_and_solver,
 )
 from solver_orchestrator.db import get_session
-from solver_orchestrator.models import IdempotencyKey, Optimization, ReproductionVoucher
+from solver_orchestrator.models import (
+    CostAttribution,
+    IdempotencyKey,
+    Optimization,
+    ReproductionVoucher,
+)
 from solver_orchestrator.repro import (
     VOUCHER_ID_PATTERN,
     attach_existing_voucher_id,
@@ -45,6 +53,7 @@ from solver_orchestrator.schemas import (
 
 router = APIRouter(prefix="/v1")
 health_router = APIRouter()
+logger: Any = structlog.get_logger("solver_orchestrator.routes")
 
 
 # ===== Story 0.7: Health =====
@@ -389,6 +398,46 @@ def _rfc7807_error(
     return JSONResponse(content=body.model_dump(), status_code=status_code)
 
 
+async def _record_solver_cost_attribution(
+    session: AsyncSession,
+    *,
+    opt: Optimization,
+    result: solvers.LPSolveResult,
+    solver_name: str | None,
+) -> None:
+    """Best-effort G3 solver-second attribution for persisted optimization rows."""
+    try:
+        provider_id: str | None = None
+        if isinstance(opt.model_version, dict):
+            raw_provider = opt.model_version.get("provider_id")
+            if isinstance(raw_provider, str):
+                provider_id = raw_provider
+
+        event = CostTelemetryEvent(
+            tenant_id=opt.user_id,
+            service="solver-orchestrator",
+            cost_unit=CostUnit.SOLVER_SECOND,
+            value=Decimal(str(result.solve_seconds)),
+            source_id=opt.id,
+            metadata={
+                "task_type": opt.task_type,
+                "solver": solver_name or "default",
+                "status": result.status,
+                "model_provider": provider_id or "unknown",
+            },
+        )
+        async with session.begin_nested():
+            await record_cost_event(session, CostAttribution, event)
+    except Exception as exc:
+        logger.warning(
+            "cost_attribution.record_failed",
+            optimization_id=str(opt.id),
+            user_id=str(opt.user_id),
+            exception_type=type(exc).__name__,
+            message=str(exc),
+        )
+
+
 @router.post(
     "/optimizations",
     tags=["execution"],
@@ -633,6 +682,9 @@ async def post_optimization(
         opt.completed_at = datetime.now(UTC)
         if reproducibility_payload is not None:
             await issue_reproduction_voucher(session, opt, issued_at=opt.completed_at)
+        await _record_solver_cost_attribution(
+            session, opt=opt, result=result, solver_name=payload.solver
+        )
     elif result.status in ("infeasible", "unbounded"):
         opt.status = "failed"
         opt.completed_at = datetime.now(UTC)
@@ -659,6 +711,9 @@ async def post_optimization(
                     expires_at=datetime.now(UTC) + timedelta(hours=24),
                 )
             )
+        await _record_solver_cost_attribution(
+            session, opt=opt, result=result, solver_name=payload.solver
+        )
         return _rfc7807_error(
             title=f"LP {result.status.capitalize()}",
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -678,6 +733,9 @@ async def post_optimization(
         opt.status = "timeout"
         opt.completed_at = datetime.now(UTC)
         opt.error = {"detail": result.error_constraint}
+        await _record_solver_cost_attribution(
+            session, opt=opt, result=result, solver_name=payload.solver
+        )
         return _rfc7807_error(
             title="Solver Timeout",
             status_code=status.HTTP_504_GATEWAY_TIMEOUT,
@@ -696,6 +754,9 @@ async def post_optimization(
         opt.status = "failed"
         opt.completed_at = datetime.now(UTC)
         opt.error = {"detail": result.error_constraint}
+        await _record_solver_cost_attribution(
+            session, opt=opt, result=result, solver_name=payload.solver
+        )
         return _rfc7807_error(
             title="Validation Error",
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
