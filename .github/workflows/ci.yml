@@ -41,6 +41,7 @@ jobs:
       chat_load_plan: ${{ steps.filter.outputs.chat_load_plan }}
       api_gateway_perf: ${{ steps.filter.outputs.api_gateway_perf }}
       traffic_replay: ${{ steps.filter.outputs.traffic_replay }}
+      sandbox_security_audit: ${{ steps.filter.outputs.sandbox_security_audit }}
       contract_tests: ${{ steps.filter.outputs.contract_tests }}
       blue_green_deploy: ${{ steps.filter.outputs.blue_green_deploy }}
       aigc_filter: ${{ steps.filter.outputs.aigc_filter }}
@@ -126,6 +127,12 @@ jobs:
               - 'tests/test_traffic_replay_plan.py'
               - 'docs/runbooks/production-traffic-replay.md'
               - 'reports/prod-traffic-replay/**'
+            sandbox_security_audit:
+              - 'infra/sandbox-security/**'
+              - 'scripts/validate_sandbox_security_audit.py'
+              - 'tests/sandbox/security/**'
+              - 'docs/runbooks/sandbox-security-audit.md'
+              - 'reports/sandbox-security/**'
             blue_green_deploy:
               - 'scripts/deploy/**'
               - 'scripts/validate_blue_green_deploy.py'
@@ -550,6 +557,30 @@ jobs:
           done
       - name: Run traffic replay plan tests
         run: uv run pytest tests/test_traffic_replay_plan.py -v
+
+  # ===== Sandbox security audit validation (Story M3.7) =====
+  sandbox-security-audit-validation:
+    needs: changes
+    if: needs.changes.outputs.sandbox_security_audit == 'true' || needs.changes.outputs.ci_or_root == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: pip install uv==${{ env.UV_VERSION }}
+      - run: uv sync --all-packages --extra dev
+      - name: Validate sandbox security audit contract
+        run: uv run python scripts/validate_sandbox_security_audit.py
+      - name: Validate real sandbox security evidence manifests when present
+        run: |
+          shopt -s globstar nullglob
+          manifests=(reports/sandbox-security/**/pentest_evidence.json)
+          for manifest in "${manifests[@]}"; do
+            uv run python scripts/validate_sandbox_security_audit.py --evidence "$manifest"
+          done
+      - name: Run sandbox security audit tests
+        run: uv run pytest tests/sandbox/security -v
 
   # ===== AIGC filter + watermark validation (Story M3.4) =====
   aigc-filter-validation:

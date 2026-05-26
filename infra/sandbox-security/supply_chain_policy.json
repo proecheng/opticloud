@@ -1,0 +1,29 @@
+{
+  "policy_version": "sandbox_supply_chain_policy_v1",
+  "source_story": "M3.7",
+  "allowed_dependencies": [
+    "fastapi",
+    "pydantic",
+    "uvicorn"
+  ],
+  "denied_typosquat_patterns": [
+    "reqeusts",
+    "fast-api",
+    "pydnatic",
+    "uvicornn"
+  ],
+  "allowed_base_image_digests": [
+    "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+    "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+  ],
+  "allowed_sbom_added_packages": [],
+  "example_candidate": {
+    "dependencies": [
+      "fastapi",
+      "pydantic",
+      "uvicorn"
+    ],
+    "base_image_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+    "sbom_added_packages": []
+  }
+}

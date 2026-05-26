@@ -1,0 +1,126 @@
+{
+  "scenario_version": "sandbox_attack_scenarios_v1",
+  "source_story": "M3.7",
+  "scenarios": [
+    {
+      "scenario_id": "escape-fork-bomb",
+      "category": "container_escape",
+      "attack_vector": "unbounded process creation attempt",
+      "expected_guard": "seccomp_runtime_default",
+      "expected_result": "blocked",
+      "automation_mode": "metadata_static"
+    },
+    {
+      "scenario_id": "escape-root-filesystem-write",
+      "category": "container_escape",
+      "attack_vector": "write to root filesystem",
+      "expected_guard": "read_only_root_filesystem",
+      "expected_result": "blocked",
+      "automation_mode": "metadata_static"
+    },
+    {
+      "scenario_id": "escape-external-network-egress",
+      "category": "container_escape",
+      "attack_vector": "connect to external network",
+      "expected_guard": "deny_all_egress",
+      "expected_result": "blocked",
+      "automation_mode": "metadata_static"
+    },
+    {
+      "scenario_id": "escape-docker-socket-access",
+      "category": "container_escape",
+      "attack_vector": "access Docker socket",
+      "expected_guard": "no_docker_socket",
+      "expected_result": "blocked",
+      "automation_mode": "metadata_static"
+    },
+    {
+      "scenario_id": "escape-sys-ptrace",
+      "category": "container_escape",
+      "attack_vector": "request SYS_PTRACE",
+      "expected_guard": "capability_drop_all",
+      "expected_result": "blocked",
+      "automation_mode": "metadata_static"
+    },
+    {
+      "scenario_id": "escape-mount-namespace",
+      "category": "container_escape",
+      "attack_vector": "mount namespace escape",
+      "expected_guard": "apparmor_profile",
+      "expected_result": "blocked",
+      "automation_mode": "metadata_static"
+    },
+    {
+      "scenario_id": "escape-host-path-mount",
+      "category": "container_escape",
+      "attack_vector": "mount host path into sandbox",
+      "expected_guard": "no_host_path",
+      "expected_result": "blocked",
+      "automation_mode": "metadata_static"
+    },
+    {
+      "scenario_id": "escape-privileged-container",
+      "category": "container_escape",
+      "attack_vector": "request privileged container",
+      "expected_guard": "capability_drop_all",
+      "expected_result": "blocked",
+      "automation_mode": "metadata_static"
+    },
+    {
+      "scenario_id": "escape-host-namespaces",
+      "category": "container_escape",
+      "attack_vector": "request hostPID hostIPC or hostNetwork",
+      "expected_guard": "no_host_namespaces",
+      "expected_result": "blocked",
+      "automation_mode": "metadata_static"
+    },
+    {
+      "scenario_id": "escape-capability-escalation",
+      "category": "container_escape",
+      "attack_vector": "add Linux capability",
+      "expected_guard": "capability_drop_all",
+      "expected_result": "blocked",
+      "automation_mode": "metadata_static"
+    },
+    {
+      "scenario_id": "escape-kernel-module-load",
+      "category": "container_escape",
+      "attack_vector": "load kernel module",
+      "expected_guard": "apparmor_profile",
+      "expected_result": "blocked",
+      "automation_mode": "metadata_static"
+    },
+    {
+      "scenario_id": "escape-proc-host-inspection",
+      "category": "container_escape",
+      "attack_vector": "inspect host proc filesystem",
+      "expected_guard": "apparmor_profile",
+      "expected_result": "blocked",
+      "automation_mode": "metadata_static"
+    },
+    {
+      "scenario_id": "supply-chain-typosquat-pypi",
+      "category": "supply_chain",
+      "attack_vector": "typosquat package name in dependency set",
+      "expected_guard": "supply_chain_policy",
+      "expected_result": "blocked",
+      "automation_mode": "metadata_static"
+    },
+    {
+      "scenario_id": "supply-chain-poisoned-base-image",
+      "category": "supply_chain",
+      "attack_vector": "base image digest drift",
+      "expected_guard": "supply_chain_policy",
+      "expected_result": "blocked",
+      "automation_mode": "metadata_static"
+    },
+    {
+      "scenario_id": "supply-chain-sbom-diff-hijack",
+      "category": "supply_chain",
+      "attack_vector": "unexpected SBOM package addition",
+      "expected_guard": "supply_chain_policy",
+      "expected_result": "blocked",
+      "automation_mode": "metadata_static"
+    }
+  ]
+}

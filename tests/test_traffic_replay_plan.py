@@ -129,9 +129,12 @@ def test_capture_rejects_pii_secrets_raw_hosts_and_prompt_text() -> None:
     capture["requests"][1]["query_shape"]["email"] = "student@example.com"
     capture["requests"][2]["path_template"] = "https://api.opticloud.cn/v1/chat/stream"
     capture["requests"][2]["body_shape"]["prompt"] = "customer prompt with raw content"
-    capture["requests"][2]["body_shape"]["jwt_shape"] = (
-        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyLTEyMyJ9.signature123"
-    )
+    jwt_parts = [
+        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9",
+        "eyJzdWIiOiJ1c2VyLTEyMyJ9",
+        "signature123",
+    ]
+    capture["requests"][2]["body_shape"]["jwt_shape"] = ".".join(jwt_parts)
 
     errors = validator.validate_capture_fixture(capture, source="capture-example")
 

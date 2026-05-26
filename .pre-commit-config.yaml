@@ -77,5 +77,11 @@ repos:
           # Public M3.6d API gateway performance baseline plan SHA-256, not a secret.
           - "--exclude-secrets"
           - "946f35ad4cb7006acc5d4d2df46cab321965d6c2e783f652653ae06597fb764e"
+          # Public M3.6e traffic replay capture fixture SHA-256, not a secret.
+          - "--exclude-secrets"
+          - "37b098c3e1a128088563f2d29062b1abe724a02f7c669a45c414bbf9dbcc9fc1"
+          # Public M3.6e traffic replay plan SHA-256, not a secret.
+          - "--exclude-secrets"
+          - "c40d27b3e2855d4634c84460d859351bae2fec6b2f92ca8badb5a6cd62136d6a"
         # pnpm-lock.yaml contains generated integrity hashes that trigger high-entropy false positives.
         exclude: ^(\.env\.example|infra/local-init/.*\.sql|.*\.stories\.tsx|pnpm-lock\.yaml)$
