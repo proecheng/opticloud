@@ -56,7 +56,7 @@ development_status:
   m3-6a-chat-staging-load-test: done           # G6 — 2026-05-26 Chat staging load-test harness + evidence contract + CI gate; post-review evidence threshold/path fixes applied
   m3-6b-chat-single-node-baseline: done
   m3-6c-chat-incident-fallback: done           # G6 — 2026-05-26 Chat incident fallback drill contract + evidence validator + CI gate; post-review timeline/schema fixes applied
-  m3-6d-api-gateway-perf-baseline: backlog     # Q-T3
+  m3-6d-api-gateway-perf-baseline: done            # Q-T3 — 2026-05-26 API gateway perf baseline contract + Locust/evidence validator + CI gate; post-review import-boundary/hash fixes applied
   m3-6e-prod-traffic-replay: backlog           # RE2-7
   m3-7-sandbox-security-audit: backlog         # PMR3
   m3-8-llm-provider-abstraction: backlog       # PMR8

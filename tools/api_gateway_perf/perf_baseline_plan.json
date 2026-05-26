@@ -1,0 +1,46 @@
+{
+  "dataset_version": "api_gateway_perf_baseline_v1",
+  "evidence_directory": "reports/api-gateway-perf",
+  "grafana_dashboard_required": true,
+  "notes": [
+    "M3.6d validates API gateway NFR-P1 evidence only.",
+    "Passing this contract does not mark M3.6a, M3.6b, or M3.6c Chat evidence as passed.",
+    "Runtime credentials are supplied by operator environment variables and are never committed."
+  ],
+  "profile": {
+    "name": "gateway_baseline",
+    "run_time_seconds": 1800,
+    "spawn_rate_per_second": 10,
+    "users": 100
+  },
+  "prometheus_histogram_quantile": 0.95,
+  "source_story": "M3.6d",
+  "threshold_operator": "strict_less_than",
+  "endpoints": [
+    {
+      "auth_mode": "none",
+      "endpoint_class": "algorithms_public",
+      "method": "GET",
+      "path": "/v1/algorithms",
+      "p95_threshold_ms": 200,
+      "weight": 1
+    },
+    {
+      "auth_env_var": "API_GATEWAY_PERF_JWT",
+      "auth_mode": "jwt_bearer_env",
+      "endpoint_class": "auth_api_keys",
+      "method": "GET",
+      "path": "/v1/auth/api_keys",
+      "p95_threshold_ms": 200,
+      "weight": 1
+    },
+    {
+      "auth_mode": "none",
+      "endpoint_class": "business_demo",
+      "method": "POST",
+      "path": "/v1/optimizations/demo",
+      "p95_threshold_ms": 500,
+      "weight": 1
+    }
+  ]
+}

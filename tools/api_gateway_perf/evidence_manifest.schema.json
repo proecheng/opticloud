@@ -1,0 +1,183 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "artifacts": {
+      "additionalProperties": false,
+      "properties": {
+        "grafana_dashboard": {
+          "$ref": "#/$defs/artifactPath"
+        },
+        "latency_summary": {
+          "$ref": "#/$defs/artifactPath"
+        },
+        "locust_report": {
+          "$ref": "#/$defs/artifactPath"
+        },
+        "prometheus_snapshot": {
+          "$ref": "#/$defs/artifactPath"
+        }
+      },
+      "required": [
+        "locust_report",
+        "grafana_dashboard",
+        "prometheus_snapshot",
+        "latency_summary"
+      ],
+      "type": "object"
+    },
+    "commit_sha": {
+      "pattern": "^[0-9a-f]{7,40}$",
+      "type": "string"
+    },
+    "duration_seconds": {
+      "minimum": 0,
+      "type": "number"
+    },
+    "ended_utc": {
+      "$ref": "#/$defs/timestamp"
+    },
+    "endpoint_results": {
+      "items": {
+        "$ref": "#/$defs/endpointResult"
+      },
+      "minItems": 3,
+      "type": "array"
+    },
+    "environment": {
+      "const": "staging-api-gateway",
+      "type": "string"
+    },
+    "example_only": {
+      "type": "boolean"
+    },
+    "generated_by": {
+      "type": "string"
+    },
+    "plan_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "profile": {
+      "const": "gateway_baseline",
+      "type": "string"
+    },
+    "run_id": {
+      "pattern": "^[a-z0-9][a-z0-9._-]{2,63}$",
+      "type": "string"
+    },
+    "source_story": {
+      "const": "M3.6d",
+      "type": "string"
+    },
+    "started_utc": {
+      "$ref": "#/$defs/timestamp"
+    }
+  },
+  "required": [
+    "source_story",
+    "run_id",
+    "example_only",
+    "generated_by",
+    "commit_sha",
+    "environment",
+    "plan_sha256",
+    "profile",
+    "started_utc",
+    "ended_utc",
+    "duration_seconds",
+    "endpoint_results",
+    "artifacts"
+  ],
+  "title": "M3.6d API gateway performance evidence manifest",
+  "type": "object",
+  "$defs": {
+    "artifactPath": {
+      "pattern": "^reports/api-gateway-perf/[a-z0-9][a-z0-9._-]{2,63}/(?!.*\\.\\.)[^\\\\:]+\\.(html|json|png)$",
+      "type": "string"
+    },
+    "endpointResult": {
+      "additionalProperties": false,
+      "properties": {
+        "auth_mode": {
+          "enum": [
+            "none",
+            "jwt_bearer_env"
+          ],
+          "type": "string"
+        },
+        "endpoint_class": {
+          "enum": [
+            "algorithms_public",
+            "auth_api_keys",
+            "business_demo"
+          ],
+          "type": "string"
+        },
+        "http_error_rate": {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        "locust_p50_ms": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "locust_p95_ms": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "locust_p99_ms": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "method": {
+          "enum": [
+            "GET",
+            "POST"
+          ],
+          "type": "string"
+        },
+        "path": {
+          "pattern": "^/",
+          "type": "string"
+        },
+        "prometheus_histogram_quantile_p95_ms": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "request_count": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "success_count": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "threshold_p95_ms": {
+          "minimum": 1,
+          "type": "number"
+        }
+      },
+      "required": [
+        "endpoint_class",
+        "method",
+        "path",
+        "auth_mode",
+        "request_count",
+        "success_count",
+        "http_error_rate",
+        "locust_p50_ms",
+        "locust_p95_ms",
+        "locust_p99_ms",
+        "prometheus_histogram_quantile_p95_ms",
+        "threshold_p95_ms"
+      ],
+      "type": "object"
+    },
+    "timestamp": {
+      "pattern": "^20[0-9]{2}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+      "type": "string"
+    }
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "artifacts": {
+    "grafana_dashboard": "reports/api-gateway-perf/example-api-gateway-20260526/gateway-grafana.png",
+    "latency_summary": "reports/api-gateway-perf/example-api-gateway-20260526/latency-summary.json",
+    "locust_report": "reports/api-gateway-perf/example-api-gateway-20260526/locust-report.html",
+    "prometheus_snapshot": "reports/api-gateway-perf/example-api-gateway-20260526/prometheus-snapshot.json"
+  },
+  "commit_sha": "0000000",
+  "duration_seconds": 1800,
+  "ended_utc": "2026-05-26T10:30:00Z",
+  "endpoint_results": [
+    {
+      "auth_mode": "none",
+      "endpoint_class": "algorithms_public",
+      "http_error_rate": 0,
+      "locust_p50_ms": 42,
+      "locust_p95_ms": 120,
+      "locust_p99_ms": 170,
+      "method": "GET",
+      "path": "/v1/algorithms",
+      "prometheus_histogram_quantile_p95_ms": 118,
+      "request_count": 60000,
+      "success_count": 60000,
+      "threshold_p95_ms": 200
+    },
+    {
+      "auth_mode": "jwt_bearer_env",
+      "endpoint_class": "auth_api_keys",
+      "http_error_rate": 0,
+      "locust_p50_ms": 55,
+      "locust_p95_ms": 140,
+      "locust_p99_ms": 180,
+      "method": "GET",
+      "path": "/v1/auth/api_keys",
+      "prometheus_histogram_quantile_p95_ms": 138,
+      "request_count": 60000,
+      "success_count": 60000,
+      "threshold_p95_ms": 200
+    },
+    {
+      "auth_mode": "none",
+      "endpoint_class": "business_demo",
+      "http_error_rate": 0.001,
+      "locust_p50_ms": 95,
+      "locust_p95_ms": 320,
+      "locust_p99_ms": 460,
+      "method": "POST",
+      "path": "/v1/optimizations/demo",
+      "prometheus_histogram_quantile_p95_ms": 315,
+      "request_count": 60000,
+      "success_count": 59940,
+      "threshold_p95_ms": 500
+    }
+  ],
+  "environment": "staging-api-gateway",
+  "example_only": true,
+  "generated_by": "M3.6d example manifest; not real API gateway performance evidence",
+  "plan_sha256": "946f35ad4cb7006acc5d4d2df46cab321965d6c2e783f652653ae06597fb764e",
+  "profile": "gateway_baseline",
+  "run_id": "example-api-gateway-20260526",
+  "source_story": "M3.6d",
+  "started_utc": "2026-05-26T10:00:00Z"
+}
