@@ -1,0 +1,166 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "artifacts": {
+      "additionalProperties": false,
+      "properties": {
+        "contract_seed_report": {
+          "$ref": "#/$defs/artifactPath"
+        },
+        "latency_summary": {
+          "$ref": "#/$defs/artifactPath"
+        },
+        "redaction_audit": {
+          "$ref": "#/$defs/artifactPath"
+        },
+        "replay_report": {
+          "$ref": "#/$defs/artifactPath"
+        }
+      },
+      "required": [
+        "replay_report",
+        "redaction_audit",
+        "contract_seed_report",
+        "latency_summary"
+      ],
+      "type": "object"
+    },
+    "capture_fixture_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "capture_id": {
+      "type": "string"
+    },
+    "commit_sha": {
+      "pattern": "^[0-9a-f]{7,40}$",
+      "type": "string"
+    },
+    "duration_seconds": {
+      "minimum": 0,
+      "type": "number"
+    },
+    "ended_utc": {
+      "$ref": "#/$defs/timestamp"
+    },
+    "environment": {
+      "const": "staging-traffic-replay",
+      "type": "string"
+    },
+    "example_only": {
+      "type": "boolean"
+    },
+    "lane_results": {
+      "items": {
+        "$ref": "#/$defs/laneResult"
+      },
+      "minItems": 3,
+      "type": "array"
+    },
+    "plan_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "redaction_profile": {
+      "type": "string"
+    },
+    "run_id": {
+      "pattern": "^[a-z0-9][a-z0-9._-]{2,63}$",
+      "type": "string"
+    },
+    "source_story": {
+      "const": "M3.6e",
+      "type": "string"
+    },
+    "started_utc": {
+      "$ref": "#/$defs/timestamp"
+    }
+  },
+  "required": [
+    "source_story",
+    "example_only",
+    "run_id",
+    "commit_sha",
+    "environment",
+    "plan_sha256",
+    "capture_fixture_sha256",
+    "capture_id",
+    "redaction_profile",
+    "started_utc",
+    "ended_utc",
+    "duration_seconds",
+    "lane_results",
+    "artifacts"
+  ],
+  "title": "M3.6e production traffic replay evidence manifest",
+  "type": "object",
+  "$defs": {
+    "artifactPath": {
+      "pattern": "^reports/prod-traffic-replay/[a-z0-9][a-z0-9._-]{2,63}/(?!.*\\.\\.)[^\\\\:]+\\.(html|json)$",
+      "type": "string"
+    },
+    "laneResult": {
+      "additionalProperties": false,
+      "properties": {
+        "http_error_rate": {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        "lane": {
+          "enum": [
+            "api_gateway_public",
+            "chat_streaming",
+            "contract_fuzz"
+          ],
+          "type": "string"
+        },
+        "p95_ms": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "redaction_violation_count": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "replay_drift_rate": {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        "request_count": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "success_count": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "threshold_reference": {
+          "enum": [
+            "M3.6d",
+            "M3.6a",
+            "M3.2"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "lane",
+        "request_count",
+        "success_count",
+        "http_error_rate",
+        "p95_ms",
+        "replay_drift_rate",
+        "redaction_violation_count",
+        "threshold_reference"
+      ],
+      "type": "object"
+    },
+    "timestamp": {
+      "pattern": "^20[0-9]{2}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+      "type": "string"
+    }
+  }
+}
