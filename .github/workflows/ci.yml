@@ -329,6 +329,22 @@ jobs:
   # ===== Other service stubs (will populate as services come online) =====
   # api-gateway-test, solver-orchestrator-test, ...
 
+  # ===== sandbox-runner tests (Story M3.1) =====
+  sandbox-runner-test:
+    needs: changes
+    if: needs.changes.outputs.sandbox_runner == 'true' || needs.changes.outputs.ci_or_root == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: pip install uv==${{ env.UV_VERSION }}
+      - run: uv sync --all-packages --extra dev
+      - run: uv run pytest apps/sandbox-runner/tests/ -v
+        env:
+          PYTHONPATH: apps/sandbox-runner/src
+
   # ===== Image archival prep validation (Story M3.0) =====
   image-archival-plan:
     needs: changes
