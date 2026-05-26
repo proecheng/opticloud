@@ -238,6 +238,7 @@ Status: PASS after fixes.
 ### File List
 
 - `.github/workflows/ci.yml`
+- `.pre-commit-config.yaml`
 - `docs/runbooks/chat-incident-fallback.md`
 - `scripts/validate_chat_load_plan.py`
 - `tests/test_chat_load_plan.py`
@@ -260,6 +261,10 @@ Status: PASS after fixes.
 - `uv run ruff format --check scripts/validate_chat_load_plan.py tests/test_chat_load_plan.py` — PASS after code review fixes
 - `git diff --check` — PASS
 - `uv run pre-commit run --all-files --show-diff-on-failure` — PASS
+- `uv run pre-commit run --all-files --show-diff-on-failure` — PASS after PR CI lint follow-up
+- `uv run python scripts/validate_chat_load_plan.py` — PASS after PR CI lint follow-up
+- `uv run pytest tests/test_chat_load_plan.py -q` — PASS, 37 tests after PR CI lint follow-up
+- `git diff --check` — PASS after PR CI lint follow-up
 
 ## Senior Developer Review (AI)
 
@@ -268,6 +273,7 @@ Outcome: PASS after fixes
 Findings fixed:
 - Incident evidence accepted self-contradictory timeline metrics. Added validation that `switch_duration_seconds` equals `fallback_confirmed_utc - operator_decision_utc`, and `detection_window_seconds` equals `provider_health_failed_utc - incident_started_utc`, with regression coverage.
 - Incident evidence JSON Schema artifact patterns did not reject `..` traversal segments directly. Tightened both Locust and JSON artifact path patterns and added schema guard coverage.
+- PR CI lint flagged the public incident drill plan SHA-256 as a high-entropy string. Added a narrow detect-secrets exclusion for that exact public hash.
 
 Residual risk:
 - This story still does not produce real incident fallback evidence by design; operator evidence must be generated later with `--incident-fallback-evidence`.
@@ -281,3 +287,4 @@ Residual risk:
 - 2026-05-26: Moved story to code-review after implementation validation passed.
 - 2026-05-26: Completed post-implementation code review and applied timeline/schema boundary fixes.
 - 2026-05-26: Final validation passed and story moved to done.
+- 2026-05-26: Fixed PR CI lint false positive for public incident drill plan SHA-256.
