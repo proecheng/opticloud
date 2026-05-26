@@ -13,6 +13,7 @@ members = [
   "apps/auth-service",
   "apps/billing-service",
   "apps/outbox-relayer",
+  "apps/sandbox-runner",
   "apps/solver-orchestrator",
   "packages/shared-py",
   "packages/python-sdk",

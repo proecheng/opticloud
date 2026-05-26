@@ -3,8 +3,8 @@
 Story 0.5b foundation; full CI gate is Story M3.2 Contract Test framework.
 
 Two load patterns:
-1. From URL (running service)        — schemathesis_from_url("http://localhost:8001")
-2. From static spec file (CI offline) — schemathesis_from_path("openapi.json")
+1. From URL (running service) - schemathesis_from_url("http://localhost:8001")
+2. From static spec file (CI offline) - schemathesis_from_path("openapi.json")
 
 The latter is preferred for CI (no service start required, deterministic).
 """
@@ -12,7 +12,7 @@ The latter is preferred for CI (no service start required, deterministic).
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     import schemathesis
@@ -53,3 +53,16 @@ def schemathesis_from_path(spec_path: str | Path) -> schemathesis.BaseSchema:
     if not path.is_absolute():
         path = Path.cwd() / path
     return schemathesis.openapi.from_path(path)
+
+
+def schemathesis_from_asgi_app(app: Any) -> schemathesis.BaseSchema:
+    """Load a Schemathesis schema directly from an ASGI app's OpenAPI dict.
+
+    This avoids network access in CI while still validating real in-process
+    application behavior through Schemathesis' ASGI call path.
+    """
+    import schemathesis
+
+    schema = schemathesis.openapi.from_dict(app.openapi())
+    schema.app = app
+    return schema

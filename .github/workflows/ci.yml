@@ -35,6 +35,10 @@ jobs:
       sandbox_runner: ${{ steps.filter.outputs.sandbox_runner }}
       capability_registry: ${{ steps.filter.outputs.capability_registry }}
       repro_service: ${{ steps.filter.outputs.repro_service }}
+      image_archival: ${{ steps.filter.outputs.image_archival }}
+      k8s_manifests: ${{ steps.filter.outputs.k8s_manifests }}
+      contract_tests: ${{ steps.filter.outputs.contract_tests }}
+      blue_green_deploy: ${{ steps.filter.outputs.blue_green_deploy }}
       web: ${{ steps.filter.outputs.web }}
       ci_or_root: ${{ steps.filter.outputs.ci_or_root }}
     steps:
@@ -82,6 +86,27 @@ jobs:
               - 'apps/capability-registry/**'
             repro_service:
               - 'apps/repro-service/**'
+            image_archival:
+              - 'infra/image-archival/**'
+              - 'scripts/validate_image_archival_plan.py'
+              - 'tests/test_image_archival_plan.py'
+            k8s_manifests:
+              - 'infra/k8s/**'
+              - 'scripts/validate_k8s_network_policies.py'
+              - 'tests/test_k8s_network_policies.py'
+            blue_green_deploy:
+              - 'scripts/deploy/**'
+              - 'scripts/validate_blue_green_deploy.py'
+              - 'tests/test_blue_green_deploy.py'
+              - 'docker-compose.blue.yml'
+              - 'docker-compose.green.yml'
+            contract_tests:
+              - 'tests/contract/**'
+              - 'packages/shared-py/opticloud_shared/property_test_base/**'
+              - 'packages/shared-py/tests/test_property_base_schemathesis_sample.py'
+              - 'apps/auth-service/src/auth_service/**'
+              - 'scripts/generate_openapi.py'
+              - 'scripts/check_openapi_drift.py'
             web:
               - 'apps/web/**'
             # CI or root config — re-run everything
@@ -323,6 +348,92 @@ jobs:
 
   # ===== Other service stubs (will populate as services come online) =====
   # api-gateway-test, solver-orchestrator-test, ...
+
+  # ===== sandbox-runner tests (Story M3.1) =====
+  sandbox-runner-test:
+    needs: changes
+    if: needs.changes.outputs.sandbox_runner == 'true' || needs.changes.outputs.ci_or_root == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: pip install uv==${{ env.UV_VERSION }}
+      - run: uv sync --all-packages --extra dev
+      - run: uv run pytest apps/sandbox-runner/tests/ -v
+        env:
+          PYTHONPATH: apps/sandbox-runner/src
+
+  # ===== Image archival prep validation (Story M3.0) =====
+  image-archival-plan:
+    needs: changes
+    if: needs.changes.outputs.image_archival == 'true' || needs.changes.outputs.ci_or_root == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: pip install uv==${{ env.UV_VERSION }}
+      - run: uv sync --all-packages --extra dev
+      - name: Validate archive plan
+        run: uv run python scripts/validate_image_archival_plan.py infra/image-archival/archive-plan.json
+      - name: Run archive plan tests
+        run: uv run pytest tests/test_image_archival_plan.py -v
+
+  # ===== K8s namespace / NetworkPolicy validation (Story M3.3a) =====
+  k8s-manifest-validation:
+    needs: changes
+    if: needs.changes.outputs.k8s_manifests == 'true' || needs.changes.outputs.ci_or_root == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: pip install uv==${{ env.UV_VERSION }}
+      - run: uv sync --all-packages --extra dev
+      - name: Validate production K8s policies
+        run: uv run python scripts/validate_k8s_network_policies.py infra/k8s/production
+      - name: Run K8s policy tests
+        run: uv run pytest tests/test_k8s_network_policies.py -v
+
+  # ===== Lean docker-compose blue/green validation (Story M3.3b) =====
+  blue-green-deploy-validation:
+    needs: changes
+    if: needs.changes.outputs.blue_green_deploy == 'true' || needs.changes.outputs.ci_or_root == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: pip install uv==${{ env.UV_VERSION }}
+      - run: uv sync --all-packages --extra dev
+      - name: Validate blue/green deploy assets
+        run: uv run python scripts/validate_blue_green_deploy.py
+      - name: Run blue/green deploy tests
+        run: uv run pytest tests/test_blue_green_deploy.py -v
+      - name: Check deploy script syntax
+        run: bash -n scripts/deploy/blue-green.sh
+
+  # ===== Contract tests (Story M3.2) =====
+  contract-test:
+    needs: changes
+    if: needs.changes.outputs.contract_tests == 'true' || needs.changes.outputs.ci_or_root == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: pip install uv==${{ env.UV_VERSION }}
+      - run: uv sync --all-packages --extra dev
+      - name: Run contract tests
+        env:
+          PYTHONPATH: apps/auth-service/src:packages/shared-py
+        run: uv run pytest tests/contract -v
 
   # ===== TypeScript: web + ui + shared-ts typecheck =====
   ts-typecheck:

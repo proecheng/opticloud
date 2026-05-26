@@ -1,0 +1,231 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opticloud.local/schemas/image-archival/archive-plan.schema.json",
+  "title": "OptiCloud Image Archival Prep Plan",
+  "type": "object",
+  "required": [
+    "version",
+    "scope",
+    "clock",
+    "tiers",
+    "required_archive_record_fields",
+    "kms_backup_requirements",
+    "restore_drill_evidence_fields",
+    "unavailable_restore_exception_fields",
+    "non_goals",
+    "downstream_story"
+  ],
+  "properties": {
+    "version": {
+      "type": "string"
+    },
+    "scope": {
+      "const": "prep-only"
+    },
+    "clock": {
+      "type": "object",
+      "required": ["source", "timezone"],
+      "properties": {
+        "source": {
+          "const": "reproduction_vouchers.created_at"
+        },
+        "timezone": {
+          "const": "UTC"
+        }
+      }
+    },
+    "tiers": {
+      "type": "array",
+      "prefixItems": [
+        {
+          "$ref": "#/$defs/hotTier"
+        },
+        {
+          "$ref": "#/$defs/warmTier"
+        },
+        {
+          "$ref": "#/$defs/coldTier"
+        }
+      ],
+      "minItems": 3,
+      "maxItems": 3
+    },
+    "required_archive_record_fields": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "voucher_id",
+          "voucher_created_at_utc",
+          "provider_id",
+          "solver",
+          "model_version",
+          "image_digest",
+          "cosign_signature_ref",
+          "sbom_ref",
+          "storage_tier",
+          "registry_or_object_ref",
+          "kms_key_backup_ref"
+        ]
+      },
+      "uniqueItems": true,
+      "minItems": 11,
+      "maxItems": 11
+    },
+    "kms_backup_requirements": {
+      "type": "object",
+      "required": ["required", "reference_field", "minimum_metadata"],
+      "properties": {
+        "required": {
+          "const": true
+        },
+        "reference_field": {
+          "const": "kms_key_backup_ref"
+        },
+        "minimum_metadata": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "kms_key_id",
+              "backup_location_ref",
+              "backup_created_at_utc",
+              "backup_checksum"
+            ]
+          },
+          "uniqueItems": true,
+          "minItems": 4,
+          "maxItems": 4
+        }
+      }
+    },
+    "restore_drill_evidence_fields": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "drill_id",
+          "drill_started_at_utc",
+          "voucher_id",
+          "voucher_created_at_utc",
+          "storage_tier",
+          "registry_or_object_ref",
+          "image_digest",
+          "cosign_signature_ref",
+          "sbom_ref",
+          "kms_key_backup_ref",
+          "operator",
+          "outcome"
+        ]
+      },
+      "uniqueItems": true,
+      "minItems": 12,
+      "maxItems": 12
+    },
+    "unavailable_restore_exception_fields": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "exception_id",
+          "detected_at_utc",
+          "voucher_id",
+          "voucher_created_at_utc",
+          "storage_tier",
+          "missing_or_corrupt_ref",
+          "within_5y_clock",
+          "user_visible_remediation_owner",
+          "engineering_owner",
+          "severity",
+          "outcome"
+        ]
+      },
+      "uniqueItems": true,
+      "minItems": 11,
+      "maxItems": 11
+    },
+    "non_goals": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "downstream_story": {
+      "const": "M3.9 Image 5y layered archival pipeline"
+    }
+  },
+  "$defs": {
+    "tierBase": {
+      "type": "object",
+      "required": ["name", "day_start", "day_end", "storage_class", "purpose"],
+      "properties": {
+        "storage_class": {
+          "type": "string"
+        },
+        "purpose": {
+          "type": "string"
+        },
+        "m3_9_owner": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "hotTier": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/tierBase"
+        },
+        {
+          "properties": {
+            "name": {
+              "const": "hot_acr_ee"
+            },
+            "day_start": {
+              "const": 0
+            },
+            "day_end": {
+              "const": 90
+            }
+          }
+        }
+      ]
+    },
+    "warmTier": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/tierBase"
+        },
+        {
+          "properties": {
+            "name": {
+              "const": "warm_s3_standard_ia"
+            },
+            "day_start": {
+              "const": 91
+            },
+            "day_end": {
+              "const": 365
+            }
+          }
+        }
+      ]
+    },
+    "coldTier": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/tierBase"
+        },
+        {
+          "properties": {
+            "name": {
+              "const": "cold_s3_glacier"
+            },
+            "day_start": {
+              "const": 366
+            },
+            "day_end": {
+              "const": 1826
+            }
+          }
+        }
+      ]
+    }
+  }
+}
