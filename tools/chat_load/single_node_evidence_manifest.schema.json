@@ -1,0 +1,205 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "commit_sha": {
+      "pattern": "^[0-9a-f]{7,40}$",
+      "type": "string"
+    },
+    "endpoint_path": {
+      "pattern": "^/",
+      "type": "string"
+    },
+    "environment": {
+      "const": "single-node-dev",
+      "type": "string"
+    },
+    "example_only": {
+      "type": "boolean"
+    },
+    "generated_by": {
+      "type": "string"
+    },
+    "node_count": {
+      "const": 1,
+      "type": "integer"
+    },
+    "profiles": {
+      "additionalProperties": false,
+      "properties": {
+        "single_node_baseline": {
+          "$ref": "#/$defs/profileEvidence"
+        }
+      },
+      "required": [
+        "single_node_baseline"
+      ],
+      "type": "object"
+    },
+    "prompt_count": {
+      "const": 100,
+      "type": "integer"
+    },
+    "prompt_fixture": {
+      "const": "tools/chat_load/prompts_v1.json",
+      "type": "string"
+    },
+    "prompt_fixture_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "run_id": {
+      "pattern": "^[a-z0-9][a-z0-9._-]{2,63}$",
+      "type": "string"
+    },
+    "source_story": {
+      "const": "M3.6b",
+      "type": "string"
+    }
+  },
+  "required": [
+    "source_story",
+    "run_id",
+    "example_only",
+    "generated_by",
+    "commit_sha",
+    "environment",
+    "node_count",
+    "endpoint_path",
+    "prompt_fixture",
+    "prompt_fixture_sha256",
+    "prompt_count",
+    "profiles"
+  ],
+  "title": "M3.6b Chat single-node baseline evidence manifest",
+  "type": "object",
+  "$defs": {
+    "locustReportPath": {
+      "pattern": "^reports/chat-single-node/[a-z0-9][a-z0-9._-]{2,63}/[^\\\\:]+\\.(html|json)$",
+      "type": "string"
+    },
+    "metricsSnapshotPath": {
+      "pattern": "^reports/chat-single-node/[a-z0-9][a-z0-9._-]{2,63}/[^\\\\:]+\\.json$",
+      "type": "string"
+    },
+    "profileEvidence": {
+      "additionalProperties": false,
+      "properties": {
+        "end_utc": {
+          "pattern": "^20[0-9]{2}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+          "type": "string"
+        },
+        "locust_report": {
+          "$ref": "#/$defs/locustReportPath"
+        },
+        "metrics": {
+          "additionalProperties": false,
+          "properties": {
+            "capability_lookup_p95_ms": {
+              "minimum": 0,
+              "type": "number"
+            },
+            "chat_internal_hop_p95_ms": {
+              "minimum": 0,
+              "type": "number"
+            },
+            "completed_stream_count": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "deadlock_count": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "e2e_solve_p95_ms": {
+              "minimum": 0,
+              "type": "number"
+            },
+            "first_token_p50_ms": {
+              "minimum": 0,
+              "type": "number"
+            },
+            "first_token_p95_ms": {
+              "minimum": 0,
+              "type": "number"
+            },
+            "http_error_rate": {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            "oom_count": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "request_count": {
+              "minimum": 1,
+              "type": "integer"
+            },
+            "sandbox_startup_p95_ms": {
+              "minimum": 0,
+              "type": "number"
+            },
+            "solve_prompt_count": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "streaming_tokens_per_second": {
+              "minimum": 0,
+              "type": "number"
+            },
+            "token_count_method": {
+              "enum": [
+                "provider_usage",
+                "content_unit_approximation"
+              ],
+              "type": "string"
+            },
+            "total_response_p95_ms": {
+              "minimum": 0,
+              "type": "number"
+            }
+          },
+          "required": [
+            "request_count",
+            "completed_stream_count",
+            "first_token_p50_ms",
+            "first_token_p95_ms",
+            "total_response_p95_ms",
+            "streaming_tokens_per_second",
+            "token_count_method",
+            "http_error_rate",
+            "solve_prompt_count",
+            "e2e_solve_p95_ms",
+            "oom_count",
+            "deadlock_count",
+            "sandbox_startup_p95_ms",
+            "capability_lookup_p95_ms",
+            "chat_internal_hop_p95_ms"
+          ],
+          "type": "object"
+        },
+        "metrics_snapshot": {
+          "$ref": "#/$defs/metricsSnapshotPath"
+        },
+        "profile": {
+          "const": "single_node_baseline",
+          "type": "string"
+        },
+        "start_utc": {
+          "pattern": "^20[0-9]{2}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "profile",
+        "start_utc",
+        "end_utc",
+        "locust_report",
+        "metrics_snapshot",
+        "metrics"
+      ],
+      "type": "object"
+    }
+  }
+}

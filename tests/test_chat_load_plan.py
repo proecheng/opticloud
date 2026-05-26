@@ -14,6 +14,10 @@ VALIDATOR_PATH = REPO_ROOT / "scripts" / "validate_chat_load_plan.py"
 PROMPTS_PATH = REPO_ROOT / "tools" / "chat_load" / "prompts_v1.json"
 PROFILES_PATH = REPO_ROOT / "tools" / "chat_load" / "staging_profiles.json"
 EXAMPLE_MANIFEST_PATH = REPO_ROOT / "tools" / "chat_load" / "evidence_manifest.example.json"
+SINGLE_NODE_PROFILES_PATH = REPO_ROOT / "tools" / "chat_load" / "single_node_profiles.json"
+SINGLE_NODE_EXAMPLE_MANIFEST_PATH = (
+    REPO_ROOT / "tools" / "chat_load" / "single_node_evidence_manifest.example.json"
+)
 
 
 def _load_validator() -> ModuleType:
@@ -286,3 +290,197 @@ def test_schema_pins_required_profiles_and_metrics() -> None:
     schema = _load_json(REPO_ROOT / "tools" / "chat_load" / "evidence_manifest.schema.json")
 
     assert validator.validate_schema(schema) == []
+
+
+def test_single_node_profiles_pin_prompt_hash_rps_and_advisory_flags() -> None:
+    validator = _load_validator()
+    prompts = _load_json(PROMPTS_PATH)
+    profiles = _load_json(SINGLE_NODE_PROFILES_PATH)
+
+    assert (
+        validator.validate_single_node_profiles(profiles, validator.prompt_fixture_hash(prompts))
+        == []
+    )
+
+
+def test_single_node_profile_rps_drift_is_rejected() -> None:
+    validator = _load_validator()
+    prompts = _load_json(PROMPTS_PATH)
+    profiles = _load_json(SINGLE_NODE_PROFILES_PATH)
+    profiles["profiles"]["single_node_baseline"]["effective_requests_per_user_per_minute"] = 3
+
+    errors = validator.validate_single_node_profiles(
+        profiles, validator.prompt_fixture_hash(prompts)
+    )
+
+    _assert_invalid(errors, "effective_requests_per_user_per_minute must be 6")
+    _assert_invalid(errors, "RPS math does not match target_rps")
+
+
+def test_single_node_profile_rejects_hard_gate_candidate() -> None:
+    validator = _load_validator()
+    prompts = _load_json(PROMPTS_PATH)
+    profiles = _load_json(SINGLE_NODE_PROFILES_PATH)
+    profiles["profiles"]["single_node_baseline"]["hard_gate_candidate"] = True
+
+    errors = validator.validate_single_node_profiles(
+        profiles, validator.prompt_fixture_hash(prompts)
+    )
+
+    _assert_invalid(errors, "hard_gate_candidate must be False")
+
+
+def test_single_node_manifest_rejects_nested_hard_gate_claim() -> None:
+    validator = _load_validator()
+    prompts = _load_json(PROMPTS_PATH)
+    manifest = _load_json(SINGLE_NODE_EXAMPLE_MANIFEST_PATH)
+    manifest["profiles"]["single_node_baseline"]["hard_gate_candidate"] = True
+    manifest["profiles"]["single_node_baseline"]["metrics"]["hard_gate_pass"] = True
+
+    errors = validator.validate_single_node_manifest(
+        manifest,
+        validator.prompt_fixture_hash(prompts),
+        source="single-node",
+        real_evidence=False,
+    )
+
+    _assert_invalid(errors, "cannot be a hard-gate candidate")
+    _assert_invalid(errors, "cannot claim hard-gate pass")
+
+
+def test_single_node_locustfile_reuses_staging_metric_helpers() -> None:
+    validator = _load_validator()
+
+    assert validator.validate_single_node_locustfile() == []
+
+
+def test_single_node_schema_pins_profile_and_metrics() -> None:
+    validator = _load_validator()
+    schema = _load_json(
+        REPO_ROOT / "tools" / "chat_load" / "single_node_evidence_manifest.schema.json"
+    )
+
+    assert validator.validate_single_node_schema(schema) == []
+    assert schema["$defs"]["metricsSnapshotPath"]["pattern"].endswith("\\.json$")
+
+
+def test_single_node_example_manifest_is_valid_but_not_real_evidence() -> None:
+    validator = _load_validator()
+    prompts = _load_json(PROMPTS_PATH)
+    manifest = _load_json(SINGLE_NODE_EXAMPLE_MANIFEST_PATH)
+    expected_hash = validator.prompt_fixture_hash(prompts)
+
+    assert (
+        validator.validate_single_node_manifest(
+            manifest,
+            expected_hash,
+            source="single-node-example",
+            real_evidence=False,
+        )
+        == []
+    )
+    errors = validator.validate_single_node_manifest(
+        manifest,
+        expected_hash,
+        source="single-node-example",
+        real_evidence=True,
+    )
+    _assert_invalid(errors, "real single-node evidence must set example_only=false")
+
+
+def test_single_node_evidence_path_mode_accepts_redacted_manifest() -> None:
+    manifest = _load_json(SINGLE_NODE_EXAMPLE_MANIFEST_PATH)
+    manifest["example_only"] = False
+    run_dir = REPO_ROOT / "reports" / "chat-single-node" / "test-single-node-20260526"
+    run_dir.mkdir(parents=True, exist_ok=True)
+    path = run_dir / "evidence_manifest.json"
+    adjusted = copy.deepcopy(manifest)
+    adjusted["run_id"] = "test-single-node-20260526"
+    profile = adjusted["profiles"]["single_node_baseline"]
+    profile["locust_report"] = profile["locust_report"].replace(
+        "example-single-node-20260526", "test-single-node-20260526"
+    )
+    profile["metrics_snapshot"] = profile["metrics_snapshot"].replace(
+        "example-single-node-20260526", "test-single-node-20260526"
+    )
+    path.write_text(json.dumps(adjusted, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+    result = subprocess.run(
+        [sys.executable, str(VALIDATOR_PATH), "--single-node-evidence", str(path)],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    try:
+        assert result.returncode == 0, result.stdout + result.stderr
+    finally:
+        path.unlink(missing_ok=True)
+        run_dir.rmdir()
+
+
+def test_single_node_evidence_rejects_wrong_node_count_and_environment() -> None:
+    validator = _load_validator()
+    prompts = _load_json(PROMPTS_PATH)
+    manifest = _load_json(SINGLE_NODE_EXAMPLE_MANIFEST_PATH)
+    manifest["node_count"] = 5
+    manifest["environment"] = "staging"
+
+    errors = validator.validate_single_node_manifest(
+        manifest,
+        validator.prompt_fixture_hash(prompts),
+        source="single-node",
+        real_evidence=False,
+    )
+
+    _assert_invalid(errors, "node_count must be 1")
+    _assert_invalid(errors, "environment must be single-node-dev")
+
+
+def test_single_node_evidence_rejects_path_traversal_and_wrong_extensions() -> None:
+    validator = _load_validator()
+    prompts = _load_json(PROMPTS_PATH)
+    manifest = _load_json(SINGLE_NODE_EXAMPLE_MANIFEST_PATH)
+    profile = manifest["profiles"]["single_node_baseline"]
+    profile["locust_report"] = "reports/chat-single-node/other-run/../single-node.txt"
+    profile["metrics_snapshot"] = (
+        "reports/chat-single-node/example-single-node-20260526/single-node-metrics.html"
+    )
+
+    errors = validator.validate_single_node_manifest(
+        manifest,
+        validator.prompt_fixture_hash(prompts),
+        source="single-node",
+        real_evidence=False,
+    )
+
+    _assert_invalid(errors, "must not traverse")
+    _assert_invalid(
+        errors, "must stay under reports/chat-single-node/example-single-node-20260526/"
+    )
+    _assert_invalid(errors, "Locust report must be .html or .json")
+    _assert_invalid(errors, "metrics snapshot must be .json")
+
+
+def test_single_node_real_evidence_advisory_threshold_failures_are_rejected() -> None:
+    validator = _load_validator()
+    prompts = _load_json(PROMPTS_PATH)
+    profiles = _load_json(SINGLE_NODE_PROFILES_PATH)
+    manifest = _load_json(SINGLE_NODE_EXAMPLE_MANIFEST_PATH)
+    manifest["example_only"] = False
+    metrics = manifest["profiles"]["single_node_baseline"]["metrics"]
+    metrics["first_token_p95_ms"] = 3000
+    metrics["streaming_tokens_per_second"] = 19.9
+    metrics["sandbox_startup_p95_ms"] = 100
+
+    errors = validator.validate_single_node_manifest(
+        manifest,
+        validator.prompt_fixture_hash(prompts),
+        source="single-node-real",
+        real_evidence=True,
+        profile_config=profiles["profiles"]["single_node_baseline"],
+    )
+
+    _assert_invalid(errors, "first_token_p95_ms fails advisory threshold")
+    _assert_invalid(errors, "streaming_tokens_per_second fails advisory threshold")
+    _assert_invalid(errors, "sandbox_startup_p95_ms fails advisory threshold")

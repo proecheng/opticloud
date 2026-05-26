@@ -1,0 +1,39 @@
+{
+  "commit_sha": "0000000",
+  "endpoint_path": "/v1/chat/stream",
+  "environment": "single-node-dev",
+  "example_only": true,
+  "generated_by": "M3.6b example manifest; not real single-node evidence",
+  "node_count": 1,
+  "profiles": {
+    "single_node_baseline": {
+      "end_utc": "2026-05-26T09:05:00Z",
+      "locust_report": "reports/chat-single-node/example-single-node-20260526/single-node-locust.html",
+      "metrics": {
+        "capability_lookup_p95_ms": 14,
+        "chat_internal_hop_p95_ms": 150,
+        "completed_stream_count": 600,
+        "deadlock_count": 0,
+        "e2e_solve_p95_ms": 62000,
+        "first_token_p50_ms": 850,
+        "first_token_p95_ms": 2100,
+        "http_error_rate": 0,
+        "oom_count": 0,
+        "request_count": 600,
+        "sandbox_startup_p95_ms": 75,
+        "solve_prompt_count": 234,
+        "streaming_tokens_per_second": 24,
+        "token_count_method": "content_unit_approximation",
+        "total_response_p95_ms": 3900
+      },
+      "metrics_snapshot": "reports/chat-single-node/example-single-node-20260526/single-node-metrics.json",
+      "profile": "single_node_baseline",
+      "start_utc": "2026-05-26T09:00:00Z"
+    }
+  },
+  "prompt_count": 100,
+  "prompt_fixture": "tools/chat_load/prompts_v1.json",
+  "prompt_fixture_sha256": "57a47193517b19cca0983c5f00c17b246197c80620db9f87d17cdd16db79529c",
+  "run_id": "example-single-node-20260526",
+  "source_story": "M3.6b"
+}
