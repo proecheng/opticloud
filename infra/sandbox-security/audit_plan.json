@@ -1,0 +1,36 @@
+{
+  "audit_version": "sandbox_security_audit_v1",
+  "source_story": "M3.7",
+  "source_decision": "PMR3",
+  "source_gap": "CRG6",
+  "scope": "static_sandbox_security_audit_contract",
+  "scenario_ids": [
+    "escape-fork-bomb",
+    "escape-root-filesystem-write",
+    "escape-external-network-egress",
+    "escape-docker-socket-access",
+    "escape-sys-ptrace",
+    "escape-mount-namespace",
+    "escape-host-path-mount",
+    "escape-privileged-container",
+    "escape-host-namespaces",
+    "escape-capability-escalation",
+    "escape-kernel-module-load",
+    "escape-proc-host-inspection",
+    "supply-chain-typosquat-pypi",
+    "supply-chain-poisoned-base-image",
+    "supply-chain-sbom-diff-hijack"
+  ],
+  "guard_coverage": {
+    "apparmor_profile": "validate_apparmor_profile",
+    "capability_drop_all": "validate_hardening_manifest",
+    "deny_all_egress": "validate_hardening_manifest",
+    "gvisor_runtime_class": "validate_hardening_manifest",
+    "no_docker_socket": "validate_hardening_manifest",
+    "no_host_path": "validate_hardening_manifest",
+    "no_host_namespaces": "validate_hardening_manifest",
+    "read_only_root_filesystem": "validate_hardening_manifest",
+    "seccomp_runtime_default": "validate_hardening_manifest",
+    "supply_chain_policy": "validate_supply_chain_policy"
+  }
+}

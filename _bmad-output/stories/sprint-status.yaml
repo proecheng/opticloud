@@ -58,7 +58,7 @@ development_status:
   m3-6c-chat-incident-fallback: done           # G6 — 2026-05-26 Chat incident fallback drill contract + evidence validator + CI gate; post-review timeline/schema fixes applied
   m3-6d-api-gateway-perf-baseline: done            # Q-T3 — 2026-05-26 API gateway perf baseline contract + Locust/evidence validator + CI gate; post-review import-boundary/hash fixes applied
   m3-6e-prod-traffic-replay: done              # RE2-7 — 2026-05-26 Traffic replay static contract + sanitizer/evidence validator + CI gate; post-review closure/JWT/camelCase fixes applied
-  m3-7-sandbox-security-audit: backlog         # PMR3
+  m3-7-sandbox-security-audit: done            # PMR3 — 2026-05-26 Sandbox security audit contract + static validator + CI gate; post-review metadata payload boundary fix applied
   m3-8-llm-provider-abstraction: backlog       # PMR8
   m3-9-image-5y-archival: backlog              # G7 Critical Gap
   m4-5-gtm-toolkit: backlog                    # RE2-4

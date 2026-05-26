@@ -1,0 +1,18 @@
+# AppArmor profile for sandbox-runner deployment validation.
+# Static CI validates this profile text only; it does not load the profile.
+
+profile opticloud-sandbox-runner flags=(attach_disconnected,mediate_deleted) {
+  deny /** w,
+  deny /etc/** w,
+  deny /proc/sys/** w,
+  deny /sys/** w,
+  deny /var/run/docker.sock rw,
+  deny network raw,
+  deny network packet,
+  deny capability sys_admin,
+  deny capability sys_module,
+  deny capability sys_ptrace,
+
+  /sandbox/results/** rw,
+  /tmp/** rw,
+}

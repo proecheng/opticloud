@@ -77,5 +77,26 @@ repos:
           # Public M3.6d API gateway performance baseline plan SHA-256, not a secret.
           - "--exclude-secrets"
           - "946f35ad4cb7006acc5d4d2df46cab321965d6c2e783f652653ae06597fb764e"
+          # Public M3.6e traffic replay capture fixture SHA-256, not a secret.
+          - "--exclude-secrets"
+          - "37b098c3e1a128088563f2d29062b1abe724a02f7c669a45c414bbf9dbcc9fc1"
+          # Public M3.6e traffic replay plan SHA-256, not a secret.
+          - "--exclude-secrets"
+          - "c40d27b3e2855d4634c84460d859351bae2fec6b2f92ca8badb5a6cd62136d6a"
+          # Public M3.7 sandbox security audit AppArmor profile SHA-256, not a secret.
+          - "--exclude-secrets"
+          - "633480f0068a87628d8648132bc0d715340a92f07d1607bfd1211960c7c80f09"
+          # Public M3.7 sandbox security attack scenario SHA-256, not a secret.
+          - "--exclude-secrets"
+          - "ab6b443ef63d6e6b510991400ce86dc142e3244dbc3ff4e787ad7cb521e29b90"
+          # Public M3.7 sandbox security audit plan SHA-256, not a secret.
+          - "--exclude-secrets"
+          - "48239539617b6c882db9558dee5465ac90f7f9e395b4ce52b41c35a8c42e0989"
+          # Public M3.7 sandbox security hardening manifest SHA-256, not a secret.
+          - "--exclude-secrets"
+          - "231b6c16facab046ce1703f414930a28e02d939159d5047a81d6afbc31e803b5"
+          # Public M3.7 sandbox security supply-chain policy SHA-256, not a secret.
+          - "--exclude-secrets"
+          - "e096ea9a05866b90380f86b9d2eec14a29848b7d65aa8b02e9534b8da41b513f"
         # pnpm-lock.yaml contains generated integrity hashes that trigger high-entropy false positives.
         exclude: ^(\.env\.example|infra/local-init/.*\.sql|.*\.stories\.tsx|pnpm-lock\.yaml)$
