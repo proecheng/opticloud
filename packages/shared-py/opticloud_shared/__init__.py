@@ -8,7 +8,9 @@ Modules (built progressively per epics.md Story 0.x):
 - property_test_base: Hypothesis + Schemathesis fixtures (Story 0.5b)
 """
 
+import aigc_filter
+
 from opticloud_shared import cost_telemetry, otel_setup, schemas
 
 __version__ = "0.0.1"
-__all__ = ["cost_telemetry", "otel_setup", "schemas"]
+__all__ = ["aigc_filter", "cost_telemetry", "otel_setup", "schemas"]
