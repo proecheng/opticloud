@@ -109,6 +109,7 @@ jobs:
               - 'scripts/report_aigc_filter_metrics.py'
             contract_tests:
               - 'tests/contract/**'
+              - 'packages/shared-py/aigc_filter/**'
               - 'packages/shared-py/opticloud_shared/property_test_base/**'
               - 'packages/shared-py/tests/test_property_base_schemathesis_sample.py'
               - 'apps/auth-service/src/auth_service/**'

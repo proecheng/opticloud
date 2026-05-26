@@ -1,6 +1,8 @@
 # Contract Tests
 
-Story M3.2 adds the PR-gated Schemathesis contract test harness.
+Story M3.2 adds the PR-gated Schemathesis contract test harness. Story M3.4b
+adds shared-module contract tests in this folder so service contracts and
+module contracts share one PR gate.
 
 ## What This Checks
 
@@ -10,11 +12,19 @@ Contract tests validate actual FastAPI behavior against the app OpenAPI schema t
 - `scripts/check_openapi_drift.py` verifies checked-in OpenAPI files match generated output.
 - `tests/contract/` validates selected app endpoints behave according to their OpenAPI schema.
 
+Module contract tests validate non-HTTP shared library APIs with Python
+introspection plus committed JSON snapshots. `aigc_filter_contract.json` locks
+`aigc_filter.filter(text, tier="strict", context=None) -> Filtered`, result
+fields, public exports, the major contract version, and the 183-day minimum
+deprecation notice window. These tests intentionally do not use Schemathesis
+because `aigc_filter` is not an OpenAPI service.
+
 ## Current Required Services
 
 | Service | Mode | Required paths |
 |---|---|---|
 | `auth-service` | in-process ASGI | `/healthz` |
+| `aigc_filter` | Python module snapshot | `filter`, `Filtered`, watermark metadata |
 
 The first PR gate intentionally targets the non-mutating no-DB `/healthz` endpoint so it does not need Postgres, Redis, Docker, Kubernetes, network access, or secrets. `/readyz` remains a future target once the contract harness owns a DB fixture or dependency override.
 
