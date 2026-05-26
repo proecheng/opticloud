@@ -1,0 +1,719 @@
+{
+  "report_version": "llm_router_behavior_parity_v1",
+  "source_story": "M3.8",
+  "example_only": true,
+  "evidence_type": "offline deterministic parity",
+  "reference_prompts_sha256": "8caaadeec34c17bc08b71abab1394605f377943666f7197ce0a49d9b9cc08ca2",
+  "primary_alias": "deepseek-v3.5",
+  "primary_provider": "deepseek-compatible",
+  "fallback_alias": "qwen-max",
+  "fallback_provider": "qwen-compatible",
+  "prompt_count": 100,
+  "threshold": 0.85,
+  "minimum_similarity": 0.909122,
+  "average_similarity": 0.918107,
+  "maximum_similarity": 0.932673,
+  "passed": true,
+  "deviations": [
+    {
+      "prompt_id": "llm-router-ref-001",
+      "task": "router_intent",
+      "similarity": 0.931695,
+      "primary_summary": "llm-router-ref-001 router decision task type vrptw confidence 0 92 reasoning 判断用户输入属于 库存优化 排程还是预测任务 并输出 scenario 01 客户有",
+      "fallback_summary": "llm-router-ref-001 router decision task type vrptw confidence 0 92 reasoning 判断用户输入属于 库存优化 排程还是预测任务 并输出 scenario 01 客户有"
+    },
+    {
+      "prompt_id": "llm-router-ref-002",
+      "task": "router_intent",
+      "similarity": 0.932673,
+      "primary_summary": "llm-router-ref-002 router decision task type vrptw confidence 0 92 reasoning 判断用户输入属于 库存优化 排程还是预测任务 并输出 scenario 02 客户有",
+      "fallback_summary": "llm-router-ref-002 router decision task type vrptw confidence 0 92 reasoning 判断用户输入属于 库存优化 排程还是预测任务 并输出 scenario 02 客户有"
+    },
+    {
+      "prompt_id": "llm-router-ref-003",
+      "task": "router_intent",
+      "similarity": 0.930836,
+      "primary_summary": "llm-router-ref-003 router decision task type vrptw confidence 0 92 reasoning 判断用户输入属于 库存优化 排程还是预测任务 并输出 scenario 03 客户有",
+      "fallback_summary": "llm-router-ref-003 router decision task type vrptw confidence 0 92 reasoning 判断用户输入属于 库存优化 排程还是预测任务 并输出 scenario 03 客户有"
+    },
+    {
+      "prompt_id": "llm-router-ref-004",
+      "task": "router_intent",
+      "similarity": 0.931695,
+      "primary_summary": "llm-router-ref-004 router decision task type vrptw confidence 0 92 reasoning 判断用户输入属于 库存优化 排程还是预测任务 并输出 scenario 04 客户有",
+      "fallback_summary": "llm-router-ref-004 router decision task type vrptw confidence 0 92 reasoning 判断用户输入属于 库存优化 排程还是预测任务 并输出 scenario 04 客户有"
+    },
+    {
+      "prompt_id": "llm-router-ref-005",
+      "task": "router_intent",
+      "similarity": 0.931695,
+      "primary_summary": "llm-router-ref-005 router decision task type vrptw confidence 0 92 reasoning 判断用户输入属于 库存优化 排程还是预测任务 并输出 scenario 05 客户有",
+      "fallback_summary": "llm-router-ref-005 router decision task type vrptw confidence 0 92 reasoning 判断用户输入属于 库存优化 排程还是预测任务 并输出 scenario 05 客户有"
+    },
+    {
+      "prompt_id": "llm-router-ref-006",
+      "task": "router_intent",
+      "similarity": 0.930836,
+      "primary_summary": "llm-router-ref-006 router decision task type vrptw confidence 0 92 reasoning 判断用户输入属于 库存优化 排程还是预测任务 并输出 scenario 06 客户有",
+      "fallback_summary": "llm-router-ref-006 router decision task type vrptw confidence 0 92 reasoning 判断用户输入属于 库存优化 排程还是预测任务 并输出 scenario 06 客户有"
+    },
+    {
+      "prompt_id": "llm-router-ref-007",
+      "task": "router_intent",
+      "similarity": 0.931695,
+      "primary_summary": "llm-router-ref-007 router decision task type vrptw confidence 0 92 reasoning 判断用户输入属于 库存优化 排程还是预测任务 并输出 scenario 07 客户有",
+      "fallback_summary": "llm-router-ref-007 router decision task type vrptw confidence 0 92 reasoning 判断用户输入属于 库存优化 排程还是预测任务 并输出 scenario 07 客户有"
+    },
+    {
+      "prompt_id": "llm-router-ref-008",
+      "task": "router_intent",
+      "similarity": 0.931695,
+      "primary_summary": "llm-router-ref-008 router decision task type vrptw confidence 0 92 reasoning 判断用户输入属于 库存优化 排程还是预测任务 并输出 scenario 08 客户有",
+      "fallback_summary": "llm-router-ref-008 router decision task type vrptw confidence 0 92 reasoning 判断用户输入属于 库存优化 排程还是预测任务 并输出 scenario 08 客户有"
+    },
+    {
+      "prompt_id": "llm-router-ref-009",
+      "task": "router_intent",
+      "similarity": 0.930836,
+      "primary_summary": "llm-router-ref-009 router decision task type vrptw confidence 0 92 reasoning 判断用户输入属于 库存优化 排程还是预测任务 并输出 scenario 09 客户有",
+      "fallback_summary": "llm-router-ref-009 router decision task type vrptw confidence 0 92 reasoning 判断用户输入属于 库存优化 排程还是预测任务 并输出 scenario 09 客户有"
+    },
+    {
+      "prompt_id": "llm-router-ref-010",
+      "task": "router_intent",
+      "similarity": 0.931695,
+      "primary_summary": "llm-router-ref-010 router decision task type vrptw confidence 0 92 reasoning 判断用户输入属于 库存优化 排程还是预测任务 并输出 scenario 10 客户有",
+      "fallback_summary": "llm-router-ref-010 router decision task type vrptw confidence 0 92 reasoning 判断用户输入属于 库存优化 排程还是预测任务 并输出 scenario 10 客户有"
+    },
+    {
+      "prompt_id": "llm-router-ref-011",
+      "task": "router_intent",
+      "similarity": 0.931695,
+      "primary_summary": "llm-router-ref-011 router decision task type vrptw confidence 0 92 reasoning 判断用户输入属于 库存优化 排程还是预测任务 并输出 scenario 11 客户有",
+      "fallback_summary": "llm-router-ref-011 router decision task type vrptw confidence 0 92 reasoning 判断用户输入属于 库存优化 排程还是预测任务 并输出 scenario 11 客户有"
+    },
+    {
+      "prompt_id": "llm-router-ref-012",
+      "task": "router_intent",
+      "similarity": 0.930836,
+      "primary_summary": "llm-router-ref-012 router decision task type vrptw confidence 0 92 reasoning 判断用户输入属于 库存优化 排程还是预测任务 并输出 scenario 12 客户有",
+      "fallback_summary": "llm-router-ref-012 router decision task type vrptw confidence 0 92 reasoning 判断用户输入属于 库存优化 排程还是预测任务 并输出 scenario 12 客户有"
+    },
+    {
+      "prompt_id": "llm-router-ref-013",
+      "task": "router_intent",
+      "similarity": 0.931695,
+      "primary_summary": "llm-router-ref-013 router decision task type vrptw confidence 0 92 reasoning 判断用户输入属于 库存优化 排程还是预测任务 并输出 scenario 13 客户有",
+      "fallback_summary": "llm-router-ref-013 router decision task type vrptw confidence 0 92 reasoning 判断用户输入属于 库存优化 排程还是预测任务 并输出 scenario 13 客户有"
+    },
+    {
+      "prompt_id": "llm-router-ref-014",
+      "task": "router_intent",
+      "similarity": 0.931695,
+      "primary_summary": "llm-router-ref-014 router decision task type vrptw confidence 0 92 reasoning 判断用户输入属于 库存优化 排程还是预测任务 并输出 scenario 14 客户有",
+      "fallback_summary": "llm-router-ref-014 router decision task type vrptw confidence 0 92 reasoning 判断用户输入属于 库存优化 排程还是预测任务 并输出 scenario 14 客户有"
+    },
+    {
+      "prompt_id": "llm-router-ref-015",
+      "task": "router_intent",
+      "similarity": 0.930836,
+      "primary_summary": "llm-router-ref-015 router decision task type vrptw confidence 0 92 reasoning 判断用户输入属于 库存优化 排程还是预测任务 并输出 scenario 15 客户有",
+      "fallback_summary": "llm-router-ref-015 router decision task type vrptw confidence 0 92 reasoning 判断用户输入属于 库存优化 排程还是预测任务 并输出 scenario 15 客户有"
+    },
+    {
+      "prompt_id": "llm-router-ref-016",
+      "task": "router_intent",
+      "similarity": 0.931695,
+      "primary_summary": "llm-router-ref-016 router decision task type vrptw confidence 0 92 reasoning 判断用户输入属于 库存优化 排程还是预测任务 并输出 scenario 16 客户有",
+      "fallback_summary": "llm-router-ref-016 router decision task type vrptw confidence 0 92 reasoning 判断用户输入属于 库存优化 排程还是预测任务 并输出 scenario 16 客户有"
+    },
+    {
+      "prompt_id": "llm-router-ref-017",
+      "task": "router_intent",
+      "similarity": 0.931695,
+      "primary_summary": "llm-router-ref-017 router decision task type vrptw confidence 0 92 reasoning 判断用户输入属于 库存优化 排程还是预测任务 并输出 scenario 17 客户有",
+      "fallback_summary": "llm-router-ref-017 router decision task type vrptw confidence 0 92 reasoning 判断用户输入属于 库存优化 排程还是预测任务 并输出 scenario 17 客户有"
+    },
+    {
+      "prompt_id": "llm-router-ref-018",
+      "task": "router_intent",
+      "similarity": 0.930836,
+      "primary_summary": "llm-router-ref-018 router decision task type vrptw confidence 0 92 reasoning 判断用户输入属于 库存优化 排程还是预测任务 并输出 scenario 18 客户有",
+      "fallback_summary": "llm-router-ref-018 router decision task type vrptw confidence 0 92 reasoning 判断用户输入属于 库存优化 排程还是预测任务 并输出 scenario 18 客户有"
+    },
+    {
+      "prompt_id": "llm-router-ref-019",
+      "task": "router_intent",
+      "similarity": 0.931695,
+      "primary_summary": "llm-router-ref-019 router decision task type vrptw confidence 0 92 reasoning 判断用户输入属于 库存优化 排程还是预测任务 并输出 scenario 19 客户有",
+      "fallback_summary": "llm-router-ref-019 router decision task type vrptw confidence 0 92 reasoning 判断用户输入属于 库存优化 排程还是预测任务 并输出 scenario 19 客户有"
+    },
+    {
+      "prompt_id": "llm-router-ref-020",
+      "task": "router_intent",
+      "similarity": 0.931695,
+      "primary_summary": "llm-router-ref-020 router decision task type vrptw confidence 0 92 reasoning 判断用户输入属于 库存优化 排程还是预测任务 并输出 scenario 20 客户有",
+      "fallback_summary": "llm-router-ref-020 router decision task type vrptw confidence 0 92 reasoning 判断用户输入属于 库存优化 排程还是预测任务 并输出 scenario 20 客户有"
+    },
+    {
+      "prompt_id": "llm-router-ref-021",
+      "task": "formulator_extraction",
+      "similarity": 0.910599,
+      "primary_summary": "llm-router-ref-021 formulator extraction variables constraints objective normalized model 从中文业务描述提取变量 约束 目标函数和数据字段 保持可复核 scenario 01 客户有 4 个站点",
+      "fallback_summary": "llm-router-ref-021 formulator extraction variables constraints objective normalized model 从中文业务描述提取变量 约束 目标函数和数据字段 保持可复核 scenario 01 客户有 4 个站点"
+    },
+    {
+      "prompt_id": "llm-router-ref-022",
+      "task": "formulator_extraction",
+      "similarity": 0.912263,
+      "primary_summary": "llm-router-ref-022 formulator extraction variables constraints objective normalized model 从中文业务描述提取变量 约束 目标函数和数据字段 保持可复核 scenario 02 客户有 5 个站点",
+      "fallback_summary": "llm-router-ref-022 formulator extraction variables constraints objective normalized model 从中文业务描述提取变量 约束 目标函数和数据字段 保持可复核 scenario 02 客户有 5 个站点"
+    },
+    {
+      "prompt_id": "llm-router-ref-023",
+      "task": "formulator_extraction",
+      "similarity": 0.912029,
+      "primary_summary": "llm-router-ref-023 formulator extraction variables constraints objective normalized model 从中文业务描述提取变量 约束 目标函数和数据字段 保持可复核 scenario 03 客户有 6 个站点",
+      "fallback_summary": "llm-router-ref-023 formulator extraction variables constraints objective normalized model 从中文业务描述提取变量 约束 目标函数和数据字段 保持可复核 scenario 03 客户有 6 个站点"
+    },
+    {
+      "prompt_id": "llm-router-ref-024",
+      "task": "formulator_extraction",
+      "similarity": 0.910599,
+      "primary_summary": "llm-router-ref-024 formulator extraction variables constraints objective normalized model 从中文业务描述提取变量 约束 目标函数和数据字段 保持可复核 scenario 04 客户有 7 个站点",
+      "fallback_summary": "llm-router-ref-024 formulator extraction variables constraints objective normalized model 从中文业务描述提取变量 约束 目标函数和数据字段 保持可复核 scenario 04 客户有 7 个站点"
+    },
+    {
+      "prompt_id": "llm-router-ref-025",
+      "task": "formulator_extraction",
+      "similarity": 0.910599,
+      "primary_summary": "llm-router-ref-025 formulator extraction variables constraints objective normalized model 从中文业务描述提取变量 约束 目标函数和数据字段 保持可复核 scenario 05 客户有 8 个站点",
+      "fallback_summary": "llm-router-ref-025 formulator extraction variables constraints objective normalized model 从中文业务描述提取变量 约束 目标函数和数据字段 保持可复核 scenario 05 客户有 8 个站点"
+    },
+    {
+      "prompt_id": "llm-router-ref-026",
+      "task": "formulator_extraction",
+      "similarity": 0.909122,
+      "primary_summary": "llm-router-ref-026 formulator extraction variables constraints objective normalized model 从中文业务描述提取变量 约束 目标函数和数据字段 保持可复核 scenario 06 客户有 9 个站点",
+      "fallback_summary": "llm-router-ref-026 formulator extraction variables constraints objective normalized model 从中文业务描述提取变量 约束 目标函数和数据字段 保持可复核 scenario 06 客户有 9 个站点"
+    },
+    {
+      "prompt_id": "llm-router-ref-027",
+      "task": "formulator_extraction",
+      "similarity": 0.910599,
+      "primary_summary": "llm-router-ref-027 formulator extraction variables constraints objective normalized model 从中文业务描述提取变量 约束 目标函数和数据字段 保持可复核 scenario 07 客户有 10 个站点",
+      "fallback_summary": "llm-router-ref-027 formulator extraction variables constraints objective normalized model 从中文业务描述提取变量 约束 目标函数和数据字段 保持可复核 scenario 07 客户有 10 个站点"
+    },
+    {
+      "prompt_id": "llm-router-ref-028",
+      "task": "formulator_extraction",
+      "similarity": 0.910599,
+      "primary_summary": "llm-router-ref-028 formulator extraction variables constraints objective normalized model 从中文业务描述提取变量 约束 目标函数和数据字段 保持可复核 scenario 08 客户有 11 个站点",
+      "fallback_summary": "llm-router-ref-028 formulator extraction variables constraints objective normalized model 从中文业务描述提取变量 约束 目标函数和数据字段 保持可复核 scenario 08 客户有 11 个站点"
+    },
+    {
+      "prompt_id": "llm-router-ref-029",
+      "task": "formulator_extraction",
+      "similarity": 0.909122,
+      "primary_summary": "llm-router-ref-029 formulator extraction variables constraints objective normalized model 从中文业务描述提取变量 约束 目标函数和数据字段 保持可复核 scenario 09 客户有 12 个站点",
+      "fallback_summary": "llm-router-ref-029 formulator extraction variables constraints objective normalized model 从中文业务描述提取变量 约束 目标函数和数据字段 保持可复核 scenario 09 客户有 12 个站点"
+    },
+    {
+      "prompt_id": "llm-router-ref-030",
+      "task": "formulator_extraction",
+      "similarity": 0.910599,
+      "primary_summary": "llm-router-ref-030 formulator extraction variables constraints objective normalized model 从中文业务描述提取变量 约束 目标函数和数据字段 保持可复核 scenario 10 客户有 13 个站点",
+      "fallback_summary": "llm-router-ref-030 formulator extraction variables constraints objective normalized model 从中文业务描述提取变量 约束 目标函数和数据字段 保持可复核 scenario 10 客户有 13 个站点"
+    },
+    {
+      "prompt_id": "llm-router-ref-031",
+      "task": "formulator_extraction",
+      "similarity": 0.910599,
+      "primary_summary": "llm-router-ref-031 formulator extraction variables constraints objective normalized model 从中文业务描述提取变量 约束 目标函数和数据字段 保持可复核 scenario 11 客户有 14 个站点",
+      "fallback_summary": "llm-router-ref-031 formulator extraction variables constraints objective normalized model 从中文业务描述提取变量 约束 目标函数和数据字段 保持可复核 scenario 11 客户有 14 个站点"
+    },
+    {
+      "prompt_id": "llm-router-ref-032",
+      "task": "formulator_extraction",
+      "similarity": 0.909122,
+      "primary_summary": "llm-router-ref-032 formulator extraction variables constraints objective normalized model 从中文业务描述提取变量 约束 目标函数和数据字段 保持可复核 scenario 12 客户有 15 个站点",
+      "fallback_summary": "llm-router-ref-032 formulator extraction variables constraints objective normalized model 从中文业务描述提取变量 约束 目标函数和数据字段 保持可复核 scenario 12 客户有 15 个站点"
+    },
+    {
+      "prompt_id": "llm-router-ref-033",
+      "task": "formulator_extraction",
+      "similarity": 0.910599,
+      "primary_summary": "llm-router-ref-033 formulator extraction variables constraints objective normalized model 从中文业务描述提取变量 约束 目标函数和数据字段 保持可复核 scenario 13 客户有 16 个站点",
+      "fallback_summary": "llm-router-ref-033 formulator extraction variables constraints objective normalized model 从中文业务描述提取变量 约束 目标函数和数据字段 保持可复核 scenario 13 客户有 16 个站点"
+    },
+    {
+      "prompt_id": "llm-router-ref-034",
+      "task": "formulator_extraction",
+      "similarity": 0.910599,
+      "primary_summary": "llm-router-ref-034 formulator extraction variables constraints objective normalized model 从中文业务描述提取变量 约束 目标函数和数据字段 保持可复核 scenario 14 客户有 17 个站点",
+      "fallback_summary": "llm-router-ref-034 formulator extraction variables constraints objective normalized model 从中文业务描述提取变量 约束 目标函数和数据字段 保持可复核 scenario 14 客户有 17 个站点"
+    },
+    {
+      "prompt_id": "llm-router-ref-035",
+      "task": "formulator_extraction",
+      "similarity": 0.909122,
+      "primary_summary": "llm-router-ref-035 formulator extraction variables constraints objective normalized model 从中文业务描述提取变量 约束 目标函数和数据字段 保持可复核 scenario 15 客户有 18 个站点",
+      "fallback_summary": "llm-router-ref-035 formulator extraction variables constraints objective normalized model 从中文业务描述提取变量 约束 目标函数和数据字段 保持可复核 scenario 15 客户有 18 个站点"
+    },
+    {
+      "prompt_id": "llm-router-ref-036",
+      "task": "formulator_extraction",
+      "similarity": 0.910599,
+      "primary_summary": "llm-router-ref-036 formulator extraction variables constraints objective normalized model 从中文业务描述提取变量 约束 目标函数和数据字段 保持可复核 scenario 16 客户有 19 个站点",
+      "fallback_summary": "llm-router-ref-036 formulator extraction variables constraints objective normalized model 从中文业务描述提取变量 约束 目标函数和数据字段 保持可复核 scenario 16 客户有 19 个站点"
+    },
+    {
+      "prompt_id": "llm-router-ref-037",
+      "task": "formulator_extraction",
+      "similarity": 0.910599,
+      "primary_summary": "llm-router-ref-037 formulator extraction variables constraints objective normalized model 从中文业务描述提取变量 约束 目标函数和数据字段 保持可复核 scenario 17 客户有 20 个站点",
+      "fallback_summary": "llm-router-ref-037 formulator extraction variables constraints objective normalized model 从中文业务描述提取变量 约束 目标函数和数据字段 保持可复核 scenario 17 客户有 20 个站点"
+    },
+    {
+      "prompt_id": "llm-router-ref-038",
+      "task": "formulator_extraction",
+      "similarity": 0.909122,
+      "primary_summary": "llm-router-ref-038 formulator extraction variables constraints objective normalized model 从中文业务描述提取变量 约束 目标函数和数据字段 保持可复核 scenario 18 客户有 21 个站点",
+      "fallback_summary": "llm-router-ref-038 formulator extraction variables constraints objective normalized model 从中文业务描述提取变量 约束 目标函数和数据字段 保持可复核 scenario 18 客户有 21 个站点"
+    },
+    {
+      "prompt_id": "llm-router-ref-039",
+      "task": "formulator_extraction",
+      "similarity": 0.910599,
+      "primary_summary": "llm-router-ref-039 formulator extraction variables constraints objective normalized model 从中文业务描述提取变量 约束 目标函数和数据字段 保持可复核 scenario 19 客户有 22 个站点",
+      "fallback_summary": "llm-router-ref-039 formulator extraction variables constraints objective normalized model 从中文业务描述提取变量 约束 目标函数和数据字段 保持可复核 scenario 19 客户有 22 个站点"
+    },
+    {
+      "prompt_id": "llm-router-ref-040",
+      "task": "formulator_extraction",
+      "similarity": 0.910599,
+      "primary_summary": "llm-router-ref-040 formulator extraction variables constraints objective normalized model 从中文业务描述提取变量 约束 目标函数和数据字段 保持可复核 scenario 20 客户有 23 个站点",
+      "fallback_summary": "llm-router-ref-040 formulator extraction variables constraints objective normalized model 从中文业务描述提取变量 约束 目标函数和数据字段 保持可复核 scenario 20 客户有 23 个站点"
+    },
+    {
+      "prompt_id": "llm-router-ref-041",
+      "task": "coder_generation",
+      "similarity": 0.913414,
+      "primary_summary": "llm-router-ref-041 coder generation python function validation deterministic implementation 根据已确认模型生成 求解函数骨架 包含输入校验和确定性输出 scenario 01 客户有 4 个站点 2",
+      "fallback_summary": "llm-router-ref-041 coder generation python function validation deterministic implementation 根据已确认模型生成 求解函数骨架 包含输入校验和确定性输出 scenario 01 客户有 4 个站点 2"
+    },
+    {
+      "prompt_id": "llm-router-ref-042",
+      "task": "coder_generation",
+      "similarity": 0.914976,
+      "primary_summary": "llm-router-ref-042 coder generation python function validation deterministic implementation 根据已确认模型生成 求解函数骨架 包含输入校验和确定性输出 scenario 02 客户有 5 个站点 4",
+      "fallback_summary": "llm-router-ref-042 coder generation python function validation deterministic implementation 根据已确认模型生成 求解函数骨架 包含输入校验和确定性输出 scenario 02 客户有 5 个站点 4"
+    },
+    {
+      "prompt_id": "llm-router-ref-043",
+      "task": "coder_generation",
+      "similarity": 0.914756,
+      "primary_summary": "llm-router-ref-043 coder generation python function validation deterministic implementation 根据已确认模型生成 求解函数骨架 包含输入校验和确定性输出 scenario 03 客户有 6 个站点 个时间窗",
+      "fallback_summary": "llm-router-ref-043 coder generation python function validation deterministic implementation 根据已确认模型生成 求解函数骨架 包含输入校验和确定性输出 scenario 03 客户有 6 个站点 个时间窗"
+    },
+    {
+      "prompt_id": "llm-router-ref-044",
+      "task": "coder_generation",
+      "similarity": 0.913414,
+      "primary_summary": "llm-router-ref-044 coder generation python function validation deterministic implementation 根据已确认模型生成 求解函数骨架 包含输入校验和确定性输出 scenario 04 客户有 7 个站点 8",
+      "fallback_summary": "llm-router-ref-044 coder generation python function validation deterministic implementation 根据已确认模型生成 求解函数骨架 包含输入校验和确定性输出 scenario 04 客户有 7 个站点 8"
+    },
+    {
+      "prompt_id": "llm-router-ref-045",
+      "task": "coder_generation",
+      "similarity": 0.913414,
+      "primary_summary": "llm-router-ref-045 coder generation python function validation deterministic implementation 根据已确认模型生成 求解函数骨架 包含输入校验和确定性输出 scenario 05 客户有 8 个站点 10",
+      "fallback_summary": "llm-router-ref-045 coder generation python function validation deterministic implementation 根据已确认模型生成 求解函数骨架 包含输入校验和确定性输出 scenario 05 客户有 8 个站点 10"
+    },
+    {
+      "prompt_id": "llm-router-ref-046",
+      "task": "coder_generation",
+      "similarity": 0.912029,
+      "primary_summary": "llm-router-ref-046 coder generation python function validation deterministic implementation 根据已确认模型生成 求解函数骨架 包含输入校验和确定性输出 scenario 06 客户有 9 个站点 12",
+      "fallback_summary": "llm-router-ref-046 coder generation python function validation deterministic implementation 根据已确认模型生成 求解函数骨架 包含输入校验和确定性输出 scenario 06 客户有 9 个站点 12"
+    },
+    {
+      "prompt_id": "llm-router-ref-047",
+      "task": "coder_generation",
+      "similarity": 0.913414,
+      "primary_summary": "llm-router-ref-047 coder generation python function validation deterministic implementation 根据已确认模型生成 求解函数骨架 包含输入校验和确定性输出 scenario 07 客户有 10 个站点 14",
+      "fallback_summary": "llm-router-ref-047 coder generation python function validation deterministic implementation 根据已确认模型生成 求解函数骨架 包含输入校验和确定性输出 scenario 07 客户有 10 个站点 14"
+    },
+    {
+      "prompt_id": "llm-router-ref-048",
+      "task": "coder_generation",
+      "similarity": 0.913414,
+      "primary_summary": "llm-router-ref-048 coder generation python function validation deterministic implementation 根据已确认模型生成 求解函数骨架 包含输入校验和确定性输出 scenario 08 客户有 11 个站点 16",
+      "fallback_summary": "llm-router-ref-048 coder generation python function validation deterministic implementation 根据已确认模型生成 求解函数骨架 包含输入校验和确定性输出 scenario 08 客户有 11 个站点 16"
+    },
+    {
+      "prompt_id": "llm-router-ref-049",
+      "task": "coder_generation",
+      "similarity": 0.912029,
+      "primary_summary": "llm-router-ref-049 coder generation python function validation deterministic implementation 根据已确认模型生成 求解函数骨架 包含输入校验和确定性输出 scenario 09 客户有 12 个站点 18",
+      "fallback_summary": "llm-router-ref-049 coder generation python function validation deterministic implementation 根据已确认模型生成 求解函数骨架 包含输入校验和确定性输出 scenario 09 客户有 12 个站点 18"
+    },
+    {
+      "prompt_id": "llm-router-ref-050",
+      "task": "coder_generation",
+      "similarity": 0.913414,
+      "primary_summary": "llm-router-ref-050 coder generation python function validation deterministic implementation 根据已确认模型生成 求解函数骨架 包含输入校验和确定性输出 scenario 10 客户有 13 个站点 20",
+      "fallback_summary": "llm-router-ref-050 coder generation python function validation deterministic implementation 根据已确认模型生成 求解函数骨架 包含输入校验和确定性输出 scenario 10 客户有 13 个站点 20"
+    },
+    {
+      "prompt_id": "llm-router-ref-051",
+      "task": "coder_generation",
+      "similarity": 0.913414,
+      "primary_summary": "llm-router-ref-051 coder generation python function validation deterministic implementation 根据已确认模型生成 求解函数骨架 包含输入校验和确定性输出 scenario 11 客户有 14 个站点 22",
+      "fallback_summary": "llm-router-ref-051 coder generation python function validation deterministic implementation 根据已确认模型生成 求解函数骨架 包含输入校验和确定性输出 scenario 11 客户有 14 个站点 22"
+    },
+    {
+      "prompt_id": "llm-router-ref-052",
+      "task": "coder_generation",
+      "similarity": 0.912029,
+      "primary_summary": "llm-router-ref-052 coder generation python function validation deterministic implementation 根据已确认模型生成 求解函数骨架 包含输入校验和确定性输出 scenario 12 客户有 15 个站点 24",
+      "fallback_summary": "llm-router-ref-052 coder generation python function validation deterministic implementation 根据已确认模型生成 求解函数骨架 包含输入校验和确定性输出 scenario 12 客户有 15 个站点 24"
+    },
+    {
+      "prompt_id": "llm-router-ref-053",
+      "task": "coder_generation",
+      "similarity": 0.913414,
+      "primary_summary": "llm-router-ref-053 coder generation python function validation deterministic implementation 根据已确认模型生成 求解函数骨架 包含输入校验和确定性输出 scenario 13 客户有 16 个站点 26",
+      "fallback_summary": "llm-router-ref-053 coder generation python function validation deterministic implementation 根据已确认模型生成 求解函数骨架 包含输入校验和确定性输出 scenario 13 客户有 16 个站点 26"
+    },
+    {
+      "prompt_id": "llm-router-ref-054",
+      "task": "coder_generation",
+      "similarity": 0.913414,
+      "primary_summary": "llm-router-ref-054 coder generation python function validation deterministic implementation 根据已确认模型生成 求解函数骨架 包含输入校验和确定性输出 scenario 14 客户有 17 个站点 28",
+      "fallback_summary": "llm-router-ref-054 coder generation python function validation deterministic implementation 根据已确认模型生成 求解函数骨架 包含输入校验和确定性输出 scenario 14 客户有 17 个站点 28"
+    },
+    {
+      "prompt_id": "llm-router-ref-055",
+      "task": "coder_generation",
+      "similarity": 0.912029,
+      "primary_summary": "llm-router-ref-055 coder generation python function validation deterministic implementation 根据已确认模型生成 求解函数骨架 包含输入校验和确定性输出 scenario 15 客户有 18 个站点 30",
+      "fallback_summary": "llm-router-ref-055 coder generation python function validation deterministic implementation 根据已确认模型生成 求解函数骨架 包含输入校验和确定性输出 scenario 15 客户有 18 个站点 30"
+    },
+    {
+      "prompt_id": "llm-router-ref-056",
+      "task": "coder_generation",
+      "similarity": 0.913414,
+      "primary_summary": "llm-router-ref-056 coder generation python function validation deterministic implementation 根据已确认模型生成 求解函数骨架 包含输入校验和确定性输出 scenario 16 客户有 19 个站点 32",
+      "fallback_summary": "llm-router-ref-056 coder generation python function validation deterministic implementation 根据已确认模型生成 求解函数骨架 包含输入校验和确定性输出 scenario 16 客户有 19 个站点 32"
+    },
+    {
+      "prompt_id": "llm-router-ref-057",
+      "task": "coder_generation",
+      "similarity": 0.913414,
+      "primary_summary": "llm-router-ref-057 coder generation python function validation deterministic implementation 根据已确认模型生成 求解函数骨架 包含输入校验和确定性输出 scenario 17 客户有 20 个站点 34",
+      "fallback_summary": "llm-router-ref-057 coder generation python function validation deterministic implementation 根据已确认模型生成 求解函数骨架 包含输入校验和确定性输出 scenario 17 客户有 20 个站点 34"
+    },
+    {
+      "prompt_id": "llm-router-ref-058",
+      "task": "coder_generation",
+      "similarity": 0.912029,
+      "primary_summary": "llm-router-ref-058 coder generation python function validation deterministic implementation 根据已确认模型生成 求解函数骨架 包含输入校验和确定性输出 scenario 18 客户有 21 个站点 36",
+      "fallback_summary": "llm-router-ref-058 coder generation python function validation deterministic implementation 根据已确认模型生成 求解函数骨架 包含输入校验和确定性输出 scenario 18 客户有 21 个站点 36"
+    },
+    {
+      "prompt_id": "llm-router-ref-059",
+      "task": "coder_generation",
+      "similarity": 0.913414,
+      "primary_summary": "llm-router-ref-059 coder generation python function validation deterministic implementation 根据已确认模型生成 求解函数骨架 包含输入校验和确定性输出 scenario 19 客户有 22 个站点 38",
+      "fallback_summary": "llm-router-ref-059 coder generation python function validation deterministic implementation 根据已确认模型生成 求解函数骨架 包含输入校验和确定性输出 scenario 19 客户有 22 个站点 38"
+    },
+    {
+      "prompt_id": "llm-router-ref-060",
+      "task": "coder_generation",
+      "similarity": 0.913414,
+      "primary_summary": "llm-router-ref-060 coder generation python function validation deterministic implementation 根据已确认模型生成 求解函数骨架 包含输入校验和确定性输出 scenario 20 客户有 23 个站点 40",
+      "fallback_summary": "llm-router-ref-060 coder generation python function validation deterministic implementation 根据已确认模型生成 求解函数骨架 包含输入校验和确定性输出 scenario 20 客户有 23 个站点 40"
+    },
+    {
+      "prompt_id": "llm-router-ref-061",
+      "task": "critic_validation",
+      "similarity": 0.919733,
+      "primary_summary": "llm-router-ref-061 critic validation schema logic safety confidence calibrated review 审查候选模型 代码是否有 逻辑 安全或沙箱风险 并给出置信度 scenario 01 客户有",
+      "fallback_summary": "llm-router-ref-061 critic validation schema logic safety confidence calibrated review 审查候选模型 代码是否有 逻辑 安全或沙箱风险 并给出置信度 scenario 01 客户有"
+    },
+    {
+      "prompt_id": "llm-router-ref-062",
+      "task": "critic_validation",
+      "similarity": 0.921078,
+      "primary_summary": "llm-router-ref-062 critic validation schema logic safety confidence calibrated review 审查候选模型 代码是否有 逻辑 安全或沙箱风险 并给出置信度 scenario 02 客户有",
+      "fallback_summary": "llm-router-ref-062 critic validation schema logic safety confidence calibrated review 审查候选模型 代码是否有 逻辑 安全或沙箱风险 并给出置信度 scenario 02 客户有"
+    },
+    {
+      "prompt_id": "llm-router-ref-063",
+      "task": "critic_validation",
+      "similarity": 0.920887,
+      "primary_summary": "llm-router-ref-063 critic validation schema logic safety confidence calibrated review 审查候选模型 代码是否有 逻辑 安全或沙箱风险 并给出置信度 scenario 03 客户有",
+      "fallback_summary": "llm-router-ref-063 critic validation schema logic safety confidence calibrated review 审查候选模型 代码是否有 逻辑 安全或沙箱风险 并给出置信度 scenario 03 客户有"
+    },
+    {
+      "prompt_id": "llm-router-ref-064",
+      "task": "critic_validation",
+      "similarity": 0.919733,
+      "primary_summary": "llm-router-ref-064 critic validation schema logic safety confidence calibrated review 审查候选模型 代码是否有 逻辑 安全或沙箱风险 并给出置信度 scenario 04 客户有",
+      "fallback_summary": "llm-router-ref-064 critic validation schema logic safety confidence calibrated review 审查候选模型 代码是否有 逻辑 安全或沙箱风险 并给出置信度 scenario 04 客户有"
+    },
+    {
+      "prompt_id": "llm-router-ref-065",
+      "task": "critic_validation",
+      "similarity": 0.919733,
+      "primary_summary": "llm-router-ref-065 critic validation schema logic safety confidence calibrated review 审查候选模型 代码是否有 逻辑 安全或沙箱风险 并给出置信度 scenario 05 客户有",
+      "fallback_summary": "llm-router-ref-065 critic validation schema logic safety confidence calibrated review 审查候选模型 代码是否有 逻辑 安全或沙箱风险 并给出置信度 scenario 05 客户有"
+    },
+    {
+      "prompt_id": "llm-router-ref-066",
+      "task": "critic_validation",
+      "similarity": 0.918544,
+      "primary_summary": "llm-router-ref-066 critic validation schema logic safety confidence calibrated review 审查候选模型 代码是否有 逻辑 安全或沙箱风险 并给出置信度 scenario 06 客户有",
+      "fallback_summary": "llm-router-ref-066 critic validation schema logic safety confidence calibrated review 审查候选模型 代码是否有 逻辑 安全或沙箱风险 并给出置信度 scenario 06 客户有"
+    },
+    {
+      "prompt_id": "llm-router-ref-067",
+      "task": "critic_validation",
+      "similarity": 0.919733,
+      "primary_summary": "llm-router-ref-067 critic validation schema logic safety confidence calibrated review 审查候选模型 代码是否有 逻辑 安全或沙箱风险 并给出置信度 scenario 07 客户有",
+      "fallback_summary": "llm-router-ref-067 critic validation schema logic safety confidence calibrated review 审查候选模型 代码是否有 逻辑 安全或沙箱风险 并给出置信度 scenario 07 客户有"
+    },
+    {
+      "prompt_id": "llm-router-ref-068",
+      "task": "critic_validation",
+      "similarity": 0.919733,
+      "primary_summary": "llm-router-ref-068 critic validation schema logic safety confidence calibrated review 审查候选模型 代码是否有 逻辑 安全或沙箱风险 并给出置信度 scenario 08 客户有",
+      "fallback_summary": "llm-router-ref-068 critic validation schema logic safety confidence calibrated review 审查候选模型 代码是否有 逻辑 安全或沙箱风险 并给出置信度 scenario 08 客户有"
+    },
+    {
+      "prompt_id": "llm-router-ref-069",
+      "task": "critic_validation",
+      "similarity": 0.918544,
+      "primary_summary": "llm-router-ref-069 critic validation schema logic safety confidence calibrated review 审查候选模型 代码是否有 逻辑 安全或沙箱风险 并给出置信度 scenario 09 客户有",
+      "fallback_summary": "llm-router-ref-069 critic validation schema logic safety confidence calibrated review 审查候选模型 代码是否有 逻辑 安全或沙箱风险 并给出置信度 scenario 09 客户有"
+    },
+    {
+      "prompt_id": "llm-router-ref-070",
+      "task": "critic_validation",
+      "similarity": 0.919733,
+      "primary_summary": "llm-router-ref-070 critic validation schema logic safety confidence calibrated review 审查候选模型 代码是否有 逻辑 安全或沙箱风险 并给出置信度 scenario 10 客户有",
+      "fallback_summary": "llm-router-ref-070 critic validation schema logic safety confidence calibrated review 审查候选模型 代码是否有 逻辑 安全或沙箱风险 并给出置信度 scenario 10 客户有"
+    },
+    {
+      "prompt_id": "llm-router-ref-071",
+      "task": "critic_validation",
+      "similarity": 0.919733,
+      "primary_summary": "llm-router-ref-071 critic validation schema logic safety confidence calibrated review 审查候选模型 代码是否有 逻辑 安全或沙箱风险 并给出置信度 scenario 11 客户有",
+      "fallback_summary": "llm-router-ref-071 critic validation schema logic safety confidence calibrated review 审查候选模型 代码是否有 逻辑 安全或沙箱风险 并给出置信度 scenario 11 客户有"
+    },
+    {
+      "prompt_id": "llm-router-ref-072",
+      "task": "critic_validation",
+      "similarity": 0.918544,
+      "primary_summary": "llm-router-ref-072 critic validation schema logic safety confidence calibrated review 审查候选模型 代码是否有 逻辑 安全或沙箱风险 并给出置信度 scenario 12 客户有",
+      "fallback_summary": "llm-router-ref-072 critic validation schema logic safety confidence calibrated review 审查候选模型 代码是否有 逻辑 安全或沙箱风险 并给出置信度 scenario 12 客户有"
+    },
+    {
+      "prompt_id": "llm-router-ref-073",
+      "task": "critic_validation",
+      "similarity": 0.919733,
+      "primary_summary": "llm-router-ref-073 critic validation schema logic safety confidence calibrated review 审查候选模型 代码是否有 逻辑 安全或沙箱风险 并给出置信度 scenario 13 客户有",
+      "fallback_summary": "llm-router-ref-073 critic validation schema logic safety confidence calibrated review 审查候选模型 代码是否有 逻辑 安全或沙箱风险 并给出置信度 scenario 13 客户有"
+    },
+    {
+      "prompt_id": "llm-router-ref-074",
+      "task": "critic_validation",
+      "similarity": 0.919733,
+      "primary_summary": "llm-router-ref-074 critic validation schema logic safety confidence calibrated review 审查候选模型 代码是否有 逻辑 安全或沙箱风险 并给出置信度 scenario 14 客户有",
+      "fallback_summary": "llm-router-ref-074 critic validation schema logic safety confidence calibrated review 审查候选模型 代码是否有 逻辑 安全或沙箱风险 并给出置信度 scenario 14 客户有"
+    },
+    {
+      "prompt_id": "llm-router-ref-075",
+      "task": "critic_validation",
+      "similarity": 0.918544,
+      "primary_summary": "llm-router-ref-075 critic validation schema logic safety confidence calibrated review 审查候选模型 代码是否有 逻辑 安全或沙箱风险 并给出置信度 scenario 15 客户有",
+      "fallback_summary": "llm-router-ref-075 critic validation schema logic safety confidence calibrated review 审查候选模型 代码是否有 逻辑 安全或沙箱风险 并给出置信度 scenario 15 客户有"
+    },
+    {
+      "prompt_id": "llm-router-ref-076",
+      "task": "critic_validation",
+      "similarity": 0.919733,
+      "primary_summary": "llm-router-ref-076 critic validation schema logic safety confidence calibrated review 审查候选模型 代码是否有 逻辑 安全或沙箱风险 并给出置信度 scenario 16 客户有",
+      "fallback_summary": "llm-router-ref-076 critic validation schema logic safety confidence calibrated review 审查候选模型 代码是否有 逻辑 安全或沙箱风险 并给出置信度 scenario 16 客户有"
+    },
+    {
+      "prompt_id": "llm-router-ref-077",
+      "task": "critic_validation",
+      "similarity": 0.919733,
+      "primary_summary": "llm-router-ref-077 critic validation schema logic safety confidence calibrated review 审查候选模型 代码是否有 逻辑 安全或沙箱风险 并给出置信度 scenario 17 客户有",
+      "fallback_summary": "llm-router-ref-077 critic validation schema logic safety confidence calibrated review 审查候选模型 代码是否有 逻辑 安全或沙箱风险 并给出置信度 scenario 17 客户有"
+    },
+    {
+      "prompt_id": "llm-router-ref-078",
+      "task": "critic_validation",
+      "similarity": 0.918544,
+      "primary_summary": "llm-router-ref-078 critic validation schema logic safety confidence calibrated review 审查候选模型 代码是否有 逻辑 安全或沙箱风险 并给出置信度 scenario 18 客户有",
+      "fallback_summary": "llm-router-ref-078 critic validation schema logic safety confidence calibrated review 审查候选模型 代码是否有 逻辑 安全或沙箱风险 并给出置信度 scenario 18 客户有"
+    },
+    {
+      "prompt_id": "llm-router-ref-079",
+      "task": "critic_validation",
+      "similarity": 0.919733,
+      "primary_summary": "llm-router-ref-079 critic validation schema logic safety confidence calibrated review 审查候选模型 代码是否有 逻辑 安全或沙箱风险 并给出置信度 scenario 19 客户有",
+      "fallback_summary": "llm-router-ref-079 critic validation schema logic safety confidence calibrated review 审查候选模型 代码是否有 逻辑 安全或沙箱风险 并给出置信度 scenario 19 客户有"
+    },
+    {
+      "prompt_id": "llm-router-ref-080",
+      "task": "critic_validation",
+      "similarity": 0.919733,
+      "primary_summary": "llm-router-ref-080 critic validation schema logic safety confidence calibrated review 审查候选模型 代码是否有 逻辑 安全或沙箱风险 并给出置信度 scenario 20 客户有",
+      "fallback_summary": "llm-router-ref-080 critic validation schema logic safety confidence calibrated review 审查候选模型 代码是否有 逻辑 安全或沙箱风险 并给出置信度 scenario 20 客户有"
+    },
+    {
+      "prompt_id": "llm-router-ref-081",
+      "task": "mixed_language_summary",
+      "similarity": 0.914756,
+      "primary_summary": "llm-router-ref-081 mixed language summary 中文 english concise business result summarize the optimization in chinese and for users",
+      "fallback_summary": "llm-router-ref-081 mixed language summary 中文 english concise business result summarize the optimization in chinese and for users"
+    },
+    {
+      "prompt_id": "llm-router-ref-082",
+      "task": "mixed_language_summary",
+      "similarity": 0.914756,
+      "primary_summary": "llm-router-ref-082 mixed language summary 中文 english concise business result summarize the optimization in chinese and for users",
+      "fallback_summary": "llm-router-ref-082 mixed language summary 中文 english concise business result summarize the optimization in chinese and for users"
+    },
+    {
+      "prompt_id": "llm-router-ref-083",
+      "task": "mixed_language_summary",
+      "similarity": 0.918544,
+      "primary_summary": "llm-router-ref-083 mixed language summary 中文 english concise business result summarize the optimization in chinese and for users",
+      "fallback_summary": "llm-router-ref-083 mixed language summary 中文 english concise business result summarize the optimization in chinese and for users"
+    },
+    {
+      "prompt_id": "llm-router-ref-084",
+      "task": "mixed_language_summary",
+      "similarity": 0.914756,
+      "primary_summary": "llm-router-ref-084 mixed language summary 中文 english concise business result summarize the optimization in chinese and for users",
+      "fallback_summary": "llm-router-ref-084 mixed language summary 中文 english concise business result summarize the optimization in chinese and for users"
+    },
+    {
+      "prompt_id": "llm-router-ref-085",
+      "task": "mixed_language_summary",
+      "similarity": 0.914756,
+      "primary_summary": "llm-router-ref-085 mixed language summary 中文 english concise business result summarize the optimization in chinese and for users",
+      "fallback_summary": "llm-router-ref-085 mixed language summary 中文 english concise business result summarize the optimization in chinese and for users"
+    },
+    {
+      "prompt_id": "llm-router-ref-086",
+      "task": "mixed_language_summary",
+      "similarity": 0.918544,
+      "primary_summary": "llm-router-ref-086 mixed language summary 中文 english concise business result summarize the optimization in chinese and for users",
+      "fallback_summary": "llm-router-ref-086 mixed language summary 中文 english concise business result summarize the optimization in chinese and for users"
+    },
+    {
+      "prompt_id": "llm-router-ref-087",
+      "task": "mixed_language_summary",
+      "similarity": 0.914756,
+      "primary_summary": "llm-router-ref-087 mixed language summary 中文 english concise business result summarize the optimization in chinese and for users",
+      "fallback_summary": "llm-router-ref-087 mixed language summary 中文 english concise business result summarize the optimization in chinese and for users"
+    },
+    {
+      "prompt_id": "llm-router-ref-088",
+      "task": "mixed_language_summary",
+      "similarity": 0.914756,
+      "primary_summary": "llm-router-ref-088 mixed language summary 中文 english concise business result summarize the optimization in chinese and for users",
+      "fallback_summary": "llm-router-ref-088 mixed language summary 中文 english concise business result summarize the optimization in chinese and for users"
+    },
+    {
+      "prompt_id": "llm-router-ref-089",
+      "task": "mixed_language_summary",
+      "similarity": 0.918544,
+      "primary_summary": "llm-router-ref-089 mixed language summary 中文 english concise business result summarize the optimization in chinese and for users",
+      "fallback_summary": "llm-router-ref-089 mixed language summary 中文 english concise business result summarize the optimization in chinese and for users"
+    },
+    {
+      "prompt_id": "llm-router-ref-090",
+      "task": "mixed_language_summary",
+      "similarity": 0.914756,
+      "primary_summary": "llm-router-ref-090 mixed language summary 中文 english concise business result summarize the optimization in chinese and for users",
+      "fallback_summary": "llm-router-ref-090 mixed language summary 中文 english concise business result summarize the optimization in chinese and for users"
+    },
+    {
+      "prompt_id": "llm-router-ref-091",
+      "task": "mixed_language_summary",
+      "similarity": 0.914756,
+      "primary_summary": "llm-router-ref-091 mixed language summary 中文 english concise business result summarize the optimization in chinese and for users",
+      "fallback_summary": "llm-router-ref-091 mixed language summary 中文 english concise business result summarize the optimization in chinese and for users"
+    },
+    {
+      "prompt_id": "llm-router-ref-092",
+      "task": "mixed_language_summary",
+      "similarity": 0.918544,
+      "primary_summary": "llm-router-ref-092 mixed language summary 中文 english concise business result summarize the optimization in chinese and for users",
+      "fallback_summary": "llm-router-ref-092 mixed language summary 中文 english concise business result summarize the optimization in chinese and for users"
+    },
+    {
+      "prompt_id": "llm-router-ref-093",
+      "task": "mixed_language_summary",
+      "similarity": 0.914756,
+      "primary_summary": "llm-router-ref-093 mixed language summary 中文 english concise business result summarize the optimization in chinese and for users",
+      "fallback_summary": "llm-router-ref-093 mixed language summary 中文 english concise business result summarize the optimization in chinese and for users"
+    },
+    {
+      "prompt_id": "llm-router-ref-094",
+      "task": "mixed_language_summary",
+      "similarity": 0.914756,
+      "primary_summary": "llm-router-ref-094 mixed language summary 中文 english concise business result summarize the optimization in chinese and for users",
+      "fallback_summary": "llm-router-ref-094 mixed language summary 中文 english concise business result summarize the optimization in chinese and for users"
+    },
+    {
+      "prompt_id": "llm-router-ref-095",
+      "task": "mixed_language_summary",
+      "similarity": 0.918544,
+      "primary_summary": "llm-router-ref-095 mixed language summary 中文 english concise business result summarize the optimization in chinese and for users",
+      "fallback_summary": "llm-router-ref-095 mixed language summary 中文 english concise business result summarize the optimization in chinese and for users"
+    },
+    {
+      "prompt_id": "llm-router-ref-096",
+      "task": "mixed_language_summary",
+      "similarity": 0.914756,
+      "primary_summary": "llm-router-ref-096 mixed language summary 中文 english concise business result summarize the optimization in chinese and for users",
+      "fallback_summary": "llm-router-ref-096 mixed language summary 中文 english concise business result summarize the optimization in chinese and for users"
+    },
+    {
+      "prompt_id": "llm-router-ref-097",
+      "task": "mixed_language_summary",
+      "similarity": 0.914756,
+      "primary_summary": "llm-router-ref-097 mixed language summary 中文 english concise business result summarize the optimization in chinese and for users",
+      "fallback_summary": "llm-router-ref-097 mixed language summary 中文 english concise business result summarize the optimization in chinese and for users"
+    },
+    {
+      "prompt_id": "llm-router-ref-098",
+      "task": "mixed_language_summary",
+      "similarity": 0.918544,
+      "primary_summary": "llm-router-ref-098 mixed language summary 中文 english concise business result summarize the optimization in chinese and for users",
+      "fallback_summary": "llm-router-ref-098 mixed language summary 中文 english concise business result summarize the optimization in chinese and for users"
+    },
+    {
+      "prompt_id": "llm-router-ref-099",
+      "task": "mixed_language_summary",
+      "similarity": 0.914756,
+      "primary_summary": "llm-router-ref-099 mixed language summary 中文 english concise business result summarize the optimization in chinese and for users",
+      "fallback_summary": "llm-router-ref-099 mixed language summary 中文 english concise business result summarize the optimization in chinese and for users"
+    },
+    {
+      "prompt_id": "llm-router-ref-100",
+      "task": "mixed_language_summary",
+      "similarity": 0.914756,
+      "primary_summary": "llm-router-ref-100 mixed language summary 中文 english concise business result summarize the optimization in chinese and for users",
+      "fallback_summary": "llm-router-ref-100 mixed language summary 中文 english concise business result summarize the optimization in chinese and for users"
+    }
+  ]
+}
