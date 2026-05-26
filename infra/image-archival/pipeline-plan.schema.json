@@ -1,0 +1,139 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opticloud.local/schemas/image-archival/pipeline-plan.schema.json",
+  "title": "OptiCloud Image 5y Archival Pipeline Plan",
+  "type": "object",
+  "required": [
+    "plan_version",
+    "source_story",
+    "source_gap",
+    "archive_plan_sha256",
+    "evidence_directory",
+    "clock",
+    "tiers",
+    "stages",
+    "transition_policy",
+    "identity_policy",
+    "required_image_fields",
+    "archive_index_required_fields",
+    "kms_backup_requirements",
+    "restore_targets",
+    "non_goals"
+  ],
+  "properties": {
+    "plan_version": {
+      "const": "image_archival_pipeline_v1"
+    },
+    "source_story": {
+      "const": "M3.9"
+    },
+    "source_gap": {
+      "const": "G7"
+    },
+    "archive_plan_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "evidence_directory": {
+      "const": "reports/image-archival"
+    },
+    "required_image_fields": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "image_digest",
+          "cosign_signature_ref",
+          "sbom_ref",
+          "source_commit_sha",
+          "build_timestamp_utc",
+          "provider_id",
+          "solver",
+          "model_version",
+          "repository_ref"
+        ]
+      },
+      "uniqueItems": true,
+      "minItems": 9,
+      "maxItems": 9
+    },
+    "archive_index_required_fields": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "voucher_id",
+          "voucher_created_at_utc",
+          "provider_id",
+          "solver",
+          "model_version",
+          "image_digest",
+          "cosign_signature_ref",
+          "sbom_ref",
+          "storage_tier",
+          "registry_or_object_ref",
+          "kms_key_backup_ref",
+          "transition_due_utc",
+          "transition_observed_utc",
+          "artifact_checksum",
+          "cosign_verified",
+          "sbom_verified"
+        ]
+      },
+      "uniqueItems": true,
+      "minItems": 16,
+      "maxItems": 16
+    },
+    "kms_backup_requirements": {
+      "type": "object",
+      "required": ["required", "reference_field", "minimum_metadata", "payload_policy"],
+      "properties": {
+        "required": {
+          "const": true
+        },
+        "reference_field": {
+          "const": "kms_key_backup_ref"
+        },
+        "minimum_metadata": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "kms_key_id",
+              "kms_key_backup_ref",
+              "backup_created_at_utc",
+              "backup_checksum",
+              "restore_tested_at_utc",
+              "restore_test_result"
+            ]
+          },
+          "uniqueItems": true,
+          "minItems": 6,
+          "maxItems": 6
+        },
+        "payload_policy": {
+          "const": "do_not_commit_backup_payloads_or_tokens"
+        }
+      }
+    },
+    "tiers": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3
+    },
+    "stages": {
+      "type": "array",
+      "minItems": 7,
+      "maxItems": 7
+    },
+    "transition_policy": {
+      "type": "object"
+    },
+    "identity_policy": {
+      "type": "object"
+    },
+    "restore_targets": {
+      "type": "object"
+    },
+    "non_goals": {
+      "type": "array"
+    }
+  }
+}

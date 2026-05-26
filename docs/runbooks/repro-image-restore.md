@@ -15,6 +15,8 @@ This document is the operational reference for the archive path. It does not cla
 
 Story M3.0 adds the local prep contract for that future pipeline: [`../../infra/image-archival/README.md`](../../infra/image-archival/README.md) and [`../../infra/image-archival/archive-plan.json`](../../infra/image-archival/archive-plan.json). The contract validates tier boundaries and required restore metadata only. It does not provision ACR EE, create S3 lifecycle policies, submit Glacier restore jobs, write Vault / KMS backups, or prove the M3.9 cloud pipeline is live.
 
+Story M3.9 adds the structural pipeline and evidence contract in [`image-5y-archival-pipeline.md`](image-5y-archival-pipeline.md). That CI gate validates plans and evidence manifests; it still does not prove live cloud execution unless a real redacted manifest under `reports/image-archival/<run_id>/evidence_manifest.json` is provided.
+
 ---
 
 ## Scope
@@ -80,7 +82,7 @@ If the G7 archival index is not available yet, record the request as an archive-
 4. Choose restore tier:
    - Hot: ACR EE image available within the hot retention window.
    - Warm: object storage copy available after hot expiry.
-   - Cold: Glacier-class archive restore required.
+   - Cold: Glacier-class archive restore required; the M3.9 cold restore target is 24 hours unless a later operator evidence story approves provisioned expedited capacity.
    - Prep validation: the desired tier boundaries are documented in [`../../infra/image-archival/archive-plan.json`](../../infra/image-archival/archive-plan.json), but M3.9 must still implement the real cloud lifecycle and restore operations.
 5. If no matching archived image exists, create an unavailable-restore exception record.
 6. If the image restores, verify digest, signature, and locked metadata before rerun or audit use.
