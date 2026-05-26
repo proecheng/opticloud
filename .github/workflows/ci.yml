@@ -39,6 +39,7 @@ jobs:
       k8s_manifests: ${{ steps.filter.outputs.k8s_manifests }}
       contract_tests: ${{ steps.filter.outputs.contract_tests }}
       blue_green_deploy: ${{ steps.filter.outputs.blue_green_deploy }}
+      aigc_filter: ${{ steps.filter.outputs.aigc_filter }}
       web: ${{ steps.filter.outputs.web }}
       ci_or_root: ${{ steps.filter.outputs.ci_or_root }}
     steps:
@@ -100,6 +101,12 @@ jobs:
               - 'tests/test_blue_green_deploy.py'
               - 'docker-compose.blue.yml'
               - 'docker-compose.green.yml'
+            aigc_filter:
+              - 'packages/shared-py/aigc_filter/**'
+              - 'packages/shared-py/opticloud_shared/__init__.py'
+              - 'packages/shared-py/pyproject.toml'
+              - 'tests/aigc/**'
+              - 'scripts/report_aigc_filter_metrics.py'
             contract_tests:
               - 'tests/contract/**'
               - 'packages/shared-py/opticloud_shared/property_test_base/**'
@@ -418,6 +425,27 @@ jobs:
         run: uv run pytest tests/test_blue_green_deploy.py -v
       - name: Check deploy script syntax
         run: bash -n scripts/deploy/blue-green.sh
+
+  # ===== AIGC filter + watermark validation (Story M3.4) =====
+  aigc-filter-validation:
+    needs: changes
+    if: needs.changes.outputs.aigc_filter == 'true' || needs.changes.outputs.shared_py == 'true' || needs.changes.outputs.ci_or_root == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: pip install uv==${{ env.UV_VERSION }}
+      - run: uv sync --all-packages --extra dev
+      - name: Run AIGC filter tests
+        env:
+          PYTHONPATH: packages/shared-py
+        run: uv run pytest tests/aigc -v
+      - name: Emit AIGC filter metrics report
+        env:
+          PYTHONPATH: packages/shared-py
+        run: uv run python scripts/report_aigc_filter_metrics.py
 
   # ===== Contract tests (Story M3.2) =====
   contract-test:
