@@ -275,6 +275,7 @@ Created:
 - `docs/runbooks/image-5y-archival-pipeline.md`
 
 Modified:
+- `.pre-commit-config.yaml`
 - `.github/workflows/ci.yml`
 - `_bmad-output/stories/sprint-status.yaml`
 - `docs/runbooks/repro-image-restore.md`
@@ -296,6 +297,7 @@ Modified:
 - `uv run ruff format --check scripts/validate_image_archival_pipeline.py tests/test_image_archival_pipeline.py` -> PASS final.
 - `git diff --check` -> PASS.
 - `uv run pre-commit run --all-files --show-diff-on-failure` -> PASS.
+- GitHub PR #71 initial `lint` -> FAIL: detect-secrets flagged public M3.9 plan SHA-256 values as high-entropy strings.
 
 ## Senior Developer Review (AI)
 
@@ -306,6 +308,7 @@ Outcome: Approved after fix
 Findings fixed:
 - Python formatting was not stable under `ruff format --check`; ran formatter and rechecked.
 - Validator/schema parity was incomplete. The validator checked selected field enums but did not pin evidence root required fields or artifact required fields, so a schema-only edit could drift from runtime validation. Added parity checks and regression assertions.
+- CI lint flagged public M3.9 plan SHA-256 fields in committed JSON as high-entropy strings. Added narrow detect-secrets exclusions for the public archive-plan and pipeline-plan SHA-256 values.
 
 Residual risk:
 - M3.9 remains a structural contract and evidence gate. It does not prove live ACR EE, S3, Glacier, Vault, Docker signing, cosign, SBOM, or restore execution until a redacted real evidence manifest is produced by operators.
@@ -317,3 +320,4 @@ Residual risk:
 - 2026-05-26: Implemented image archival pipeline plan, evidence manifest contract, validator, tests, runbook, and CI job; moved story to code-review.
 - 2026-05-26: Completed post-implementation code review, fixed formatting and schema parity coverage, and prepared story for done status after final validation.
 - 2026-05-26: Final validation passed and story moved to done.
+- 2026-05-26: Fixed PR CI lint false positive by allowlisting public M3.9 plan SHA-256 values.
