@@ -1,7 +1,8 @@
-"""Validate M3.6a Chat staging load-test plan assets.
+"""Validate M3.6a/M3.6b Chat load-test plan assets.
 
 The validator is static by default. It validates real operator evidence only
-when an explicit evidence manifest is passed with --evidence.
+when an explicit evidence manifest is passed with --evidence or
+--single-node-evidence.
 """
 
 from __future__ import annotations
@@ -23,7 +24,12 @@ PROFILES_PATH = CHAT_LOAD_DIR / "staging_profiles.json"
 LOCUSTFILE_PATH = CHAT_LOAD_DIR / "locustfile.py"
 SCHEMA_PATH = CHAT_LOAD_DIR / "evidence_manifest.schema.json"
 EXAMPLE_MANIFEST_PATH = CHAT_LOAD_DIR / "evidence_manifest.example.json"
+SINGLE_NODE_PROFILES_PATH = CHAT_LOAD_DIR / "single_node_profiles.json"
+SINGLE_NODE_LOCUSTFILE_PATH = CHAT_LOAD_DIR / "single_node_locustfile.py"
+SINGLE_NODE_SCHEMA_PATH = CHAT_LOAD_DIR / "single_node_evidence_manifest.schema.json"
+SINGLE_NODE_EXAMPLE_MANIFEST_PATH = CHAT_LOAD_DIR / "single_node_evidence_manifest.example.json"
 REQUIRED_PROFILES = {"baseline", "stress", "soak"}
+SINGLE_NODE_PROFILE = "single_node_baseline"
 REQUIRED_CATEGORIES = {
     "optimization",
     "prediction",
@@ -40,6 +46,12 @@ REQUIRED_HELPERS = {
     "extract_token_units",
     "calculate_stream_metrics",
     "prompt_fixture_sha256",
+}
+REQUIRED_SINGLE_NODE_HELPERS = {
+    "load_single_node_profiles",
+    "selected_single_node_profile_name",
+    "load_selected_single_node_profile",
+    "single_node_endpoint",
 }
 SECRET_KEY_EXACT = {
     "token",
@@ -276,6 +288,68 @@ def validate_profiles(data: dict[str, Any], expected_hash: str) -> list[str]:
     return errors
 
 
+def validate_single_node_profiles(data: dict[str, Any], expected_hash: str) -> list[str]:
+    errors: list[str] = []
+    if data.get("dataset_version") != "chat_single_node_profiles_v1":
+        errors.append(
+            "single_node_profiles.json dataset_version must be chat_single_node_profiles_v1"
+        )
+    if data.get("source_story") != "M3.6b":
+        errors.append("single_node_profiles.json source_story must be M3.6b")
+    if data.get("prompt_fixture") != "tools/chat_load/prompts_v1.json":
+        errors.append("single_node_profiles.json prompt_fixture must reference prompts_v1.json")
+
+    profiles = data.get("profiles")
+    if not isinstance(profiles, dict):
+        return errors + ["single_node_profiles.json profiles must be an object"]
+    if set(profiles) != {SINGLE_NODE_PROFILE}:
+        errors.append("single-node profiles must contain only single_node_baseline")
+
+    profile = profiles.get(SINGLE_NODE_PROFILE)
+    if not isinstance(profile, dict):
+        return errors + ["single_node_baseline profile must be an object"]
+
+    expected_values: dict[str, Any] = {
+        "name": SINGLE_NODE_PROFILE,
+        "node_count": 1,
+        "users": 20,
+        "run_time_seconds": 300,
+        "target_rps": 2,
+        "effective_requests_per_user_per_minute": 6,
+        "first_token_p50_max_ms": 1500,
+        "first_token_p95_max_ms": 3000,
+        "streaming_min_tokens_per_second": 20,
+        "e2e_solve_p95_max_ms": 90000,
+        "sandbox_startup_p95_max_ms": 100,
+        "capability_lookup_p95_max_ms": 20,
+        "chat_internal_hop_p95_max_ms": 200,
+        "advisory_only": True,
+        "hard_gate_candidate": False,
+    }
+    for key, value in expected_values.items():
+        if profile.get(key) != value:
+            errors.append(f"single_node_baseline {key} must be {value}")
+    if profile.get("prompt_fixture_sha256") != expected_hash:
+        errors.append("single_node_baseline prompt_fixture_sha256 does not match prompts_v1.json")
+    for key in ("node_count", "users", "target_rps", "effective_requests_per_user_per_minute"):
+        _require_numeric(profile, key, errors, SINGLE_NODE_PROFILE)
+    if all(
+        isinstance(profile.get(key), int | float)
+        for key in ("users", "target_rps", "effective_requests_per_user_per_minute")
+    ):
+        calculated = (
+            float(profile["users"]) * float(profile["effective_requests_per_user_per_minute"]) / 60
+        )
+        if abs(calculated - float(profile["target_rps"])) > 0.001:
+            errors.append("single_node_baseline RPS math does not match target_rps")
+    for key in profile:
+        if key.endswith("_seconds") and key.endswith("_ms"):
+            errors.append(f"single_node_baseline has impossible mixed unit field {key}")
+
+    errors.extend(validate_no_secret_like_values(data, "single_node_profiles.json"))
+    return errors
+
+
 def validate_locustfile(path: Path = LOCUSTFILE_PATH) -> list[str]:
     errors: list[str] = []
     text = path.read_text(encoding="utf-8")
@@ -305,6 +379,35 @@ def validate_locustfile(path: Path = LOCUSTFILE_PATH) -> list[str]:
     if "streaming_seconds = max(completed_at - first_token_at" not in text:
         errors.append("locustfile.py must compute streaming throughput after first token")
     errors.extend(validate_no_secret_like_values({"locustfile": text}, "locustfile.py"))
+    return errors
+
+
+def validate_single_node_locustfile(path: Path = SINGLE_NODE_LOCUSTFILE_PATH) -> list[str]:
+    errors: list[str] = []
+    text = path.read_text(encoding="utf-8")
+    tree = ast.parse(text)
+    functions = {node.name for node in tree.body if isinstance(node, ast.FunctionDef)}
+    missing = REQUIRED_SINGLE_NODE_HELPERS - functions
+    if missing:
+        errors.append(
+            "single_node_locustfile.py missing helper functions: " + ", ".join(sorted(missing))
+        )
+    for marker in (
+        "CHAT_SINGLE_NODE_PROFILE",
+        "CHAT_LOAD_ENDPOINT",
+        "single_node_baseline",
+        "calculate_stream_metrics",
+        "iter_sse_data_lines",
+        "next_prompt",
+        "request_interval_seconds",
+    ):
+        if marker not in text:
+            errors.append(f"single_node_locustfile.py missing marker {marker}")
+    if "from tools.chat_load.locustfile import" not in text:
+        errors.append("single_node_locustfile.py must reuse M3.6a locust helpers")
+    if "calculate_stream_metrics(started_at, completed_at, event_records)" not in text:
+        errors.append("single_node_locustfile.py must reuse calculate_stream_metrics")
+    errors.extend(validate_no_secret_like_values({"single_node_locustfile": text}, str(path.name)))
     return errors
 
 
@@ -367,6 +470,80 @@ def validate_schema(schema: dict[str, Any]) -> list[str]:
     return errors
 
 
+def validate_single_node_schema(schema: dict[str, Any]) -> list[str]:
+    errors: list[str] = []
+    root_required = _schema_required(schema, [])
+    expected_root = {
+        "source_story",
+        "run_id",
+        "example_only",
+        "generated_by",
+        "commit_sha",
+        "environment",
+        "node_count",
+        "endpoint_path",
+        "prompt_fixture",
+        "prompt_fixture_sha256",
+        "prompt_count",
+        "profiles",
+    }
+    if root_required != expected_root:
+        errors.append("single-node evidence schema root required fields drifted")
+    properties = schema.get("properties", {})
+    if not isinstance(properties, dict):
+        return errors + ["single-node evidence schema properties must be an object"]
+    environment = properties.get("environment")
+    if not isinstance(environment, dict) or environment.get("const") != "single-node-dev":
+        errors.append("single-node evidence schema environment must be single-node-dev")
+    node_count = properties.get("node_count")
+    if not isinstance(node_count, dict) or node_count.get("const") != 1:
+        errors.append("single-node evidence schema node_count must be 1")
+    profiles_required = set(
+        properties["profiles"].get("required", [])
+        if isinstance(properties.get("profiles"), dict)
+        else []
+    )
+    if profiles_required != {SINGLE_NODE_PROFILE}:
+        errors.append("single-node evidence schema must require single_node_baseline only")
+    metrics_required = _schema_required(
+        schema, ["$defs", "profileEvidence", "properties", "metrics"]
+    )
+    expected_metrics = {
+        "request_count",
+        "completed_stream_count",
+        "first_token_p50_ms",
+        "first_token_p95_ms",
+        "total_response_p95_ms",
+        "streaming_tokens_per_second",
+        "token_count_method",
+        "http_error_rate",
+        "solve_prompt_count",
+        "e2e_solve_p95_ms",
+        "oom_count",
+        "deadlock_count",
+        "sandbox_startup_p95_ms",
+        "capability_lookup_p95_ms",
+        "chat_internal_hop_p95_ms",
+    }
+    if metrics_required != expected_metrics:
+        errors.append("single-node evidence schema metric required fields drifted")
+    artifact_pattern = schema["$defs"]["locustReportPath"]["pattern"]
+    metrics_pattern = schema["$defs"]["metricsSnapshotPath"]["pattern"]
+    if (
+        "reports/chat-single-node" not in artifact_pattern
+        or "\\.(html|json)" not in artifact_pattern
+    ):
+        errors.append(
+            "single-node artifact schema must restrict reports/chat-single-node html/json"
+        )
+    if "reports/chat-single-node" not in metrics_pattern or "\\.json" not in metrics_pattern:
+        errors.append("single-node metrics snapshot schema must restrict to json")
+    errors.extend(
+        validate_no_secret_like_values(schema, "single_node_evidence_manifest.schema.json")
+    )
+    return errors
+
+
 def _artifact_path_errors(
     path_value: str,
     run_id: str,
@@ -390,6 +567,31 @@ def _artifact_path_errors(
             errors.append(f"{source} Grafana screenshot must be .png: {path_value}")
     if artifact_key == "locust_report" and suffix not in {".html", ".json"}:
         errors.append(f"{source} Locust report must be .html or .json: {path_value}")
+    return errors
+
+
+def _single_node_artifact_path_errors(
+    path_value: str,
+    run_id: str,
+    source: str,
+    artifact_key: str,
+) -> list[str]:
+    errors: list[str] = []
+    if "://" in path_value:
+        errors.append(f"{source} artifact path must not be a URL: {path_value}")
+    if path_value.startswith(("/", "\\")) or re.match(r"^[A-Za-z]:[\\/]", path_value):
+        errors.append(f"{source} artifact path must be repository-relative: {path_value}")
+    normalized = Path(path_value)
+    if ".." in normalized.parts:
+        errors.append(f"{source} artifact path must not traverse directories: {path_value}")
+    required_prefix = f"reports/chat-single-node/{run_id}/"
+    if not path_value.startswith(required_prefix):
+        errors.append(f"{source} artifact path must stay under {required_prefix}: {path_value}")
+    suffix = Path(path_value).suffix.lower()
+    if artifact_key == "locust_report" and suffix not in {".html", ".json"}:
+        errors.append(f"{source} Locust report must be .html or .json: {path_value}")
+    if artifact_key == "metrics_snapshot" and suffix != ".json":
+        errors.append(f"{source} metrics snapshot must be .json: {path_value}")
     return errors
 
 
@@ -525,12 +727,118 @@ def validate_manifest(
     return errors
 
 
-def validate_all(evidence_path: Path | None = None) -> list[str]:
+def validate_single_node_manifest(
+    manifest: dict[str, Any],
+    expected_hash: str,
+    *,
+    source: str,
+    real_evidence: bool,
+    profile_config: dict[str, Any] | None = None,
+) -> list[str]:
+    errors: list[str] = []
+    run_id = manifest.get("run_id")
+    if not isinstance(run_id, str):
+        return [f"{source} run_id must be a string"]
+    if manifest.get("source_story") != "M3.6b":
+        errors.append(f"{source} source_story must be M3.6b")
+    if manifest.get("environment") != "single-node-dev":
+        errors.append(f"{source} environment must be single-node-dev")
+    if manifest.get("node_count") != 1:
+        errors.append(f"{source} node_count must be 1")
+    if manifest.get("prompt_fixture") != "tools/chat_load/prompts_v1.json":
+        errors.append(f"{source} prompt_fixture must reference prompts_v1.json")
+    if manifest.get("prompt_fixture_sha256") != expected_hash:
+        errors.append(f"{source} prompt_fixture_sha256 does not match prompts_v1.json")
+    if manifest.get("prompt_count") != 100:
+        errors.append(f"{source} prompt_count must be 100")
+
+    example_only = manifest.get("example_only")
+    if real_evidence and example_only is not False:
+        errors.append(f"{source} real single-node evidence must set example_only=false")
+    if not real_evidence and example_only is not True:
+        errors.append(f"{source} example single-node manifest must set example_only=true")
+
+    for path, value in _walk_values(manifest):
+        if path.endswith(".hard_gate_candidate") and value is not False:
+            errors.append(f"{source} single-node evidence cannot be a hard-gate candidate")
+        if path.endswith(".hard_gate_pass") and value:
+            errors.append(f"{source} single-node evidence cannot claim hard-gate pass")
+
+    profiles = manifest.get("profiles")
+    if not isinstance(profiles, dict):
+        return errors + [f"{source} profiles must be an object"]
+    if set(profiles) != {SINGLE_NODE_PROFILE}:
+        errors.append(f"{source} profiles must contain only single_node_baseline")
+
+    profile = profiles.get(SINGLE_NODE_PROFILE)
+    if not isinstance(profile, dict):
+        return errors + [f"{source} single_node_baseline must be an object"]
+    if profile.get("profile") != SINGLE_NODE_PROFILE:
+        errors.append(f"{source} profile field must be single_node_baseline")
+    for artifact_key in ("locust_report", "metrics_snapshot"):
+        value = profile.get(artifact_key)
+        if not isinstance(value, str):
+            errors.append(f"{source} {artifact_key} must be a string")
+        else:
+            errors.extend(
+                _single_node_artifact_path_errors(
+                    value, run_id, f"{source} single_node_baseline", artifact_key
+                )
+            )
+    metrics = profile.get("metrics")
+    if not isinstance(metrics, dict):
+        return errors + [f"{source} single_node_baseline metrics must be an object"]
+    if metrics.get("solve_prompt_count") == 0 and metrics.get("e2e_solve_p95_ms", 0) > 0:
+        errors.append(f"{source} cannot claim E2E solve P95 with solve_prompt_count=0")
+    if metrics.get("completed_stream_count", 0) > metrics.get("request_count", 0):
+        errors.append(f"{source} completed_stream_count exceeds request_count")
+    token_method = metrics.get("token_count_method")
+    if token_method not in {"provider_usage", "content_unit_approximation"}:
+        errors.append(f"{source} has invalid token_count_method")
+    for metric_key in metrics:
+        if metric_key.endswith("_seconds"):
+            errors.append(f"{source} metric {metric_key} must use ms fields")
+    if real_evidence and profile_config is not None:
+        threshold_pairs = {
+            "first_token_p50_ms": "first_token_p50_max_ms",
+            "first_token_p95_ms": "first_token_p95_max_ms",
+            "e2e_solve_p95_ms": "e2e_solve_p95_max_ms",
+            "sandbox_startup_p95_ms": "sandbox_startup_p95_max_ms",
+            "capability_lookup_p95_ms": "capability_lookup_p95_max_ms",
+            "chat_internal_hop_p95_ms": "chat_internal_hop_p95_max_ms",
+        }
+        for metric_key, threshold_key in threshold_pairs.items():
+            threshold = profile_config.get(threshold_key)
+            if (
+                isinstance(threshold, int | float)
+                and isinstance(metrics.get(metric_key), int | float)
+                and metrics[metric_key] >= threshold
+            ):
+                errors.append(f"{source} {metric_key} fails advisory threshold")
+        streaming_min = profile_config.get("streaming_min_tokens_per_second")
+        if (
+            isinstance(streaming_min, int | float)
+            and isinstance(metrics.get("streaming_tokens_per_second"), int | float)
+            and metrics["streaming_tokens_per_second"] < streaming_min
+        ):
+            errors.append(f"{source} streaming_tokens_per_second fails advisory threshold")
+
+    errors.extend(validate_no_secret_like_values(manifest, source))
+    return errors
+
+
+def validate_all(
+    evidence_path: Path | None = None,
+    single_node_evidence_path: Path | None = None,
+) -> list[str]:
     errors: list[str] = []
     prompts = load_json(PROMPTS_PATH)
     profiles = load_json(PROFILES_PATH)
     schema = load_json(SCHEMA_PATH)
     example_manifest = load_json(EXAMPLE_MANIFEST_PATH)
+    single_node_profiles = load_json(SINGLE_NODE_PROFILES_PATH)
+    single_node_schema = load_json(SINGLE_NODE_SCHEMA_PATH)
+    single_node_example_manifest = load_json(SINGLE_NODE_EXAMPLE_MANIFEST_PATH)
     if not isinstance(prompts, dict):
         return ["prompts_v1.json must contain an object"]
     expected_hash = prompt_fixture_hash(prompts)
@@ -541,10 +849,18 @@ def validate_all(evidence_path: Path | None = None) -> list[str]:
         errors.append("staging_profiles.json must contain an object")
     else:
         errors.extend(validate_profiles(profiles, expected_hash))
+    if not isinstance(single_node_profiles, dict):
+        errors.append("single_node_profiles.json must contain an object")
+    else:
+        errors.extend(validate_single_node_profiles(single_node_profiles, expected_hash))
     if not isinstance(schema, dict):
         errors.append("evidence_manifest.schema.json must contain an object")
     else:
         errors.extend(validate_schema(schema))
+    if not isinstance(single_node_schema, dict):
+        errors.append("single_node_evidence_manifest.schema.json must contain an object")
+    else:
+        errors.extend(validate_single_node_schema(single_node_schema))
     if not isinstance(example_manifest, dict):
         errors.append("evidence_manifest.example.json must contain an object")
     else:
@@ -556,7 +872,19 @@ def validate_all(evidence_path: Path | None = None) -> list[str]:
                 real_evidence=False,
             )
         )
+    if not isinstance(single_node_example_manifest, dict):
+        errors.append("single_node_evidence_manifest.example.json must contain an object")
+    else:
+        errors.extend(
+            validate_single_node_manifest(
+                single_node_example_manifest,
+                expected_hash,
+                source="single_node_evidence_manifest.example.json",
+                real_evidence=False,
+            )
+        )
     errors.extend(validate_locustfile())
+    errors.extend(validate_single_node_locustfile())
 
     if evidence_path is not None:
         evidence = load_json(evidence_path)
@@ -586,6 +914,44 @@ def validate_all(evidence_path: Path | None = None) -> list[str]:
                     else None,
                 )
             )
+    if single_node_evidence_path is not None:
+        evidence = load_json(single_node_evidence_path)
+        if not isinstance(evidence, dict):
+            errors.append(f"{single_node_evidence_path} must contain an object")
+        else:
+            try:
+                relative = (
+                    single_node_evidence_path.resolve().relative_to(REPO_ROOT.resolve()).as_posix()
+                )
+            except ValueError:
+                relative = single_node_evidence_path.as_posix()
+                errors.append("--single-node-evidence path must be inside the repository")
+            if not relative.startswith("reports/chat-single-node/") or not relative.endswith(
+                "/evidence_manifest.json"
+            ):
+                errors.append(
+                    "--single-node-evidence path must be "
+                    "reports/chat-single-node/<run_id>/evidence_manifest.json"
+                )
+            single_node_profiles_config = (
+                single_node_profiles.get("profiles", {})
+                if isinstance(single_node_profiles, dict)
+                else {}
+            )
+            profile_config = (
+                single_node_profiles_config.get(SINGLE_NODE_PROFILE)
+                if isinstance(single_node_profiles_config, dict)
+                else None
+            )
+            errors.extend(
+                validate_single_node_manifest(
+                    evidence,
+                    expected_hash,
+                    source=relative,
+                    real_evidence=True,
+                    profile_config=profile_config if isinstance(profile_config, dict) else None,
+                )
+            )
     return errors
 
 
@@ -596,9 +962,14 @@ def main(argv: list[str] | None = None) -> int:
         type=Path,
         help="Optional real operator evidence manifest under reports/chat-load/<run_id>/",
     )
+    parser.add_argument(
+        "--single-node-evidence",
+        type=Path,
+        help="Optional real single-node evidence manifest under reports/chat-single-node/<run_id>/",
+    )
     args = parser.parse_args(argv)
 
-    errors = validate_all(args.evidence)
+    errors = validate_all(args.evidence, args.single_node_evidence)
     if errors:
         for error in errors:
             print(f"ERROR: {error}", file=sys.stderr)  # noqa: T201

@@ -1,0 +1,26 @@
+{
+  "dataset_version": "chat_single_node_profiles_v1",
+  "prompt_fixture": "tools/chat_load/prompts_v1.json",
+  "profiles": {
+    "single_node_baseline": {
+      "advisory_only": true,
+      "capability_lookup_p95_max_ms": 20,
+      "chat_internal_hop_p95_max_ms": 200,
+      "e2e_solve_p95_max_ms": 90000,
+      "effective_requests_per_user_per_minute": 6,
+      "first_token_p50_max_ms": 1500,
+      "first_token_p95_max_ms": 3000,
+      "hard_gate_candidate": false,
+      "name": "single_node_baseline",
+      "node_count": 1,
+      "prompt_fixture_sha256": "57a47193517b19cca0983c5f00c17b246197c80620db9f87d17cdd16db79529c",
+      "run_time_seconds": 300,
+      "sandbox_startup_p95_max_ms": 100,
+      "spawn_rate_per_second": 5,
+      "streaming_min_tokens_per_second": 20,
+      "target_rps": 2,
+      "users": 20
+    }
+  },
+  "source_story": "M3.6b"
+}
