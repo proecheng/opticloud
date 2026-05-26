@@ -24,7 +24,6 @@ from solver_orchestrator.catalog import (
     Citation,
     IPAttribution,
     find_by_k_algo,
-    find_by_task_type_and_solver,
 )
 from solver_orchestrator.db import get_session
 from solver_orchestrator.models import (
@@ -32,6 +31,11 @@ from solver_orchestrator.models import (
     IdempotencyKey,
     Optimization,
     ReproductionVoucher,
+)
+from solver_orchestrator.provider_routing import (
+    ProviderRouteStatus,
+    provider_route_to_system_metadata,
+    select_provider_route,
 )
 from solver_orchestrator.repro import (
     VOUCHER_ID_PATTERN,
@@ -362,17 +366,23 @@ def _attach_reproducibility_metadata(
     reproducibility: dict[str, object] | None,
 ) -> dict:  # type: ignore[type-arg]
     """Return a copy of the user payload with namespaced system metadata."""
-    if reproducibility is None:
+    return _attach_system_metadata(body, reproducibility=reproducibility)
+
+
+def _attach_system_metadata(body: dict, **metadata: object | None) -> dict:  # type: ignore[type-arg]
+    """Return a copy of the user payload with merged `_system` metadata."""
+    if not metadata:
         return body
     payload = dict(body)
     existing_system = payload.get("_system")
     system_payload: dict[str, object] = (
         dict(existing_system) if isinstance(existing_system, dict) else {}
     )
-    payload["_system"] = {
-        **system_payload,
-        "reproducibility": reproducibility,
-    }
+    for key, value in metadata.items():
+        if value is not None:
+            system_payload[key] = value
+    if system_payload:
+        payload["_system"] = system_payload
     return payload
 
 
@@ -538,10 +548,9 @@ async def post_optimization(
                 await attach_existing_voucher_id(session, opt)
                 return _build_success_response(opt)
 
-    # ----- Lookup algorithm catalog (Story 2.1 + 2.4 integration) -----
-    algo, supported_solvers = find_by_task_type_and_solver(payload.task_type, payload.solver)
-    if algo is None and not supported_solvers:
-        # task_type itself unknown
+    # ----- Lookup provider route (Story 2.6 integrates 2.4 + 2.5) -----
+    route = select_provider_route(payload.task_type, payload.solver)
+    if route.status is ProviderRouteStatus.UNSUPPORTED_TASK_TYPE:
         return _rfc7807_error(
             title="Unsupported Task Type",
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -557,20 +566,19 @@ async def post_optimization(
             next_action="https://api.opticloud.cn/v1/algorithms",
             request_id=request_id,
         )
-    if algo is None:
-        # task_type known but solver not in any matching algorithm — Story 2.4 FR C4
+    if route.status is ProviderRouteStatus.UNSUPPORTED_SOLVER:
         return _rfc7807_error(
             title="Unsupported Solver",
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=(
                 f"solver '{payload.solver}' is not supported for task_type "
-                f"'{payload.task_type}'. Supported: {', '.join(supported_solvers)}"
+                f"'{payload.task_type}'. Supported: {', '.join(route.supported_solvers)}"
             ),
             errors=[
                 ErrorDetail(
                     field_path="solver",
                     value=payload.solver,
-                    constraint=f"must be one of: {', '.join(supported_solvers)}",
+                    constraint=f"must be one of: {', '.join(route.supported_solvers)}",
                     remediation_hint_key="errors.400.unsupported_solver",
                 )
             ],
@@ -578,29 +586,33 @@ async def post_optimization(
             request_id=request_id,
         )
 
-    # Story 2.4 — solver-routing logic deferred (FR C6 / Story 2.6).
-    # v1 catalog has 1 primary solver per algorithm; multi-solver routing is M2-M3.
-    # Validation above ensures only allowed solver names reach here.
+    assert route.algorithm is not None
+    assert route.selected_solver is not None
+    provider_route_metadata = provider_route_to_system_metadata(
+        route,
+        task_type=payload.task_type,
+        requested_solver=payload.solver,
+    )
 
     # ----- Story 2.5 — FR C5 fallback_chain per-element validation -----
     # Chain is stored in input_payload (via model_dump) only; actual fallback
     # execution (try chain[0] → chain[1] on failure, ≤3 retries) is Story 2.7.
     if payload.fallback_chain:
         for idx, candidate in enumerate(payload.fallback_chain):
-            if candidate not in supported_solvers:
+            if candidate not in route.supported_solvers:
                 return _rfc7807_error(
                     title="Unsupported Fallback Solver",
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=(
                         f"fallback_chain[{idx}]='{candidate}' is not supported for "
                         f"task_type '{payload.task_type}'. "
-                        f"Supported: {', '.join(supported_solvers)}"
+                        f"Supported: {', '.join(route.supported_solvers)}"
                     ),
                     errors=[
                         ErrorDetail(
                             field_path=f"fallback_chain[{idx}]",
                             value=candidate,
-                            constraint=f"must be one of: {', '.join(supported_solvers)}",
+                            constraint=f"must be one of: {', '.join(route.supported_solvers)}",
                             remediation_hint_key="errors.400.unsupported_fallback_solver",
                         )
                     ],
@@ -612,8 +624,8 @@ async def post_optimization(
     if payload.options.reproducible:
         reproducibility_payload = _build_reproducibility_payload(
             request_body=body_dict,
-            model_version=dict(algo["model_version"]),
-            locked_solver=algo["supported_solvers"][0],
+            model_version=dict(route.model_version),
+            locked_solver=route.selected_solver,
             anonymous=payload.options.anonymous,
         )
 
@@ -623,7 +635,11 @@ async def post_optimization(
         api_key_id=api_key_id,
         task_type=payload.task_type,
         status="in_progress",
-        input_payload=_attach_reproducibility_metadata(body_dict, reproducibility_payload),
+        input_payload=_attach_system_metadata(
+            body_dict,
+            reproducibility=reproducibility_payload,
+            provider_route=provider_route_metadata,
+        ),
         idempotency_key=idempotency_key,
     )
     session.add(opt)
@@ -646,7 +662,7 @@ async def post_optimization(
         body_dict, max_solve_seconds=payload.options.max_solve_seconds
     )
     opt.solve_seconds = result.solve_seconds
-    opt.model_version = dict(algo["model_version"])
+    opt.model_version = dict(route.model_version)
 
     # ----- Story 5.A.4 — post-solve billing finalize (single attempt, no retry per Q4) -----
     if billing_uuid is not None:
@@ -683,7 +699,7 @@ async def post_optimization(
         if reproducibility_payload is not None:
             await issue_reproduction_voucher(session, opt, issued_at=opt.completed_at)
         await _record_solver_cost_attribution(
-            session, opt=opt, result=result, solver_name=payload.solver
+            session, opt=opt, result=result, solver_name=route.selected_solver
         )
     elif result.status in ("infeasible", "unbounded"):
         opt.status = "failed"
@@ -712,7 +728,7 @@ async def post_optimization(
                 )
             )
         await _record_solver_cost_attribution(
-            session, opt=opt, result=result, solver_name=payload.solver
+            session, opt=opt, result=result, solver_name=route.selected_solver
         )
         return _rfc7807_error(
             title=f"LP {result.status.capitalize()}",
@@ -734,7 +750,7 @@ async def post_optimization(
         opt.completed_at = datetime.now(UTC)
         opt.error = {"detail": result.error_constraint}
         await _record_solver_cost_attribution(
-            session, opt=opt, result=result, solver_name=payload.solver
+            session, opt=opt, result=result, solver_name=route.selected_solver
         )
         return _rfc7807_error(
             title="Solver Timeout",
@@ -755,7 +771,7 @@ async def post_optimization(
         opt.completed_at = datetime.now(UTC)
         opt.error = {"detail": result.error_constraint}
         await _record_solver_cost_attribution(
-            session, opt=opt, result=result, solver_name=payload.solver
+            session, opt=opt, result=result, solver_name=route.selected_solver
         )
         return _rfc7807_error(
             title="Validation Error",
@@ -1176,51 +1192,53 @@ async def post_optimization_demo(request: Request) -> JSONResponse:
     if payload.options.anonymous and not payload.options.reproducible:
         return _anonymous_without_reproducible_error(request_id=request_id)
     # Story 2.4 — solver validation (FR C4) on /demo as well
-    algo, supported_solvers = find_by_task_type_and_solver("lp", payload.solver)
-    if algo is None and not supported_solvers:
+    route = select_provider_route("lp", payload.solver)
+    if route.status is ProviderRouteStatus.UNSUPPORTED_TASK_TYPE:
         return _rfc7807_error(
             title="Catalog Error",
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="LP algorithm missing from catalog",
             request_id=request_id,
         )
-    if algo is None:
+    if route.status is ProviderRouteStatus.UNSUPPORTED_SOLVER:
         return _rfc7807_error(
             title="Unsupported Solver",
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=(
                 f"solver '{payload.solver}' is not supported for task_type 'lp'. "
-                f"Supported: {', '.join(supported_solvers)}"
+                f"Supported: {', '.join(route.supported_solvers)}"
             ),
             errors=[
                 ErrorDetail(
                     field_path="solver",
                     value=payload.solver,
-                    constraint=f"must be one of: {', '.join(supported_solvers)}",
+                    constraint=f"must be one of: {', '.join(route.supported_solvers)}",
                     remediation_hint_key="errors.400.unsupported_solver",
                 )
             ],
             next_action="https://api.opticloud.cn/v1/algorithms",
             request_id=request_id,
         )
+    assert route.algorithm is not None
+    assert route.selected_solver is not None
 
     # Story 2.5 — FR C5 fallback_chain per-element validation (mirror of authenticated route).
     # Chain is data-only on /demo today; actual fallback execution is Story 2.7.
     if payload.fallback_chain:
         for idx, candidate in enumerate(payload.fallback_chain):
-            if candidate not in supported_solvers:
+            if candidate not in route.supported_solvers:
                 return _rfc7807_error(
                     title="Unsupported Fallback Solver",
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=(
                         f"fallback_chain[{idx}]='{candidate}' is not supported for "
-                        f"task_type 'lp'. Supported: {', '.join(supported_solvers)}"
+                        f"task_type 'lp'. Supported: {', '.join(route.supported_solvers)}"
                     ),
                     errors=[
                         ErrorDetail(
                             field_path=f"fallback_chain[{idx}]",
                             value=candidate,
-                            constraint=f"must be one of: {', '.join(supported_solvers)}",
+                            constraint=f"must be one of: {', '.join(route.supported_solvers)}",
                             remediation_hint_key="errors.400.unsupported_fallback_solver",
                         )
                     ],
@@ -1233,9 +1251,11 @@ async def post_optimization_demo(request: Request) -> JSONResponse:
     )
 
     if result.status == "optimal":
+        selected_algorithm = route.algorithm
+        assert selected_algorithm is not None
         # Story 6.A.1 review patch — route demo citation through CitationSchema
         # for byte-identical shape with the authenticated route.
-        demo_citation_raw = algo.get("citation")
+        demo_citation_raw = selected_algorithm.get("citation")
         demo_citation: dict[str, object] | None = None
         if demo_citation_raw is not None:
             try:
@@ -1244,7 +1264,7 @@ async def post_optimization_demo(request: Request) -> JSONResponse:
                 )
             except Exception:
                 demo_citation = None
-        demo_attribution_raw = algo.get("ip_attribution")
+        demo_attribution_raw = selected_algorithm.get("ip_attribution")
         demo_attribution: dict[str, object] | None = None
         if demo_attribution_raw is not None:
             try:
@@ -1257,7 +1277,7 @@ async def post_optimization_demo(request: Request) -> JSONResponse:
             "status": "completed",
             "solution": result.solution,
             "objective": result.objective,
-            "model_version": dict(algo["model_version"]),
+            "model_version": dict(route.model_version),
             "solve_seconds": result.solve_seconds,
             "demo": True,
             "citation": demo_citation,
@@ -1266,8 +1286,8 @@ async def post_optimization_demo(request: Request) -> JSONResponse:
         if payload.options.reproducible:
             content["reproducibility"] = _build_reproducibility_payload(
                 request_body=body_dict,
-                model_version=dict(algo["model_version"]),
-                locked_solver=algo["supported_solvers"][0],
+                model_version=dict(route.model_version),
+                locked_solver=route.selected_solver,
                 anonymous=payload.options.anonymous,
             )
         return JSONResponse(
