@@ -71,6 +71,7 @@ jobs:
               - 'apps/solver-orchestrator/**'
               - 'infra/local-init/02-solver-schema.sql'
               - 'infra/local-init/09-geo-anomaly-risk.sql'
+              - 'infra/local-init/10-cost-attribution.sql'
             chat_service:
               - 'apps/chat-service/**'
             critic_service:
@@ -267,6 +268,7 @@ jobs:
           psql -h localhost -U opticloud -d opticloud_dev -f infra/local-init/07-risk-control.sql
           psql -h localhost -U opticloud -d opticloud_dev -f infra/local-init/08-guardian-consent.sql
           psql -h localhost -U opticloud -d opticloud_dev -f infra/local-init/09-geo-anomaly-risk.sql
+          psql -h localhost -U opticloud -d opticloud_dev -f infra/local-init/10-cost-attribution.sql
       - name: Run tests
         env:
           DATABASE_URL: postgresql+asyncpg://opticloud:opticloud_dev@localhost:5432/opticloud_dev  # pragma: allowlist secret
