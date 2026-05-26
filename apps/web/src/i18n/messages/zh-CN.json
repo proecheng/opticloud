@@ -149,12 +149,36 @@
   },
   "pricing": {
     "title": "定价",
-    "description": "v1 定价页占位：月成本 ¥6 起，学界邮箱自动获得教育版额度。完整商业套餐将在法务和计费策略确认后发布。",
-    "plansTitle": "当前可用",
+    "description": "M4.5 买方安全版定价说明：当前页面用于解释 Free、Starter、Pro、Team、Enterprise 的包装假设，实际计费以已上线的 Credits 与后续法务/账单策略为准。",
+    "buyerSafeTitle": "买方安全边界",
+    "buyerSafeCaveat": "商业套餐、企业条款、SLA、认证状态和退款规则仍需法务、财务与计费实现确认。本页不构成合同、生产 SLA、SOC 2 / ISO 27001 认证声明或客户案例证明。",
+    "docsCta": "查看 quickstart",
     "plans": {
-      "starter": "Starter：注册后获得基础 Credits，适合第一个 LP / 预测任务。",
-      "academic": "Academic：.edu / .ac.cn 邮箱自动激活教育版额度。",
-      "api": "API：按任务消耗 Credits，失败/取消退款规则由后续账单故事完善。"
+      "free": {
+        "name": "Free",
+        "status": "当前运行时",
+        "summary": "适合注册、Hello World、API Key 和第一个 LP / 预测任务；具体赠送额度遵循当前产品实现。"
+      },
+      "starter": {
+        "name": "Starter",
+        "status": "商业假设",
+        "summary": "面向轻量重复使用者，验证 Credits 是否能按任务解释清楚；最终价格待计费策略确认。"
+      },
+      "pro": {
+        "name": "Pro",
+        "status": "商业假设",
+        "summary": "面向个人专业用户和学术试用转化，强调更高月度用量与可复现结果。"
+      },
+      "team": {
+        "name": "Team",
+        "status": "商业假设",
+        "summary": "面向小团队采购，重点解释共享使用、发票准备和 founder-led 支持流程。"
+      },
+      "enterprise": {
+        "name": "Enterprise",
+        "status": "需评审",
+        "summary": "面向采购、法务和技术评估流程；所有条款、SLA 和安全材料均需单独审查。"
+      }
     }
   },
   "legal": {
