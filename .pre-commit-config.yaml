@@ -74,5 +74,8 @@ repos:
           # Public M3.6c incident fallback drill plan SHA-256, not a secret.
           - "--exclude-secrets"
           - "fff65b0ea93792b34dcd185f94798677f4b48274e5fbd0fc0d395af7dc74fe94"
+          # Public M3.6d API gateway performance baseline plan SHA-256, not a secret.
+          - "--exclude-secrets"
+          - "946f35ad4cb7006acc5d4d2df46cab321965d6c2e783f652653ae06597fb764e"
         # pnpm-lock.yaml contains generated integrity hashes that trigger high-entropy false positives.
         exclude: ^(\.env\.example|infra/local-init/.*\.sql|.*\.stories\.tsx|pnpm-lock\.yaml)$
