@@ -98,7 +98,7 @@ development_status:
 
   3-1-j1-lp-solve: done                        # J1 Vertical Slice
   3-2-prediction-submission: done              # FR E2 — ARIMA / Chronos
-  3-3-sync-async-mode: backlog                 # FR E3 完整
+  3-3-sync-async-mode: done                    # FR E3 完整
   3-4-max-solve-seconds-cap: backlog           # FR E4
   3-5-top-k-alternatives: backlog              # FR E5
   3-6-prediction-quantiles: backlog            # FR E6 P10/P50/P90
