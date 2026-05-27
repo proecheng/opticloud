@@ -57,6 +57,7 @@ async def _seed_failed_optimization(
     *,
     retry_count: int = 0,
     has_succeeded: bool = False,
+    cancel_finalize: bool = False,
 ) -> tuple[uuid.UUID, uuid.UUID, uuid.UUID]:
     """INSERT an optimization row with billing_finalize_failed=true.
 
@@ -76,6 +77,15 @@ async def _seed_failed_optimization(
     }
     if has_succeeded:
         error_blob["billing_finalize_succeeded_at"] = datetime.now(UTC).isoformat()
+    if cancel_finalize:
+        error_blob.update(
+            {
+                "billing_cancel_finalize_failed": True,
+                "billing_status": "failure",
+                "billing_failure_reason": "user_cancelled",
+                "refund_status": "pending_reconciliation",
+            }
+        )
 
     # Create user (FK from api_keys → users handled via solver schema; optimizations
     # only references user_id without FK in current schema, but we still create one
@@ -99,13 +109,38 @@ async def _seed_failed_optimization(
             INSERT INTO optimizations
               (id, user_id, api_key_id, task_type, status, input_payload, error, created_at)
             VALUES
-              (:id, :uid, :kid, 'lp', 'completed', CAST('{}' AS jsonb), CAST(:err AS jsonb), NOW())
+              (
+                :id,
+                :uid,
+                :kid,
+                'lp',
+                :status,
+                CAST(:input_payload AS jsonb),
+                CAST(:err AS jsonb),
+                NOW()
+              )
             """
         ),
         {
             "id": opt_id,
             "uid": user_id,
             "kid": api_key_id,
+            "status": "cancelled" if cancel_finalize else "completed",
+            "input_payload": json.dumps(
+                {
+                    "_system": {
+                        "billing": {
+                            "charge_id": str(billing_charge_id),
+                            "reserved": True,
+                            "cancel_finalize_attempted": True,
+                            "cancel_finalize_status": 503,
+                            "refund_status": "pending_reconciliation",
+                        }
+                    }
+                }
+            )
+            if cancel_finalize
+            else "{}",
             "err": json.dumps(error_blob),
         },
     )
@@ -118,6 +153,16 @@ async def _fetch_error(session: AsyncSession, opt_id: uuid.UUID) -> dict:  # typ
         text("SELECT error FROM optimizations WHERE id = :id"), {"id": opt_id}
     )
     return row.scalar_one()
+
+
+async def _fetch_optimization_payloads(
+    session: AsyncSession, opt_id: uuid.UUID
+) -> tuple[dict, dict]:  # type: ignore[type-arg]
+    row = await session.execute(
+        text("SELECT input_payload, error FROM optimizations WHERE id = :id"), {"id": opt_id}
+    )
+    mapping = row.mappings().one()
+    return mapping["input_payload"], mapping["error"]
 
 
 # ===== AC5 tests =====
@@ -159,6 +204,36 @@ async def test_retry_succeeds_clears_flag(db_session: AsyncSession, monkeypatch)
     err_after = await _fetch_error(db_session, opt_id)
     assert "billing_finalize_failed" not in err_after
     assert "billing_finalize_succeeded_at" in err_after
+    assert "refund_status" not in err_after
+
+
+async def test_retry_cancel_finalize_success_clears_cancel_flag_and_updates_refund_status(
+    db_session: AsyncSession, monkeypatch
+) -> None:
+    """Story 3.8 review — cancel finalize retry success closes refund response state."""
+    opt_id, _, _ = await _seed_failed_optimization(db_session, cancel_finalize=True)
+
+    async def _fake_finalize(*args, **kwargs):
+        return BillingResult(
+            ok=True,
+            status_code=200,
+            body={"current_state": "refunded"},
+            error_message=None,
+        )
+
+    monkeypatch.setattr(billing_client, "finalize", _fake_finalize)
+
+    report = await retry_pending_finalizes(db_session, max_retries=5)
+    matches = [r for r in report.results if r.optimization_id == opt_id]
+    assert len(matches) == 1
+    assert matches[0].succeeded is True
+
+    input_payload, err_after = await _fetch_optimization_payloads(db_session, opt_id)
+    assert "billing_finalize_failed" not in err_after
+    assert "billing_cancel_finalize_failed" not in err_after
+    assert err_after["refund_status"] == "refunded"
+    assert input_payload["_system"]["billing"]["refund_status"] == "refunded"
+    assert input_payload["_system"]["billing"]["cancel_finalize_status"] == 200
 
 
 async def test_retry_failure_increments_retry_count(db_session: AsyncSession, monkeypatch) -> None:

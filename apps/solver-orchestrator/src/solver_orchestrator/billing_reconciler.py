@@ -88,7 +88,16 @@ async def retry_pending_finalizes(
         )
 
         if outcome.ok:
-            await _mark_succeeded(session, opt_id)
+            current_state = (
+                outcome.body.get("current_state") if isinstance(outcome.body, dict) else None
+            )
+            await _mark_succeeded(
+                session,
+                opt_id,
+                current_state=current_state,
+                status_code=outcome.status_code,
+                is_cancel_finalize=error_blob.get("billing_cancel_finalize_failed") is True,
+            )
             succeeded += 1
             results.append(
                 RetryOutcome(
@@ -153,9 +162,25 @@ async def _fetch_pending(
     ]
 
 
-async def _mark_succeeded(session: AsyncSession, opt_id: uuid.UUID) -> None:
+async def _mark_succeeded(
+    session: AsyncSession,
+    opt_id: uuid.UUID,
+    *,
+    current_state: str | None,
+    status_code: int,
+    is_cancel_finalize: bool,
+) -> None:
     """Clear the failed flag + record success timestamp."""
     now_iso = datetime.now(UTC).isoformat()
+    if is_cancel_finalize:
+        await _mark_cancel_succeeded(
+            session,
+            opt_id,
+            now_iso=now_iso,
+            current_state=current_state,
+            status_code=status_code,
+        )
+        return
     stmt = text(
         """
         UPDATE optimizations
@@ -169,6 +194,57 @@ async def _mark_succeeded(session: AsyncSession, opt_id: uuid.UUID) -> None:
         """
     )
     await session.execute(stmt, {"id": opt_id, "now": now_iso})
+
+
+async def _mark_cancel_succeeded(
+    session: AsyncSession,
+    opt_id: uuid.UUID,
+    *,
+    now_iso: str,
+    current_state: str | None,
+    status_code: int,
+) -> None:
+    """Clear cancel retry flags and advance persisted refund status."""
+    refund_status = "refunded" if current_state == "refunded" else "finalized"
+    stmt = text(
+        """
+        UPDATE optimizations
+        SET
+            error = (
+                error
+                - 'billing_finalize_failed'
+                - 'billing_cancel_finalize_failed'
+                - 'billing_finalize_error'
+                - 'billing_finalize_last_error'
+                - 'billing_retry_count'
+            ) || jsonb_build_object(
+                'billing_finalize_succeeded_at', CAST(:now AS text),
+                'refund_status', CAST(:refund_status AS text)
+            ),
+            input_payload = CASE
+                WHEN input_payload #> '{_system,billing}' IS NULL THEN input_payload
+                ELSE jsonb_set(
+                    input_payload,
+                    '{_system,billing}',
+                    (input_payload #> '{_system,billing}') || jsonb_build_object(
+                        'refund_status', CAST(:refund_status AS text),
+                        'cancel_finalize_status', CAST(:status_code AS int)
+                    ),
+                    true
+                )
+            END
+        WHERE id = :id
+        """
+    )
+    await session.execute(
+        stmt,
+        {
+            "id": opt_id,
+            "now": now_iso,
+            "refund_status": refund_status,
+            "status_code": status_code,
+        },
+    )
 
 
 async def _mark_failed_increment(
