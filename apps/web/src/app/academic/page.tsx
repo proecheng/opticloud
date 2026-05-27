@@ -16,7 +16,7 @@ import type { Algorithm } from "@/lib/api";
 export const metadata = {
   title: "学术合作 — OptiCloud",
   description:
-    "每个算法自带 BibTeX 引用 — 8 个 SKU、3 个学派、1976→2025 的学术血统全公开。学者用 .edu / .ac.cn 邮箱注册永久免费 ¥2,000 Starter / 月。",
+    "已发布算法自带 BibTeX 引用 — 公开 SKU、3 个学派、1976→2025 的学术血统全公开。学者用 .edu / .ac.cn 邮箱注册永久免费 ¥2,000 Starter / 月。",
 };
 
 // Render per-request (still SSR — crawler-friendly) rather than freezing a
@@ -232,7 +232,7 @@ export default async function AcademicPage(): Promise<JSX.Element> {
             开放优化与预测，让学术研究可复现、可引用、可被发现
           </h1>
           <p className="mt-3 text-balance text-xl text-muted-foreground md:text-2xl">
-            每个算法都自带 BibTeX 引用 — 8 个 SKU、3 个学派、1976 → 2025 的学术血统全公开
+            已发布算法都自带 BibTeX 引用 — 公开 SKU、3 个学派、1976 → 2025 的学术血统全公开
           </p>
           <p className="mx-auto mt-6 max-w-2xl text-balance text-muted-foreground">
             Apache 2.0 自研 + 顶刊算法 + 商用产品的混合栈，提交一次任务 = 拿到结果 +

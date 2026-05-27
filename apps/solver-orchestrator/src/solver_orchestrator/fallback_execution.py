@@ -21,6 +21,7 @@ AttemptRole = Literal["primary", "fallback"]
 class FallbackPlanStatus(StrEnum):
     OK = "ok"
     INVALID_FALLBACK_SOLVER = "invalid_fallback_solver"
+    UNAUDITED_SELF_ALGORITHM = "unaudited_self_algorithm"
 
 
 @dataclass(frozen=True)
@@ -39,6 +40,10 @@ class FallbackAttemptPlan:
     invalid_candidate: str | None = None
     invalid_index: int | None = None
     supported_solvers: list[str] | None = None
+    blocked_k_algo: str | None = None
+    blocked_provider_id: str | None = None
+    audit_ticket_id: str | None = None
+    missing_self_audit_rules: list[str] | None = None
 
 
 def build_fallback_attempts(
@@ -59,6 +64,18 @@ def build_fallback_attempts(
     ]
     for idx, candidate in enumerate((fallback_chain or [])[:3]):
         route = select_provider_route(task_type, candidate)
+        if route.status is ProviderRouteStatus.UNAUDITED_SELF_ALGORITHM:
+            return FallbackAttemptPlan(
+                status=FallbackPlanStatus.UNAUDITED_SELF_ALGORITHM,
+                attempts=attempts,
+                invalid_candidate=candidate,
+                invalid_index=idx,
+                supported_solvers=list(route.supported_solvers),
+                blocked_k_algo=route.blocked_k_algo,
+                blocked_provider_id=route.blocked_provider_id,
+                audit_ticket_id=route.audit_ticket_id,
+                missing_self_audit_rules=list(route.missing_self_audit_rules or []),
+            )
         if route.status is not ProviderRouteStatus.OK:
             return FallbackAttemptPlan(
                 status=FallbackPlanStatus.INVALID_FALLBACK_SOLVER,

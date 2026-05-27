@@ -91,7 +91,7 @@ development_status:
   2-5-fallback-chain: done                     # 2026-05-19 — FR C5 ship: OptimizationRequest.fallback_chain (≤3 cap, 422) + per-element validation (400 RFC 7807 "Unsupported Fallback Solver" with fallback_chain[i] field_path) on both /v1/optimizations + /demo; primary-solver ordering locked; chain stored only (execution = 2.7); +8 backend tests; TS LPRequest gains solver? + fallback_chain?
   2-6-multi-provider-routing: done             # 2026-05-27 — FR C6 provider routing helper + authenticated/demo route integration; post-review mutable catalog boundary fix applied
   2-7-fallback-execution: done                 # 2026-05-27 — FR C7 fallback execution loop for LP; retries timeout/error through validated chain, persists internal attempt history + final route, keeps repro/cost/billing on final aggregate result; post-review billing-finalize flag preservation fix applied
-  2-8-unaudited-block: backlog                 # FR C8
+  2-8-unaudited-block: done                    # FR C8 — 2026-05-27 unaudited self algorithms hidden/blocked until §4.5 audit green
 
   # ===== Epic 3: Execution (14 stories) =====
   epic-3: in-progress

@@ -148,12 +148,13 @@ def test_helper_routes_forecast_explicit_solver_to_matching_algorithm() -> None:
     assert route.model_version["provider_id"] == "statsmodels-arima"
 
 
-def test_helper_routes_self_provider() -> None:
+def test_helper_blocks_unaudited_self_provider() -> None:
     route = select_provider_route("nlp", "aqgs")
 
-    assert route.status is ProviderRouteStatus.OK
-    assert route.algorithm is not None
-    assert route.algorithm["k_algo"] == "aqgs-acopf"
+    assert route.status is ProviderRouteStatus.UNAUDITED_SELF_ALGORITHM
+    assert route.algorithm is None
+    assert route.blocked_k_algo == "aqgs-acopf"
+    assert route.audit_ticket_id == "self-audit-aqgs-acopf-aqgs"
     assert route.provider_kind == "self"
 
 
