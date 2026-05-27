@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import uuid
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any, Literal
@@ -26,6 +27,15 @@ from solver_orchestrator.catalog import (
     find_by_k_algo,
 )
 from solver_orchestrator.db import get_session
+from solver_orchestrator.fallback_execution import (
+    FallbackAttempt,
+    FallbackPlanStatus,
+    attempt_route_metadata,
+    build_fallback_attempts,
+    build_fallback_execution_metadata,
+    fallback_attempt_to_metadata,
+    is_retryable_solver_result,
+)
 from solver_orchestrator.models import (
     CostAttribution,
     IdempotencyKey,
@@ -34,7 +44,6 @@ from solver_orchestrator.models import (
 )
 from solver_orchestrator.provider_routing import (
     ProviderRouteStatus,
-    provider_route_to_system_metadata,
     select_provider_route,
 )
 from solver_orchestrator.repro import (
@@ -386,6 +395,14 @@ def _attach_system_metadata(body: dict, **metadata: object | None) -> dict:  # t
     return payload
 
 
+def _merge_optimization_error(opt: Optimization, updates: dict[str, Any]) -> dict[str, Any]:
+    """Assign a fresh merged error payload so JSONB changes are persisted."""
+    existing = dict(opt.error) if isinstance(opt.error, dict) else {}
+    existing.update(updates)
+    opt.error = existing
+    return existing
+
+
 def _rfc7807_error(
     *,
     title: str,
@@ -446,6 +463,83 @@ async def _record_solver_cost_attribution(
             exception_type=type(exc).__name__,
             message=str(exc),
         )
+
+
+@dataclass(frozen=True)
+class _FallbackExecutionOutcome:
+    result: solvers.LPSolveResult
+    terminal_attempt: FallbackAttempt
+    total_solve_seconds: float
+    fallback_execution: dict[str, object]
+
+
+def _execute_fallback_attempts(
+    *,
+    attempts: list[FallbackAttempt],
+    task_type: str,
+    body_dict: dict[str, Any],
+    max_solve_seconds: float,
+    max_fallback_retries: int,
+) -> _FallbackExecutionOutcome:
+    attempt_metadata: list[dict[str, object]] = []
+    total_solve_seconds = 0.0
+    terminal_result: solvers.LPSolveResult | None = None
+    terminal_attempt: FallbackAttempt | None = None
+    exhausted = False
+
+    for index, attempt in enumerate(attempts):
+        if attempt.route.selected_solver is None:
+            raise ValueError("fallback attempt requires selected solver")
+        attempt_body = dict(body_dict)
+        attempt_body["solver"] = attempt.route.selected_solver
+        result = solvers.solve_from_request(
+            attempt_body,
+            max_solve_seconds=max_solve_seconds,
+        )
+        total_solve_seconds += result.solve_seconds
+        retryable = is_retryable_solver_result(result)
+        has_next = index < len(attempts) - 1
+        attempt_metadata.append(
+            fallback_attempt_to_metadata(
+                attempt,
+                result,
+                task_type=task_type,
+                retryable=retryable,
+            )
+        )
+        terminal_result = result
+        terminal_attempt = attempt
+        if result.status == "optimal" or not retryable:
+            break
+        if not has_next:
+            exhausted = True
+            break
+
+    if terminal_result is None or terminal_attempt is None:
+        raise ValueError("fallback execution requires at least one attempt")
+
+    aggregate_result = solvers.LPSolveResult(
+        status=terminal_result.status,
+        objective=terminal_result.objective,
+        solution=terminal_result.solution,
+        solve_seconds=total_solve_seconds,
+        error_field_path=terminal_result.error_field_path,
+        error_constraint=terminal_result.error_constraint,
+    )
+    fallback_execution = build_fallback_execution_metadata(
+        attempt_metadata=attempt_metadata,
+        terminal_result=aggregate_result,
+        terminal_attempt=terminal_attempt,
+        total_solve_seconds=total_solve_seconds,
+        max_fallback_retries=max_fallback_retries,
+        exhausted=exhausted,
+    )
+    return _FallbackExecutionOutcome(
+        result=aggregate_result,
+        terminal_attempt=terminal_attempt,
+        total_solve_seconds=total_solve_seconds,
+        fallback_execution=fallback_execution,
+    )
 
 
 @router.post(
@@ -588,11 +682,6 @@ async def post_optimization(
 
     assert route.algorithm is not None
     assert route.selected_solver is not None
-    provider_route_metadata = provider_route_to_system_metadata(
-        route,
-        task_type=payload.task_type,
-        requested_solver=payload.solver,
-    )
 
     # ----- Story 2.5 — FR C5 fallback_chain per-element validation -----
     # Chain is stored in input_payload (via model_dump) only; actual fallback
@@ -620,14 +709,37 @@ async def post_optimization(
                     request_id=request_id,
                 )
 
-    reproducibility_payload: dict[str, object] | None = None
-    if payload.options.reproducible:
-        reproducibility_payload = _build_reproducibility_payload(
-            request_body=body_dict,
-            model_version=dict(route.model_version),
-            locked_solver=route.selected_solver,
-            anonymous=payload.options.anonymous,
+    attempt_plan = build_fallback_attempts(
+        primary_route=route,
+        task_type=payload.task_type,
+        requested_solver=payload.solver,
+        fallback_chain=payload.fallback_chain,
+    )
+    if attempt_plan.status is FallbackPlanStatus.INVALID_FALLBACK_SOLVER:
+        invalid_idx = attempt_plan.invalid_index if attempt_plan.invalid_index is not None else 0
+        supported = attempt_plan.supported_solvers or route.supported_solvers
+        invalid_candidate = attempt_plan.invalid_candidate
+        return _rfc7807_error(
+            title="Unsupported Fallback Solver",
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"fallback_chain[{invalid_idx}]='{invalid_candidate}' is not supported for "
+                f"task_type '{payload.task_type}'. Supported: {', '.join(supported)}"
+            ),
+            errors=[
+                ErrorDetail(
+                    field_path=f"fallback_chain[{invalid_idx}]",
+                    value=invalid_candidate,
+                    constraint=f"must be one of: {', '.join(supported)}",
+                    remediation_hint_key="errors.400.unsupported_fallback_solver",
+                )
+            ],
+            next_action="https://api.opticloud.cn/v1/algorithms",
+            request_id=request_id,
         )
+    primary_route_metadata = attempt_route_metadata(
+        attempt_plan.attempts[0], task_type=payload.task_type
+    )
 
     # ----- Persist input -----
     opt = Optimization(
@@ -637,8 +749,7 @@ async def post_optimization(
         status="in_progress",
         input_payload=_attach_system_metadata(
             body_dict,
-            reproducibility=reproducibility_payload,
-            provider_route=provider_route_metadata,
+            provider_route=primary_route_metadata,
         ),
         idempotency_key=idempotency_key,
     )
@@ -658,11 +769,30 @@ async def post_optimization(
             request_id=request_id,
         )
 
-    result = solvers.solve_from_request(
-        body_dict, max_solve_seconds=payload.options.max_solve_seconds
+    execution = _execute_fallback_attempts(
+        attempts=attempt_plan.attempts,
+        task_type=payload.task_type,
+        body_dict=body_dict,
+        max_solve_seconds=payload.options.max_solve_seconds,
+        max_fallback_retries=len(payload.fallback_chain or []),
     )
-    opt.solve_seconds = result.solve_seconds
-    opt.model_version = dict(route.model_version)
+    result = execution.result
+    final_attempt = execution.terminal_attempt
+    final_route = final_attempt.route
+    final_selected_solver = final_route.selected_solver
+    assert final_selected_solver is not None
+    executed_provider_route_metadata = attempt_route_metadata(
+        final_attempt,
+        task_type=payload.task_type,
+    )
+    opt.solve_seconds = execution.total_solve_seconds
+    opt.model_version = dict(final_route.model_version)
+    opt.input_payload = _attach_system_metadata(
+        opt.input_payload,
+        provider_route=primary_route_metadata,
+        executed_provider_route=executed_provider_route_metadata,
+        fallback_execution=execution.fallback_execution,
+    )
 
     # ----- Story 5.A.4 — post-solve billing finalize (single attempt, no retry per Q4) -----
     if billing_uuid is not None:
@@ -681,41 +811,58 @@ async def post_optimization(
         if not finalize_outcome.ok:
             # Q4 — solve result is NOT held hostage by billing; mark + log + continue.
             # M2.2c — persist retry context so the billing reconciler can replay.
-            existing_error = opt.error or {}
-            existing_error["billing_finalize_failed"] = True
-            existing_error["billing_finalize_error"] = finalize_outcome.error_message
-            existing_error["billing_charge_id"] = str(billing_uuid)
-            existing_error["billing_elapsed_seconds"] = result.solve_seconds
-            existing_error["billing_status"] = finalize_status
-            existing_error["billing_failure_reason"] = failure_reason
-            existing_error["billing_retry_count"] = 0
-            opt.error = existing_error
+            _merge_optimization_error(
+                opt,
+                {
+                    "billing_finalize_failed": True,
+                    "billing_finalize_error": finalize_outcome.error_message,
+                    "billing_charge_id": str(billing_uuid),
+                    "billing_elapsed_seconds": result.solve_seconds,
+                    "billing_status": finalize_status,
+                    "billing_failure_reason": failure_reason,
+                    "billing_retry_count": 0,
+                },
+            )
 
     if result.status == "optimal":
         opt.status = "completed"
         opt.solution = result.solution
         opt.objective = result.objective
         opt.completed_at = datetime.now(UTC)
-        if reproducibility_payload is not None:
+        if payload.options.reproducible:
+            reproducibility_payload = _build_reproducibility_payload(
+                request_body=body_dict,
+                model_version=dict(final_route.model_version),
+                locked_solver=final_selected_solver,
+                anonymous=payload.options.anonymous,
+            )
+            opt.input_payload = _attach_system_metadata(
+                opt.input_payload,
+                reproducibility=reproducibility_payload,
+            )
             await issue_reproduction_voucher(session, opt, issued_at=opt.completed_at)
         await _record_solver_cost_attribution(
-            session, opt=opt, result=result, solver_name=route.selected_solver
+            session, opt=opt, result=result, solver_name=final_selected_solver
         )
     elif result.status in ("infeasible", "unbounded"):
         opt.status = "failed"
         opt.completed_at = datetime.now(UTC)
-        opt.error = {
-            "title": "Solver Result",
-            "detail": result.error_constraint or result.status,
-            "errors": [
-                {
-                    "field_path": result.error_field_path or "st",
-                    "value": None,
-                    "constraint": result.error_constraint or result.status,
-                    "remediation_hint_key": f"errors.422.{result.status}",
-                }
-            ],
-        }
+        _merge_optimization_error(
+            opt,
+            {
+                "title": "Solver Result",
+                "detail": result.error_constraint or result.status,
+                "errors": [
+                    {
+                        "field_path": result.error_field_path or "st",
+                        "value": None,
+                        "constraint": result.error_constraint or result.status,
+                        "remediation_hint_key": f"errors.422.{result.status}",
+                    }
+                ],
+                "fallback_execution": execution.fallback_execution,
+            },
+        )
         # Persist + return error
         if idempotency_key:
             session.add(
@@ -728,7 +875,7 @@ async def post_optimization(
                 )
             )
         await _record_solver_cost_attribution(
-            session, opt=opt, result=result, solver_name=route.selected_solver
+            session, opt=opt, result=result, solver_name=final_selected_solver
         )
         return _rfc7807_error(
             title=f"LP {result.status.capitalize()}",
@@ -748,9 +895,15 @@ async def post_optimization(
     elif result.status == "timeout":
         opt.status = "timeout"
         opt.completed_at = datetime.now(UTC)
-        opt.error = {"detail": result.error_constraint}
+        _merge_optimization_error(
+            opt,
+            {
+                "detail": result.error_constraint,
+                "fallback_execution": execution.fallback_execution,
+            },
+        )
         await _record_solver_cost_attribution(
-            session, opt=opt, result=result, solver_name=route.selected_solver
+            session, opt=opt, result=result, solver_name=final_selected_solver
         )
         return _rfc7807_error(
             title="Solver Timeout",
@@ -769,9 +922,15 @@ async def post_optimization(
     else:  # error
         opt.status = "failed"
         opt.completed_at = datetime.now(UTC)
-        opt.error = {"detail": result.error_constraint}
+        _merge_optimization_error(
+            opt,
+            {
+                "detail": result.error_constraint,
+                "fallback_execution": execution.fallback_execution,
+            },
+        )
         await _record_solver_cost_attribution(
-            session, opt=opt, result=result, solver_name=route.selected_solver
+            session, opt=opt, result=result, solver_name=final_selected_solver
         )
         return _rfc7807_error(
             title="Validation Error",
@@ -1246,12 +1405,50 @@ async def post_optimization_demo(request: Request) -> JSONResponse:
                     request_id=request_id,
                 )
 
-    result = solvers.solve_from_request(
-        body_dict, max_solve_seconds=payload.options.max_solve_seconds
+    attempt_plan = build_fallback_attempts(
+        primary_route=route,
+        task_type="lp",
+        requested_solver=payload.solver,
+        fallback_chain=payload.fallback_chain,
     )
+    if attempt_plan.status is FallbackPlanStatus.INVALID_FALLBACK_SOLVER:
+        invalid_idx = attempt_plan.invalid_index if attempt_plan.invalid_index is not None else 0
+        supported = attempt_plan.supported_solvers or route.supported_solvers
+        invalid_candidate = attempt_plan.invalid_candidate
+        return _rfc7807_error(
+            title="Unsupported Fallback Solver",
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"fallback_chain[{invalid_idx}]='{invalid_candidate}' is not supported for "
+                f"task_type 'lp'. Supported: {', '.join(supported)}"
+            ),
+            errors=[
+                ErrorDetail(
+                    field_path=f"fallback_chain[{invalid_idx}]",
+                    value=invalid_candidate,
+                    constraint=f"must be one of: {', '.join(supported)}",
+                    remediation_hint_key="errors.400.unsupported_fallback_solver",
+                )
+            ],
+            next_action="https://api.opticloud.cn/v1/algorithms",
+            request_id=request_id,
+        )
+
+    execution = _execute_fallback_attempts(
+        attempts=attempt_plan.attempts,
+        task_type="lp",
+        body_dict=body_dict,
+        max_solve_seconds=payload.options.max_solve_seconds,
+        max_fallback_retries=len(payload.fallback_chain or []),
+    )
+    result = execution.result
+    final_attempt = execution.terminal_attempt
+    final_route = final_attempt.route
+    final_selected_solver = final_route.selected_solver
+    assert final_selected_solver is not None
 
     if result.status == "optimal":
-        selected_algorithm = route.algorithm
+        selected_algorithm = final_route.algorithm
         assert selected_algorithm is not None
         # Story 6.A.1 review patch — route demo citation through CitationSchema
         # for byte-identical shape with the authenticated route.
@@ -1277,7 +1474,7 @@ async def post_optimization_demo(request: Request) -> JSONResponse:
             "status": "completed",
             "solution": result.solution,
             "objective": result.objective,
-            "model_version": dict(route.model_version),
+            "model_version": dict(final_route.model_version),
             "solve_seconds": result.solve_seconds,
             "demo": True,
             "citation": demo_citation,
@@ -1286,8 +1483,8 @@ async def post_optimization_demo(request: Request) -> JSONResponse:
         if payload.options.reproducible:
             content["reproducibility"] = _build_reproducibility_payload(
                 request_body=body_dict,
-                model_version=dict(route.model_version),
-                locked_solver=route.selected_solver,
+                model_version=dict(final_route.model_version),
+                locked_solver=final_selected_solver,
                 anonymous=payload.options.anonymous,
             )
         return JSONResponse(
@@ -1299,6 +1496,21 @@ async def post_optimization_demo(request: Request) -> JSONResponse:
             title=f"LP {result.status.capitalize()}",
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=result.error_constraint or result.status,
+            request_id=request_id,
+        )
+    if result.status == "timeout":
+        return _rfc7807_error(
+            title="Solver Timeout",
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            detail=result.error_constraint or "solver exceeded max_solve_seconds",
+            errors=[
+                ErrorDetail(
+                    field_path=result.error_field_path or "options.max_solve_seconds",
+                    value=payload.options.max_solve_seconds,
+                    constraint=result.error_constraint or "timeout",
+                    remediation_hint_key="errors.504.solver_timeout",
+                )
+            ],
             request_id=request_id,
         )
     return _rfc7807_error(
