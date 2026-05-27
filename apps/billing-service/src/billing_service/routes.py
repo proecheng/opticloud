@@ -380,6 +380,12 @@ def _max_solve_seconds_from(saga: SagaInstance) -> float:
     return float(raw)
 
 
+def _discount_context(discount_multiplier: Decimal) -> dict[str, str]:
+    if discount_multiplier == Decimal("1.0"):
+        return {}
+    return {"discount_multiplier": f"{discount_multiplier:.4f}"}
+
+
 def _rebuild_finalize_response(
     saga: SagaInstance,
     ledger_rows: list[CreditTransaction],
@@ -467,6 +473,7 @@ async def finalize_charge(
             rate_per_second=settings.lp_rate_per_second,
             min_amount=settings.charge_min_amount,
             reserved_amount=reserved_amount,
+            discount_multiplier=body.discount_multiplier,
         )
 
         # Apply transition first — orchestrator writes the `-reserved kind=charge` row + outbox event
@@ -478,6 +485,7 @@ async def finalize_charge(
                     "reserved_amount": f"{reserved_amount:.4f}",
                     "actual_amount": f"{actual:.4f}",
                     "elapsed_seconds": body.elapsed_seconds,
+                    **_discount_context(body.discount_multiplier),
                 },
             )
         except (InvalidSagaTransitionError, SagaTerminalError) as e:
@@ -505,6 +513,7 @@ async def finalize_charge(
                         "reason": "elapsed < max_solve_seconds",
                         "elapsed_seconds": body.elapsed_seconds,
                         "actual_amount": f"{actual:.4f}",
+                        **_discount_context(body.discount_multiplier),
                     },
                     created_at=datetime.now(UTC),
                 )

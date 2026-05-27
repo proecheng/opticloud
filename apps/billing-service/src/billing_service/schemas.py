@@ -112,6 +112,12 @@ class FinalizeChargeRequest(BaseModel):
     failure_reason: str | None = Field(
         default=None, description="Required when status='failure'; null otherwise"
     )
+    discount_multiplier: Decimal = Field(
+        default=Decimal("1.0"),
+        gt=0,
+        le=1,
+        description="Story 3.10 optional billing discount multiplier; 1.0 means no discount",
+    )
 
 
 class FinalizeChargeResponse(BaseModel):

@@ -79,13 +79,26 @@ async def retry_pending_finalizes(
         retry_count = int(error_blob.get("billing_retry_count", 0))
         attempt_number = retry_count + 1
 
-        outcome = await billing_client.finalize(
-            charge_id,
-            user_id,
-            elapsed_seconds=float(error_blob.get("billing_elapsed_seconds", 0.0)),
-            status=error_blob.get("billing_status", "failure"),
-            failure_reason=error_blob.get("billing_failure_reason"),
-        )
+        discount_multiplier = error_blob.get("billing_discount_multiplier")
+        if isinstance(discount_multiplier, int | float) and not isinstance(
+            discount_multiplier, bool
+        ):
+            outcome = await billing_client.finalize(
+                charge_id,
+                user_id,
+                elapsed_seconds=float(error_blob.get("billing_elapsed_seconds", 0.0)),
+                status=error_blob.get("billing_status", "failure"),
+                failure_reason=error_blob.get("billing_failure_reason"),
+                discount_multiplier=float(discount_multiplier),
+            )
+        else:
+            outcome = await billing_client.finalize(
+                charge_id,
+                user_id,
+                elapsed_seconds=float(error_blob.get("billing_elapsed_seconds", 0.0)),
+                status=error_blob.get("billing_status", "failure"),
+                failure_reason=error_blob.get("billing_failure_reason"),
+            )
 
         if outcome.ok:
             current_state = (

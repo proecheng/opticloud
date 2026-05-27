@@ -60,6 +60,7 @@ async def finalize(
     elapsed_seconds: float,
     status: Literal["success", "failure"],
     failure_reason: str | None = None,
+    discount_multiplier: float | None = None,
     client: httpx.AsyncClient | None = None,
 ) -> BillingResult:
     """POST /v1/billing/charges/{id}/finalize."""
@@ -69,6 +70,8 @@ async def finalize(
         "status": status,
         "failure_reason": failure_reason,
     }
+    if discount_multiplier is not None:
+        body["discount_multiplier"] = discount_multiplier
     return await _call(method="POST", url=url, json_body=body, user_id=user_id, client=client)
 
 

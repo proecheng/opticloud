@@ -58,6 +58,7 @@ async def _seed_failed_optimization(
     retry_count: int = 0,
     has_succeeded: bool = False,
     cancel_finalize: bool = False,
+    backtest_discount: bool = False,
 ) -> tuple[uuid.UUID, uuid.UUID, uuid.UUID]:
     """INSERT an optimization row with billing_finalize_failed=true.
 
@@ -77,6 +78,13 @@ async def _seed_failed_optimization(
     }
     if has_succeeded:
         error_blob["billing_finalize_succeeded_at"] = datetime.now(UTC).isoformat()
+    if backtest_discount:
+        error_blob.update(
+            {
+                "billing_discount_multiplier": 0.5,
+                "billing_discount_kind": "backtest",
+            }
+        )
     if cancel_finalize:
         error_blob.update(
             {
@@ -254,6 +262,47 @@ async def test_retry_failure_increments_retry_count(db_session: AsyncSession, mo
     assert err_after["billing_finalize_failed"] is True
     assert err_after["billing_retry_count"] == 1
     assert err_after["billing_finalize_last_error"] == "HTTP 503"
+
+
+async def test_retry_backtest_finalize_preserves_discount_multiplier(
+    db_session: AsyncSession, monkeypatch
+) -> None:
+    """Story 3.10 — retry finalize must pass the persisted backtest discount."""
+    opt_id, _, charge_id = await _seed_failed_optimization(db_session, backtest_discount=True)
+    captured: dict[str, object] = {}
+
+    async def _fake_finalize(
+        cid,
+        uid,
+        *,
+        elapsed_seconds,
+        status,
+        failure_reason=None,
+        client=None,
+        discount_multiplier=None,
+    ):
+        captured.update(
+            {
+                "cid": cid,
+                "elapsed_seconds": elapsed_seconds,
+                "status": status,
+                "failure_reason": failure_reason,
+                "discount_multiplier": discount_multiplier,
+            }
+        )
+        return BillingResult(ok=True, status_code=200, body={}, error_message=None)
+
+    monkeypatch.setattr(billing_client, "finalize", _fake_finalize)
+
+    report = await retry_pending_finalizes(db_session, max_retries=5)
+    matches = [r for r in report.results if r.optimization_id == opt_id]
+    assert len(matches) == 1
+    assert matches[0].succeeded is True
+    assert captured["cid"] == charge_id
+    assert captured["elapsed_seconds"] == 5.0
+    assert captured["status"] == "success"
+    assert captured["failure_reason"] is None
+    assert captured["discount_multiplier"] == 0.5
 
 
 async def test_retry_exhausted_after_max_attempts(db_session: AsyncSession, monkeypatch) -> None:

@@ -21,6 +21,7 @@ def compute_charge_amount(
     rate_per_second: Decimal,
     min_amount: Decimal,
     reserved_amount: Decimal,
+    discount_multiplier: Decimal = Decimal("1.0"),
 ) -> Decimal:
     """Per-formula charge, quantised to 2 decimals, clamped to [min, reserved].
 
@@ -30,13 +31,14 @@ def compute_charge_amount(
         rate_per_second: CNY/sec — Decimal for precision
         min_amount: floor to prevent zero-charge from sub-cent solves
         reserved_amount: defensive cap so we never exceed what we reserved
+        discount_multiplier: Story 3.10 backtest discount, defaults to no discount
 
     Returns:
         Decimal('X.XX') in range [min_amount, reserved_amount], ROUND_HALF_UP.
 
     Behaviour:
         - elapsed clamped to [0, max_solve_seconds]
-        - amount = elapsed_clamped × rate, quantised HALF_UP to 0.01
+        - amount = elapsed_clamped × rate × discount_multiplier, quantised HALF_UP to 0.01
         - if amount < min_amount → return min_amount
         - if amount > reserved_amount → return reserved_amount
     """
@@ -44,7 +46,7 @@ def compute_charge_amount(
     cap = Decimal(str(max(0.0, max_solve_seconds)))
     clamped = min(elapsed, cap)
 
-    raw = clamped * rate_per_second
+    raw = clamped * rate_per_second * discount_multiplier
     quantised = raw.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
     if quantised < min_amount:
