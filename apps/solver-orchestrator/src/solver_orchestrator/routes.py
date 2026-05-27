@@ -72,11 +72,11 @@ from solver_orchestrator.schemas import (
     ModelVersionSchema,
     OptimizationRequest,
     OptimizationResponse,
-    PredictionDisclaimer,
     PredictionQuantiles,
     PredictionRequest,
     PredictionResponse,
     ReproducibilitySchema,
+    prediction_disclaimer,
 )
 
 router = APIRouter(prefix="/v1")
@@ -85,6 +85,13 @@ logger: Any = structlog.get_logger("solver_orchestrator.routes")
 ASYNC_QUEUE_MESSAGE = "Task queued; background execution is not enabled in Story 3.3"
 SYNC_ASYNC_THRESHOLD_SECONDS = 5.0
 SOLVER_BUDGET_EPSILON_SECONDS = 1e-9
+PREDICTION_MAX_ABS_DATA_VALUE = 1_000_000_000_000.0
+
+
+@dataclass(frozen=True)
+class _PredictionContractViolationError(Exception):
+    field: str
+    detail: str
 
 
 # ===== Story 0.7: Health =====
@@ -1548,27 +1555,74 @@ async def post_prediction(
         task_type="forecast",
         requested_solver=mapped_solver,
     )
+    row_input_payload = _attach_system_metadata(body_dict, provider_route=route_metadata)
 
     started = time.perf_counter()
-    forecast_result = predict_quantiles(
-        [float(value) for value in body_dict["data"]],
-        int(body_dict["horizon"]),
-    )
-    elapsed = max(time.perf_counter() - started, forecast_result.predict_seconds)
-    completed_at = datetime.now(UTC)
-    prediction_payload = {
-        "p10": forecast_result.p10,
-        "p50": forecast_result.p50,
-        "p90": forecast_result.p90,
-    }
+    try:
+        forecast_result = predict_quantiles(
+            [float(value) for value in body_dict["data"]],
+            int(body_dict["horizon"]),
+        )
+        prediction_payload, drift_score = _validated_forecast_payload(
+            forecast_result=forecast_result,
+            horizon=int(body_dict["horizon"]),
+        )
+        elapsed = _prediction_runtime_seconds(started, forecast_result.predict_seconds)
+        completed_at = datetime.now(UTC)
+    except _PredictionContractViolationError as exc:
+        logger.warning(
+            "prediction.contract_violation",
+            user_id=str(user_id),
+            family=family,
+            field=exc.field,
+            message=exc.detail,
+        )
+        prediction_row = Prediction(
+            user_id=user_id,
+            api_key_id=api_key_id,
+            family=family,
+            status="failed",
+            input_payload=row_input_payload,
+            error=_prediction_contract_violation_payload(exc),
+            model_version=dict(route.model_version),
+            predict_seconds=_prediction_runtime_seconds(started),
+            idempotency_key=idempotency_key,
+            completed_at=datetime.now(UTC),
+        )
+        session.add(prediction_row)
+        await session.flush()
+        return _build_prediction_success_response(prediction_row)
+    except Exception as exc:
+        logger.warning(
+            "prediction.execution_failed",
+            user_id=str(user_id),
+            family=family,
+            exception_type=type(exc).__name__,
+        )
+        prediction_row = Prediction(
+            user_id=user_id,
+            api_key_id=api_key_id,
+            family=family,
+            status="failed",
+            input_payload=row_input_payload,
+            error=_prediction_execution_failed_payload(),
+            model_version=dict(route.model_version),
+            predict_seconds=_prediction_runtime_seconds(started),
+            idempotency_key=idempotency_key,
+            completed_at=datetime.now(UTC),
+        )
+        session.add(prediction_row)
+        await session.flush()
+        return _build_prediction_success_response(prediction_row)
+
     prediction_row = Prediction(
         user_id=user_id,
         api_key_id=api_key_id,
         family=family,
         status="completed",
-        input_payload=_attach_system_metadata(body_dict, provider_route=route_metadata),
+        input_payload=row_input_payload,
         prediction=prediction_payload,
-        drift_score=forecast_result.drift_score,
+        drift_score=drift_score,
         model_version=dict(route.model_version),
         predict_seconds=elapsed,
         idempotency_key=idempotency_key,
@@ -1958,12 +2012,6 @@ def _build_success_response(opt: Optimization) -> JSONResponse:
     )
 
 
-PREDICTION_DISCLAIMER = PredictionDisclaimer(
-    zh="本预测仅供参考",
-    en="This forecast is for reference only",
-    bilingual="本预测仅供参考 / This forecast is for reference only",
-)
-
 PREDICTION_FAMILY_SOLVERS: dict[str, str] = {
     "arima": "arima",
     "chronos": "chronos-t5",
@@ -1972,6 +2020,211 @@ PREDICTION_FAMILY_SOLVERS: dict[str, str] = {
 
 def _prediction_family_to_solver(family: str) -> str | None:
     return PREDICTION_FAMILY_SOLVERS.get(family.strip().lower())
+
+
+def _prediction_public_error(
+    *,
+    title: Literal["Prediction Contract Violation", "Prediction Execution Failed"],
+    detail: str,
+    field: str | None = None,
+) -> dict[str, str]:
+    payload = {"title": title, "detail": detail}
+    if field is not None:
+        payload["field"] = field
+    return payload
+
+
+def _prediction_contract_violation_payload(
+    violation: _PredictionContractViolationError,
+) -> dict[str, str]:
+    return _prediction_public_error(
+        title="Prediction Contract Violation",
+        detail=f"invalid {violation.field}: {violation.detail}",
+        field=violation.field,
+    )
+
+
+def _prediction_execution_failed_payload() -> dict[str, str]:
+    return _prediction_public_error(
+        title="Prediction Execution Failed",
+        detail="prediction execution failed",
+    )
+
+
+def _iso_or_none(value: datetime | None) -> str | None:
+    return value.isoformat() if value is not None else None
+
+
+def _safe_prediction_model_version(model_version: object) -> dict[str, Any] | None:
+    try:
+        parsed = ModelVersionSchema.model_validate(model_version)
+    except Exception:
+        return None
+    content = json.loads(parsed.model_dump_json())
+    if not isinstance(content, dict):
+        return None
+    return content
+
+
+def _prediction_compact_status_content(
+    prediction: Prediction,
+    *,
+    status_override: str | None = None,
+    error_override: dict[str, Any] | None = None,
+    validate_model_version: bool = False,
+) -> dict[str, Any]:
+    completed_at = prediction.completed_at or prediction.created_at
+    if validate_model_version:
+        model_version: object = _safe_prediction_model_version(prediction.model_version)
+    else:
+        model_version = prediction.model_version
+    return {
+        "prediction_id": str(prediction.id),
+        "status": status_override or prediction.status,
+        "error": error_override if error_override is not None else prediction.error,
+        "model_version": model_version,
+        "created_at": _iso_or_none(prediction.created_at),
+        "completed_at": _iso_or_none(completed_at),
+    }
+
+
+def _prediction_horizon_from_payload(input_payload: object) -> int:
+    if not isinstance(input_payload, dict):
+        raise _PredictionContractViolationError("horizon", "input payload is not an object")
+    public_payload = _strip_system_metadata(input_payload)
+    raw_horizon = public_payload.get("horizon")
+    if isinstance(raw_horizon, bool) or not isinstance(raw_horizon, int):
+        raise _PredictionContractViolationError("horizon", "horizon is missing or not an integer")
+    if raw_horizon < 1 or raw_horizon > 90:
+        raise _PredictionContractViolationError("horizon", "horizon must be between 1 and 90")
+    return raw_horizon
+
+
+def _finite_prediction_float(value: object, *, field: str) -> float:
+    if isinstance(value, bool):
+        raise _PredictionContractViolationError(field, "value must be a finite number")
+    if not isinstance(value, int | float | Decimal):
+        raise _PredictionContractViolationError(field, "value must be a finite number")
+    try:
+        number = float(value)
+    except (ValueError, OverflowError) as exc:
+        raise _PredictionContractViolationError(field, "value must be a finite number") from exc
+    if not math.isfinite(number):
+        raise _PredictionContractViolationError(field, "value must be finite")
+    return number
+
+
+def _validate_prediction_quantiles(
+    raw_prediction: object, *, horizon: int
+) -> dict[str, list[float]]:
+    if not isinstance(raw_prediction, dict):
+        raise _PredictionContractViolationError("prediction", "prediction must be an object")
+    if set(raw_prediction) != {"p10", "p50", "p90"}:
+        raise _PredictionContractViolationError(
+            "prediction", "prediction must contain p10, p50, p90"
+        )
+
+    normalized: dict[str, list[float]] = {}
+    for key in ("p10", "p50", "p90"):
+        values = raw_prediction[key]
+        if not isinstance(values, list):
+            raise _PredictionContractViolationError(f"prediction.{key}", "quantile must be a list")
+        if len(values) != horizon:
+            raise _PredictionContractViolationError(
+                "prediction",
+                f"quantile length must equal horizon {horizon}",
+            )
+        normalized[key] = [
+            _finite_prediction_float(value, field=f"prediction.{key}[{idx}]")
+            for idx, value in enumerate(values)
+        ]
+
+    for idx, (p10, p50, p90) in enumerate(
+        zip(normalized["p10"], normalized["p50"], normalized["p90"], strict=True)
+    ):
+        if not p10 <= p50 <= p90:
+            raise _PredictionContractViolationError(
+                "prediction",
+                f"quantiles must satisfy p10 <= p50 <= p90 at index {idx}",
+            )
+    return normalized
+
+
+def _validate_prediction_drift_score(raw_drift_score: object) -> float:
+    drift_score = _finite_prediction_float(raw_drift_score, field="drift_score")
+    if drift_score < 0.0 or drift_score > 1.0:
+        raise _PredictionContractViolationError("drift_score", "must be between 0.0 and 1.0")
+    return drift_score
+
+
+def _prediction_safe_seconds(value: object | None) -> float:
+    if value is None:
+        return 0.0
+    if isinstance(value, bool) or not isinstance(value, int | float | Decimal):
+        return 0.0
+    try:
+        seconds = float(value)
+    except (ValueError, OverflowError):
+        return 0.0
+    if not math.isfinite(seconds) or seconds < 0.0:
+        return 0.0
+    return seconds
+
+
+def _prediction_runtime_seconds(started: float, helper_seconds: object | None = None) -> float:
+    elapsed = max(time.perf_counter() - started, 0.0)
+    if helper_seconds is None:
+        return elapsed
+    helper_elapsed = _prediction_safe_seconds(helper_seconds)
+    return max(elapsed, helper_elapsed)
+
+
+def _validated_forecast_payload(
+    *,
+    forecast_result: Any,
+    horizon: int,
+) -> tuple[dict[str, list[float]], float]:
+    prediction_payload = {
+        "p10": forecast_result.p10,
+        "p50": forecast_result.p50,
+        "p90": forecast_result.p90,
+    }
+    return (
+        _validate_prediction_quantiles(prediction_payload, horizon=horizon),
+        _validate_prediction_drift_score(forecast_result.drift_score),
+    )
+
+
+def _validated_prediction_response(prediction: Prediction) -> PredictionResponse:
+    horizon = _prediction_horizon_from_payload(prediction.input_payload)
+    quantiles = _validate_prediction_quantiles(prediction.prediction, horizon=horizon)
+    drift_score = _validate_prediction_drift_score(prediction.drift_score)
+    if prediction.created_at is None:
+        raise _PredictionContractViolationError("created_at", "created_at is missing")
+    if prediction.completed_at is None:
+        raise _PredictionContractViolationError("completed_at", "completed_at is missing")
+    if prediction.model_version is None:
+        raise _PredictionContractViolationError("model_version", "model_version is missing")
+    try:
+        model_version = ModelVersionSchema.model_validate(prediction.model_version)
+    except Exception as exc:
+        raise _PredictionContractViolationError(
+            "model_version", "model_version is invalid"
+        ) from exc
+
+    return PredictionResponse(
+        prediction_id=prediction.id,
+        status="completed",
+        family=prediction.family,
+        horizon=horizon,
+        prediction=PredictionQuantiles.model_validate(quantiles),
+        drift_score=drift_score,
+        disclaimer=prediction_disclaimer(),
+        model_version=model_version,
+        predict_seconds=_prediction_safe_seconds(prediction.predict_seconds),
+        created_at=prediction.created_at,
+        completed_at=prediction.completed_at,
+    )
 
 
 def _is_expired_at(expires_at: datetime, *, now: datetime) -> bool:
@@ -2043,11 +2296,19 @@ def _validate_prediction_payload(
             request_id=request_id,
         )
     for idx, value in enumerate(payload.data):
-        if not math.isfinite(float(value)):
+        numeric_value = float(value)
+        if not math.isfinite(numeric_value):
             return None, _prediction_validation_error(
                 field_path=f"data[{idx}]",
                 value="[non-finite]",
                 constraint="data values must be finite numbers",
+                request_id=request_id,
+            )
+        if abs(numeric_value) > PREDICTION_MAX_ABS_DATA_VALUE:
+            return None, _prediction_validation_error(
+                field_path=f"data[{idx}]",
+                value=numeric_value,
+                constraint=f"abs(data value) must be <= {PREDICTION_MAX_ABS_DATA_VALUE:g}",
                 request_id=request_id,
             )
     if payload.horizon < 1 or payload.horizon > 90:
@@ -2062,32 +2323,17 @@ def _validate_prediction_payload(
 
 def _build_prediction_response_content(prediction: Prediction) -> dict[str, Any]:
     if prediction.status != "completed":
-        return {
-            "prediction_id": str(prediction.id),
-            "status": prediction.status,
-            "error": prediction.error,
-            "model_version": prediction.model_version,
-            "created_at": prediction.created_at.isoformat() if prediction.created_at else None,
-            "completed_at": (
-                prediction.completed_at.isoformat() if prediction.completed_at else None
-            ),
-        }
+        return _prediction_compact_status_content(prediction)
 
-    payload = PredictionResponse(
-        prediction_id=prediction.id,
-        status="completed",
-        family=prediction.family,
-        horizon=int(prediction.input_payload.get("horizon", 0)),
-        prediction=PredictionQuantiles.model_validate(prediction.prediction),
-        drift_score=float(prediction.drift_score) if prediction.drift_score is not None else 0.0,
-        disclaimer=PREDICTION_DISCLAIMER,
-        model_version=ModelVersionSchema.model_validate(prediction.model_version),
-        predict_seconds=(
-            float(prediction.predict_seconds) if prediction.predict_seconds is not None else 0.0
-        ),
-        created_at=prediction.created_at,
-        completed_at=prediction.completed_at or prediction.created_at,
-    )
+    try:
+        payload = _validated_prediction_response(prediction)
+    except _PredictionContractViolationError as exc:
+        return _prediction_compact_status_content(
+            prediction,
+            status_override="failed",
+            error_override=_prediction_contract_violation_payload(exc),
+            validate_model_version=True,
+        )
     content = json.loads(payload.model_dump_json())
     if not isinstance(content, dict):
         raise ValueError("prediction response did not encode an object")

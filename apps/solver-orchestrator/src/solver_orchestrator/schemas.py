@@ -165,6 +165,24 @@ class PredictionDisclaimer(BaseModel):
     bilingual: Literal["本预测仅供参考 / This forecast is for reference only"]
 
 
+PREDICTION_DISCLAIMER_ZH: Literal["本预测仅供参考"] = "本预测仅供参考"
+PREDICTION_DISCLAIMER_EN: Literal["This forecast is for reference only"] = (
+    "This forecast is for reference only"
+)
+PREDICTION_DISCLAIMER_BILINGUAL: Literal["本预测仅供参考 / This forecast is for reference only"] = (
+    "本预测仅供参考 / This forecast is for reference only"
+)
+
+
+def prediction_disclaimer() -> PredictionDisclaimer:
+    """Return a fresh canonical FR E6 prediction disclaimer object."""
+    return PredictionDisclaimer(
+        zh=PREDICTION_DISCLAIMER_ZH,
+        en=PREDICTION_DISCLAIMER_EN,
+        bilingual=PREDICTION_DISCLAIMER_BILINGUAL,
+    )
+
+
 class PredictionResponse(BaseModel):
     """FR E2 + E6 — completed sync prediction response."""
 
