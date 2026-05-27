@@ -6,6 +6,7 @@ import asyncio
 import hashlib
 import hmac
 import json
+import math
 import os
 import sys
 import uuid
@@ -21,8 +22,9 @@ from solver_orchestrator import catalog as catalog_module
 from solver_orchestrator.catalog import CATALOG
 from solver_orchestrator.config import settings
 from solver_orchestrator.db import get_session
-from solver_orchestrator.forecasting import predict_quantiles
+from solver_orchestrator.forecasting import ForecastResult, predict_quantiles
 from solver_orchestrator.main import app
+from solver_orchestrator.schemas import prediction_disclaimer
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
@@ -175,6 +177,7 @@ def _assert_quantiles(body: dict, horizon: int) -> None:
     assert len(prediction["p50"]) == horizon
     assert len(prediction["p90"]) == horizon
     for p10, p50, p90 in zip(prediction["p10"], prediction["p50"], prediction["p90"], strict=True):
+        assert all(math.isfinite(value) for value in (p10, p50, p90))
         assert p10 <= p50 <= p90
 
 
@@ -185,6 +188,8 @@ def _assert_quantiles(body: dict, horizon: int) -> None:
         [1.0, 2.0, 3.0, 4.0],
         [4.0, 3.0, 2.0, 1.0],
         [1.0, 3.0, 2.0, 5.0, 4.0],
+        [-5.0, -4.0, -6.0, -3.0],
+        [1.0e11, 1.0e11 + 10.0, 1.0e11 + 20.0, 1.0e11 + 30.0],
     ],
 )
 def test_forecast_helper_is_deterministic_and_ordered(series: list[float]) -> None:
@@ -195,7 +200,21 @@ def test_forecast_helper_is_deterministic_and_ordered(series: list[float]) -> No
     assert 0.0 <= first.drift_score <= 1.0
     assert len(first.p10) == len(first.p50) == len(first.p90) == 5
     for p10, p50, p90 in zip(first.p10, first.p50, first.p90, strict=True):
+        assert all(math.isfinite(value) for value in (p10, p50, p90))
         assert p10 <= p50 <= p90
+
+
+def test_prediction_disclaimer_is_canonical_and_fresh() -> None:
+    first = prediction_disclaimer()
+    second = prediction_disclaimer()
+
+    assert first == second
+    assert first is not second
+    assert first.model_dump() == {
+        "zh": "本预测仅供参考",
+        "en": "This forecast is for reference only",
+        "bilingual": "本预测仅供参考 / This forecast is for reference only",
+    }
 
 
 async def test_post_prediction_arima_returns_completed_quantiles_and_persists_route(
@@ -225,6 +244,8 @@ async def test_post_prediction_arima_returns_completed_quantiles_and_persists_ro
     }
     _assert_quantiles(body, horizon=3)
     assert "_system" not in resp.text
+    assert "Infinity" not in resp.text
+    assert "NaN" not in resp.text
 
     maker = async_sessionmaker(db_engine, expire_on_commit=False, class_=AsyncSession)
     async with maker() as s:
@@ -308,6 +329,9 @@ async def test_prediction_idempotency_replays_completed_row_without_duplicate(
     assert first.status_code == 200, first.text
     assert second.status_code == 200, second.text
     assert second.json()["prediction_id"] == first.json()["prediction_id"]
+    assert second.json()["prediction"] == first.json()["prediction"]
+    assert second.json()["drift_score"] == first.json()["drift_score"]
+    assert second.json()["disclaimer"] == first.json()["disclaimer"]
 
     maker = async_sessionmaker(db_engine, expire_on_commit=False, class_=AsyncSession)
     async with maker() as s:
@@ -492,6 +516,7 @@ async def test_incomplete_prediction_idempotency_row_returns_409_without_executi
         ({"family": "timesfm", "data": [1, 2, 3]}, "family"),
         ({"family": "arima", "data": [1, 2]}, "data"),
         ({"family": "arima", "data": [1, 2, 3], "horizon": 0}, "horizon"),
+        ({"family": "arima", "data": [1, 2, 1.0e13]}, "data[2]"),
     ],
 )
 async def test_prediction_invalid_requests_are_rfc7807_and_side_effect_free(
@@ -514,6 +539,160 @@ async def test_prediction_invalid_requests_are_rfc7807_and_side_effect_free(
     body = resp.json()
     assert body["errors"][0]["field_path"] == field_path
     assert await _prediction_count(db_engine, user_id) == before
+
+
+@pytest.mark.parametrize(
+    "forecast_result",
+    [
+        ForecastResult(p10=[1.0, 2.0], p50=[1.0], p90=[1.0], drift_score=0.1, predict_seconds=0.0),
+        ForecastResult(
+            p10=[1.0, float("nan"), 3.0],
+            p50=[1.0, 2.0, 3.0],
+            p90=[1.0, 2.0, 3.0],
+            drift_score=0.1,
+            predict_seconds=0.0,
+        ),
+        ForecastResult(
+            p10=[2.0, 2.0, 3.0],
+            p50=[1.0, 2.0, 3.0],
+            p90=[1.0, 2.0, 3.0],
+            drift_score=0.1,
+            predict_seconds=0.0,
+        ),
+        ForecastResult(
+            p10=[1.0, 2.0, 3.0],
+            p50=[1.0, 2.0, 3.0],
+            p90=[1.0, 2.0, 3.0],
+            drift_score=1.5,
+            predict_seconds=0.0,
+        ),
+        ForecastResult(
+            p10=[1.0, 2.0, 3.0],
+            p50=[1.0, 2.0, 3.0],
+            p90=[1.0, 2.0, 3.0],
+            drift_score=float("inf"),
+            predict_seconds=0.0,
+        ),
+    ],
+)
+async def test_prediction_invalid_helper_output_persists_failed_row_without_idempotency(
+    client_with_db: AsyncClient,
+    api_key,
+    db_engine: AsyncEngine,
+    monkeypatch,
+    forecast_result: ForecastResult,
+) -> None:
+    auth, user_id = api_key
+    idem_key = f"3-6-invalid-helper-{uuid.uuid4()}"
+
+    monkeypatch.setattr("solver_orchestrator.routes.predict_quantiles", lambda *_: forecast_result)
+
+    resp = await client_with_db.post(
+        "/v1/predictions",
+        json={"family": "arima", "data": [1, 2, 3, 4], "horizon": 3},
+        headers={"Authorization": auth, "Idempotency-Key": idem_key},
+    )
+
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["status"] == "failed"
+    assert body["error"]["title"] == "Prediction Contract Violation"
+    assert body["model_version"]["provider_id"] == "statsmodels-arima"
+    assert "prediction" not in body
+    assert "drift_score" not in body
+    assert "disclaimer" not in body
+    assert "_system" not in resp.text
+    assert await _prediction_idempotency_count(db_engine, user_id, idem_key) == 0
+
+    maker = async_sessionmaker(db_engine, expire_on_commit=False, class_=AsyncSession)
+    async with maker() as s:
+        row = (
+            await s.execute(
+                text(
+                    "SELECT status, prediction, input_payload FROM predictions "
+                    "WHERE id = :prediction_id"
+                ),
+                {"prediction_id": uuid.UUID(body["prediction_id"])},
+            )
+        ).one()
+
+    assert row.status == "failed"
+    assert row.prediction is None
+    assert row.input_payload["_system"]["provider_route"]["task_type"] == "forecast"
+
+
+async def test_prediction_helper_exception_persists_sanitized_failed_row(
+    client_with_db: AsyncClient,
+    api_key,
+    db_engine: AsyncEngine,
+    monkeypatch,
+) -> None:
+    auth, user_id = api_key
+    idem_key = f"3-6-helper-exception-{uuid.uuid4()}"
+    before = await _prediction_count(db_engine, user_id)
+
+    def _boom(*args, **kwargs):
+        raise RuntimeError("secret stack detail")
+
+    monkeypatch.setattr("solver_orchestrator.routes.predict_quantiles", _boom)
+
+    resp = await client_with_db.post(
+        "/v1/predictions",
+        json={"family": "arima", "data": [1, 2, 3, 4], "horizon": 3},
+        headers={"Authorization": auth, "Idempotency-Key": idem_key},
+    )
+
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["status"] == "failed"
+    assert body["error"]["title"] == "Prediction Execution Failed"
+    assert "secret stack detail" not in resp.text
+    assert "prediction" not in body
+    assert await _prediction_count(db_engine, user_id) == before + 1
+    assert await _prediction_idempotency_count(db_engine, user_id, idem_key) == 0
+
+
+async def test_failed_prediction_with_idempotency_key_is_not_replayed(
+    client_with_db: AsyncClient,
+    api_key,
+    db_engine: AsyncEngine,
+    monkeypatch,
+) -> None:
+    auth, user_id = api_key
+    idem_key = f"3-6-failed-not-replayed-{uuid.uuid4()}"
+    invalid = ForecastResult(
+        p10=[1.0, 2.0],
+        p50=[1.0],
+        p90=[1.0],
+        drift_score=0.1,
+        predict_seconds=0.0,
+    )
+    monkeypatch.setattr("solver_orchestrator.routes.predict_quantiles", lambda *_: invalid)
+
+    headers = {"Authorization": auth, "Idempotency-Key": idem_key}
+    payload = {"family": "arima", "data": [1, 2, 3, 4], "horizon": 3}
+    first = await client_with_db.post("/v1/predictions", json=payload, headers=headers)
+    second = await client_with_db.post("/v1/predictions", json=payload, headers=headers)
+
+    assert first.status_code == 200, first.text
+    assert second.status_code == 200, second.text
+    assert first.json()["status"] == "failed"
+    assert second.json()["status"] == "failed"
+    assert second.json()["prediction_id"] != first.json()["prediction_id"]
+    assert await _prediction_idempotency_count(db_engine, user_id, idem_key) == 0
+
+    maker = async_sessionmaker(db_engine, expire_on_commit=False, class_=AsyncSession)
+    async with maker() as s:
+        count = (
+            await s.execute(
+                text(
+                    "SELECT COUNT(*) FROM predictions "
+                    "WHERE user_id = :uid AND idempotency_key = :idempotency_key"
+                ),
+                {"uid": user_id, "idempotency_key": idem_key},
+            )
+        ).scalar_one()
+    assert count == 2
 
 
 async def test_prediction_non_finite_data_is_rfc7807_and_side_effect_free(
@@ -668,6 +847,115 @@ async def test_get_prediction_failed_row_returns_compact_status_payload(
     assert "prediction" not in body
 
 
+@pytest.mark.parametrize(
+    ("prediction_payload", "drift_score", "expected_detail"),
+    [
+        ({"p10": [1.0], "p50": [1.0], "p90": [1.0]}, 0.1, "prediction"),
+        (
+            {"p10": [1.0, 2.0, 3.0], "p50": [1.0, 2.0, 3.0], "p90": [1.0, 2.0, 3.0]},
+            1.5,
+            "drift_score",
+        ),
+    ],
+)
+async def test_get_historical_malformed_completed_prediction_returns_contract_violation(
+    client_with_db: AsyncClient,
+    api_key,
+    db_engine: AsyncEngine,
+    prediction_payload: dict,
+    drift_score: float,
+    expected_detail: str,
+) -> None:
+    auth, user_id = api_key
+    prediction_id = uuid.uuid4()
+    model_version = {
+        "provider_id": "statsmodels-arima",
+        "kind": "open_source",
+        "version": "0.1.0",
+        "provider_url": "https://www.statsmodels.org/",
+    }
+
+    await _insert_completed_prediction(
+        db_engine,
+        user_id=user_id,
+        prediction_id=prediction_id,
+        input_payload={"family": "arima", "data": [1, 2, 3], "horizon": 3},
+        prediction=prediction_payload,
+        drift_score=drift_score,
+        model_version=model_version,
+    )
+
+    resp = await client_with_db.get(
+        f"/v1/predictions/{prediction_id}",
+        headers={"Authorization": auth},
+    )
+
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["prediction_id"] == str(prediction_id)
+    assert body["status"] == "failed"
+    assert body["error"]["title"] == "Prediction Contract Violation"
+    assert expected_detail in body["error"]["detail"]
+    assert body["model_version"] == model_version
+    assert "prediction" not in body
+    assert "drift_score" not in body
+    assert "disclaimer" not in body
+
+
+async def test_idempotency_replay_historical_malformed_completed_prediction_does_not_execute(
+    client_with_db: AsyncClient,
+    api_key,
+    db_engine: AsyncEngine,
+    monkeypatch,
+) -> None:
+    auth, user_id = api_key
+    idem_key = f"3-6-malformed-replay-{uuid.uuid4()}"
+    prediction_id = uuid.uuid4()
+    body = {"data": [1.0, 2.0, 3.0, 4.0], "family": "arima", "horizon": 3}
+    model_version = {
+        "provider_id": "statsmodels-arima",
+        "kind": "open_source",
+        "version": "0.1.0",
+        "provider_url": "https://www.statsmodels.org/",
+    }
+
+    await _insert_completed_prediction(
+        db_engine,
+        user_id=user_id,
+        prediction_id=prediction_id,
+        input_payload=body,
+        prediction={"p10": [1.0], "p50": [1.0], "p90": [1.0]},
+        drift_score=0.1,
+        model_version=model_version,
+        idempotency_key=idem_key,
+    )
+    await _insert_prediction_idempotency(
+        db_engine,
+        user_id=user_id,
+        key=idem_key,
+        prediction_id=prediction_id,
+        request_body_hash=_hash_body(body),
+    )
+
+    def _should_not_execute(*args, **kwargs):
+        raise AssertionError("forecasting should not run for malformed completed replay")
+
+    monkeypatch.setattr("solver_orchestrator.routes.predict_quantiles", _should_not_execute)
+
+    resp = await client_with_db.post(
+        "/v1/predictions",
+        json={"family": "arima", "data": [1, 2, 3, 4], "horizon": 3},
+        headers={"Authorization": auth, "Idempotency-Key": idem_key},
+    )
+
+    assert resp.status_code == 200, resp.text
+    payload = resp.json()
+    assert payload["prediction_id"] == str(prediction_id)
+    assert payload["status"] == "failed"
+    assert payload["error"]["title"] == "Prediction Contract Violation"
+    assert "prediction" not in payload
+
+
 async def _prediction_count(db_engine: AsyncEngine, user_id: uuid.UUID) -> int:
     maker = async_sessionmaker(db_engine, expire_on_commit=False, class_=AsyncSession)
     async with maker() as s:
@@ -699,3 +987,67 @@ async def _prediction_idempotency_count(
                 )
             ).scalar_one()
         )
+
+
+async def _insert_completed_prediction(
+    db_engine: AsyncEngine,
+    *,
+    user_id: uuid.UUID,
+    prediction_id: uuid.UUID,
+    input_payload: dict,
+    prediction: dict,
+    drift_score: float,
+    model_version: dict,
+    idempotency_key: str | None = None,
+) -> None:
+    maker = async_sessionmaker(db_engine, expire_on_commit=False, class_=AsyncSession)
+    async with maker() as s:
+        await s.execute(
+            text(
+                "INSERT INTO predictions "
+                "(id, user_id, api_key_id, family, status, input_payload, prediction, "
+                "drift_score, model_version, predict_seconds, idempotency_key, completed_at) "
+                "SELECT :prediction_id, :uid, id, 'arima', 'completed', "
+                "CAST(:input_payload AS jsonb), CAST(:prediction AS jsonb), "
+                ":drift_score, CAST(:model_version AS jsonb), 0.0, :idempotency_key, :completed_at "
+                "FROM api_keys WHERE user_id = :uid LIMIT 1"
+            ),
+            {
+                "prediction_id": prediction_id,
+                "uid": user_id,
+                "input_payload": json.dumps(input_payload),
+                "prediction": json.dumps(prediction),
+                "drift_score": drift_score,
+                "model_version": json.dumps(model_version),
+                "idempotency_key": idempotency_key,
+                "completed_at": datetime.now(UTC),
+            },
+        )
+        await s.commit()
+
+
+async def _insert_prediction_idempotency(
+    db_engine: AsyncEngine,
+    *,
+    user_id: uuid.UUID,
+    key: str,
+    prediction_id: uuid.UUID,
+    request_body_hash: str,
+) -> None:
+    maker = async_sessionmaker(db_engine, expire_on_commit=False, class_=AsyncSession)
+    async with maker() as s:
+        await s.execute(
+            text(
+                "INSERT INTO prediction_idempotency_keys "
+                "(user_id, key, prediction_id, request_body_hash, expires_at) "
+                "VALUES (:uid, :key, :prediction_id, :body_hash, :expires_at)"
+            ),
+            {
+                "uid": user_id,
+                "key": key,
+                "prediction_id": prediction_id,
+                "body_hash": request_body_hash,
+                "expires_at": datetime.now(UTC) + timedelta(hours=24),
+            },
+        )
+        await s.commit()
