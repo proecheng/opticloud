@@ -65,3 +65,29 @@ def test_zero_reserved_returns_zero_when_min_is_zero() -> None:
         reserved_amount=Decimal("0.00"),
     )
     assert result == Decimal("0.00")
+
+
+def test_discount_multiplier_halves_raw_amount_before_floor_and_reserved_clamp() -> None:
+    """Story 3.10 — backtest discount applies after seconds cap and before clamps."""
+    result = compute_charge_amount(
+        elapsed_seconds=5.0,
+        max_solve_seconds=_MAX,
+        rate_per_second=_RATE,
+        min_amount=_MIN,
+        reserved_amount=_RESERVED,
+        discount_multiplier=Decimal("0.5"),
+    )
+    assert result == Decimal("0.25")
+
+
+def test_discount_multiplier_still_honors_min_floor() -> None:
+    """Story 3.10 — a discounted sub-cent charge still floors to CHARGE_MIN_AMOUNT."""
+    result = compute_charge_amount(
+        elapsed_seconds=0.05,
+        max_solve_seconds=_MAX,
+        rate_per_second=_RATE,
+        min_amount=_MIN,
+        reserved_amount=_RESERVED,
+        discount_multiplier=Decimal("0.5"),
+    )
+    assert result == _MIN

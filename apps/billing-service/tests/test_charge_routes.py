@@ -18,6 +18,7 @@ from billing_service.main import app
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 _TEST_KEY_DIR = Path("tests/_keys")
@@ -308,7 +309,7 @@ async def test_reserve_on_missing_charge_returns_404(
 
 
 async def test_finalize_success_5s_writes_charge_and_refund_partial(
-    http_client: AsyncClient, auth_headers: dict[str, str]
+    http_client: AsyncClient, auth_headers: dict[str, str], session: AsyncSession
 ) -> None:
     """AC7 row 12: finalize success elapsed=5s → -0.50 charge + +5.50 refund_partial; net -0.50."""
     charge_id = await _create_charge(http_client, auth_headers)
@@ -333,6 +334,68 @@ async def test_finalize_success_5s_writes_charge_and_refund_partial(
     # Apply writes -saga.amount = -6.00 row (kind=charge). Then route writes +5.50 (refund_partial).
     # Net change to balance = -6.00 + 5.50 = -0.50. ✅
     assert abs(bal_after - (bal_before - 0.50)) < 1e-6
+    metadata = (
+        await session.execute(
+            text(
+                "SELECT metadata FROM credit_transactions "
+                "WHERE saga_id = :saga_id AND kind = 'refund_partial'"
+            ),
+            {"saga_id": uuid.UUID(charge_id)},
+        )
+    ).scalar_one()
+    assert "discount_multiplier" not in metadata
+
+
+async def test_finalize_success_backtest_discount_halves_actual_charge(
+    http_client: AsyncClient, auth_headers: dict[str, str]
+) -> None:
+    """Story 3.10: finalize success elapsed=5s with 0.5 discount charges 0.25."""
+    charge_id = await _create_charge(http_client, auth_headers)
+    await http_client.post(f"/v1/billing/charges/{charge_id}/reserve", headers=auth_headers)
+    bal_before = float(
+        (await http_client.get("/v1/billing/balance", headers=auth_headers)).json()["balance"]
+    )
+
+    r = await http_client.post(
+        f"/v1/billing/charges/{charge_id}/finalize",
+        headers=auth_headers,
+        json={
+            "elapsed_seconds": 5.0,
+            "status": "success",
+            "failure_reason": None,
+            "discount_multiplier": 0.5,
+        },
+    )
+
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["current_state"] == "charged"
+    assert body["reserved_amount"] == "6.00"
+    assert body["actual_amount"] == "0.25"
+    assert body["refund_partial_amount"] == "5.75"
+    bal_after = float(body["balance_after"])
+    assert abs(bal_after - (bal_before - 0.25)) < 1e-6
+
+
+async def test_finalize_rejects_invalid_discount_multiplier(
+    http_client: AsyncClient, auth_headers: dict[str, str]
+) -> None:
+    """Story 3.10: discount multiplier must be in (0, 1]."""
+    charge_id = await _create_charge(http_client, auth_headers)
+    await http_client.post(f"/v1/billing/charges/{charge_id}/reserve", headers=auth_headers)
+
+    r = await http_client.post(
+        f"/v1/billing/charges/{charge_id}/finalize",
+        headers=auth_headers,
+        json={
+            "elapsed_seconds": 5.0,
+            "status": "success",
+            "failure_reason": None,
+            "discount_multiplier": 1.5,
+        },
+    )
+
+    assert r.status_code == 422, r.text
 
 
 async def test_finalize_failure_writes_net_zero_ledger(

@@ -87,6 +87,8 @@ logger: Any = structlog.get_logger("solver_orchestrator.routes")
 ASYNC_QUEUE_MESSAGE = "Task queued; background execution is not enabled in Story 3.3"
 SYNC_ASYNC_THRESHOLD_SECONDS = 5.0
 SOLVER_BUDGET_EPSILON_SECONDS = 1e-9
+BACKTEST_DISCOUNT_MULTIPLIER = 0.5
+BACKTEST_DISCOUNT_KIND = "backtest"
 PREDICTION_MAX_ABS_DATA_VALUE = 1_000_000_000_000.0
 
 
@@ -411,6 +413,15 @@ def _optimization_billing_metadata(opt: Optimization) -> dict[str, Any]:
             if isinstance(billing_metadata, dict):
                 return dict(billing_metadata)
     return {}
+
+
+def _backtest_billing_discount_metadata(payload: OptimizationRequest) -> dict[str, Any] | None:
+    if not payload.options.backtest:
+        return None
+    return {
+        "discount_kind": BACKTEST_DISCOUNT_KIND,
+        "discount_multiplier": BACKTEST_DISCOUNT_MULTIPLIER,
+    }
 
 
 def _optimization_progress_metadata(opt: Optimization) -> dict[str, Any]:
@@ -1337,7 +1348,9 @@ async def post_optimization(
     if effective_mode == "async":
         billing_metadata: dict[str, Any] | None = None
         if billing_uuid is not None:
+            billing_metadata = _backtest_billing_discount_metadata(payload) or {}
             billing_metadata = {
+                **billing_metadata,
                 "charge_id": str(billing_uuid),
                 "reserved": False,
                 "reserve_status_code": None,
@@ -1392,6 +1405,7 @@ async def post_optimization(
             _set_optimization_billing_metadata(
                 opt,
                 {
+                    **(_backtest_billing_discount_metadata(payload) or {}),
                     "charge_id": str(billing_uuid),
                     "reserved": True,
                     "reserve_status_code": reserve_result.status_code,
@@ -1487,28 +1501,46 @@ async def post_optimization(
         failure_reason: str | None = (
             None if finalize_status == "success" else (result.error_constraint or result.status)
         )
-        finalize_outcome = await billing_client.finalize(
-            billing_uuid,
-            user_id,
-            elapsed_seconds=result.solve_seconds,
-            status=finalize_status,
-            failure_reason=failure_reason,
-        )
+        billing_discount_metadata = _backtest_billing_discount_metadata(payload)
+        if billing_discount_metadata is None:
+            finalize_outcome = await billing_client.finalize(
+                billing_uuid,
+                user_id,
+                elapsed_seconds=result.solve_seconds,
+                status=finalize_status,
+                failure_reason=failure_reason,
+            )
+        else:
+            finalize_outcome = await billing_client.finalize(
+                billing_uuid,
+                user_id,
+                elapsed_seconds=result.solve_seconds,
+                status=finalize_status,
+                failure_reason=failure_reason,
+                discount_multiplier=float(billing_discount_metadata["discount_multiplier"]),
+            )
         if not finalize_outcome.ok:
             # Q4 — solve result is NOT held hostage by billing; mark + log + continue.
             # M2.2c — persist retry context so the billing reconciler can replay.
-            _merge_optimization_error(
-                opt,
-                {
-                    "billing_finalize_failed": True,
-                    "billing_finalize_error": finalize_outcome.error_message,
-                    "billing_charge_id": str(billing_uuid),
-                    "billing_elapsed_seconds": result.solve_seconds,
-                    "billing_status": finalize_status,
-                    "billing_failure_reason": failure_reason,
-                    "billing_retry_count": 0,
-                },
-            )
+            retry_context: dict[str, Any] = {
+                "billing_finalize_failed": True,
+                "billing_finalize_error": finalize_outcome.error_message,
+                "billing_charge_id": str(billing_uuid),
+                "billing_elapsed_seconds": result.solve_seconds,
+                "billing_status": finalize_status,
+                "billing_failure_reason": failure_reason,
+                "billing_retry_count": 0,
+            }
+            if billing_discount_metadata is not None:
+                retry_context.update(
+                    {
+                        "billing_discount_multiplier": billing_discount_metadata[
+                            "discount_multiplier"
+                        ],
+                        "billing_discount_kind": billing_discount_metadata["discount_kind"],
+                    }
+                )
+            _merge_optimization_error(opt, retry_context)
 
     if result.status == "optimal":
         opt.status = "completed"

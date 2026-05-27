@@ -94,6 +94,7 @@ class OptimizationOptions(BaseModel):
     )
     reproducible: bool = Field(default=False, description="FR R1 lock version/seed")
     anonymous: bool = Field(default=False, description="FR R6 anonymous blind-review voucher")
+    backtest: bool = Field(default=False, description="FR E10 backtest billing discount")
 
 
 class OptimizationRequest(BaseModel):
