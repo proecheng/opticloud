@@ -15,6 +15,7 @@ from datetime import UTC, datetime, timedelta
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from solver_orchestrator import billing_client, solvers
+from solver_orchestrator.billing_client import BillingResult
 from solver_orchestrator.config import settings
 from solver_orchestrator.db import get_session
 from solver_orchestrator.main import app
@@ -319,7 +320,7 @@ async def test_async_mode_does_not_call_billing_solver_cost_or_voucher_side_effe
     assert resp.status_code == 202, resp.text
 
 
-async def test_async_effective_mode_rejects_billing_header_without_row(
+async def test_async_effective_mode_reserves_billing_and_queues_row(
     client_with_db: AsyncClient,
     api_key,
     db_engine: AsyncEngine,
@@ -327,52 +328,85 @@ async def test_async_effective_mode_rejects_billing_header_without_row(
 ) -> None:
     auth, user_id = api_key
     before = await _optimization_count(db_engine, user_id)
+    charge_id = uuid.uuid4()
+    calls: list[tuple[uuid.UUID, uuid.UUID]] = []
 
-    async def _billing_should_not_run(*args, **kwargs):
-        raise AssertionError("billing should not run for async queued path")
+    async def _reserve(cid, uid, *, client=None):
+        calls.append((cid, uid))
+        return BillingResult(
+            ok=True,
+            status_code=200,
+            body={"current_state": "reserved"},
+            error_message=None,
+        )
 
-    monkeypatch.setattr(billing_client, "reserve", _billing_should_not_run)
-    monkeypatch.setattr(billing_client, "finalize", _billing_should_not_run)
+    async def _finalize_should_not_run(*args, **kwargs):
+        raise AssertionError("billing finalize should not run for async queued path")
+
+    monkeypatch.setattr(billing_client, "reserve", _reserve)
+    monkeypatch.setattr(billing_client, "finalize", _finalize_should_not_run)
 
     resp = await client_with_db.post(
         "/v1/optimizations?mode=async",
         json=SMALL_LP_BODY,
-        headers={"Authorization": auth, "X-Billing-Charge-Id": str(uuid.uuid4())},
+        headers={"Authorization": auth, "X-Billing-Charge-Id": str(charge_id)},
     )
 
-    assert resp.status_code == 422, resp.text
-    assert resp.json()["title"] == "Billing Not Supported For Async Optimizations"
-    assert await _optimization_count(db_engine, user_id) == before
+    assert resp.status_code == 202, resp.text
+    assert calls == [(charge_id, user_id)]
+    assert await _optimization_count(db_engine, user_id) == before + 1
+    row = await _optimization_row(db_engine, uuid.UUID(resp.json()["optimization_id"]))
+    billing = row["input_payload"]["_system"]["billing"]
+    assert billing["charge_id"] == str(charge_id)
+    assert billing["reserved"] is True
+    assert billing["reserve_status_code"] == 200
 
 
-async def test_async_idempotency_replay_with_billing_header_is_rejected(
+async def test_async_idempotency_replay_same_billing_header_does_not_reserve_twice(
     client_with_db: AsyncClient,
     api_key,
+    monkeypatch,
 ) -> None:
-    auth, _ = api_key
+    auth, user_id = api_key
     idem_key = f"3-3-async-billing-replay-{uuid.uuid4()}"
+    charge_id = uuid.uuid4()
+    calls: list[tuple[uuid.UUID, uuid.UUID]] = []
+
+    async def _reserve(cid, uid, *, client=None):
+        calls.append((cid, uid))
+        return BillingResult(
+            ok=True,
+            status_code=200,
+            body={"current_state": "reserved"},
+            error_message=None,
+        )
+
+    monkeypatch.setattr(billing_client, "reserve", _reserve)
+
+    headers = {
+        "Authorization": auth,
+        "Idempotency-Key": idem_key,
+        "X-Billing-Charge-Id": str(charge_id),
+    }
     first = await client_with_db.post(
         "/v1/optimizations?mode=async",
         json=SMALL_LP_BODY,
-        headers={"Authorization": auth, "Idempotency-Key": idem_key},
+        headers=headers,
     )
     assert first.status_code == 202, first.text
 
     replay = await client_with_db.post(
         "/v1/optimizations?mode=async",
         json=SMALL_LP_BODY,
-        headers={
-            "Authorization": auth,
-            "Idempotency-Key": idem_key,
-            "X-Billing-Charge-Id": str(uuid.uuid4()),
-        },
+        headers=headers,
     )
 
-    assert replay.status_code == 422, replay.text
-    assert replay.json()["title"] == "Billing Not Supported For Async Optimizations"
+    assert replay.status_code == 202, replay.text
+    assert replay.json()["optimization_id"] == first.json()["optimization_id"]
+    assert calls == [(charge_id, user_id)]
 
 
-async def test_sync_auto_turn_rejects_billing_header_without_row(
+async def test_sync_auto_turn_async_reserves_billing_and_queues_row(
     client_with_db: AsyncClient,
     api_key,
     db_engine: AsyncEngine,
@@ -380,22 +414,34 @@ async def test_sync_auto_turn_rejects_billing_header_without_row(
 ) -> None:
     auth, user_id = api_key
     before = await _optimization_count(db_engine, user_id)
+    charge_id = uuid.uuid4()
+    calls: list[tuple[uuid.UUID, uuid.UUID]] = []
 
-    async def _billing_should_not_run(*args, **kwargs):
-        raise AssertionError("billing should not run for sync auto-turned async path")
+    async def _reserve(cid, uid, *, client=None):
+        calls.append((cid, uid))
+        return BillingResult(
+            ok=True,
+            status_code=200,
+            body={"current_state": "reserved"},
+            error_message=None,
+        )
 
-    monkeypatch.setattr(billing_client, "reserve", _billing_should_not_run)
-    monkeypatch.setattr(billing_client, "finalize", _billing_should_not_run)
+    async def _finalize_should_not_run(*args, **kwargs):
+        raise AssertionError("billing finalize should not run for sync auto-turned async path")
+
+    monkeypatch.setattr(billing_client, "reserve", _reserve)
+    monkeypatch.setattr(billing_client, "finalize", _finalize_should_not_run)
 
     resp = await client_with_db.post(
         "/v1/optimizations?mode=sync",
         json=_large_lp_body(),
-        headers={"Authorization": auth, "X-Billing-Charge-Id": str(uuid.uuid4())},
+        headers={"Authorization": auth, "X-Billing-Charge-Id": str(charge_id)},
     )
 
-    assert resp.status_code == 422, resp.text
-    assert resp.json()["title"] == "Billing Not Supported For Async Optimizations"
-    assert await _optimization_count(db_engine, user_id) == before
+    assert resp.status_code == 202, resp.text
+    assert resp.json()["auto_async"] is True
+    assert calls == [(charge_id, user_id)]
+    assert await _optimization_count(db_engine, user_id) == before + 1
 
 
 async def test_async_mode_validates_fallback_chain_before_queuing(

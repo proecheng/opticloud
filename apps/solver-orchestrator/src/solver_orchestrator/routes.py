@@ -171,8 +171,16 @@ def _hash_body(body: dict) -> str:  # type: ignore[type-arg]
     return hashlib.sha256(canon.encode("utf-8")).hexdigest()
 
 
-def _hash_optimization_body(body: dict[str, Any], mode: str) -> str:
-    return _hash_body({"body": body, "mode": mode})
+def _hash_optimization_body(
+    body: dict[str, Any],
+    mode: str,
+    *,
+    billing_charge_id: str | None = None,
+) -> str:
+    payload: dict[str, Any] = {"body": body, "mode": mode}
+    if billing_charge_id is not None:
+        payload["billing_charge_id"] = billing_charge_id
+    return _hash_body(payload)
 
 
 def _hash_rerun_request(voucher_id: str) -> str:
@@ -369,6 +377,47 @@ def _optimization_execution_mode(opt: Optimization) -> dict[str, Any]:
     return {}
 
 
+def _optimization_billing_metadata(opt: Optimization) -> dict[str, Any]:
+    if isinstance(opt.input_payload, dict):
+        system_payload = opt.input_payload.get("_system")
+        if isinstance(system_payload, dict):
+            billing_metadata = system_payload.get("billing")
+            if isinstance(billing_metadata, dict):
+                return dict(billing_metadata)
+    return {}
+
+
+def _set_optimization_billing_metadata(
+    opt: Optimization,
+    updates: dict[str, Any],
+) -> dict[str, Any]:
+    existing = _optimization_billing_metadata(opt)
+    existing.update(updates)
+    opt.input_payload = _attach_system_metadata(opt.input_payload, billing=existing)
+    return existing
+
+
+def _redact_status_error(error: dict[str, Any] | None) -> dict[str, Any] | None:
+    if not isinstance(error, dict):
+        return error
+    redacted = dict(error)
+    if "billing_charge_id" in redacted:
+        redacted["billing_charge_id"] = "[redacted]"
+    return redacted
+
+
+def _refund_status_from_optimization(opt: Optimization) -> str:
+    billing_metadata = _optimization_billing_metadata(opt)
+    raw = billing_metadata.get("refund_status")
+    if isinstance(raw, str) and raw:
+        return raw
+    if opt.error and isinstance(opt.error, dict):
+        raw = opt.error.get("refund_status")
+        if isinstance(raw, str) and raw:
+            return raw
+    return "not_applicable" if not billing_metadata.get("reserved") else "pending_reconciliation"
+
+
 def _build_optimization_status_response_content(opt: Optimization) -> dict[str, Any]:
     execution_mode = _optimization_execution_mode(opt)
     content: dict[str, Any] = {
@@ -391,7 +440,7 @@ def _build_optimization_status_response_content(opt: Optimization) -> dict[str, 
             }
         )
     else:
-        content["error"] = opt.error
+        content["error"] = _redact_status_error(opt.error)
         if opt.status == "timeout":
             content["solve_seconds"] = (
                 float(opt.solve_seconds) if opt.solve_seconds is not None else 0.0
@@ -401,6 +450,10 @@ def _build_optimization_status_response_content(opt: Optimization) -> dict[str, 
                 content["best_solution"] = opt.solution
             if opt.objective is not None:
                 content["objective"] = float(opt.objective)
+        elif opt.status == "cancelled":
+            content["mode"] = effective_mode or "async"
+            content["refund_status"] = _refund_status_from_optimization(opt)
+            content["message"] = "Optimization cancelled"
     return content
 
 
@@ -702,6 +755,68 @@ def _billing_not_supported_for_async_response(
                 value=billing_charge_id,
                 constraint="billing is not supported for async optimizations in Story 3.3",
                 remediation_hint_key="errors.422.billing_not_supported_for_async_optimizations",
+            )
+        ],
+        request_id=request_id,
+    )
+
+
+def _invalid_billing_charge_id_response(
+    *, billing_charge_id: str, request_id: str | None
+) -> JSONResponse:
+    return _rfc7807_error(
+        title="Invalid X-Billing-Charge-Id",
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        detail="X-Billing-Charge-Id must be a UUID",
+        errors=[
+            ErrorDetail(
+                field_path="header.X-Billing-Charge-Id",
+                value=billing_charge_id,
+                constraint="must be a UUID",
+                remediation_hint_key="errors.422.invalid_uuid",
+            )
+        ],
+        request_id=request_id,
+    )
+
+
+def _billing_reserve_failed_response(
+    *,
+    billing_charge_id: str,
+    reserve_result: billing_client.BillingResult,
+    request_id: str | None,
+) -> JSONResponse:
+    return _rfc7807_error(
+        title="Billing Reserve Failed",
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        detail=reserve_result.error_message or "billing reserve declined",
+        errors=[
+            ErrorDetail(
+                field_path="header.X-Billing-Charge-Id",
+                value=billing_charge_id,
+                constraint=f"billing returned {reserve_result.status_code}",
+                remediation_hint_key="errors.422.billing_reserve_failed",
+            )
+        ],
+        request_id=request_id,
+    )
+
+
+def _cancellation_not_allowed_response(
+    *,
+    opt: Optimization,
+    request_id: str | None,
+) -> JSONResponse:
+    return _rfc7807_error(
+        title="Cancellation Not Allowed",
+        status_code=status.HTTP_409_CONFLICT,
+        detail=f"optimization status '{opt.status}' cannot be cancelled",
+        errors=[
+            ErrorDetail(
+                field_path="path.optimization_id",
+                value="[redacted]",
+                constraint="status must be queued or in_progress",
+                remediation_hint_key="errors.409.cancellation_not_allowed",
             )
         ],
         request_id=request_id,
@@ -1081,13 +1196,22 @@ async def post_optimization(
         requested_mode=normalized_mode,
         estimated_seconds=estimated_seconds,
     )
-    body_hash = _hash_optimization_body(body_dict, normalized_mode)
-
+    billing_uuid: uuid.UUID | None = None
+    normalized_billing_charge_id: str | None = None
     if effective_mode == "async" and billing_charge_id:
-        return _billing_not_supported_for_async_response(
-            billing_charge_id=billing_charge_id,
-            request_id=request_id,
-        )
+        try:
+            billing_uuid = uuid.UUID(billing_charge_id)
+        except ValueError:
+            return _invalid_billing_charge_id_response(
+                billing_charge_id=billing_charge_id,
+                request_id=request_id,
+            )
+        normalized_billing_charge_id = str(billing_uuid)
+    body_hash = _hash_optimization_body(
+        body_dict,
+        normalized_mode,
+        billing_charge_id=normalized_billing_charge_id if effective_mode == "async" else None,
+    )
 
     existing_completed: Optimization | None = None
     if idempotency_key:
@@ -1130,6 +1254,16 @@ async def post_optimization(
                 )
 
     if effective_mode == "async":
+        billing_metadata: dict[str, Any] | None = None
+        if billing_uuid is not None:
+            billing_metadata = {
+                "charge_id": str(billing_uuid),
+                "reserved": False,
+                "reserve_status_code": None,
+                "cancel_finalize_attempted": False,
+                "cancel_finalize_status": None,
+                "refund_status": None,
+            }
         opt = Optimization(
             user_id=user_id,
             api_key_id=api_key_id,
@@ -1139,6 +1273,7 @@ async def post_optimization(
                 body_dict,
                 provider_route=primary_route_metadata,
                 execution_mode=execution_mode_metadata,
+                billing=billing_metadata,
             ),
             model_version=dict(route.model_version),
             idempotency_key=idempotency_key,
@@ -1164,10 +1299,29 @@ async def post_optimization(
         )
         if idempotency_error is not None:
             return idempotency_error
+        if billing_uuid is not None:
+            reserve_result = await billing_client.reserve(billing_uuid, user_id)
+            if not reserve_result.ok:
+                await session.rollback()
+                return _billing_reserve_failed_response(
+                    billing_charge_id=str(billing_uuid),
+                    reserve_result=reserve_result,
+                    request_id=request_id,
+                )
+            _set_optimization_billing_metadata(
+                opt,
+                {
+                    "charge_id": str(billing_uuid),
+                    "reserved": True,
+                    "reserve_status_code": reserve_result.status_code,
+                    "cancel_finalize_attempted": False,
+                    "cancel_finalize_status": None,
+                    "refund_status": None,
+                },
+            )
         return _build_async_accepted_response(opt)
 
     # ----- Story 5.A.4 — pre-solve billing reserve (opt-in via X-Billing-Charge-Id) -----
-    billing_uuid: uuid.UUID | None = None
     if billing_charge_id:
         if existing_completed is not None:
             await attach_existing_voucher_id(session, existing_completed)
@@ -1175,34 +1329,15 @@ async def post_optimization(
         try:
             billing_uuid = uuid.UUID(billing_charge_id)
         except ValueError:
-            return _rfc7807_error(
-                title="Invalid X-Billing-Charge-Id",
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="X-Billing-Charge-Id must be a UUID",
-                errors=[
-                    ErrorDetail(
-                        field_path="header.X-Billing-Charge-Id",
-                        value=billing_charge_id,
-                        constraint="must be a UUID",
-                        remediation_hint_key="errors.422.invalid_uuid",
-                    )
-                ],
+            return _invalid_billing_charge_id_response(
+                billing_charge_id=billing_charge_id,
                 request_id=request_id,
             )
         reserve_result = await billing_client.reserve(billing_uuid, user_id)
         if not reserve_result.ok:
-            return _rfc7807_error(
-                title="Billing Reserve Failed",
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail=reserve_result.error_message or "billing reserve declined",
-                errors=[
-                    ErrorDetail(
-                        field_path="header.X-Billing-Charge-Id",
-                        value=billing_charge_id,
-                        constraint=f"billing returned {reserve_result.status_code}",
-                        remediation_hint_key="errors.422.billing_reserve_failed",
-                    )
-                ],
+            return _billing_reserve_failed_response(
+                billing_charge_id=str(billing_uuid),
+                reserve_result=reserve_result,
                 request_id=request_id,
             )
 
@@ -2632,6 +2767,159 @@ async def get_optimization(
     if opt.status == "completed":
         await attach_existing_voucher_id(session, opt)
         return _build_success_response(opt)
+    return JSONResponse(
+        content=_build_optimization_status_response_content(opt),
+        status_code=status.HTTP_200_OK,
+    )
+
+
+async def _finalize_cancelled_billing(
+    *,
+    opt: Optimization,
+    user_id: uuid.UUID,
+) -> str:
+    billing_metadata = _optimization_billing_metadata(opt)
+    raw_charge_id = billing_metadata.get("charge_id")
+    if not billing_metadata.get("reserved") or not raw_charge_id:
+        _set_optimization_billing_metadata(opt, {"refund_status": "not_applicable"})
+        return "not_applicable"
+    if billing_metadata.get("cancel_finalize_attempted"):
+        return _refund_status_from_optimization(opt)
+
+    elapsed_seconds = float(opt.solve_seconds or 0.0)
+    try:
+        charge_id = uuid.UUID(str(raw_charge_id))
+    except ValueError:
+        _set_optimization_billing_metadata(
+            opt,
+            {
+                "cancel_finalize_attempted": True,
+                "cancel_finalize_status": "invalid_charge_id",
+                "refund_status": "pending_reconciliation",
+            },
+        )
+        _merge_optimization_error(
+            opt,
+            {
+                "billing_cancel_finalize_failed": True,
+                "billing_finalize_failed": True,
+                "billing_finalize_error": "invalid billing charge id in metadata",
+                "billing_charge_id": str(raw_charge_id),
+                "billing_elapsed_seconds": elapsed_seconds,
+                "billing_status": "failure",
+                "billing_failure_reason": "user_cancelled",
+                "billing_retry_count": 0,
+                "refund_status": "pending_reconciliation",
+            },
+        )
+        return "pending_reconciliation"
+
+    finalize_outcome = await billing_client.finalize(
+        charge_id,
+        user_id,
+        elapsed_seconds=elapsed_seconds,
+        status="failure",
+        failure_reason="user_cancelled",
+    )
+    if finalize_outcome.ok:
+        current_state = (
+            finalize_outcome.body.get("current_state")
+            if isinstance(finalize_outcome.body, dict)
+            else None
+        )
+        refund_status = "refunded" if current_state == "refunded" else "finalized"
+        _set_optimization_billing_metadata(
+            opt,
+            {
+                "cancel_finalize_attempted": True,
+                "cancel_finalize_status": finalize_outcome.status_code,
+                "refund_status": refund_status,
+            },
+        )
+        _merge_optimization_error(
+            opt,
+            {
+                "billing_status": "failure",
+                "billing_failure_reason": "user_cancelled",
+                "refund_status": refund_status,
+            },
+        )
+        return refund_status
+
+    _set_optimization_billing_metadata(
+        opt,
+        {
+            "cancel_finalize_attempted": True,
+            "cancel_finalize_status": finalize_outcome.status_code,
+            "refund_status": "pending_reconciliation",
+        },
+    )
+    _merge_optimization_error(
+        opt,
+        {
+            "billing_cancel_finalize_failed": True,
+            "billing_finalize_failed": True,
+            "billing_finalize_error": finalize_outcome.error_message,
+            "billing_charge_id": str(charge_id),
+            "billing_elapsed_seconds": elapsed_seconds,
+            "billing_status": "failure",
+            "billing_failure_reason": "user_cancelled",
+            "billing_retry_count": 0,
+            "refund_status": "pending_reconciliation",
+        },
+    )
+    return "pending_reconciliation"
+
+
+@router.delete(
+    "/optimizations/{optimization_id}",
+    tags=["execution"],
+    summary="取消 async optimization (FR E8)",
+)
+async def delete_optimization(
+    optimization_id: uuid.UUID,
+    request: Request,
+    authorization: str | None = Header(default=None),
+    session: AsyncSession = Depends(get_session),
+) -> JSONResponse:
+    client_ip = request.client.host if request.client else None
+    user_id, _api_key_id, scopes = await verify_api_key(authorization, session, client_ip=client_ip)
+    require_scope("optimize:write", scopes)
+    request_id = request.headers.get("x-request-id") or str(uuid.uuid4())
+
+    result = await session.execute(
+        select(Optimization).where(Optimization.id == optimization_id).with_for_update()
+    )
+    opt = result.scalar_one_or_none()
+    if opt is None or opt.user_id != user_id:
+        return _rfc7807_error(
+            title="Not Found",
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"optimization {optimization_id} not found",
+            request_id=request_id,
+        )
+    if opt.status == "cancelled":
+        return JSONResponse(
+            content=_build_optimization_status_response_content(opt),
+            status_code=status.HTTP_200_OK,
+        )
+    if opt.status not in {"queued", "in_progress"}:
+        return _cancellation_not_allowed_response(opt=opt, request_id=request_id)
+
+    opt.status = "cancelled"
+    opt.completed_at = datetime.now(UTC)
+    _merge_optimization_error(
+        opt,
+        {
+            "title": "Optimization Cancelled",
+            "detail": "cancelled by user request",
+            "billing_status": "failure",
+            "billing_failure_reason": "user_cancelled",
+        },
+    )
+    refund_status = await _finalize_cancelled_billing(opt=opt, user_id=user_id)
+    _merge_optimization_error(opt, {"refund_status": refund_status})
+
     return JSONResponse(
         content=_build_optimization_status_response_content(opt),
         status_code=status.HTTP_200_OK,
