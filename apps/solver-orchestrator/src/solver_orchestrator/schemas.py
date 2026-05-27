@@ -1,4 +1,4 @@
-"""Pydantic schemas for solver-orchestrator endpoints (Story 2.1 + 3.1)."""
+"""Pydantic schemas for solver-orchestrator endpoints."""
 
 from __future__ import annotations
 
@@ -134,3 +134,42 @@ class OptimizationResponse(BaseModel):
     completed_at: datetime
     citation: CitationSchema | None = None  # Story 6.A.1 — FR R5
     ip_attribution: IPAttributionSchema | None = None  # Story 6.A.5
+
+
+# ===== Story 3.2: POST /v1/predictions =====
+
+
+class PredictionRequest(BaseModel):
+    """FR E2 — submit prediction family/algo request."""
+
+    family: str
+    data: list[float]
+    horizon: int = 3
+
+
+class PredictionQuantiles(BaseModel):
+    p10: list[float]
+    p50: list[float]
+    p90: list[float]
+
+
+class PredictionDisclaimer(BaseModel):
+    zh: Literal["本预测仅供参考"]
+    en: Literal["This forecast is for reference only"]
+    bilingual: Literal["本预测仅供参考 / This forecast is for reference only"]
+
+
+class PredictionResponse(BaseModel):
+    """FR E2 + E6 — completed sync prediction response."""
+
+    prediction_id: uuid.UUID
+    status: Literal["completed"]
+    family: str
+    horizon: int
+    prediction: PredictionQuantiles
+    drift_score: float = Field(ge=0.0, le=1.0)
+    disclaimer: PredictionDisclaimer
+    model_version: ModelVersionSchema
+    predict_seconds: float
+    created_at: datetime
+    completed_at: datetime
