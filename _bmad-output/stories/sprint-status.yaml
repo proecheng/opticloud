@@ -100,7 +100,7 @@ development_status:
   3-2-prediction-submission: done              # FR E2 — ARIMA / Chronos
   3-3-sync-async-mode: done                    # FR E3 完整
   3-4-max-solve-seconds-cap: done               # FR E4
-  3-5-top-k-alternatives: backlog              # FR E5
+  3-5-top-k-alternatives: done                 # FR E5
   3-6-prediction-quantiles: backlog            # FR E6 P10/P50/P90
   3-7-rfc7807-errors-detail: backlog           # FR E7 + FG1.3 (partial in 3.1)
   3-8-cancel-refund: backlog                   # FR E8

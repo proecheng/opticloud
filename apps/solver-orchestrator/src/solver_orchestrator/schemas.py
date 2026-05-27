@@ -86,6 +86,12 @@ class LPConstraints(BaseModel):
 
 class OptimizationOptions(BaseModel):
     max_solve_seconds: float = Field(default=30.0, ge=1.0, le=600.0)
+    top_k_alternatives: int = Field(
+        default=1,
+        ge=1,
+        le=10,
+        description="FR E5 number of ranked feasible alternatives to return for LP success",
+    )
     reproducible: bool = Field(default=False, description="FR R1 lock version/seed")
     anonymous: bool = Field(default=False, description="FR R6 anonymous blind-review voucher")
 

@@ -333,6 +333,17 @@ def _build_response_content(opt: Optimization) -> dict[str, Any]:
             reproducibility = system_payload.get("reproducibility")
             if isinstance(reproducibility, dict):
                 content["reproducibility"] = reproducibility
+            top_k = system_payload.get("top_k_alternatives")
+            if isinstance(top_k, dict):
+                alternatives = top_k.get("alternatives")
+                requested = top_k.get("requested")
+                returned = top_k.get("returned")
+                if isinstance(alternatives, list) and isinstance(requested, int):
+                    content["top_k_alternatives_requested"] = requested
+                    content["top_k_alternatives_returned"] = (
+                        returned if isinstance(returned, int) else len(alternatives)
+                    )
+                    content["alternatives"] = alternatives
     return content
 
 
@@ -495,6 +506,49 @@ def _merge_optimization_error(opt: Optimization, updates: dict[str, Any]) -> dic
     existing.update(updates)
     opt.error = existing
     return existing
+
+
+def _top_k_metadata_from_result(
+    result: solvers.LPSolveResult,
+    *,
+    requested: int,
+) -> dict[str, Any] | None:
+    if requested <= 1 or result.status != "optimal" or not result.alternatives:
+        return None
+    return {
+        "strategy": solvers.TOP_K_STRATEGY,
+        "requested": int(requested),
+        "returned": len(result.alternatives),
+        "alternatives": result.alternatives,
+    }
+
+
+def _attach_top_k_metadata(
+    opt: Optimization,
+    result: solvers.LPSolveResult,
+    *,
+    requested: int,
+) -> None:
+    metadata = _top_k_metadata_from_result(result, requested=requested)
+    if metadata is not None:
+        opt.input_payload = _attach_system_metadata(
+            opt.input_payload,
+            top_k_alternatives=metadata,
+        )
+
+
+def _add_top_k_to_content(
+    content: dict[str, Any],
+    result: solvers.LPSolveResult,
+    *,
+    requested: int,
+) -> None:
+    metadata = _top_k_metadata_from_result(result, requested=requested)
+    if metadata is None:
+        return
+    content["top_k_alternatives_requested"] = metadata["requested"]
+    content["top_k_alternatives_returned"] = metadata["returned"]
+    content["alternatives"] = metadata["alternatives"]
 
 
 def _rfc7807_error(
@@ -875,6 +929,7 @@ def _execute_fallback_attempts(
         solve_seconds=total_solve_seconds,
         error_field_path=terminal_result.error_field_path,
         error_constraint=terminal_result.error_constraint,
+        alternatives=terminal_result.alternatives,
     )
     fallback_execution = build_fallback_execution_metadata(
         attempt_metadata=attempt_metadata,
@@ -1234,6 +1289,11 @@ async def post_optimization(
         opt.solution = result.solution
         opt.objective = result.objective
         opt.completed_at = datetime.now(UTC)
+        _attach_top_k_metadata(
+            opt,
+            result,
+            requested=payload.options.top_k_alternatives,
+        )
         if payload.options.reproducible:
             reproducibility_payload = _build_reproducibility_payload(
                 request_body=body_dict,
@@ -1796,7 +1856,8 @@ async def rerun_reproduction(
     await session.flush()
 
     result = solvers.solve_from_request(
-        clean_payload_dict, max_solve_seconds=clean_payload.options.max_solve_seconds
+        clean_payload_dict,
+        max_solve_seconds=clean_payload.options.max_solve_seconds,
     )
     rerun_opt.solve_seconds = result.solve_seconds
     rerun_opt.model_version = dict(voucher.locked_model_version)
@@ -1806,6 +1867,11 @@ async def rerun_reproduction(
         rerun_opt.solution = result.solution
         rerun_opt.objective = result.objective
         rerun_opt.completed_at = datetime.now(UTC)
+        _attach_top_k_metadata(
+            rerun_opt,
+            result,
+            requested=clean_payload.options.top_k_alternatives,
+        )
         await issue_reproduction_voucher(
             session,
             rerun_opt,
@@ -2246,6 +2312,11 @@ async def post_optimization_demo(request: Request) -> JSONResponse:
             "citation": demo_citation,
             "ip_attribution": demo_attribution,
         }
+        _add_top_k_to_content(
+            content,
+            result,
+            requested=payload.options.top_k_alternatives,
+        )
         if payload.options.reproducible:
             content["reproducibility"] = _build_reproducibility_payload(
                 request_body=body_dict,
