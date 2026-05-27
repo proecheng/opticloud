@@ -19,7 +19,7 @@
     "actions": {
       "signup": "Sign up",
       "signupArrow": "Sign up →",
-      "browseAlgorithms": "Browse 8 algorithms →",
+      "browseAlgorithms": "Browse algorithms →",
       "continue": "Continue",
       "later": "Later",
       "copyCurl": "Copy cURL",
@@ -121,7 +121,7 @@
     },
     "next": {
       "title": "Next",
-      "algorithms": "Browse 8 supported public algorithms",
+      "algorithms": "Browse published public algorithms",
       "excel": "Upload Excel",
       "quickstart": "Open the full Hello World quickstart",
       "credits": "View Credits balance (200 Credits granted)"

@@ -19,7 +19,7 @@
     "actions": {
       "signup": "立即注册",
       "signupArrow": "立即注册 →",
-      "browseAlgorithms": "浏览 8 个算法 →",
+      "browseAlgorithms": "浏览算法目录 →",
       "continue": "继续",
       "later": "稍后",
       "copyCurl": "复制 cURL",
@@ -121,7 +121,7 @@
     },
     "next": {
       "title": "下一步",
-      "algorithms": "浏览 8 个支持的算法（公开免鉴权 catalog）",
+      "algorithms": "浏览已发布的支持算法（公开免鉴权 catalog）",
       "excel": "上传 Excel",
       "quickstart": "查看完整 Hello World 三件套文档",
       "credits": "查看 Credits 余额（已赠送 200 Credits）"

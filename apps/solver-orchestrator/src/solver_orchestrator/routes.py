@@ -25,10 +25,13 @@ from solver_orchestrator.catalog import (
     Citation,
     IPAttribution,
     find_by_k_algo,
+    publishable_catalog_items,
+    self_audit_passed,
 )
 from solver_orchestrator.db import get_session
 from solver_orchestrator.fallback_execution import (
     FallbackAttempt,
+    FallbackAttemptPlan,
     FallbackPlanStatus,
     attempt_route_metadata,
     build_fallback_attempts,
@@ -43,6 +46,7 @@ from solver_orchestrator.models import (
     ReproductionVoucher,
 )
 from solver_orchestrator.provider_routing import (
+    ProviderRouteResult,
     ProviderRouteStatus,
     select_provider_route,
 )
@@ -107,7 +111,7 @@ async def list_algorithms(
     tier: str | None = None,
 ) -> list[AlgorithmSchema]:
     """FR C1 + C3 — public algorithm list, optional task_type + tier filters."""
-    items = CATALOG
+    items = publishable_catalog_items()
     if task_type:
         items = [a for a in items if a["task_type"] == task_type]
     if tier:
@@ -129,6 +133,10 @@ async def get_algorithm(k_algo: str) -> AlgorithmSchema:
     if algo is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=f"unknown k_algo: {k_algo}"
+        )
+    if not self_audit_passed(algo):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"k_algo is not published: {k_algo}"
         )
     return AlgorithmSchema.model_validate(algo)
 
@@ -425,6 +433,88 @@ def _rfc7807_error(
     return JSONResponse(content=body.model_dump(), status_code=status_code)
 
 
+def _unaudited_self_algorithm_error(
+    route: ProviderRouteResult | FallbackAttemptPlan,
+    *,
+    field_path: str,
+    request_id: str | None = None,
+) -> JSONResponse:
+    missing_rules = list(route.missing_self_audit_rules or [])
+    constraint = ", ".join(missing_rules)
+    ticket_id = route.audit_ticket_id or "self-audit-unknown-unknown"
+    k_algo = route.blocked_k_algo or "unknown"
+    provider_id = route.blocked_provider_id or "unknown"
+    return _rfc7807_error(
+        title="Unaudited Self Algorithm",
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail=(
+            f"self-developed algorithm '{k_algo}' from provider '{provider_id}' "
+            f"is blocked until §4.5 self-audit passes; audit_ticket_id={ticket_id}"
+        ),
+        errors=[
+            ErrorDetail(
+                field_path=field_path,
+                value=k_algo,
+                constraint=f"missing self-audit rules: {constraint}",
+                remediation_hint_key="errors.403.unaudited_self_algorithm",
+            )
+        ],
+        next_action=f"https://console.opticloud.cn/admin/self-audit/{ticket_id}",
+        request_id=request_id,
+    )
+
+
+def _provider_route_error_response(
+    route: ProviderRouteResult,
+    *,
+    task_type: str,
+    requested_solver: str | None,
+    request_id: str | None,
+) -> JSONResponse | None:
+    if route.status is ProviderRouteStatus.UNSUPPORTED_TASK_TYPE:
+        return _rfc7807_error(
+            title="Unsupported Task Type",
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"task_type '{task_type}' not in catalog",
+            errors=[
+                ErrorDetail(
+                    field_path="task_type",
+                    value=task_type,
+                    constraint="must be one of catalog k_algo.task_type",
+                    remediation_hint_key="errors.422.unsupported_task_type",
+                )
+            ],
+            next_action="https://api.opticloud.cn/v1/algorithms",
+            request_id=request_id,
+        )
+    if route.status is ProviderRouteStatus.UNSUPPORTED_SOLVER:
+        return _rfc7807_error(
+            title="Unsupported Solver",
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"solver '{requested_solver}' is not supported for task_type "
+                f"'{task_type}'. Supported: {', '.join(route.supported_solvers)}"
+            ),
+            errors=[
+                ErrorDetail(
+                    field_path="solver",
+                    value=requested_solver,
+                    constraint=f"must be one of: {', '.join(route.supported_solvers)}",
+                    remediation_hint_key="errors.400.unsupported_solver",
+                )
+            ],
+            next_action="https://api.opticloud.cn/v1/algorithms",
+            request_id=request_id,
+        )
+    if route.status is ProviderRouteStatus.UNAUDITED_SELF_ALGORITHM:
+        return _unaudited_self_algorithm_error(
+            route,
+            field_path="solver" if requested_solver is not None else "task_type",
+            request_id=request_id,
+        )
+    return None
+
+
 async def _record_solver_cost_attribution(
     session: AsyncSession,
     *,
@@ -573,6 +663,20 @@ async def post_optimization(
     if payload.options.anonymous and not payload.options.reproducible:
         return _anonymous_without_reproducible_error(request_id=request_id)
 
+    # ----- Lookup provider route before billing/idempotency side effects (Story 2.8) -----
+    route = select_provider_route(payload.task_type, payload.solver)
+    route_error = _provider_route_error_response(
+        route,
+        task_type=payload.task_type,
+        requested_solver=payload.solver,
+        request_id=request_id,
+    )
+    if route_error is not None:
+        return route_error
+
+    assert route.algorithm is not None
+    assert route.selected_solver is not None
+
     # ----- Story 5.A.4 — pre-solve billing reserve (opt-in via X-Billing-Charge-Id) -----
     billing_uuid: uuid.UUID | None = None
     if billing_charge_id:
@@ -642,47 +746,6 @@ async def post_optimization(
                 await attach_existing_voucher_id(session, opt)
                 return _build_success_response(opt)
 
-    # ----- Lookup provider route (Story 2.6 integrates 2.4 + 2.5) -----
-    route = select_provider_route(payload.task_type, payload.solver)
-    if route.status is ProviderRouteStatus.UNSUPPORTED_TASK_TYPE:
-        return _rfc7807_error(
-            title="Unsupported Task Type",
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"task_type '{payload.task_type}' not in catalog",
-            errors=[
-                ErrorDetail(
-                    field_path="task_type",
-                    value=payload.task_type,
-                    constraint="must be one of catalog k_algo.task_type",
-                    remediation_hint_key="errors.422.unsupported_task_type",
-                )
-            ],
-            next_action="https://api.opticloud.cn/v1/algorithms",
-            request_id=request_id,
-        )
-    if route.status is ProviderRouteStatus.UNSUPPORTED_SOLVER:
-        return _rfc7807_error(
-            title="Unsupported Solver",
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=(
-                f"solver '{payload.solver}' is not supported for task_type "
-                f"'{payload.task_type}'. Supported: {', '.join(route.supported_solvers)}"
-            ),
-            errors=[
-                ErrorDetail(
-                    field_path="solver",
-                    value=payload.solver,
-                    constraint=f"must be one of: {', '.join(route.supported_solvers)}",
-                    remediation_hint_key="errors.400.unsupported_solver",
-                )
-            ],
-            next_action="https://api.opticloud.cn/v1/algorithms",
-            request_id=request_id,
-        )
-
-    assert route.algorithm is not None
-    assert route.selected_solver is not None
-
     # ----- Story 2.5 — FR C5 fallback_chain per-element validation -----
     # Chain is stored in input_payload (via model_dump) only; actual fallback
     # execution (try chain[0] → chain[1] on failure, ≤3 retries) is Story 2.7.
@@ -715,6 +778,16 @@ async def post_optimization(
         requested_solver=payload.solver,
         fallback_chain=payload.fallback_chain,
     )
+    if attempt_plan.status is FallbackPlanStatus.UNAUDITED_SELF_ALGORITHM:
+        return _unaudited_self_algorithm_error(
+            attempt_plan,
+            field_path=(
+                f"fallback_chain[{attempt_plan.invalid_index}]"
+                if attempt_plan.invalid_index is not None
+                else "fallback_chain"
+            ),
+            request_id=request_id,
+        )
     if attempt_plan.status is FallbackPlanStatus.INVALID_FALLBACK_SOLVER:
         invalid_idx = attempt_plan.invalid_index if attempt_plan.invalid_index is not None else 0
         supported = attempt_plan.supported_solvers or route.supported_solvers
@@ -1352,6 +1425,12 @@ async def post_optimization_demo(request: Request) -> JSONResponse:
         return _anonymous_without_reproducible_error(request_id=request_id)
     # Story 2.4 — solver validation (FR C4) on /demo as well
     route = select_provider_route("lp", payload.solver)
+    if route.status is ProviderRouteStatus.UNAUDITED_SELF_ALGORITHM:
+        return _unaudited_self_algorithm_error(
+            route,
+            field_path="solver" if payload.solver is not None else "task_type",
+            request_id=request_id,
+        )
     if route.status is ProviderRouteStatus.UNSUPPORTED_TASK_TYPE:
         return _rfc7807_error(
             title="Catalog Error",
@@ -1411,6 +1490,16 @@ async def post_optimization_demo(request: Request) -> JSONResponse:
         requested_solver=payload.solver,
         fallback_chain=payload.fallback_chain,
     )
+    if attempt_plan.status is FallbackPlanStatus.UNAUDITED_SELF_ALGORITHM:
+        return _unaudited_self_algorithm_error(
+            attempt_plan,
+            field_path=(
+                f"fallback_chain[{attempt_plan.invalid_index}]"
+                if attempt_plan.invalid_index is not None
+                else "fallback_chain"
+            ),
+            request_id=request_id,
+        )
     if attempt_plan.status is FallbackPlanStatus.INVALID_FALLBACK_SOLVER:
         invalid_idx = attempt_plan.invalid_index if attempt_plan.invalid_index is not None else 0
         supported = attempt_plan.supported_solvers or route.supported_solvers

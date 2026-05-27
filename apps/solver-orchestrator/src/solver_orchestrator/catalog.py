@@ -8,7 +8,9 @@ Each entry includes provider_url (A-S1 fix) for transparency.
 
 from __future__ import annotations
 
-from typing import Literal, TypedDict
+import re
+from copy import deepcopy
+from typing import Literal, NotRequired, TypedDict
 
 
 class ModelVersion(TypedDict):
@@ -44,6 +46,19 @@ class IPAttribution(TypedDict):
     contract_anchor: str
 
 
+class SelfAuditStatus(TypedDict):
+    """Internal §4.5 self-developed algorithm audit state.
+
+    This field is intentionally not part of the public AlgorithmSchema.
+    """
+
+    package_or_runnable: bool
+    license_approved: bool
+    minimal_example_30m: bool
+    readme_schema: bool
+    paper_reproduction_result: bool
+
+
 class Algorithm(TypedDict):
     k_algo: str
     task_type: str
@@ -58,6 +73,16 @@ class Algorithm(TypedDict):
     ]  # Story 2.4 — FR C4 (enum of solver names valid for this algorithm)
     citation: Citation | None  # Story 6.A.1 — FR R5 (None reserved for future commercial-only SKUs)
     ip_attribution: IPAttribution  # Story 6.A.5 — L1/L2/L3 academic IP attribution
+    self_audit: NotRequired[SelfAuditStatus]  # Story 2.8 — internal FR C8 publish/route gate
+
+
+SELF_AUDIT_RULES: tuple[str, ...] = (
+    "package_or_runnable",
+    "license_approved",
+    "minimal_example_30m",
+    "readme_schema",
+    "paper_reproduction_result",
+)
 
 
 OPEN_SOURCE_LICENSE_ANCHOR = "docs/legal-templates.md Doc 1 / open-source license review"
@@ -394,6 +419,13 @@ CATALOG: list[Algorithm] = [
         "description_en": "AQGS-ACOPF — proprietary AC Optimal Power Flow (Innovation #6)",
         "examples": [],
         "supported_solvers": ["aqgs"],
+        "self_audit": {
+            "package_or_runnable": False,
+            "license_approved": False,
+            "minimal_example_30m": False,
+            "readme_schema": False,
+            "paper_reproduction_result": False,
+        },
         "citation": {
             "bibtex": (
                 "@software{aqgs2025opticloud,\n"
@@ -414,6 +446,52 @@ CATALOG: list[Algorithm] = [
         "ip_attribution": ATTR_AQGS,
     },
 ]
+
+
+def is_self_algorithm(algo: Algorithm) -> bool:
+    """Return true for self-developed provider rows."""
+    return algo["model_version"]["kind"] == "self"
+
+
+def self_audit_missing_rules(algo: Algorithm) -> list[str]:
+    """Return missing §4.5 rules in canonical order.
+
+    Non-self algorithms do not require self-audit. Self rows fail closed when
+    metadata is absent or malformed.
+    """
+    if not is_self_algorithm(algo):
+        return []
+    audit = algo.get("self_audit")
+    if not isinstance(audit, dict):
+        return list(SELF_AUDIT_RULES)
+    if set(audit) != set(SELF_AUDIT_RULES):
+        return list(SELF_AUDIT_RULES)
+    missing: list[str] = []
+    for rule in SELF_AUDIT_RULES:
+        if audit.get(rule) is not True:
+            missing.append(rule)
+    return missing
+
+
+def self_audit_passed(algo: Algorithm) -> bool:
+    """Return true when an algorithm is publishable by the FR C8 self-audit gate."""
+    return not self_audit_missing_rules(algo)
+
+
+def publishable_catalog_items(items: list[Algorithm] | None = None) -> list[Algorithm]:
+    """Return public catalog rows, excluding unaudited self algorithms."""
+    source = CATALOG if items is None else items
+    return [deepcopy(algo) for algo in source if self_audit_passed(algo)]
+
+
+def self_audit_ticket_id(k_algo: str, provider_id: str) -> str:
+    """Return deterministic non-sensitive admin ticket id for a blocked self algorithm."""
+
+    def _slug(value: str) -> str:
+        slug = re.sub(r"[^a-z0-9-]+", "-", value.lower()).strip("-")
+        return slug or "unknown"
+
+    return f"self-audit-{_slug(k_algo)}-{_slug(provider_id)}"
 
 
 def find_by_task_type(task_type: str) -> Algorithm | None:

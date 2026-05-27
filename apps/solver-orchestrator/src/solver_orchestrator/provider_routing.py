@@ -7,13 +7,20 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any, TypedDict
 
-from solver_orchestrator.catalog import Algorithm, find_by_task_type_and_solver
+from solver_orchestrator.catalog import (
+    Algorithm,
+    find_by_task_type_and_solver,
+    self_audit_missing_rules,
+    self_audit_passed,
+    self_audit_ticket_id,
+)
 
 
 class ProviderRouteStatus(StrEnum):
     OK = "ok"
     UNSUPPORTED_TASK_TYPE = "unsupported_task_type"
     UNSUPPORTED_SOLVER = "unsupported_solver"
+    UNAUDITED_SELF_ALGORITHM = "unaudited_self_algorithm"
 
 
 class ProviderRouteMetadata(TypedDict):
@@ -35,6 +42,10 @@ class ProviderRouteResult:
     supported_solvers: list[str]
     provider_kind: str | None
     routing_reason: str
+    blocked_k_algo: str | None = None
+    blocked_provider_id: str | None = None
+    audit_ticket_id: str | None = None
+    missing_self_audit_rules: list[str] | None = None
 
 
 def select_provider_route(task_type: str, solver: str | None) -> ProviderRouteResult:
@@ -62,6 +73,22 @@ def select_provider_route(task_type: str, solver: str | None) -> ProviderRouteRe
         )
 
     algorithm_copy = deepcopy(algorithm)
+    if not self_audit_passed(algorithm_copy):
+        provider_id = str(algorithm_copy["model_version"]["provider_id"])
+        return ProviderRouteResult(
+            status=ProviderRouteStatus.UNAUDITED_SELF_ALGORITHM,
+            algorithm=None,
+            selected_solver=None,
+            model_version={},
+            supported_solvers=list(supported_solvers),
+            provider_kind="self",
+            routing_reason="unaudited_self_algorithm",
+            blocked_k_algo=str(algorithm_copy["k_algo"]),
+            blocked_provider_id=provider_id,
+            audit_ticket_id=self_audit_ticket_id(str(algorithm_copy["k_algo"]), provider_id),
+            missing_self_audit_rules=self_audit_missing_rules(algorithm_copy),
+        )
+
     selected_solver = solver if solver is not None else algorithm_copy["supported_solvers"][0]
     model_version = dict(algorithm_copy["model_version"])
     provider_kind = str(model_version["kind"])

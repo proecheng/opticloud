@@ -11,6 +11,7 @@ import sys
 
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
+from solver_orchestrator.catalog import publishable_catalog_items
 from solver_orchestrator.main import app
 
 if sys.platform == "win32":
@@ -106,9 +107,8 @@ async def test_list_with_empty_tier_param_returns_all(client: AsyncClient) -> No
     resp = await client.get("/v1/algorithms?tier=")
     assert resp.status_code == 200
     body = resp.json()
-    # Catalog currently has 8 SKUs (see catalog.py); use >= 1 to stay resilient
-    # if catalog grows during M2.
-    assert len(body) >= 8
+    assert len(body) == len(publishable_catalog_items())
+    assert "aqgs-acopf" not in {item["k_algo"] for item in body}
 
 
 async def test_algorithm_detail_includes_citation(client: AsyncClient) -> None:
@@ -129,7 +129,7 @@ async def test_algorithm_list_includes_citation_for_every_row(client: AsyncClien
     resp = await client.get("/v1/algorithms")
     assert resp.status_code == 200
     body = resp.json()
-    assert len(body) >= 8
+    assert len(body) == len(publishable_catalog_items())
     for item in body:
         assert item.get("citation") is not None, (
             f"{item['k_algo']} missing citation in list response"
@@ -139,16 +139,25 @@ async def test_algorithm_list_includes_citation_for_every_row(client: AsyncClien
 
 
 async def test_algorithm_detail_includes_ip_attribution(client: AsyncClient) -> None:
-    """Story 6.A.5 — GET /v1/algorithms/{k_algo} returns IP attribution metadata."""
-    resp = await client.get("/v1/algorithms/aqgs-acopf")
+    """Story 6.A.5 — published algorithm details return IP attribution metadata."""
+    resp = await client.get("/v1/algorithms/highs-lp")
     assert resp.status_code == 200
     body = resp.json()
     attribution = body.get("ip_attribution")
     assert attribution is not None
-    assert attribution["tier"] == "L1"
-    assert attribution["visibility"] == "full_visible"
-    assert "OptiCloud / Trust-Tech" in attribution["display_name_zh"]
+    assert attribution["tier"] == "L3"
+    assert attribution["visibility"] == "license_only"
+    assert "HiGHS" in attribution["display_name_zh"]
     assert "docs/legal-templates.md" in attribution["contract_anchor"]
+
+
+async def test_unaudited_self_algorithm_detail_is_not_published(
+    client: AsyncClient,
+) -> None:
+    """Story 2.8 — unaudited self-developed algorithms are hidden from public detail."""
+    resp = await client.get("/v1/algorithms/aqgs-acopf")
+    assert resp.status_code == 404
+    assert "not published" in resp.json()["detail"]
 
 
 async def test_algorithm_list_includes_ip_attribution_for_every_row(
@@ -158,7 +167,7 @@ async def test_algorithm_list_includes_ip_attribution_for_every_row(
     resp = await client.get("/v1/algorithms")
     assert resp.status_code == 200
     body = resp.json()
-    assert len(body) >= 8
+    assert len(body) == len(publishable_catalog_items())
     for item in body:
         attribution = item.get("ip_attribution")
         assert attribution is not None, f"{item['k_algo']} missing ip_attribution in list response"
