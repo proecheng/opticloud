@@ -84,6 +84,7 @@ health_router = APIRouter()
 logger: Any = structlog.get_logger("solver_orchestrator.routes")
 ASYNC_QUEUE_MESSAGE = "Task queued; background execution is not enabled in Story 3.3"
 SYNC_ASYNC_THRESHOLD_SECONDS = 5.0
+SOLVER_BUDGET_EPSILON_SECONDS = 1e-9
 
 
 # ===== Story 0.7: Health =====
@@ -372,6 +373,15 @@ def _build_optimization_status_response_content(opt: Optimization) -> dict[str, 
         )
     else:
         content["error"] = opt.error
+        if opt.status == "timeout":
+            content["solve_seconds"] = (
+                float(opt.solve_seconds) if opt.solve_seconds is not None else 0.0
+            )
+            content["best_solution_available"] = opt.solution is not None
+            if opt.solution is not None:
+                content["best_solution"] = opt.solution
+            if opt.objective is not None:
+                content["objective"] = float(opt.objective)
     return content
 
 
@@ -638,6 +648,44 @@ def _billing_not_supported_for_async_response(
     )
 
 
+def _solver_timeout_response(
+    *,
+    opt: Optimization,
+    result: solvers.LPSolveResult,
+    max_solve_seconds: float,
+    request_id: str | None,
+) -> JSONResponse:
+    response = _rfc7807_error(
+        title="Solver Timeout",
+        status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+        detail=result.error_constraint or "solver exceeded max_solve_seconds",
+        errors=[
+            ErrorDetail(
+                field_path=result.error_field_path or "options.max_solve_seconds",
+                value=max_solve_seconds,
+                constraint=result.error_constraint or "timeout",
+                remediation_hint_key="errors.504.solver_timeout",
+            )
+        ],
+        request_id=request_id,
+    )
+    content = json.loads(bytes(response.body))
+    content.update(
+        {
+            "optimization_id": str(opt.id),
+            "optimization_status": "timeout",
+            "solve_seconds": result.solve_seconds,
+            "max_solve_seconds": max_solve_seconds,
+            "best_solution_available": result.solution is not None,
+        }
+    )
+    if result.solution is not None:
+        content["best_solution"] = result.solution
+    if result.objective is not None:
+        content["objective"] = result.objective
+    return JSONResponse(content=content, status_code=status.HTTP_504_GATEWAY_TIMEOUT)
+
+
 def _unaudited_self_algorithm_error(
     route: ProviderRouteResult | FallbackAttemptPlan,
     *,
@@ -783,13 +831,17 @@ def _execute_fallback_attempts(
     exhausted = False
 
     for index, attempt in enumerate(attempts):
+        remaining_budget = max(max_solve_seconds - total_solve_seconds, 0.0)
+        if remaining_budget <= SOLVER_BUDGET_EPSILON_SECONDS:
+            exhausted = True
+            break
         if attempt.route.selected_solver is None:
             raise ValueError("fallback attempt requires selected solver")
         attempt_body = dict(body_dict)
         attempt_body["solver"] = attempt.route.selected_solver
         result = solvers.solve_from_request(
             attempt_body,
-            max_solve_seconds=max_solve_seconds,
+            max_solve_seconds=remaining_budget,
         )
         total_solve_seconds += result.solve_seconds
         retryable = is_retryable_solver_result(result)
@@ -805,6 +857,9 @@ def _execute_fallback_attempts(
         terminal_result = result
         terminal_attempt = attempt
         if result.status == "optimal" or not retryable:
+            break
+        if total_solve_seconds + SOLVER_BUDGET_EPSILON_SECONDS >= max_solve_seconds:
+            exhausted = True
             break
         if not has_next:
             exhausted = True
@@ -1147,7 +1202,7 @@ async def post_optimization(
     # ----- Story 5.A.4 — post-solve billing finalize (single attempt, no retry per Q4) -----
     if billing_uuid is not None:
         finalize_status: Literal["success", "failure"]
-        finalize_status = "success" if result.status == "optimal" else "failure"
+        finalize_status = "success" if result.status in {"optimal", "timeout"} else "failure"
         failure_reason: str | None = (
             None if finalize_status == "success" else (result.error_constraint or result.status)
         )
@@ -1244,10 +1299,13 @@ async def post_optimization(
         )
     elif result.status == "timeout":
         opt.status = "timeout"
+        opt.solution = result.solution
+        opt.objective = result.objective
         opt.completed_at = datetime.now(UTC)
         _merge_optimization_error(
             opt,
             {
+                "title": "Solver Timeout",
                 "detail": result.error_constraint,
                 "fallback_execution": execution.fallback_execution,
             },
@@ -1255,18 +1313,20 @@ async def post_optimization(
         await _record_solver_cost_attribution(
             session, opt=opt, result=result, solver_name=final_selected_solver
         )
-        return _rfc7807_error(
-            title="Solver Timeout",
-            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
-            detail=result.error_constraint or "solver exceeded max_solve_seconds",
-            errors=[
-                ErrorDetail(
-                    field_path=result.error_field_path or "options.max_solve_seconds",
-                    value=payload.options.max_solve_seconds,
-                    constraint=result.error_constraint or "timeout",
-                    remediation_hint_key="errors.504.solver_timeout",
-                )
-            ],
+        idempotency_error = await _add_optimization_idempotency_key(
+            session,
+            key=idempotency_key,
+            user_id=user_id,
+            optimization_id=opt.id,
+            request_body_hash=body_hash,
+            request_id=request_id,
+        )
+        if idempotency_error is not None:
+            return idempotency_error
+        return _solver_timeout_response(
+            opt=opt,
+            result=result,
+            max_solve_seconds=payload.options.max_solve_seconds,
             request_id=request_id,
         )
     else:  # error
@@ -1282,6 +1342,16 @@ async def post_optimization(
         await _record_solver_cost_attribution(
             session, opt=opt, result=result, solver_name=final_selected_solver
         )
+        idempotency_error = await _add_optimization_idempotency_key(
+            session,
+            key=idempotency_key,
+            user_id=user_id,
+            optimization_id=opt.id,
+            request_body_hash=body_hash,
+            request_id=request_id,
+        )
+        if idempotency_error is not None:
+            return idempotency_error
         return _rfc7807_error(
             title="Validation Error",
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,

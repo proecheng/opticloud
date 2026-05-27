@@ -385,7 +385,7 @@ async def test_authenticated_fallback_success_persists_internal_metadata_and_cos
     assert cost_rows[0]["metadata"]["model_provider"] == "highs"
 
 
-async def test_authenticated_exhausted_timeout_finalizes_billing_once_and_bounds_metadata(
+async def test_authenticated_exhausted_timeout_charges_elapsed_and_bounds_metadata(
     client_with_db: AsyncClient,
     api_key,
     db_engine: AsyncEngine,
@@ -434,9 +434,9 @@ async def test_authenticated_exhausted_timeout_finalizes_billing_once_and_bounds
     assert calls == 2
     assert finalize_args["cid"] == charge_id
     assert finalize_args["uid"] == user_id
-    assert finalize_args["status"] == "failure"
+    assert finalize_args["status"] == "success"
     assert finalize_args["elapsed_seconds"] == pytest.approx(0.375)
-    assert finalize_args["failure_reason"] == "synthetic timeout 2"
+    assert finalize_args["failure_reason"] is None
 
     maker = async_sessionmaker(db_engine, expire_on_commit=False, class_=AsyncSession)
     async with maker() as s:

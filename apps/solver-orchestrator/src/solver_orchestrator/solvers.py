@@ -7,6 +7,7 @@ CRG2: cold-start vs warm-start distinction + HiGHS pre-warm.
 
 from __future__ import annotations
 
+import math
 import time
 from dataclasses import dataclass
 from typing import Any
@@ -48,6 +49,41 @@ def prewarm() -> None:
     h.passModel(lp)
     h.run()
     _warm = True
+
+
+def _timeout_result_from_highs(
+    highs: Any,
+    *,
+    num_columns: int,
+    elapsed: float,
+    max_solve_seconds: float,
+) -> LPSolveResult:
+    """Build a timeout result, preserving a finite incumbent if HiGHS has one."""
+    solution: dict[str, list[float]] | None = None
+    objective: float | None = None
+    try:
+        raw_solution = highs.getSolution()
+        x_values = [float(value) for value in list(raw_solution.col_value)]
+        if len(x_values) == num_columns and all(math.isfinite(value) for value in x_values):
+            solution = {"x": x_values}
+    except Exception:
+        solution = None
+
+    try:
+        raw_objective = float(highs.getInfo().objective_function_value)
+        if math.isfinite(raw_objective):
+            objective = raw_objective
+    except Exception:
+        objective = None
+
+    return LPSolveResult(
+        status="timeout",
+        objective=objective,
+        solution=solution,
+        solve_seconds=elapsed,
+        error_field_path="options.max_solve_seconds",
+        error_constraint=f"solver timed out after {max_solve_seconds}s",
+    )
 
 
 def solve_lp(
@@ -177,13 +213,11 @@ def solve_lp(
         )
 
     if model_status == highspy.HighsModelStatus.kTimeLimit:
-        return LPSolveResult(
-            status="timeout",
-            objective=None,
-            solution=None,
-            solve_seconds=elapsed,
-            error_field_path="options.max_solve_seconds",
-            error_constraint=f"solver timed out after {max_solve_seconds}s",
+        return _timeout_result_from_highs(
+            h,
+            num_columns=n,
+            elapsed=elapsed,
+            max_solve_seconds=max_solve_seconds,
         )
 
     return LPSolveResult(
