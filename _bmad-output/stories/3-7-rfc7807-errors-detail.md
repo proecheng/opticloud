@@ -330,6 +330,7 @@ GPT-5
 - 2026-05-27 - 504 timeout wrapper boundary fixed to preserve `application/problem+json`; timeout/sync-async focused regression passed (34 passed).
 - 2026-05-27 - Post-implementation code review found one patch item: caller-provided `ErrorDetail` values could bypass sensitive header redaction. Added builder-level normalization and idempotency-key redaction regression.
 - 2026-05-27 - Final validation after code-review patch passed: solver-orchestrator suite 235 passed; Python SDK error tests 5 passed; shared-py tests 32 passed; mypy/pre-commit/diff-check passed.
+- 2026-05-27 - PR #82 CI lint failed on `ContextVar` mutable default plus test import ordering after SDK path bootstrap. Patched request-context default to `None`, moved SDK source path bootstrap into solver test `conftest.py`, and reran local lint/regression checks successfully.
 
 ### Completion Notes List
 
@@ -341,6 +342,7 @@ GPT-5
 - Full solver-orchestrator suite and focused SDK/shared-py/mypy checks passed before post-implementation code review.
 - Post-implementation code review completed; sensitive header redaction now applies to both generated and caller-supplied `ErrorDetail` objects.
 - Final validation passed after post-review patch: full backend tests, SDK/shared-py tests, mypy, pre-commit, and diff-check.
+- CI lint follow-up completed: `ContextVar` now avoids mutable defaults, and SDK path bootstrap no longer forces test-file E402 exceptions.
 
 ### File List
 
@@ -351,6 +353,7 @@ GPT-5
 - `apps/solver-orchestrator/src/solver_orchestrator/error_responses.py`
 - `apps/solver-orchestrator/src/solver_orchestrator/main.py`
 - `apps/solver-orchestrator/src/solver_orchestrator/routes.py`
+- `apps/solver-orchestrator/tests/conftest.py`
 - `apps/solver-orchestrator/tests/test_rfc7807_errors_detail.py`
 
 ### Change Log
@@ -361,6 +364,7 @@ GPT-5
 - 2026-05-27 - Applied Story Review Round 3 boundary/closure patches for 410 voucher expiry, 501/504 actionable boundaries, explicit 500 handling, and static drift guard scope.
 - 2026-05-27 - Implemented Story 3.7 RFC 7807 error catalog, response builder, exception handlers, route delegation, and focused contract tests.
 - 2026-05-27 - Addressed post-implementation code review finding for sensitive header redaction and marked Story 3.7 done after final validation.
+- 2026-05-27 - Addressed PR #82 CI lint feedback for `ContextVar` default and test import ordering; validation re-run locally before pushing.
 
 ## Story Review Round 1 - Data Consistency (2026-05-27)
 

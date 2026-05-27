@@ -17,22 +17,22 @@ class ErrorRequestContext:
     trace_id: str | None = None
 
 
-_ERROR_REQUEST_CONTEXT: ContextVar[ErrorRequestContext] = ContextVar(
+_ERROR_REQUEST_CONTEXT: ContextVar[ErrorRequestContext | None] = ContextVar(
     "solver_orchestrator_error_request_context",
-    default=ErrorRequestContext(),
+    default=None,
 )
 
 
-def set_error_request_context(context: ErrorRequestContext) -> Token[ErrorRequestContext]:
+def set_error_request_context(context: ErrorRequestContext) -> Token[ErrorRequestContext | None]:
     return _ERROR_REQUEST_CONTEXT.set(context)
 
 
-def reset_error_request_context(token: Token[ErrorRequestContext]) -> None:
+def reset_error_request_context(token: Token[ErrorRequestContext | None]) -> None:
     _ERROR_REQUEST_CONTEXT.reset(token)
 
 
 def get_error_request_context() -> ErrorRequestContext:
-    return _ERROR_REQUEST_CONTEXT.get()
+    return _ERROR_REQUEST_CONTEXT.get() or ErrorRequestContext()
 
 
 def context_from_request(request: Request) -> ErrorRequestContext:

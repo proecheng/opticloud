@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import asyncio
 import ast
+import asyncio
 import hashlib
 import hmac
 import os
@@ -14,21 +14,19 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
-
-ROOT_DIR = Path(__file__).resolve().parents[3]
-PYTHON_SDK_SRC_DIR = ROOT_DIR / "packages" / "python-sdk" / "src"
-if str(PYTHON_SDK_SRC_DIR) not in sys.path:
-    sys.path.insert(0, str(PYTHON_SDK_SRC_DIR))
-
 from opticloud.errors import OptiCloudHTTPError
 from solver_orchestrator.config import settings
 from solver_orchestrator.db import get_session
 from solver_orchestrator.main import app
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
 
 if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
@@ -177,7 +175,9 @@ def test_error_response_code_does_not_serialize_next_action_key() -> None:
             if isinstance(node, ast.Dict):
                 for key in node.keys:
                     if isinstance(key, ast.Constant) and key.value == "next_action":
-                        raise AssertionError(f"{path} serializes forbidden response key next_action")
+                        raise AssertionError(
+                            f"{path} serializes forbidden response key next_action"
+                        )
 
 
 async def test_demo_invalid_solver_has_complete_problem_shape_and_sdk_locate(
