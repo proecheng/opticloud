@@ -3,6 +3,8 @@
 Tables added by infra/local-init/02-solver-schema.sql:
 - optimizations
 - idempotency_keys (P23 dedup)
+- predictions
+- prediction_idempotency_keys
 """
 
 from __future__ import annotations
@@ -124,6 +126,59 @@ class IdempotencyKey(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
+
+
+class Prediction(Base):
+    """FR E2-E6 — prediction tasks (sync subset for Story 3.2)."""
+
+    __tablename__ = "predictions"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    api_key_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    family: Mapped[str] = mapped_column(String(64), nullable=False)
+    status: Mapped[str] = mapped_column(String(50), nullable=False, default="queued")
+    input_payload: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    prediction: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    drift_score: Mapped[float | None] = mapped_column(Numeric, nullable=True)
+    model_version: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    error: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    predict_seconds: Mapped[float | None] = mapped_column(Numeric, nullable=True)
+    idempotency_key: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        Index("idx_predictions_user_id_created_at", "user_id", text("created_at DESC")),
+        Index(
+            "idx_predictions_status",
+            "status",
+            postgresql_where=text("status IN ('queued', 'in_progress')"),
+        ),
+    )
+
+
+class PredictionIdempotencyKey(Base):
+    """P23 Idempotency-Key dedup for prediction submissions."""
+
+    __tablename__ = "prediction_idempotency_keys"
+
+    key: Mapped[str] = mapped_column(String(255), primary_key=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, nullable=False)
+    prediction_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("predictions.id", ondelete="CASCADE"), nullable=False
+    )
+    request_body_hash: Mapped[str] = mapped_column(Text, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    __table_args__ = (Index("idx_prediction_idempotency_keys_expires_at", "expires_at"),)
 
 
 class CostAttribution(Base):

@@ -118,3 +118,39 @@ ALTER TABLE reproduction_vouchers
 
 CREATE INDEX IF NOT EXISTS idx_reproduction_vouchers_parent_voucher_id
     ON reproduction_vouchers(parent_voucher_id);
+
+-- Story 3.2: prediction submissions.
+CREATE TABLE IF NOT EXISTS predictions (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id             UUID NOT NULL,
+    api_key_id          UUID NOT NULL,
+    family              VARCHAR(64) NOT NULL,
+    status              VARCHAR(50) NOT NULL DEFAULT 'queued',
+    input_payload       JSONB NOT NULL,
+    prediction          JSONB NULL,
+    drift_score         NUMERIC NULL,
+    model_version       JSONB NULL,
+    error               JSONB NULL,
+    predict_seconds     NUMERIC NULL,
+    idempotency_key     VARCHAR(255) NULL,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    completed_at        TIMESTAMPTZ NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_predictions_user_id_created_at
+    ON predictions(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_predictions_status
+    ON predictions(status) WHERE status IN ('queued', 'in_progress');
+
+CREATE TABLE IF NOT EXISTS prediction_idempotency_keys (
+    user_id             UUID NOT NULL,
+    key                 VARCHAR(255) NOT NULL,
+    prediction_id       UUID NOT NULL REFERENCES predictions(id) ON DELETE CASCADE,
+    request_body_hash   TEXT NOT NULL,
+    expires_at          TIMESTAMPTZ NOT NULL,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (user_id, key)
+);
+
+CREATE INDEX IF NOT EXISTS idx_prediction_idempotency_keys_expires_at
+    ON prediction_idempotency_keys(expires_at);

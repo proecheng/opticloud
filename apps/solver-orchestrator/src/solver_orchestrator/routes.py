@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
+import time
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -16,6 +18,7 @@ from fastapi.responses import JSONResponse
 from opticloud_shared.cost_telemetry import CostTelemetryEvent, CostUnit, record_cost_event
 from opticloud_shared.schemas.errors import ErrorDetail, ErrorResponse
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from solver_orchestrator import billing_client, solvers
@@ -39,15 +42,19 @@ from solver_orchestrator.fallback_execution import (
     fallback_attempt_to_metadata,
     is_retryable_solver_result,
 )
+from solver_orchestrator.forecasting import predict_quantiles
 from solver_orchestrator.models import (
     CostAttribution,
     IdempotencyKey,
     Optimization,
+    Prediction,
+    PredictionIdempotencyKey,
     ReproductionVoucher,
 )
 from solver_orchestrator.provider_routing import (
     ProviderRouteResult,
     ProviderRouteStatus,
+    provider_route_to_system_metadata,
     select_provider_route,
 )
 from solver_orchestrator.repro import (
@@ -65,6 +72,10 @@ from solver_orchestrator.schemas import (
     ModelVersionSchema,
     OptimizationRequest,
     OptimizationResponse,
+    PredictionDisclaimer,
+    PredictionQuantiles,
+    PredictionRequest,
+    PredictionResponse,
     ReproducibilitySchema,
 )
 
@@ -1036,6 +1047,193 @@ async def post_optimization(
 
 
 @router.post(
+    "/predictions",
+    tags=["execution"],
+    summary="提交预测任务 (FR E2, E6)",
+    description=(
+        "FR E2 + E6: submit a forecast family request and receive deterministic "
+        "P10/P50/P90 quantiles, drift_score, and bilingual disclaimer."
+    ),
+)
+async def post_prediction(
+    payload: PredictionRequest,
+    request: Request,
+    authorization: str | None = Header(default=None),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+    billing_charge_id: str | None = Header(default=None, alias="X-Billing-Charge-Id"),
+    session: AsyncSession = Depends(get_session),
+) -> JSONResponse:
+    client_ip = request.client.host if request.client else None
+    user_id, api_key_id, scopes = await verify_api_key(authorization, session, client_ip=client_ip)
+    require_scope("optimize:write", scopes)
+    request_id = request.headers.get("x-request-id") or str(uuid.uuid4())
+
+    body_dict, validation_error = _validate_prediction_payload(payload, request_id=request_id)
+    if validation_error is not None:
+        return validation_error
+    assert body_dict is not None
+
+    family = str(body_dict["family"])
+    mapped_solver = _prediction_family_to_solver(family)
+    assert mapped_solver is not None
+
+    route = select_provider_route("forecast", mapped_solver)
+    if route.status is ProviderRouteStatus.UNAUDITED_SELF_ALGORITHM:
+        return _unaudited_self_algorithm_error(route, field_path="family", request_id=request_id)
+    route_error = _provider_route_error_response(
+        route,
+        task_type="forecast",
+        requested_solver=mapped_solver,
+        request_id=request_id,
+    )
+    if route_error is not None:
+        return route_error
+    assert route.algorithm is not None
+    assert route.selected_solver is not None
+
+    if billing_charge_id:
+        return _rfc7807_error(
+            title="Billing Not Supported For Predictions",
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="X-Billing-Charge-Id is not supported for /v1/predictions in Story 3.2",
+            errors=[
+                ErrorDetail(
+                    field_path="header.X-Billing-Charge-Id",
+                    value="[redacted]",
+                    constraint="billing is not supported for predictions yet",
+                    remediation_hint_key="errors.422.billing_not_supported_for_predictions",
+                )
+            ],
+            request_id=request_id,
+        )
+
+    body_hash = _hash_body(body_dict)
+    if idempotency_key:
+        now = datetime.now(UTC)
+        idem_query = await session.execute(
+            select(PredictionIdempotencyKey).where(
+                PredictionIdempotencyKey.user_id == user_id,
+                PredictionIdempotencyKey.key == idempotency_key,
+            )
+        )
+        existing = idem_query.scalar_one_or_none()
+        if existing is not None and _is_expired_at(existing.expires_at, now=now):
+            await session.delete(existing)
+            await session.flush()
+            existing = None
+        if existing is not None:
+            if existing.request_body_hash != body_hash:
+                return _rfc7807_error(
+                    title="Idempotency Conflict",
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="same idempotency key with different request body (P23)",
+                    errors=[
+                        ErrorDetail(
+                            field_path="header.Idempotency-Key",
+                            value=idempotency_key,
+                            constraint="reused with different body",
+                            remediation_hint_key="errors.409.idempotency_body_mismatch",
+                        )
+                    ],
+                    request_id=request_id,
+                )
+            cached_prediction = await session.get(Prediction, existing.prediction_id)
+            if cached_prediction is None or cached_prediction.status != "completed":
+                return _rfc7807_error(
+                    title="Idempotency Conflict",
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="idempotency key already used by an incomplete prediction",
+                    request_id=request_id,
+                )
+            return _build_prediction_success_response(cached_prediction)
+
+    route_metadata = provider_route_to_system_metadata(
+        route,
+        task_type="forecast",
+        requested_solver=mapped_solver,
+    )
+
+    started = time.perf_counter()
+    forecast_result = predict_quantiles(
+        [float(value) for value in body_dict["data"]],
+        int(body_dict["horizon"]),
+    )
+    elapsed = max(time.perf_counter() - started, forecast_result.predict_seconds)
+    completed_at = datetime.now(UTC)
+    prediction_payload = {
+        "p10": forecast_result.p10,
+        "p50": forecast_result.p50,
+        "p90": forecast_result.p90,
+    }
+    prediction_row = Prediction(
+        user_id=user_id,
+        api_key_id=api_key_id,
+        family=family,
+        status="completed",
+        input_payload=_attach_system_metadata(body_dict, provider_route=route_metadata),
+        prediction=prediction_payload,
+        drift_score=forecast_result.drift_score,
+        model_version=dict(route.model_version),
+        predict_seconds=elapsed,
+        idempotency_key=idempotency_key,
+        completed_at=completed_at,
+    )
+    session.add(prediction_row)
+    await session.flush()
+
+    if idempotency_key:
+        session.add(
+            PredictionIdempotencyKey(
+                key=idempotency_key,
+                user_id=user_id,
+                prediction_id=prediction_row.id,
+                request_body_hash=body_hash,
+                expires_at=datetime.now(UTC) + timedelta(hours=24),
+            )
+        )
+        try:
+            await session.flush()
+        except IntegrityError:
+            await session.rollback()
+            return _rfc7807_error(
+                title="Idempotency Conflict",
+                status_code=status.HTTP_409_CONFLICT,
+                detail="idempotency key already exists",
+                request_id=request_id,
+            )
+
+    return _build_prediction_success_response(prediction_row)
+
+
+@router.get(
+    "/predictions/{prediction_id}",
+    tags=["execution"],
+    summary="查 prediction 状态 (FR E9 subset)",
+)
+async def get_prediction(
+    prediction_id: uuid.UUID,
+    request: Request,
+    authorization: str | None = Header(default=None),
+    session: AsyncSession = Depends(get_session),
+) -> JSONResponse:
+    client_ip = request.client.host if request.client else None
+    user_id, _api_key_id, _scopes = await verify_api_key(
+        authorization, session, client_ip=client_ip
+    )
+    pred = await session.get(Prediction, prediction_id)
+    if pred is None or pred.user_id != user_id:
+        return _rfc7807_error(
+            title="Not Found",
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"prediction {prediction_id} not found",
+        )
+    return JSONResponse(
+        content=_build_prediction_response_content(pred),
+        status_code=status.HTTP_200_OK,
+    )
+
+
+@router.post(
     "/reproduce/{voucher_id}/rerun",
     tags=["reproducibility"],
     summary="重新运行 durable voucher (FR R3)",
@@ -1354,6 +1552,149 @@ def _build_success_response(opt: Optimization) -> JSONResponse:
 
     return JSONResponse(
         content=content,
+        status_code=status.HTTP_200_OK,
+    )
+
+
+PREDICTION_DISCLAIMER = PredictionDisclaimer(
+    zh="本预测仅供参考",
+    en="This forecast is for reference only",
+    bilingual="本预测仅供参考 / This forecast is for reference only",
+)
+
+PREDICTION_FAMILY_SOLVERS: dict[str, str] = {
+    "arima": "arima",
+    "chronos": "chronos-t5",
+}
+
+
+def _prediction_family_to_solver(family: str) -> str | None:
+    return PREDICTION_FAMILY_SOLVERS.get(family.strip().lower())
+
+
+def _is_expired_at(expires_at: datetime, *, now: datetime) -> bool:
+    expires_at_utc = (
+        expires_at.replace(tzinfo=UTC) if expires_at.tzinfo is None else expires_at.astimezone(UTC)
+    )
+    now_utc = now if now.tzinfo is not None else now.replace(tzinfo=UTC)
+    return expires_at_utc <= now_utc.astimezone(UTC)
+
+
+def _normalized_prediction_body(payload: PredictionRequest) -> dict[str, Any]:
+    return {
+        "family": payload.family.strip().lower(),
+        "data": [float(value) for value in payload.data],
+        "horizon": int(payload.horizon),
+    }
+
+
+def _prediction_validation_error(
+    *,
+    field_path: str,
+    value: object,
+    constraint: str,
+    request_id: str | None,
+) -> JSONResponse:
+    return _rfc7807_error(
+        title="Invalid Prediction Data",
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        detail=constraint,
+        errors=[
+            ErrorDetail(
+                field_path=field_path,
+                value=value,
+                constraint=constraint,
+                remediation_hint_key="errors.422.invalid_prediction_data",
+            )
+        ],
+        request_id=request_id,
+    )
+
+
+def _validate_prediction_payload(
+    payload: PredictionRequest,
+    *,
+    request_id: str | None,
+) -> tuple[dict[str, Any] | None, JSONResponse | None]:
+    family = payload.family.strip().lower()
+    if _prediction_family_to_solver(family) is None:
+        return None, _rfc7807_error(
+            title="Unsupported Prediction Family",
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"family '{payload.family}' is not supported",
+            errors=[
+                ErrorDetail(
+                    field_path="family",
+                    value=payload.family,
+                    constraint="must be one of: arima, chronos",
+                    remediation_hint_key="errors.422.unsupported_prediction_family",
+                )
+            ],
+            next_action="https://api.opticloud.cn/v1/algorithms?task_type=forecast",
+            request_id=request_id,
+        )
+    if len(payload.data) < 3 or len(payload.data) > 10_000:
+        return None, _prediction_validation_error(
+            field_path="data",
+            value=len(payload.data),
+            constraint="data length must be between 3 and 10000",
+            request_id=request_id,
+        )
+    for idx, value in enumerate(payload.data):
+        if not math.isfinite(float(value)):
+            return None, _prediction_validation_error(
+                field_path=f"data[{idx}]",
+                value="[non-finite]",
+                constraint="data values must be finite numbers",
+                request_id=request_id,
+            )
+    if payload.horizon < 1 or payload.horizon > 90:
+        return None, _prediction_validation_error(
+            field_path="horizon",
+            value=payload.horizon,
+            constraint="horizon must be between 1 and 90",
+            request_id=request_id,
+        )
+    return _normalized_prediction_body(payload), None
+
+
+def _build_prediction_response_content(prediction: Prediction) -> dict[str, Any]:
+    if prediction.status != "completed":
+        return {
+            "prediction_id": str(prediction.id),
+            "status": prediction.status,
+            "error": prediction.error,
+            "model_version": prediction.model_version,
+            "created_at": prediction.created_at.isoformat() if prediction.created_at else None,
+            "completed_at": (
+                prediction.completed_at.isoformat() if prediction.completed_at else None
+            ),
+        }
+
+    payload = PredictionResponse(
+        prediction_id=prediction.id,
+        status="completed",
+        family=prediction.family,
+        horizon=int(prediction.input_payload.get("horizon", 0)),
+        prediction=PredictionQuantiles.model_validate(prediction.prediction),
+        drift_score=float(prediction.drift_score) if prediction.drift_score is not None else 0.0,
+        disclaimer=PREDICTION_DISCLAIMER,
+        model_version=ModelVersionSchema.model_validate(prediction.model_version),
+        predict_seconds=(
+            float(prediction.predict_seconds) if prediction.predict_seconds is not None else 0.0
+        ),
+        created_at=prediction.created_at,
+        completed_at=prediction.completed_at or prediction.created_at,
+    )
+    content = json.loads(payload.model_dump_json())
+    if not isinstance(content, dict):
+        raise ValueError("prediction response did not encode an object")
+    return content
+
+
+def _build_prediction_success_response(prediction: Prediction) -> JSONResponse:
+    return JSONResponse(
+        content=_build_prediction_response_content(prediction),
         status_code=status.HTTP_200_OK,
     )
 
