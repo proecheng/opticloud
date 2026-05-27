@@ -15,15 +15,11 @@ test.describe("Academic attribution console (Story 6.A.5)", () => {
       page.getByRole("heading", { name: "Academic Attribution Review" }),
     ).toBeVisible();
 
-    await expect(page.getByTestId("attribution-count-L1")).toContainText("1");
+    await expect(page.getByTestId("attribution-count-L1")).toContainText("0");
     await expect(page.getByTestId("attribution-count-L2")).toContainText("0");
     await expect(page.getByTestId("attribution-count-L3")).toContainText("7");
 
-    const aqgs = page.getByTestId("attribution-row-aqgs-acopf");
-    await expect(aqgs).toContainText("aqgs-acopf");
-    await expect(aqgs.getByTestId("attribution-badge-L1")).toBeVisible();
-    await expect(aqgs).toContainText("aqgs2025opticloud");
-    await expect(aqgs).toContainText("docs/legal-templates.md Doc 6");
+    await expect(page.getByTestId("attribution-row-aqgs-acopf")).toHaveCount(0);
 
     const highs = page.getByTestId("attribution-row-highs-lp");
     await expect(highs.getByTestId("attribution-badge-L3")).toBeVisible();

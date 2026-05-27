@@ -4,8 +4,8 @@
  * Verifies the citation surface on /algorithms/[k_algo]:
  *   1. citation block renders with authors / venue / year / BibTeX
  *   2. DOI link present for papers with DOI
- *   3. URL-only entries (aqgs-acopf) show 查看出处 instead of DOI
- *   4. 📋 复制 button on the BibTeX block toggles to ✅ 已复制
+ *   3. unaudited self-developed algorithms are not published publicly
+ *   4. 📋 复制 button on the BibTeX block is reachable
  *
  * Replaces the 4 Vitest component cases referenced in the story (apps/web has
  * no jsdom/RTL infra; this file is the single FE rendering check).
@@ -62,39 +62,15 @@ test.describe("Algorithm citation block (FR R5)", () => {
     );
   });
 
-  test("aqgs-acopf (自研, 无 DOI) 展示 查看出处 链接而非 DOI", async ({ page }) => {
+  test("aqgs-acopf unaudited self algorithm detail is not published", async ({ page }) => {
     await page.goto("/algorithms/aqgs-acopf");
 
-    const block = page.getByTestId("citation-block");
-    await expect(block).toBeVisible({ timeout: 10_000 });
-
-    // 学者信息 学界 团队
-    await expect(block.getByTestId("citation-authors")).toContainText(
-      "OptiCloud / Trust-Tech 团队",
+    const notFound = page.getByTestId("algorithm-detail-404");
+    await expect(notFound).toBeVisible({ timeout: 10_000 });
+    await expect(notFound).toContainText("aqgs-acopf");
+    await expect(notFound).toContainText(
+      "k_algo is not published: aqgs-acopf",
     );
-    await expect(block).toContainText("Software (Apache 2.0)");
-    await expect(block).toContainText("2025");
-
-    // No DOI link
-    await expect(block.getByTestId("citation-doi")).toHaveCount(0);
-
-    // URL fallback link
-    const url = block.getByTestId("citation-url");
-    await expect(url).toBeVisible();
-    await expect(url).toHaveAttribute(
-      "href",
-      "https://github.com/opticloud/aqgs",
-    );
-
-    // BibTeX uses @software entry type
-    await expect(block.getByTestId("citation-bibtex")).toContainText(
-      "@software{aqgs2025opticloud,",
-    );
-
-    const attribution = page.getByTestId("ip-attribution-block");
-    await expect(attribution.getByTestId("attribution-badge-L1")).toBeVisible();
-    await expect(attribution.getByTestId("ip-attribution-line")).toContainText(
-      "Algorithm by OptiCloud / Trust-Tech 团队",
-    );
+    await expect(page.getByTestId("citation-block")).toHaveCount(0);
   });
 });

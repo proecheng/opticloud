@@ -7,16 +7,17 @@
 import { test, expect } from "../fixtures";
 
 test.describe("Algorithms catalog (public)", () => {
-  test("访客可看到 ≥8 个算法 + Provider 透明", async ({ page }) => {
+  test("访客可看到已发布算法 + Provider 透明", async ({ page }) => {
     await page.goto("/algorithms");
 
     await expect(page.getByRole("heading", { name: "算法目录" })).toBeVisible();
 
-    // Q3 fix: count >= 8 (catalog can grow)
+    // Story 2.8: public catalog excludes unaudited self-developed algorithms.
     const cards = page.getByTestId("algorithm-card");
     await expect(cards.first()).toBeVisible({ timeout: 10_000 });
     const count = await cards.count();
-    expect(count).toBeGreaterThanOrEqual(8);
+    expect(count).toBeGreaterThanOrEqual(7);
+    expect((await cards.allTextContents()).join(" ")).not.toContain("aqgs-acopf");
 
     // First card has provider_url link
     const firstCard = cards.first();

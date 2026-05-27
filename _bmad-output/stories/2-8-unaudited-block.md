@@ -283,6 +283,9 @@ GPT-5
 - Post-review `pnpm --filter @opticloud/web typecheck` -> PASS.
 - Post-review `uv tool run pre-commit run --all-files --show-diff-on-failure` -> PASS.
 - Post-review `git diff --check` -> PASS.
+- PR #76 CI `e2e` -> RED on public E2E tests that still expected `aqgs-acopf` and `>= 8` public catalog cards; patched public E2E expectations to Story 2.8 unpublished behavior.
+- `pnpm -C e2e typecheck` -> PASS.
+- `pnpm -C e2e exec playwright test --project=chromium tests/academic-attribution-console.spec.ts tests/academic-page.spec.ts tests/algorithm-citation.spec.ts tests/algorithms-catalog.spec.ts` -> PASS (`13 passed`).
 
 ### Completion Notes List
 
@@ -307,12 +310,17 @@ GPT-5
 - `apps/web/src/app/academic/page.tsx`
 - `apps/web/src/i18n/messages/en-US.json`
 - `apps/web/src/i18n/messages/zh-CN.json`
+- `e2e/tests/academic-attribution-console.spec.ts`
+- `e2e/tests/academic-page.spec.ts`
+- `e2e/tests/algorithm-citation.spec.ts`
+- `e2e/tests/algorithms-catalog.spec.ts`
 
 ### Change Log
 
 - 2026-05-27 - Initial Story 2.8 draft created from Epics/PRD/Architecture/§4.5 and latest 2.6/2.7 implementation.
 - 2026-05-27 - Implemented unaudited self-algorithm publish/routing/optimization guard and focused regression tests; moved story to code review.
 - 2026-05-27 - Addressed post-implementation code review findings; all backend, type, web, pre-commit, and diff-check gates pass; story marked done.
+- 2026-05-27 - Patched public E2E tests after PR #76 CI exposed stale AQGS-public/count assumptions.
 
 ## Senior Developer Review (AI) - Post-Implementation (2026-05-27)
 
@@ -322,10 +330,11 @@ GPT-5
 - [x] [Review][Patch] Self-audit helper treated all five true canonical rules plus extra unknown rule keys as passing; malformed metadata should fail closed.
 - [x] [Review][Patch] Authenticated 403 regression did not pass `Idempotency-Key`, so it did not prove idempotency rows are untouched before the unaudited-self block.
 - [x] [Review][Patch] Fallback planner unaudited-self test used an inconsistent LP primary route with NLP fallback task; replaced with same-task local catalog mutation coverage.
+- [x] [Review][Patch] Public E2E tests still assumed AQGS was visible in catalog/academic/citation pages and that public catalog had at least 8 cards.
 
 ### Result
 
-All review findings were patched. Re-ran focused Story 2.8 tests, related routing/catalog/fallback regressions, full solver suite, mypy, web typecheck, pre-commit, and diff check successfully. Review outcome: approved / done.
+All review findings were patched. Re-ran focused Story 2.8 tests, related routing/catalog/fallback regressions, full solver suite, mypy, web typecheck, e2e typecheck, related Playwright E2E, pre-commit, and diff check successfully. Review outcome: approved / done.
 
 ## Story Review Round 1 - Data Consistency (2026-05-27)
 
