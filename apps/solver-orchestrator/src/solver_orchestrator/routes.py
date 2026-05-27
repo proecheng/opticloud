@@ -16,7 +16,7 @@ import structlog
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, status
 from fastapi.responses import JSONResponse
 from opticloud_shared.cost_telemetry import CostTelemetryEvent, CostUnit, record_cost_event
-from opticloud_shared.schemas.errors import ErrorDetail, ErrorResponse
+from opticloud_shared.schemas.errors import ErrorDetail
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -32,6 +32,7 @@ from solver_orchestrator.catalog import (
     self_audit_passed,
 )
 from solver_orchestrator.db import get_session
+from solver_orchestrator.error_responses import PROBLEM_JSON, build_problem_response
 from solver_orchestrator.fallback_execution import (
     FallbackAttempt,
     FallbackAttemptPlan,
@@ -568,16 +569,14 @@ def _rfc7807_error(
     request_id: str | None = None,
 ) -> JSONResponse:
     """Build RFC 7807 + errors[] response (FG1.3)."""
-    body = ErrorResponse(
-        type=f"https://api.opticloud.cn/errors/{title.lower().replace(' ', '_')}",
+    return build_problem_response(
         title=title,
-        status=status_code,
+        status_code=status_code,
         detail=detail,
-        errors=errors or [],
-        next_action_url=next_action,
+        errors=errors,
+        next_action=next_action,
         request_id=request_id,
     )
-    return JSONResponse(content=body.model_dump(), status_code=status_code)
 
 
 def _idempotency_conflict_response(
@@ -744,7 +743,11 @@ def _solver_timeout_response(
         content["best_solution"] = result.solution
     if result.objective is not None:
         content["objective"] = result.objective
-    return JSONResponse(content=content, status_code=status.HTTP_504_GATEWAY_TIMEOUT)
+    return JSONResponse(
+        content=content,
+        status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+        media_type=PROBLEM_JSON,
+    )
 
 
 def _unaudited_self_algorithm_error(

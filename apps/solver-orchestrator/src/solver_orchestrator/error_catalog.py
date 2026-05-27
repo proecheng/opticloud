@@ -1,0 +1,522 @@
+"""Story 3.7 error catalog for solver-orchestrator RFC 7807 responses."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Literal
+
+ErrorLocale = Literal["en-US", "zh-CN"]
+
+
+@dataclass(frozen=True)
+class ErrorCatalogEntry:
+    key: str
+    slug: str
+    status: int
+    title: dict[ErrorLocale, str]
+    detail: dict[ErrorLocale, str]
+    constraint: str
+    remediation_hint_key: str
+    next_action_url: str | None
+    default_field_path: str
+    default_value: object = None
+
+
+DOCS_BASE_URL = "https://docs.opticloud.cn/errors"
+ALGORITHMS_URL = "https://api.opticloud.cn/v1/algorithms"
+FORECAST_ALGORITHMS_URL = "https://api.opticloud.cn/v1/algorithms?task_type=forecast"
+API_KEYS_URL = "https://console.opticloud.cn/api-keys"
+REQUEST_HELP_URL = f"{DOCS_BASE_URL}/invalid_request_body"
+IDEMPOTENCY_URL = f"{DOCS_BASE_URL}/idempotency_conflict"
+REPRO_RERUN_URL = f"{DOCS_BASE_URL}/reproducibility-rerun"
+
+
+def _entry(
+    key: str,
+    *,
+    slug: str,
+    status: int,
+    title_en: str,
+    title_zh: str,
+    detail_en: str,
+    detail_zh: str,
+    constraint: str,
+    remediation_hint_key: str,
+    next_action_url: str | None,
+    default_field_path: str,
+    default_value: object = None,
+) -> ErrorCatalogEntry:
+    return ErrorCatalogEntry(
+        key=key,
+        slug=slug,
+        status=status,
+        title={"en-US": title_en, "zh-CN": title_zh},
+        detail={"en-US": detail_en, "zh-CN": detail_zh},
+        constraint=constraint,
+        remediation_hint_key=remediation_hint_key,
+        next_action_url=next_action_url,
+        default_field_path=default_field_path,
+        default_value=default_value,
+    )
+
+
+ERROR_CATALOG: dict[str, ErrorCatalogEntry] = {
+    "invalid_json": _entry(
+        "invalid_json",
+        slug="invalid_json",
+        status=400,
+        title_en="Invalid JSON",
+        title_zh="JSON 格式无效",
+        detail_en="{detail}",
+        detail_zh="{detail}",
+        constraint="request body must be valid JSON",
+        remediation_hint_key="errors.400.invalid_json",
+        next_action_url=REQUEST_HELP_URL,
+        default_field_path="$",
+    ),
+    "unsupported_solver": _entry(
+        "unsupported_solver",
+        slug="unsupported_solver",
+        status=400,
+        title_en="Unsupported Solver",
+        title_zh="不支持的求解器",
+        detail_en="{detail}",
+        detail_zh="{detail}",
+        constraint="solver must be supported for the requested task_type",
+        remediation_hint_key="errors.400.unsupported_solver",
+        next_action_url=ALGORITHMS_URL,
+        default_field_path="solver",
+    ),
+    "unsupported_fallback_solver": _entry(
+        "unsupported_fallback_solver",
+        slug="unsupported_fallback_solver",
+        status=400,
+        title_en="Unsupported Fallback Solver",
+        title_zh="不支持的备用求解器",
+        detail_en="{detail}",
+        detail_zh="{detail}",
+        constraint="fallback solver must be supported for the requested task_type",
+        remediation_hint_key="errors.400.unsupported_fallback_solver",
+        next_action_url=ALGORITHMS_URL,
+        default_field_path="fallback_chain",
+    ),
+    "missing_authorization": _entry(
+        "missing_authorization",
+        slug="missing_authorization",
+        status=401,
+        title_en="Authentication Required",
+        title_zh="需要认证",
+        detail_en="{detail}",
+        detail_zh="请提供有效的 API Key。",
+        constraint="valid Authorization bearer token is required",
+        remediation_hint_key="errors.401.authorization_required",
+        next_action_url=API_KEYS_URL,
+        default_field_path="header.Authorization",
+        default_value="[redacted]",
+    ),
+    "forbidden_scope": _entry(
+        "forbidden_scope",
+        slug="forbidden_scope",
+        status=403,
+        title_en="Forbidden",
+        title_zh="权限不足",
+        detail_en="{detail}",
+        detail_zh="当前 API Key 缺少执行此操作所需的权限。",
+        constraint="required scope must be present",
+        remediation_hint_key="errors.403.insufficient_scope",
+        next_action_url=API_KEYS_URL,
+        default_field_path="scope",
+        default_value="[redacted]",
+    ),
+    "unaudited_self_algorithm": _entry(
+        "unaudited_self_algorithm",
+        slug="unaudited_self_algorithm",
+        status=403,
+        title_en="Unaudited Self Algorithm",
+        title_zh="自研算法未完成审计",
+        detail_en="{detail}",
+        detail_zh="{detail}",
+        constraint="self-developed algorithm must pass self-audit",
+        remediation_hint_key="errors.403.unaudited_self_algorithm",
+        next_action_url=f"{DOCS_BASE_URL}/unaudited_self_algorithm",
+        default_field_path="solver",
+    ),
+    "not_found": _entry(
+        "not_found",
+        slug="not_found",
+        status=404,
+        title_en="Not Found",
+        title_zh="资源不存在",
+        detail_en="{detail}",
+        detail_zh="{detail}",
+        constraint="resource must exist and be visible to the caller",
+        remediation_hint_key="errors.404.not_found",
+        next_action_url=f"{DOCS_BASE_URL}/not_found",
+        default_field_path="$",
+    ),
+    "idempotency_conflict": _entry(
+        "idempotency_conflict",
+        slug="idempotency_conflict",
+        status=409,
+        title_en="Idempotency Conflict",
+        title_zh="幂等键冲突",
+        detail_en="{detail}",
+        detail_zh="{detail}",
+        constraint="idempotency key cannot be reused with a conflicting request",
+        remediation_hint_key="errors.409.idempotency_body_mismatch",
+        next_action_url=IDEMPOTENCY_URL,
+        default_field_path="header.Idempotency-Key",
+        default_value="[redacted]",
+    ),
+    "rerun_not_allowed": _entry(
+        "rerun_not_allowed",
+        slug="rerun_not_allowed",
+        status=409,
+        title_en="Rerun Not Allowed",
+        title_zh="不允许重新运行",
+        detail_en="{detail}",
+        detail_zh="{detail}",
+        constraint="voucher/source optimization must be eligible for rerun",
+        remediation_hint_key="errors.409.rerun_not_allowed",
+        next_action_url=REPRO_RERUN_URL,
+        default_field_path="path.voucher_id",
+        default_value="[redacted]",
+    ),
+    "voucher_expired": _entry(
+        "voucher_expired",
+        slug="voucher_expired",
+        status=410,
+        title_en="Voucher Expired",
+        title_zh="复现凭证已过期",
+        detail_en="{detail}",
+        detail_zh="{detail}",
+        constraint="voucher must be within the 5-year rerun window",
+        remediation_hint_key="errors.410.voucher_expired",
+        next_action_url=REPRO_RERUN_URL,
+        default_field_path="path.voucher_id",
+        default_value="[redacted]",
+    ),
+    "invalid_request_body": _entry(
+        "invalid_request_body",
+        slug="invalid_request_body",
+        status=422,
+        title_en="Invalid Request Body",
+        title_zh="请求体无效",
+        detail_en="{detail}",
+        detail_zh="{detail}",
+        constraint="request body failed schema validation",
+        remediation_hint_key="errors.422.invalid_request_body",
+        next_action_url=REQUEST_HELP_URL,
+        default_field_path="$",
+    ),
+    "invalid_execution_mode": _entry(
+        "invalid_execution_mode",
+        slug="invalid_execution_mode",
+        status=422,
+        title_en="Invalid Execution Mode",
+        title_zh="执行模式无效",
+        detail_en="{detail}",
+        detail_zh="{detail}",
+        constraint="mode must be one of: sync, async",
+        remediation_hint_key="errors.422.invalid_execution_mode",
+        next_action_url=REQUEST_HELP_URL,
+        default_field_path="query.mode",
+    ),
+    "invalid_anonymous_option": _entry(
+        "invalid_anonymous_option",
+        slug="invalid_anonymous_option",
+        status=422,
+        title_en="Invalid Anonymous Option",
+        title_zh="匿名选项无效",
+        detail_en="{detail}",
+        detail_zh="{detail}",
+        constraint="anonymous requires reproducible=true",
+        remediation_hint_key="errors.422.anonymous_requires_reproducible",
+        next_action_url=REQUEST_HELP_URL,
+        default_field_path="options.anonymous",
+    ),
+    "billing_not_supported_for_async_optimizations": _entry(
+        "billing_not_supported_for_async_optimizations",
+        slug="billing_not_supported_for_async_optimizations",
+        status=422,
+        title_en="Billing Not Supported For Async Optimizations",
+        title_zh="异步优化暂不支持计费请求头",
+        detail_en="{detail}",
+        detail_zh="{detail}",
+        constraint="billing is not supported for async optimizations",
+        remediation_hint_key="errors.422.billing_not_supported_for_async_optimizations",
+        next_action_url=REQUEST_HELP_URL,
+        default_field_path="header.X-Billing-Charge-Id",
+        default_value="[redacted]",
+    ),
+    "billing_not_supported_for_predictions": _entry(
+        "billing_not_supported_for_predictions",
+        slug="billing_not_supported_for_predictions",
+        status=422,
+        title_en="Billing Not Supported For Predictions",
+        title_zh="预测暂不支持计费请求头",
+        detail_en="{detail}",
+        detail_zh="{detail}",
+        constraint="billing is not supported for predictions",
+        remediation_hint_key="errors.422.billing_not_supported_for_predictions",
+        next_action_url=REQUEST_HELP_URL,
+        default_field_path="header.X-Billing-Charge-Id",
+        default_value="[redacted]",
+    ),
+    "billing_not_supported_for_rerun": _entry(
+        "billing_not_supported_for_rerun",
+        slug="billing_not_supported_for_rerun",
+        status=422,
+        title_en="Invalid X-Billing-Charge-Id",
+        title_zh="计费请求头无效",
+        detail_en="{detail}",
+        detail_zh="{detail}",
+        constraint="billing is not accepted for rerun",
+        remediation_hint_key="errors.422.billing_not_supported_for_rerun",
+        next_action_url=REQUEST_HELP_URL,
+        default_field_path="header.X-Billing-Charge-Id",
+        default_value="[redacted]",
+    ),
+    "invalid_uuid": _entry(
+        "invalid_uuid",
+        slug="invalid_uuid",
+        status=422,
+        title_en="Invalid X-Billing-Charge-Id",
+        title_zh="计费请求头无效",
+        detail_en="{detail}",
+        detail_zh="{detail}",
+        constraint="value must be a UUID",
+        remediation_hint_key="errors.422.invalid_uuid",
+        next_action_url=REQUEST_HELP_URL,
+        default_field_path="header.X-Billing-Charge-Id",
+        default_value="[redacted]",
+    ),
+    "billing_reserve_failed": _entry(
+        "billing_reserve_failed",
+        slug="billing_reserve_failed",
+        status=422,
+        title_en="Billing Reserve Failed",
+        title_zh="计费预留失败",
+        detail_en="{detail}",
+        detail_zh="{detail}",
+        constraint="billing reserve must succeed before solve",
+        remediation_hint_key="errors.422.billing_reserve_failed",
+        next_action_url=f"{DOCS_BASE_URL}/billing_reserve_failed",
+        default_field_path="header.X-Billing-Charge-Id",
+        default_value="[redacted]",
+    ),
+    "unsupported_task_type": _entry(
+        "unsupported_task_type",
+        slug="unsupported_task_type",
+        status=422,
+        title_en="Unsupported Task Type",
+        title_zh="不支持的任务类型",
+        detail_en="{detail}",
+        detail_zh="{detail}",
+        constraint="task_type must be present in the algorithm catalog",
+        remediation_hint_key="errors.422.unsupported_task_type",
+        next_action_url=ALGORITHMS_URL,
+        default_field_path="task_type",
+    ),
+    "validation_error": _entry(
+        "validation_error",
+        slug="validation_error",
+        status=422,
+        title_en="Validation Error",
+        title_zh="校验失败",
+        detail_en="{detail}",
+        detail_zh="{detail}",
+        constraint="input violates solver constraints",
+        remediation_hint_key="errors.422.invalid_lp_input",
+        next_action_url=REQUEST_HELP_URL,
+        default_field_path="$",
+    ),
+    "lp_infeasible": _entry(
+        "lp_infeasible",
+        slug="lp_infeasible",
+        status=422,
+        title_en="LP Infeasible",
+        title_zh="线性规划不可行",
+        detail_en="{detail}",
+        detail_zh="{detail}",
+        constraint="lp is infeasible",
+        remediation_hint_key="errors.422.infeasible",
+        next_action_url=REQUEST_HELP_URL,
+        default_field_path="st",
+    ),
+    "lp_unbounded": _entry(
+        "lp_unbounded",
+        slug="lp_unbounded",
+        status=422,
+        title_en="LP Unbounded",
+        title_zh="线性规划无界",
+        detail_en="{detail}",
+        detail_zh="{detail}",
+        constraint="lp is unbounded",
+        remediation_hint_key="errors.422.unbounded",
+        next_action_url=REQUEST_HELP_URL,
+        default_field_path="st",
+    ),
+    "invalid_prediction_data": _entry(
+        "invalid_prediction_data",
+        slug="invalid_prediction_data",
+        status=422,
+        title_en="Invalid Prediction Data",
+        title_zh="预测数据无效",
+        detail_en="{detail}",
+        detail_zh="{detail}",
+        constraint="prediction request failed validation",
+        remediation_hint_key="errors.422.invalid_prediction_data",
+        next_action_url=f"{DOCS_BASE_URL}/prediction-data",
+        default_field_path="data",
+    ),
+    "unsupported_prediction_family": _entry(
+        "unsupported_prediction_family",
+        slug="unsupported_prediction_family",
+        status=422,
+        title_en="Unsupported Prediction Family",
+        title_zh="不支持的预测模型族",
+        detail_en="{detail}",
+        detail_zh="{detail}",
+        constraint="family must be one of: arima, chronos",
+        remediation_hint_key="errors.422.unsupported_prediction_family",
+        next_action_url=FORECAST_ALGORITHMS_URL,
+        default_field_path="family",
+    ),
+    "invalid_body": _entry(
+        "invalid_body",
+        slug="invalid_body",
+        status=422,
+        title_en="Invalid Rerun Body",
+        title_zh="重新运行请求体无效",
+        detail_en="{detail}",
+        detail_zh="{detail}",
+        constraint="body must be empty",
+        remediation_hint_key="errors.422.invalid_body",
+        next_action_url=REPRO_RERUN_URL,
+        default_field_path="$",
+    ),
+    "not_implemented": _entry(
+        "not_implemented",
+        slug="not_implemented",
+        status=501,
+        title_en="Not Implemented",
+        title_zh="暂未实现",
+        detail_en="{detail}",
+        detail_zh="{detail}",
+        constraint="task_type is not implemented in this milestone",
+        remediation_hint_key="errors.501.not_implemented",
+        next_action_url=ALGORITHMS_URL,
+        default_field_path="task_type",
+    ),
+    "catalog_error": _entry(
+        "catalog_error",
+        slug="catalog_error",
+        status=500,
+        title_en="Catalog Error",
+        title_zh="算法目录错误",
+        detail_en="A required algorithm catalog entry is unavailable.",
+        detail_zh="必需的算法目录条目不可用。",
+        constraint="catalog must include required route",
+        remediation_hint_key="errors.500.catalog_error",
+        next_action_url=None,
+        default_field_path="$",
+        default_value="[omitted]",
+    ),
+    "solver_timeout": _entry(
+        "solver_timeout",
+        slug="solver_timeout",
+        status=504,
+        title_en="Solver Timeout",
+        title_zh="求解超时",
+        detail_en="{detail}",
+        detail_zh="{detail}",
+        constraint="solver exceeded max_solve_seconds",
+        remediation_hint_key="errors.504.solver_timeout",
+        next_action_url=f"{DOCS_BASE_URL}/solver-timeout",
+        default_field_path="options.max_solve_seconds",
+    ),
+    "solver_error": _entry(
+        "solver_error",
+        slug="solver_error",
+        status=422,
+        title_en="Solver Error",
+        title_zh="求解失败",
+        detail_en="{detail}",
+        detail_zh="{detail}",
+        constraint="solver failed to produce a valid result",
+        remediation_hint_key="errors.422.solver_error",
+        next_action_url=REQUEST_HELP_URL,
+        default_field_path="$",
+    ),
+}
+
+TITLE_TO_KEY: dict[str, str] = {
+    "Invalid JSON": "invalid_json",
+    "Unsupported Solver": "unsupported_solver",
+    "Unsupported Fallback Solver": "unsupported_fallback_solver",
+    "Unaudited Self Algorithm": "unaudited_self_algorithm",
+    "Not Found": "not_found",
+    "Idempotency Conflict": "idempotency_conflict",
+    "Rerun Not Allowed": "rerun_not_allowed",
+    "Voucher Expired": "voucher_expired",
+    "Invalid Request Body": "invalid_request_body",
+    "Invalid Execution Mode": "invalid_execution_mode",
+    "Invalid Anonymous Option": "invalid_anonymous_option",
+    "Billing Not Supported For Async Optimizations": "billing_not_supported_for_async_optimizations",
+    "Billing Not Supported For Predictions": "billing_not_supported_for_predictions",
+    "Invalid X-Billing-Charge-Id": "invalid_uuid",
+    "Billing Reserve Failed": "billing_reserve_failed",
+    "Unsupported Task Type": "unsupported_task_type",
+    "Validation Error": "validation_error",
+    "Invalid Prediction Data": "invalid_prediction_data",
+    "Unsupported Prediction Family": "unsupported_prediction_family",
+    "Invalid Rerun Body": "invalid_body",
+    "Not Implemented": "not_implemented",
+    "Catalog Error": "catalog_error",
+    "Solver Timeout": "solver_timeout",
+    "Solver Error": "solver_error",
+    "LP Infeasible": "lp_infeasible",
+    "LP Unbounded": "lp_unbounded",
+}
+
+REMEDIATION_TO_KEY: dict[str, str] = {
+    entry.remediation_hint_key: key for key, entry in ERROR_CATALOG.items()
+}
+
+
+def error_key_for_title(title: str, status_code: int) -> str:
+    if title.startswith("LP ") and "Infeasible" in title:
+        return "lp_infeasible"
+    if title.startswith("LP ") and "Unbounded" in title:
+        return "lp_unbounded"
+    if title == "Invalid X-Billing-Charge-Id" and status_code == 422:
+        return "invalid_uuid"
+    fallback_by_status = {
+        400: "invalid_json",
+        401: "missing_authorization",
+        403: "forbidden_scope",
+        404: "not_found",
+        409: "idempotency_conflict",
+        410: "voucher_expired",
+        422: "validation_error",
+        500: "catalog_error",
+        501: "not_implemented",
+        504: "solver_timeout",
+    }
+    return TITLE_TO_KEY.get(title, fallback_by_status.get(status_code, "validation_error"))
+
+
+def error_key_for_remediation(remediation_hint_key: str | None) -> str | None:
+    if not remediation_hint_key:
+        return None
+    return REMEDIATION_TO_KEY.get(remediation_hint_key)
+
+
+def resolve_error_locale(accept_language: str | None) -> ErrorLocale:
+    if not accept_language:
+        return "en-US"
+    lowered = accept_language.lower()
+    if "zh" in lowered:
+        return "zh-CN"
+    return "en-US"
