@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import numbers
 import time
 import uuid
 from dataclasses import dataclass
@@ -330,19 +331,44 @@ def _build_response_content(opt: Optimization) -> dict[str, Any]:
         except Exception:
             attribution_payload = None
 
-    payload = OptimizationResponse(
-        optimization_id=opt.id,
-        status="completed",
-        solution=opt.solution,
-        objective=float(opt.objective) if opt.objective is not None else None,
-        model_version=opt.model_version,  # type: ignore[arg-type]
-        solve_seconds=float(opt.solve_seconds) if opt.solve_seconds is not None else 0.0,
-        created_at=opt.created_at,
-        completed_at=opt.completed_at or opt.created_at,
-        citation=citation_payload,
-        ip_attribution=attribution_payload,
-    )
-    content: dict[str, Any] = json.loads(payload.model_dump_json())
+    public_model_version = _public_model_version(opt.model_version)
+    if public_model_version is not None:
+        payload = OptimizationResponse(
+            optimization_id=opt.id,
+            status="completed",
+            solution=opt.solution,
+            objective=float(opt.objective) if opt.objective is not None else None,
+            model_version=public_model_version,  # type: ignore[arg-type]
+            solve_seconds=float(opt.solve_seconds) if opt.solve_seconds is not None else 0.0,
+            created_at=opt.created_at,
+            completed_at=opt.completed_at or opt.created_at,
+            citation=citation_payload,
+            ip_attribution=attribution_payload,
+        )
+        content: dict[str, Any] = json.loads(payload.model_dump_json())
+    else:
+        content = {
+            "optimization_id": str(opt.id),
+            "status": "completed",
+            "solution": opt.solution,
+            "objective": float(opt.objective) if opt.objective is not None else None,
+            "model_version": None,
+            "solve_seconds": float(opt.solve_seconds) if opt.solve_seconds is not None else 0.0,
+            "created_at": _status_datetime(opt.created_at),
+            "completed_at": _status_datetime(opt.completed_at or opt.created_at),
+            "citation": (
+                json.loads(citation_payload.model_dump_json())
+                if citation_payload is not None
+                else None
+            ),
+            "ip_attribution": (
+                json.loads(attribution_payload.model_dump_json())
+                if attribution_payload is not None
+                else None
+            ),
+        }
+    content["model_version"] = public_model_version
+    content.update(_status_progress_fields(opt))
     if isinstance(opt.input_payload, dict):
         system_payload = opt.input_payload.get("_system")
         if isinstance(system_payload, dict):
@@ -387,6 +413,62 @@ def _optimization_billing_metadata(opt: Optimization) -> dict[str, Any]:
     return {}
 
 
+def _optimization_progress_metadata(opt: Optimization) -> dict[str, Any]:
+    if isinstance(opt.input_payload, dict):
+        system_payload = opt.input_payload.get("_system")
+        if isinstance(system_payload, dict):
+            progress_metadata = system_payload.get("progress")
+            if isinstance(progress_metadata, dict):
+                return dict(progress_metadata)
+    return {}
+
+
+def _normalize_progress_pct(value: Any, *, max_value: int = 100) -> int:
+    if isinstance(value, bool) or not isinstance(value, numbers.Real):
+        return 0
+    numeric_value = float(value)
+    if not math.isfinite(numeric_value):
+        return 0
+    return max(0, min(max_value, int(numeric_value)))
+
+
+def _normalize_eta_seconds(value: Any) -> int | None:
+    if isinstance(value, bool) or not isinstance(value, numbers.Real):
+        return None
+    numeric_value = float(value)
+    if not math.isfinite(numeric_value) or numeric_value < 0:
+        return None
+    return int(numeric_value)
+
+
+def _public_model_version(value: Any) -> dict[str, Any] | None:
+    try:
+        payload = ModelVersionSchema.model_validate(value)
+    except Exception:
+        return None
+    public_payload = json.loads(payload.model_dump_json())
+    if not isinstance(public_payload, dict):
+        return None
+    return public_payload
+
+
+def _status_progress_fields(opt: Optimization) -> dict[str, int | None]:
+    progress = _optimization_progress_metadata(opt)
+    if opt.status == "completed":
+        return {"progress_pct": 100, "eta_seconds": 0}
+    if opt.status == "in_progress":
+        return {
+            "progress_pct": _normalize_progress_pct(progress.get("progress_pct"), max_value=99),
+            "eta_seconds": _normalize_eta_seconds(progress.get("eta_seconds")),
+        }
+    if opt.status in {"failed", "timeout", "cancelled"}:
+        return {
+            "progress_pct": _normalize_progress_pct(progress.get("progress_pct")),
+            "eta_seconds": None,
+        }
+    return {"progress_pct": 0, "eta_seconds": None}
+
+
 def _set_optimization_billing_metadata(
     opt: Optimization,
     updates: dict[str, Any],
@@ -423,10 +505,11 @@ def _build_optimization_status_response_content(opt: Optimization) -> dict[str, 
     content: dict[str, Any] = {
         "optimization_id": str(opt.id),
         "status": opt.status,
-        "model_version": opt.model_version,
+        "model_version": _public_model_version(opt.model_version),
         "created_at": _status_datetime(opt.created_at),
         "completed_at": _status_datetime(opt.completed_at),
     }
+    content.update(_status_progress_fields(opt))
     effective_mode = execution_mode.get("effective_mode")
     if effective_mode is not None:
         content["mode"] = effective_mode
@@ -434,8 +517,6 @@ def _build_optimization_status_response_content(opt: Optimization) -> dict[str, 
         content.update(
             {
                 "mode": effective_mode or "async",
-                "progress_pct": 0,
-                "eta_seconds": None,
                 "message": ASYNC_QUEUE_MESSAGE,
             }
         )
