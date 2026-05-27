@@ -13,7 +13,7 @@ from decimal import Decimal
 from typing import Any, Literal
 
 import structlog
-from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, status
 from fastapi.responses import JSONResponse
 from opticloud_shared.cost_telemetry import CostTelemetryEvent, CostUnit, record_cost_event
 from opticloud_shared.schemas.errors import ErrorDetail, ErrorResponse
@@ -82,6 +82,8 @@ from solver_orchestrator.schemas import (
 router = APIRouter(prefix="/v1")
 health_router = APIRouter()
 logger: Any = structlog.get_logger("solver_orchestrator.routes")
+ASYNC_QUEUE_MESSAGE = "Task queued; background execution is not enabled in Story 3.3"
+SYNC_ASYNC_THRESHOLD_SECONDS = 5.0
 
 
 # ===== Story 0.7: Health =====
@@ -158,6 +160,10 @@ async def get_algorithm(k_algo: str) -> AlgorithmSchema:
 def _hash_body(body: dict) -> str:  # type: ignore[type-arg]
     canon = json.dumps(body, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(canon.encode("utf-8")).hexdigest()
+
+
+def _hash_optimization_body(body: dict[str, Any], mode: str) -> str:
+    return _hash_body({"body": body, "mode": mode})
 
 
 def _hash_rerun_request(voucher_id: str) -> str:
@@ -329,6 +335,65 @@ def _build_response_content(opt: Optimization) -> dict[str, Any]:
     return content
 
 
+def _status_datetime(value: datetime | None) -> str | None:
+    return value.isoformat() if value is not None else None
+
+
+def _optimization_execution_mode(opt: Optimization) -> dict[str, Any]:
+    if isinstance(opt.input_payload, dict):
+        system_payload = opt.input_payload.get("_system")
+        if isinstance(system_payload, dict):
+            execution_mode = system_payload.get("execution_mode")
+            if isinstance(execution_mode, dict):
+                return execution_mode
+    return {}
+
+
+def _build_optimization_status_response_content(opt: Optimization) -> dict[str, Any]:
+    execution_mode = _optimization_execution_mode(opt)
+    content: dict[str, Any] = {
+        "optimization_id": str(opt.id),
+        "status": opt.status,
+        "model_version": opt.model_version,
+        "created_at": _status_datetime(opt.created_at),
+        "completed_at": _status_datetime(opt.completed_at),
+    }
+    effective_mode = execution_mode.get("effective_mode")
+    if effective_mode is not None:
+        content["mode"] = effective_mode
+    if opt.status in {"queued", "in_progress"}:
+        content.update(
+            {
+                "mode": effective_mode or "async",
+                "progress_pct": 0,
+                "eta_seconds": None,
+                "message": ASYNC_QUEUE_MESSAGE,
+            }
+        )
+    else:
+        content["error"] = opt.error
+    return content
+
+
+def _build_async_accepted_response(opt: Optimization) -> JSONResponse:
+    content = _build_optimization_status_response_content(opt)
+    execution_mode = _optimization_execution_mode(opt)
+    content.pop("completed_at", None)
+    content.update(
+        {
+            "mode": "async",
+            "requested_mode": execution_mode.get("requested_mode", "async"),
+            "auto_async": bool(execution_mode.get("auto_async", False)),
+            "estimated_seconds": float(execution_mode.get("estimated_seconds", 0.0)),
+        }
+    )
+    return JSONResponse(
+        content=content,
+        status_code=status.HTTP_202_ACCEPTED,
+        headers={"Location": f"/v1/optimizations/{opt.id}"},
+    )
+
+
 def _build_rerun_response_content(
     opt: Optimization,
     *,
@@ -442,6 +507,135 @@ def _rfc7807_error(
         request_id=request_id,
     )
     return JSONResponse(content=body.model_dump(), status_code=status_code)
+
+
+def _idempotency_conflict_response(
+    *,
+    idempotency_key: str,
+    detail: str = "same idempotency key with different request body (P23)",
+    constraint: str = "reused with different body",
+    request_id: str | None = None,
+) -> JSONResponse:
+    return _rfc7807_error(
+        title="Idempotency Conflict",
+        status_code=status.HTTP_409_CONFLICT,
+        detail=detail,
+        errors=[
+            ErrorDetail(
+                field_path="header.Idempotency-Key",
+                value=idempotency_key,
+                constraint=constraint,
+                remediation_hint_key="errors.409.idempotency_body_mismatch",
+            )
+        ],
+        request_id=request_id,
+    )
+
+
+async def _add_optimization_idempotency_key(
+    session: AsyncSession,
+    *,
+    key: str | None,
+    user_id: uuid.UUID,
+    optimization_id: uuid.UUID,
+    request_body_hash: str,
+    request_id: str | None,
+) -> JSONResponse | None:
+    if not key:
+        return None
+    session.add(
+        IdempotencyKey(
+            key=key,
+            user_id=user_id,
+            optimization_id=optimization_id,
+            request_body_hash=request_body_hash,
+            expires_at=datetime.now(UTC) + timedelta(hours=24),
+        )
+    )
+    try:
+        await session.flush()
+    except IntegrityError:
+        await session.rollback()
+        return _idempotency_conflict_response(
+            idempotency_key=key,
+            detail="idempotency key already exists",
+            constraint="must be unique per user",
+            request_id=request_id,
+        )
+    return None
+
+
+def _validate_execution_mode(
+    mode: str | None, *, request_id: str | None
+) -> tuple[str, None] | tuple[None, JSONResponse]:
+    if mode is None:
+        return "sync", None
+    normalized = mode.strip().lower()
+    if normalized in {"sync", "async"}:
+        return normalized, None
+    return None, _rfc7807_error(
+        title="Invalid Execution Mode",
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        detail="query parameter mode must be either 'sync' or 'async'",
+        errors=[
+            ErrorDetail(
+                field_path="query.mode",
+                value=mode,
+                constraint="must be one of: sync, async",
+                remediation_hint_key="errors.422.invalid_execution_mode",
+            )
+        ],
+        request_id=request_id,
+    )
+
+
+def _estimate_optimization_seconds(payload: OptimizationRequest) -> float:
+    if payload.task_type != "lp":
+        return 10.0
+    rows = len(payload.st.a)
+    objective = payload.minimize if payload.minimize is not None else payload.maximize
+    cols = len(objective.c) if objective is not None else 0
+    nonzero_count = sum(1 for row in payload.st.a for value in row if value != 0)
+    return round(0.05 + rows * cols * 0.0002 + nonzero_count * 0.0001, 6)
+
+
+def _execution_mode_metadata(
+    *,
+    requested_mode: str,
+    estimated_seconds: float,
+) -> tuple[str, bool, dict[str, object]]:
+    auto_async = requested_mode == "sync" and estimated_seconds > SYNC_ASYNC_THRESHOLD_SECONDS
+    effective_mode = "async" if requested_mode == "async" or auto_async else "sync"
+    return (
+        effective_mode,
+        auto_async,
+        {
+            "requested_mode": requested_mode,
+            "effective_mode": effective_mode,
+            "auto_async": auto_async,
+            "estimated_seconds": estimated_seconds,
+            "threshold_seconds": SYNC_ASYNC_THRESHOLD_SECONDS,
+        },
+    )
+
+
+def _billing_not_supported_for_async_response(
+    *, billing_charge_id: str, request_id: str | None
+) -> JSONResponse:
+    return _rfc7807_error(
+        title="Billing Not Supported For Async Optimizations",
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        detail="X-Billing-Charge-Id is not supported when optimization execution mode is async",
+        errors=[
+            ErrorDetail(
+                field_path="header.X-Billing-Charge-Id",
+                value=billing_charge_id,
+                constraint="billing is not supported for async optimizations in Story 3.3",
+                remediation_hint_key="errors.422.billing_not_supported_for_async_optimizations",
+            )
+        ],
+        request_id=request_id,
+    )
 
 
 def _unaudited_self_algorithm_error(
@@ -658,6 +852,7 @@ def _execute_fallback_attempts(
 async def post_optimization(
     payload: OptimizationRequest,
     request: Request,
+    mode: str | None = Query(default=None),
     authorization: str | None = Header(default=None),
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
     billing_charge_id: str | None = Header(default=None, alias="X-Billing-Charge-Id"),
@@ -670,6 +865,11 @@ async def post_optimization(
 
     body_dict = payload.model_dump(by_alias=True)
     request_id = request.headers.get("x-request-id") or str(uuid.uuid4())
+
+    normalized_mode, mode_error = _validate_execution_mode(mode, request_id=request_id)
+    if mode_error is not None:
+        return mode_error
+    assert normalized_mode is not None
 
     if payload.options.anonymous and not payload.options.reproducible:
         return _anonymous_without_reproducible_error(request_id=request_id)
@@ -687,75 +887,6 @@ async def post_optimization(
 
     assert route.algorithm is not None
     assert route.selected_solver is not None
-
-    # ----- Story 5.A.4 — pre-solve billing reserve (opt-in via X-Billing-Charge-Id) -----
-    billing_uuid: uuid.UUID | None = None
-    if billing_charge_id:
-        try:
-            billing_uuid = uuid.UUID(billing_charge_id)
-        except ValueError:
-            return _rfc7807_error(
-                title="Invalid X-Billing-Charge-Id",
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="X-Billing-Charge-Id must be a UUID",
-                errors=[
-                    ErrorDetail(
-                        field_path="header.X-Billing-Charge-Id",
-                        value=billing_charge_id,
-                        constraint="must be a UUID",
-                        remediation_hint_key="errors.422.invalid_uuid",
-                    )
-                ],
-                request_id=request_id,
-            )
-        reserve_result = await billing_client.reserve(billing_uuid, user_id)
-        if not reserve_result.ok:
-            return _rfc7807_error(
-                title="Billing Reserve Failed",
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail=reserve_result.error_message or "billing reserve declined",
-                errors=[
-                    ErrorDetail(
-                        field_path="header.X-Billing-Charge-Id",
-                        value=billing_charge_id,
-                        constraint=f"billing returned {reserve_result.status_code}",
-                        remediation_hint_key="errors.422.billing_reserve_failed",
-                    )
-                ],
-                request_id=request_id,
-            )
-
-    # ----- Idempotency (P23) -----
-    if idempotency_key:
-        body_hash = _hash_body(body_dict)
-        idem_query = await session.execute(
-            select(IdempotencyKey).where(
-                IdempotencyKey.user_id == user_id,
-                IdempotencyKey.key == idempotency_key,
-            )
-        )
-        existing = idem_query.scalar_one_or_none()
-        if existing is not None:
-            if existing.request_body_hash != body_hash:
-                return _rfc7807_error(
-                    title="Idempotency Conflict",
-                    status_code=status.HTTP_409_CONFLICT,
-                    detail="same idempotency key with different request body (P23)",
-                    errors=[
-                        ErrorDetail(
-                            field_path="header.Idempotency-Key",
-                            value=idempotency_key,
-                            constraint="reused with different body",
-                            remediation_hint_key="errors.409.idempotency_body_mismatch",
-                        )
-                    ],
-                    request_id=request_id,
-                )
-            # Return cached result
-            opt = await session.get(Optimization, existing.optimization_id)
-            if opt is not None and opt.status == "completed":
-                await attach_existing_voucher_id(session, opt)
-                return _build_success_response(opt)
 
     # ----- Story 2.5 — FR C5 fallback_chain per-element validation -----
     # Chain is stored in input_payload (via model_dump) only; actual fallback
@@ -825,6 +956,140 @@ async def post_optimization(
         attempt_plan.attempts[0], task_type=payload.task_type
     )
 
+    estimated_seconds = _estimate_optimization_seconds(payload)
+    effective_mode, _auto_async, execution_mode_metadata = _execution_mode_metadata(
+        requested_mode=normalized_mode,
+        estimated_seconds=estimated_seconds,
+    )
+    body_hash = _hash_optimization_body(body_dict, normalized_mode)
+
+    if effective_mode == "async" and billing_charge_id:
+        return _billing_not_supported_for_async_response(
+            billing_charge_id=billing_charge_id,
+            request_id=request_id,
+        )
+
+    existing_completed: Optimization | None = None
+    if idempotency_key:
+        idem_query = await session.execute(
+            select(IdempotencyKey).where(
+                IdempotencyKey.user_id == user_id,
+                IdempotencyKey.key == idempotency_key,
+            )
+        )
+        existing = idem_query.scalar_one_or_none()
+        if existing is not None:
+            if existing.request_body_hash != body_hash:
+                return _idempotency_conflict_response(
+                    idempotency_key=idempotency_key,
+                    request_id=request_id,
+                )
+            cached_opt = await session.get(Optimization, existing.optimization_id)
+            if cached_opt is None:
+                return _idempotency_conflict_response(
+                    idempotency_key=idempotency_key,
+                    detail="idempotency key points to a missing optimization",
+                    constraint="cached optimization must exist",
+                    request_id=request_id,
+                )
+            if cached_opt.status == "completed":
+                if effective_mode == "async":
+                    return _idempotency_conflict_response(
+                        idempotency_key=idempotency_key,
+                        detail="same idempotency key already completed synchronously",
+                        constraint="cannot replay completed sync result as async status",
+                        request_id=request_id,
+                    )
+                existing_completed = cached_opt
+            elif cached_opt.status in {"queued", "in_progress"}:
+                return _build_async_accepted_response(cached_opt)
+            else:
+                return JSONResponse(
+                    content=_build_optimization_status_response_content(cached_opt),
+                    status_code=status.HTTP_200_OK,
+                )
+
+    if effective_mode == "async":
+        opt = Optimization(
+            user_id=user_id,
+            api_key_id=api_key_id,
+            task_type=payload.task_type,
+            status="queued",
+            input_payload=_attach_system_metadata(
+                body_dict,
+                provider_route=primary_route_metadata,
+                execution_mode=execution_mode_metadata,
+            ),
+            model_version=dict(route.model_version),
+            idempotency_key=idempotency_key,
+        )
+        session.add(opt)
+        try:
+            await session.flush()
+        except IntegrityError:
+            await session.rollback()
+            return _idempotency_conflict_response(
+                idempotency_key=idempotency_key or "",
+                detail="failed to persist async optimization",
+                constraint="optimization persistence must be atomic",
+                request_id=request_id,
+            )
+        idempotency_error = await _add_optimization_idempotency_key(
+            session,
+            key=idempotency_key,
+            user_id=user_id,
+            optimization_id=opt.id,
+            request_body_hash=body_hash,
+            request_id=request_id,
+        )
+        if idempotency_error is not None:
+            return idempotency_error
+        return _build_async_accepted_response(opt)
+
+    # ----- Story 5.A.4 — pre-solve billing reserve (opt-in via X-Billing-Charge-Id) -----
+    billing_uuid: uuid.UUID | None = None
+    if billing_charge_id:
+        if existing_completed is not None:
+            await attach_existing_voucher_id(session, existing_completed)
+            return _build_success_response(existing_completed)
+        try:
+            billing_uuid = uuid.UUID(billing_charge_id)
+        except ValueError:
+            return _rfc7807_error(
+                title="Invalid X-Billing-Charge-Id",
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="X-Billing-Charge-Id must be a UUID",
+                errors=[
+                    ErrorDetail(
+                        field_path="header.X-Billing-Charge-Id",
+                        value=billing_charge_id,
+                        constraint="must be a UUID",
+                        remediation_hint_key="errors.422.invalid_uuid",
+                    )
+                ],
+                request_id=request_id,
+            )
+        reserve_result = await billing_client.reserve(billing_uuid, user_id)
+        if not reserve_result.ok:
+            return _rfc7807_error(
+                title="Billing Reserve Failed",
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=reserve_result.error_message or "billing reserve declined",
+                errors=[
+                    ErrorDetail(
+                        field_path="header.X-Billing-Charge-Id",
+                        value=billing_charge_id,
+                        constraint=f"billing returned {reserve_result.status_code}",
+                        remediation_hint_key="errors.422.billing_reserve_failed",
+                    )
+                ],
+                request_id=request_id,
+            )
+
+    if existing_completed is not None:
+        await attach_existing_voucher_id(session, existing_completed)
+        return _build_success_response(existing_completed)
+
     # ----- Persist input -----
     opt = Optimization(
         user_id=user_id,
@@ -834,6 +1099,7 @@ async def post_optimization(
         input_payload=_attach_system_metadata(
             body_dict,
             provider_route=primary_route_metadata,
+            execution_mode=execution_mode_metadata,
         ),
         idempotency_key=idempotency_key,
     )
@@ -948,16 +1214,16 @@ async def post_optimization(
             },
         )
         # Persist + return error
-        if idempotency_key:
-            session.add(
-                IdempotencyKey(
-                    key=idempotency_key,
-                    user_id=user_id,
-                    optimization_id=opt.id,
-                    request_body_hash=_hash_body(body_dict),
-                    expires_at=datetime.now(UTC) + timedelta(hours=24),
-                )
-            )
+        idempotency_error = await _add_optimization_idempotency_key(
+            session,
+            key=idempotency_key,
+            user_id=user_id,
+            optimization_id=opt.id,
+            request_body_hash=body_hash,
+            request_id=request_id,
+        )
+        if idempotency_error is not None:
+            return idempotency_error
         await _record_solver_cost_attribution(
             session, opt=opt, result=result, solver_name=final_selected_solver
         )
@@ -1032,16 +1298,16 @@ async def post_optimization(
         )
 
     # ----- Persist idempotency mapping (after success) -----
-    if idempotency_key:
-        session.add(
-            IdempotencyKey(
-                key=idempotency_key,
-                user_id=user_id,
-                optimization_id=opt.id,
-                request_body_hash=_hash_body(body_dict),
-                expires_at=datetime.now(UTC) + timedelta(hours=24),
-            )
-        )
+    idempotency_error = await _add_optimization_idempotency_key(
+        session,
+        key=idempotency_key,
+        user_id=user_id,
+        optimization_id=opt.id,
+        request_body_hash=body_hash,
+        request_id=request_id,
+    )
+    if idempotency_error is not None:
+        return idempotency_error
 
     return _build_success_response(opt)
 
@@ -1977,13 +2243,6 @@ async def get_optimization(
         await attach_existing_voucher_id(session, opt)
         return _build_success_response(opt)
     return JSONResponse(
-        content={
-            "optimization_id": str(opt.id),
-            "status": opt.status,
-            "error": opt.error,
-            "model_version": opt.model_version,
-            "created_at": opt.created_at.isoformat() if opt.created_at else None,
-            "completed_at": opt.completed_at.isoformat() if opt.completed_at else None,
-        },
+        content=_build_optimization_status_response_content(opt),
         status_code=status.HTTP_200_OK,
     )
