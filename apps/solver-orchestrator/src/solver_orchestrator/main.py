@@ -10,11 +10,12 @@ from __future__ import annotations
 
 import json
 import logging
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from typing import Any
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
@@ -23,6 +24,15 @@ from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from starlette.responses import Response
 
 from solver_orchestrator import __version__, solvers
+from solver_orchestrator.error_context import (
+    context_from_request,
+    reset_error_request_context,
+    set_error_request_context,
+)
+from solver_orchestrator.error_responses import (
+    http_exception_response,
+    request_validation_error_response,
+)
 from solver_orchestrator.routes import health_router, router
 
 
@@ -78,6 +88,30 @@ app.add_middleware(
 )
 
 FastAPIInstrumentor.instrument_app(app)
+
+
+@app.middleware("http")
+async def error_context_middleware(
+    request: Request, call_next: Callable[[Request], Awaitable[Response]]
+) -> Response:
+    token = set_error_request_context(context_from_request(request))
+    try:
+        return await call_next(request)
+    finally:
+        reset_error_request_context(token)
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(
+    request: Request, exc: RequestValidationError
+) -> JSONResponse:
+    return request_validation_error_response(request, exc)
+
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:
+    return http_exception_response(request, exc)
+
 
 app.include_router(health_router)
 app.include_router(router)
