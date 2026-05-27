@@ -618,11 +618,19 @@ async def test_solver_auth_updates_last_used_at(
     # query the api_keys row that the api_key fixture inserted.
     maker = async_sessionmaker(db_engine, expire_on_commit=False, class_=AsyncSession)
     async with maker() as s:
-        prefix = auth.removeprefix("Bearer ")[:6]
+        full_key = auth.removeprefix("Bearer ")
+        prefix = full_key[:6]
+        key_hash = hmac.new(
+            settings.api_key_hmac_pepper_dev.encode("utf-8"),
+            full_key.encode("utf-8"),
+            hashlib.sha256,
+        ).hexdigest()
         row = (
             await s.execute(
-                _text("SELECT id, last_used_at FROM api_keys WHERE key_prefix = :p"),
-                {"p": prefix},
+                _text(
+                    "SELECT id, last_used_at FROM api_keys WHERE key_prefix = :p AND key_hash = :h"
+                ),
+                {"p": prefix, "h": key_hash},
             )
         ).first()
         assert row is not None
