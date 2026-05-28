@@ -11,7 +11,13 @@
  * `setInputFiles`. The drop-handler path itself is covered by Vitest AC5 #1.
  */
 
-import { utils as xlsxUtils, write as xlsxWrite } from "xlsx";
+import { readFileSync } from "node:fs";
+
+import {
+  read as xlsxRead,
+  utils as xlsxUtils,
+  write as xlsxWrite,
+} from "xlsx";
 
 import { expect, test } from "../fixtures";
 
@@ -347,10 +353,10 @@ test.describe("Console Excel surface (3.E.1)", () => {
     await expect(stub).toContainText(/预测引擎/);
   });
 
-  test("Inventory: 501 → 下载 Excel 结果 → 文件触发下载 (3.E.6)", async ({
+  test("Inventory: 501 → 下载 Excel 结果 → 文件含 Chart Preview (3.E.6 + 3.E.7)", async ({
     page,
-  }) => {
-    // 3.E.6 — end-to-end download arc on Inventory (largest payload of the trilogy).
+  }, testInfo) => {
+    // 3.E.6/3.E.7 — end-to-end download arc on Inventory (largest payload of the trilogy).
     await page.goto("/console/excel");
     await page.locator('input[type="file"]').setInputFiles({
       name: "inventory.xlsx",
@@ -384,6 +390,19 @@ test.describe("Console Excel surface (3.E.1)", () => {
     expect(download.suggestedFilename()).toMatch(
       /^opticloud_inventory_\d{8}T\d{6}Z\.xlsx$/,
     );
+
+    const outputPath = testInfo.outputPath(download.suggestedFilename());
+    await download.saveAs(outputPath);
+
+    const wb = xlsxRead(readFileSync(outputPath), { type: "buffer" });
+    expect(wb.SheetNames).toEqual(
+      expect.arrayContaining(["Results", "Chart Preview", "Summary"]),
+    );
+    const chartRows = xlsxUtils.sheet_to_json<unknown[]>(
+      wb.Sheets["Chart Preview"],
+      { header: 1 },
+    );
+    expect(chartRows.flat().map(String)).toContain("Inventory 预测带预览");
   });
 
   test("解析失败的文件显示 parse-error 卡", async ({ page }) => {
