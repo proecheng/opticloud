@@ -1,4 +1,4 @@
-/** Story 3.E.6 — excel-export.ts Vitest. */
+/** Story 3.E.6 + 3.E.7 — excel-export.ts Vitest. */
 
 import { describe, expect, it } from "vitest";
 import * as XLSX from "xlsx";
@@ -111,10 +111,16 @@ describe("buildResultWorkbook", () => {
       status: "demo",
     };
     const { blob, sheetNames } = await buildResultWorkbook(req);
-    expect(sheetNames).toEqual(["输入 — Sheet1", "Results", "Summary"]);
+    expect(sheetNames).toEqual([
+      "输入 — Sheet1",
+      "Results",
+      "Chart Preview",
+      "Summary",
+    ]);
 
     const wb = await readBack(blob);
     expect(wb.SheetNames).toContain("Results");
+    expect(wb.SheetNames).toContain("Chart Preview");
     expect(wb.SheetNames).toContain("Summary");
 
     const resultsRows = XLSX.utils.sheet_to_json<unknown[]>(wb.Sheets["Results"], {
@@ -124,6 +130,48 @@ describe("buildResultWorkbook", () => {
     expect(resultsRows).toHaveLength(VRPTW.customers.length + 1);
     const lastRow = resultsRows[resultsRows.length - 1] as unknown[];
     expect(lastRow[lastRow.length - 1]).toBe("🚧 mock (M2-M3)");
+  });
+
+  it("VRPTW chart preview: route scatter and gantt sections survive round-trip", async () => {
+    const { blob } = await buildResultWorkbook({
+      source: baseSource(),
+      payload: VRPTW,
+      status: "demo",
+    });
+    const wb = await readBack(blob);
+    const rows = XLSX.utils.sheet_to_json<unknown[]>(
+      wb.Sheets["Chart Preview"],
+      { header: 1 },
+    );
+    const flattened = rows.flat().map(String);
+    expect(flattened).toContain("VRPTW 路线散点图");
+    expect(flattened).toContain("VRPTW 停靠顺序 / 甘特预览");
+    expect(flattened).toContain("🚧 mock (M2-M3)");
+    expect(flattened).toContain("C1");
+    expect(flattened).toContain("C2");
+  });
+
+  it("VRPTW chart preview: scatter scaling uses customer coordinate bounds", async () => {
+    const spreadPayload: VRPTWPayload = {
+      ...VRPTW,
+      customers: [
+        { ...VRPTW.customers[0], lat: 31.2, lng: 121.1 },
+        { ...VRPTW.customers[1], lat: 31.4, lng: 121.3 },
+      ],
+    };
+    const { blob } = await buildResultWorkbook({
+      source: baseSource(),
+      payload: spreadPayload,
+      status: "demo",
+    });
+    const wb = await readBack(blob);
+    const rows = XLSX.utils.sheet_to_json<unknown[]>(
+      wb.Sheets["Chart Preview"],
+      { header: 1 },
+    );
+    const flattened = rows.flat().map(String);
+    expect(flattened).toContain("lat 31.2000..31.4000");
+    expect(flattened).toContain("lng 121.1000..121.3000");
   });
 
   it("Schedule demo: rows = task_count; resource assigned by modulo", async () => {
@@ -142,6 +190,16 @@ describe("buildResultWorkbook", () => {
     expect((rows[1] as unknown[])[1]).toBe("R1");
     expect((rows[2] as unknown[])[1]).toBe("R2");
     expect((rows[3] as unknown[])[1]).toBe("R1");
+
+    const chartRows = XLSX.utils.sheet_to_json<unknown[]>(
+      wb.Sheets["Chart Preview"],
+      { header: 1 },
+    );
+    const flattened = chartRows.flat().map(String);
+    expect(flattened).toContain("Schedule 资源甘特预览");
+    expect(flattened).toContain("T1");
+    expect(flattened).toContain("T2");
+    expect(flattened).toContain("T3");
   });
 
   it("Inventory demo: rows = sku_count; forecast columns present", async () => {
@@ -160,6 +218,18 @@ describe("buildResultWorkbook", () => {
     expect(header).toContain("forecast_p10");
     expect(header).toContain("forecast_p50");
     expect(header).toContain("forecast_p90");
+
+    const chartRows = XLSX.utils.sheet_to_json<unknown[]>(
+      wb.Sheets["Chart Preview"],
+      { header: 1 },
+    );
+    const flattened = chartRows.flat().map(String);
+    expect(flattened).toContain("Inventory 预测带预览");
+    expect(flattened).toContain("forecast_p10");
+    expect(flattened).toContain("forecast_p50");
+    expect(flattened).toContain("forecast_p90");
+    expect(flattened).toContain("S1");
+    expect(flattened).toContain("S2");
   });
 
   it("solved status: Summary.objective_value reflects realResult.objective", async () => {
@@ -182,6 +252,30 @@ describe("buildResultWorkbook", () => {
       (r) => Array.isArray(r) && (r as unknown[])[0] === "status",
     ) as unknown[] | undefined;
     expect(statusRow?.[1]).toBe("solved");
+    const chartRow = rows.find(
+      (r) => Array.isArray(r) && (r as unknown[])[0] === "chart_preview_sheet",
+    ) as unknown[] | undefined;
+    expect(chartRow?.[1]).toBe("Chart Preview");
+  });
+
+  it("VRPTW chart preview: degenerate coordinates still produce nonblank scatter", async () => {
+    const sameCoordinatePayload: VRPTWPayload = {
+      ...VRPTW,
+      customers: VRPTW.customers.map((c) => ({ ...c, lat: 31.2, lng: 121.1 })),
+    };
+    const { blob } = await buildResultWorkbook({
+      source: baseSource(),
+      payload: sameCoordinatePayload,
+      status: "demo",
+    });
+    const wb = await readBack(blob);
+    const rows = XLSX.utils.sheet_to_json<unknown[]>(
+      wb.Sheets["Chart Preview"],
+      { header: 1 },
+    );
+    const flattened = rows.flat().map(String);
+    expect(flattened).toContain("VRPTW 路线散点图");
+    expect(flattened.some((cell) => cell.includes("1/2"))).toBe(true);
   });
 
   it("sheet name truncation: 50-char source name fits Excel 31-char cap with prefix", async () => {

@@ -156,7 +156,7 @@ test.describe.serial("老张 Excel vertical slice (3.E.9)", () => {
 
       const wb = XLSX.read(readFileSync(outputPath), { type: "buffer" });
       expect(wb.SheetNames).toEqual(
-        expect.arrayContaining(["Results", "Summary"]),
+        expect.arrayContaining(["Results", "Chart Preview", "Summary"]),
       );
       expect(wb.SheetNames.some((name) => name.startsWith("输入 — "))).toBe(true);
 
@@ -181,7 +181,14 @@ test.describe.serial("老张 Excel vertical slice (3.E.9)", () => {
       expect(summaryMap.get("status")).toBe("demo (M2-M3 待上线)");
       expect(summaryMap.get("source_filename")).toBe("inventory.xlsx");
       expect(summaryMap.get("source_total_rows")).toBe(6);
+      expect(summaryMap.get("chart_preview_sheet")).toBe("Chart Preview");
       expect(summaryMap.get("generated_by")).toContain("/console/excel");
+
+      const chartRows = XLSX.utils.sheet_to_json<unknown[]>(
+        wb.Sheets["Chart Preview"],
+        { header: 1 },
+      );
+      expect(chartRows.flat().map(String)).toContain("Inventory 预测带预览");
     });
   });
 });
