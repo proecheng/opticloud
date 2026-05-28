@@ -72,7 +72,7 @@ describe("detectTaskType", () => {
     expect(result.reasoning).toContain("VRPTW");
   });
 
-  it("detects Schedule from 任务/资源/工序 sheets", () => {
+  it("detects schedule from 任务/资源/工序 sheets", () => {
     const summary = {
       sheets: [
         { name: "任务", headers: ["任务名", "工期", "截止"], rowCount: 30 },
@@ -82,10 +82,10 @@ describe("detectTaskType", () => {
     };
     const result = detectTaskType(summary);
     expect(result.taskType).toBe("schedule");
-    expect(result.reasoning).toContain("Schedule");
+    expect(result.reasoning).toContain("排班/调度");
   });
 
-  it("detects Inventory from 出货/SKU/季节 sheets", () => {
+  it("detects inventory from 出货/SKU/季节 sheets", () => {
     const summary = {
       sheets: [
         { name: "历史出货", headers: ["日期", "SKU", "销量"], rowCount: 1000 },
@@ -95,7 +95,7 @@ describe("detectTaskType", () => {
     };
     const result = detectTaskType(summary);
     expect(result.taskType).toBe("inventory");
-    expect(result.reasoning).toContain("Inventory");
+    expect(result.reasoning).toContain("库存预测");
   });
 
   it("returns unknown with explanation when no signals match", () => {

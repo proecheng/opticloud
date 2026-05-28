@@ -111,20 +111,24 @@ test.describe.serial("老张 Excel vertical slice (3.E.9)", () => {
       await expect(page.getByTestId("excel-received-card")).toContainText(
         "已收到您的 Excel 文件",
       );
+      await expect(page.getByTestId("excel-received-card")).toContainText(
+        "本地解析",
+      );
 
       const modal = page.getByTestId("confirmation-modal");
       await expect(modal).toBeVisible({ timeout: 10_000 });
+      await expect(modal).toContainText(/系统判断/);
       await expect(modal).toContainText(/Inventory|库存预测/);
       await expect(page.getByTestId("detection-confidence")).toBeVisible();
       await expect(page.getByTestId("detection-override-select")).toBeVisible();
     });
 
     await test.step("老张 5/7 - 确认识别结果并进入库存预览", async () => {
-      await page.getByRole("button", { name: "确认" }).click();
+      await page.getByRole("button", { name: "确认并继续" }).click();
 
       const preview = page.getByTestId("inventory-preview-card");
       await expect(preview).toBeVisible({ timeout: 10_000 });
-      await expect(preview).toContainText(/预测请求/);
+      await expect(preview).toContainText(/库存预测/);
       await expect(preview).toContainText("SKU");
       await expect(preview).toContainText("历史行");
     });
@@ -135,7 +139,7 @@ test.describe.serial("老张 Excel vertical slice (3.E.9)", () => {
       const demoCard = page.getByTestId("inventory-501-card");
       await expect(demoCard).toBeVisible({ timeout: 10_000 });
       await expect(demoCard).toContainText("M2-M3");
-      await expect(demoCard).toContainText(/预测引擎即将上线|演示结果/);
+      await expect(demoCard).toContainText("库存预测引擎即将上线");
     });
 
     await test.step("老张 7/7 - 下载结果并解析 workbook", async () => {
