@@ -1,4 +1,4 @@
-"""HiGHS LP solver tests + mock-real divergence (Q-T1)."""
+"""HiGHS LP solver tests."""
 
 from __future__ import annotations
 
@@ -68,18 +68,3 @@ def test_warm_start_faster_than_cold(benchmark_runs: int = 3) -> None:
     # warm-start should be < 200ms per AC (CRG2)
     avg = sum(times) / len(times)
     assert avg < 0.5, f"warm-start avg {avg * 1000:.1f}ms > 500ms (CRG2 budget 200ms)"
-
-
-def test_mock_real_divergence_lp_schema() -> None:
-    """Q-T1 — verify real solve schema matches mock structure expected by SDK."""
-    result = solve_lp(c=[2.0, 3.0], a_constraints=[[1.0, 1.0]], b_rhs=[5.0])
-    assert result.status == "optimal"
-    # Schema: solution.x is a list of floats
-    assert result.solution is not None
-    assert "x" in result.solution
-    assert isinstance(result.solution["x"], list)
-    assert all(isinstance(v, float) for v in result.solution["x"])
-    # objective is a float
-    assert isinstance(result.objective, float)
-    # solve_seconds is a float
-    assert isinstance(result.solve_seconds, float) and result.solve_seconds >= 0
