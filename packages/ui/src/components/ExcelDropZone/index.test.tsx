@@ -43,6 +43,17 @@ describe("ExcelDropZone", () => {
     expect(onReject).not.toHaveBeenCalled();
   });
 
+  it("renders 老张-friendly local-processing copy", () => {
+    render(<ExcelDropZone onFile={vi.fn()} onReject={vi.fn()} />);
+
+    expect(screen.getByText("把 .xlsx 拖到这里")).toBeTruthy();
+    expect(
+      screen.getByText("≤5 MB / 50K 行 · 本地识别 VRPTW / 排班 / 库存预测模板"),
+    ).toBeTruthy();
+    expect(screen.queryByText(/50K rows/)).toBeNull();
+    expect(screen.queryByText(/Schedule|Inventory/)).toBeNull();
+  });
+
   it("triggers onReject with code=too_large when > maxSizeBytes", () => {
     const onFile = vi.fn();
     const onReject = vi.fn();

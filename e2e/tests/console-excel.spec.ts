@@ -137,7 +137,7 @@ test.describe("Console Excel surface (3.E.1)", () => {
     await expect(page.getByTestId("excel-drop-zone")).toBeVisible();
   });
 
-  test("选择合法 .xlsx — 显示 received card + 解析中提示", async ({ page }) => {
+  test("选择合法 .xlsx — 显示 received card + 本地解析提示", async ({ page }) => {
     await page.goto("/console/excel");
 
     await page.locator('input[type="file"]').setInputFiles({
@@ -150,6 +150,8 @@ test.describe("Console Excel surface (3.E.1)", () => {
     await expect(card).toBeVisible();
     await expect(card).toContainText("vrptw.xlsx");
     await expect(card).toContainText("MB");
+    await expect(card).toContainText("本地解析");
+    await expect(card).toContainText(/原始文件(不会|未)上传/);
   });
 
   test("选择过大文件触发拒绝态 + actionable hint + 教程链接", async ({ page }) => {
@@ -209,9 +211,11 @@ test.describe("Console Excel surface (3.E.1)", () => {
 
     const modal = page.getByTestId("confirmation-modal");
     await expect(modal).toBeVisible({ timeout: 10_000 });
+    await expect(modal).toContainText(/系统判断/);
     await expect(modal).toContainText(/VRPTW/);
-    await expect(page.getByRole("button", { name: "确认" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "确认并继续" })).toBeVisible();
     await expect(page.getByTestId("detection-confidence")).toContainText(/可信度/);
+    await expect(page.getByText(/如果判断不对，可以手动选择类型/)).toBeVisible();
   });
 
   test("点击确认 VRPTW → 展示 vrptw-preview-card (3.E.3 takeover)", async ({ page }) => {
@@ -225,7 +229,7 @@ test.describe("Console Excel surface (3.E.1)", () => {
     });
 
     await expect(page.getByTestId("confirmation-modal")).toBeVisible({ timeout: 10_000 });
-    await page.getByRole("button", { name: "确认" }).click();
+    await page.getByRole("button", { name: "确认并继续" }).click();
 
     const preview = page.getByTestId("vrptw-preview-card");
     await expect(preview).toBeVisible({ timeout: 10_000 });
@@ -247,7 +251,7 @@ test.describe("Console Excel surface (3.E.1)", () => {
     await page
       .getByTestId("detection-override-select")
       .selectOption({ value: "lp" });
-    await page.getByRole("button", { name: "确认" }).click();
+    await page.getByRole("button", { name: "确认并继续" }).click();
 
     const handoff = page.getByTestId("excel-confirmed-card");
     await expect(handoff).toBeVisible();
@@ -264,7 +268,7 @@ test.describe("Console Excel surface (3.E.1)", () => {
     });
 
     await expect(page.getByTestId("confirmation-modal")).toBeVisible({ timeout: 10_000 });
-    await page.getByRole("button", { name: "确认" }).click();
+    await page.getByRole("button", { name: "确认并继续" }).click();
 
     const preview = page.getByTestId("vrptw-preview-card");
     await expect(preview).toBeVisible({ timeout: 10_000 });
@@ -301,10 +305,11 @@ test.describe("Console Excel surface (3.E.1)", () => {
     await page
       .getByTestId("detection-override-select")
       .selectOption({ value: "schedule" });
-    await page.getByRole("button", { name: "确认" }).click();
+    await page.getByRole("button", { name: "确认并继续" }).click();
 
     const preview = page.getByTestId("schedule-preview-card");
     await expect(preview).toBeVisible({ timeout: 10_000 });
+    await expect(preview).toContainText(/排班\/调度/);
     await expect(preview).toContainText(/任务/);
     await expect(preview).toContainText(/资源/);
 
@@ -335,10 +340,11 @@ test.describe("Console Excel surface (3.E.1)", () => {
     await page
       .getByTestId("detection-override-select")
       .selectOption({ value: "inventory" });
-    await page.getByRole("button", { name: "确认" }).click();
+    await page.getByRole("button", { name: "确认并继续" }).click();
 
     const preview = page.getByTestId("inventory-preview-card");
     await expect(preview).toBeVisible({ timeout: 10_000 });
+    await expect(preview).toContainText(/库存预测/);
     await expect(preview).toContainText(/SKU/);
     await expect(preview).toContainText(/历史行/);
 
@@ -370,7 +376,7 @@ test.describe("Console Excel surface (3.E.1)", () => {
     await page
       .getByTestId("detection-override-select")
       .selectOption({ value: "inventory" });
-    await page.getByRole("button", { name: "确认" }).click();
+    await page.getByRole("button", { name: "确认并继续" }).click();
 
     await expect(page.getByTestId("inventory-preview-card")).toBeVisible({
       timeout: 10_000,
@@ -385,7 +391,10 @@ test.describe("Console Excel surface (3.E.1)", () => {
 
     const [download] = await Promise.all([
       page.waitForEvent("download"),
-      downloadBtn.click(),
+      (async () => {
+        await downloadBtn.click();
+        await expect(downloadBtn).toContainText("正在生成 Excel...");
+      })(),
     ]);
     expect(download.suggestedFilename()).toMatch(
       /^opticloud_inventory_\d{8}T\d{6}Z\.xlsx$/,

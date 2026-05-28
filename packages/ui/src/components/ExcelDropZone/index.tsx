@@ -118,9 +118,9 @@ export function ExcelDropZone({
         📊
       </div>
       {/* 老张-2 中文 UX 微调 — 友好版 Brand Voice "实证克制" */}
-      <p className="mb-2 text-lg font-medium">拖拽 .xlsx 到这里</p>
+      <p className="mb-2 text-lg font-medium">把 .xlsx 拖到这里</p>
       <p className="mb-4 text-sm text-muted-foreground">
-        ≤5 MB / 50K rows · 自动识别 VRPTW / Schedule / Inventory 模板
+        ≤5 MB / 50K 行 · 本地识别 VRPTW / 排班 / 库存预测模板
       </p>
       <FilePicker
         accept=".xlsx"

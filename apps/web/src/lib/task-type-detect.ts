@@ -91,11 +91,11 @@ const SIGNALS: Record<Exclude<DetectedTaskType, "unknown">, SignalSet> = {
 };
 
 const TASK_LABEL: Record<DetectedTaskType, string> = {
-  vrptw: "VRPTW（带时间窗的车辆路径规划）",
-  schedule: "Schedule（排班/调度）",
-  inventory: "Inventory（库存预测）",
+  vrptw: "VRPTW（带时间窗的客户路线规划）",
+  schedule: "排班/调度",
+  inventory: "库存预测",
   lp: "通用 LP（线性规划）",
-  unknown: "未知",
+  unknown: "未知类型",
 };
 
 function lower(s: string): string {
@@ -113,7 +113,7 @@ function scoreTask(summary: ExcelWorkbookSummary, signals: SignalSet): {
   for (const token of signals.sheetTokens) {
     if (sheetNames.some((n) => n.includes(lower(token)))) {
       score += 1.0;
-      matched.push(`sheet "${token}"`);
+      matched.push(`工作表“${token}”`);
     }
   }
 
@@ -129,7 +129,7 @@ function scoreTask(summary: ExcelWorkbookSummary, signals: SignalSet): {
         : allHeaders.some((h) => h.includes(t));
     if (matchedHeader) {
       score += 0.5;
-      matched.push(`列 "${token}"`);
+      matched.push(`列“${token}”`);
     }
   }
 
@@ -158,7 +158,7 @@ export function detectTaskType(summary: ExcelWorkbookSummary): DetectionResult {
       taskType: "unknown",
       confidence: 0,
       reasoning:
-        "未匹配到任何模板的特征 sheets / headers — 请手动选择 task_type，或参考算法目录。",
+        "未匹配到任何模板的工作表或表头特征 — 请手动选择类型，或参考算法目录。",
       alternatives: scored.filter((s) => s.score > 0).map((s) => s.task),
     };
   }

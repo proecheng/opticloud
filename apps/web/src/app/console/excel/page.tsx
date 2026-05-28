@@ -110,12 +110,14 @@ function ReceivedCard({
       <StatusCard
         variant="ok"
         title="✅ 已收到您的 Excel 文件"
-        description={`${file.name} · ${sizeMB} MB`}
+        description={`${file.name} · ${sizeMB} MB · 正在本地解析，原始文件不会上传`}
         ariaLabel="console.excel.received"
         icon="📊"
       />
       <div className="rounded-md border border-border bg-muted/30 p-4">
-        <div className="mb-2 text-sm text-muted-foreground">解析中... 正在识别 task_type</div>
+        <div className="mb-2 text-sm text-muted-foreground">
+          正在本地解析工作簿，原始文件不会上传
+        </div>
         <LoadingShimmer variant="line" />
         <LoadingShimmer variant="line" />
       </div>
@@ -150,9 +152,9 @@ function DetectedModal({
       onConfirm={() => onConfirm(selected)}
       variant="generic"
       ariaLabel="console.excel.confirm_task_type"
-      title={`自动检测：${TASK_LABEL[detection.taskType]}`}
+      title={`系统判断：${TASK_LABEL[detection.taskType]}`}
       description={detection.reasoning}
-      confirmLabel="确认"
+      confirmLabel="确认并继续"
       cancelLabel="取消"
       body={
         <div className="space-y-3 text-sm">
@@ -161,7 +163,7 @@ function DetectedModal({
           </div>
           <label className="block">
             <span className="mb-1 block text-xs font-medium text-muted-foreground">
-              不对？手动选择 task_type
+              如果判断不对，可以手动选择类型
             </span>
             <select
               value={selected}
@@ -251,7 +253,7 @@ function DownloadResultCard({
         aria-label="下载 Excel 结果"
         className="min-h-touch rounded-md border border-primary px-4 py-2 text-sm text-primary hover:bg-primary/5 disabled:opacity-50"
       >
-        {genState.kind === "generating" ? "生成中..." : "📥 下载 Excel 结果"}
+        {genState.kind === "generating" ? "正在生成 Excel..." : "📥 下载 Excel 结果"}
       </button>
       {genState.kind === "error" && (
         <p className="text-xs text-red-600">{genState.message}</p>
@@ -396,8 +398,8 @@ function VrptwPreviewCard({
     <div className="space-y-3" data-testid="vrptw-preview-card">
       <StatusCard
         variant="ok"
-        title={`✅ 已构建求解请求 — ${result.customer_count} 客户 / ${result.vehicle_count} 车辆`}
-        description="数据已通过格式校验。可点击 试跑 提交到求解器。"
+        title={`✅ VRPTW 路线试跑已准备好 — ${result.customer_count} 客户 / ${result.vehicle_count} 车辆`}
+        description="数据已通过格式校验。可点击 试跑 提交到路线求解器。"
         ariaLabel="console.excel.vrptw.ready"
         icon="🎯"
       />
@@ -446,7 +448,7 @@ function VrptwPreviewCard({
         <div data-testid="vrptw-501-card" className="space-y-2">
           <StatusCard
             variant="info"
-            title="VRPTW 求解器即将上线 (M2-M3)"
+            title="VRPTW 路线求解器即将上线 (M2-M3)"
             description={
               `您的数据已通过格式校验（${result.customer_count} 客户 / ${result.vehicle_count} 车辆）。` +
               " 求解器将在后续版本上线，届时本页面将直接返回结果。"
@@ -605,7 +607,7 @@ function SchedulePreviewCard({
       <div className="space-y-3" data-testid="schedule-preview-card">
         <StatusCard
           variant="error"
-          title="Schedule 数据校验失败"
+          title="排班/调度数据校验失败"
           description={`发现 ${result.errors.length} 个问题，请在 Excel 中修正后重试`}
           ariaLabel="console.excel.schedule.invalid"
           icon="⚠️"
@@ -643,8 +645,8 @@ function SchedulePreviewCard({
     <div className="space-y-3" data-testid="schedule-preview-card">
       <StatusCard
         variant="ok"
-        title={`✅ 已构建求解请求 — ${result.task_count} 任务 / ${result.resource_count} 资源 / ${result.precedence_count} 前驱后继`}
-        description="数据已通过格式校验。可点击 试跑 提交到求解器。"
+        title={`✅ 排班/调度试跑已准备好 — ${result.task_count} 任务 / ${result.resource_count} 资源 / ${result.precedence_count} 前驱后继`}
+        description="数据已通过格式校验。可点击 试跑 提交到排班/调度求解器。"
         ariaLabel="console.excel.schedule.ready"
         icon="🎯"
       />
@@ -677,7 +679,7 @@ function SchedulePreviewCard({
           data-testid="schedule-submit-button"
           className="min-h-touch rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-primary-600 disabled:opacity-50"
         >
-          {submitState.kind === "loading" ? "求解中..." : "🚀 试跑"}
+          {submitState.kind === "loading" ? "排班/调度试跑中..." : "🚀 试跑"}
         </button>
         <button
           type="button"
@@ -693,7 +695,7 @@ function SchedulePreviewCard({
         <div data-testid="schedule-501-card" className="space-y-2">
           <StatusCard
             variant="info"
-            title="Schedule 求解器即将上线 (M2-M3)"
+            title="排班/调度求解器即将上线 (M2-M3)"
             description={
               `您的数据已通过格式校验（${result.task_count} 任务 / ${result.resource_count} 资源）。` +
               " 求解器将在后续版本上线，届时本页面将直接返回结果。"
@@ -706,7 +708,7 @@ function SchedulePreviewCard({
               href="/algorithms?task_type=schedule"
               className="text-primary hover:underline"
             >
-              → 看其它 Schedule 求解器
+              → 看其它排班/调度求解器
             </Link>
           </p>
           <DownloadResultCard
@@ -855,7 +857,7 @@ function InventoryPreviewCard({
       <div className="space-y-3" data-testid="inventory-preview-card">
         <StatusCard
           variant="error"
-          title="Inventory 数据校验失败"
+          title="库存预测数据校验失败"
           description={`发现 ${result.errors.length} 个问题，请在 Excel 中修正后重试`}
           ariaLabel="console.excel.inventory.invalid"
           icon="⚠️"
@@ -893,8 +895,8 @@ function InventoryPreviewCard({
     <div className="space-y-3" data-testid="inventory-preview-card">
       <StatusCard
         variant="ok"
-        title={`✅ 已构建预测请求 — ${result.sku_count} SKU / ${result.history_count} 历史行 / ${result.seasonality_count} 季节性`}
-        description="数据已通过格式校验。可点击 试跑 提交到预测引擎。"
+        title={`✅ 库存预测试跑已准备好 — ${result.sku_count} SKU / ${result.history_count} 历史行 / ${result.seasonality_count} 季节性`}
+        description="数据已通过格式校验。可点击 试跑 提交到库存预测引擎。"
         ariaLabel="console.excel.inventory.ready"
         icon="📈"
       />
@@ -927,7 +929,7 @@ function InventoryPreviewCard({
           data-testid="inventory-submit-button"
           className="min-h-touch rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-primary-600 disabled:opacity-50"
         >
-          {submitState.kind === "loading" ? "预测中..." : "🚀 试跑"}
+          {submitState.kind === "loading" ? "库存预测中..." : "🚀 试跑"}
         </button>
         <button
           type="button"
@@ -943,10 +945,10 @@ function InventoryPreviewCard({
         <div data-testid="inventory-501-card" className="space-y-2">
           <StatusCard
             variant="info"
-            title="📈 预测引擎即将上线 (M2-M3)"
+            title="📈 库存预测引擎即将上线 (M2-M3)"
             description={
               `您的数据已通过格式校验（${result.sku_count} SKU / ${result.history_count} 历史行）。` +
-              " 预测引擎将在后续版本上线，届时本页面将直接返回 P10/P50/P90 + drift_score。"
+              " 预测引擎将在后续版本上线，届时本页面将直接返回 P10/P50/P90 预测区间。"
             }
             ariaLabel="console.excel.inventory.not_implemented"
             icon="🚧"
@@ -1032,17 +1034,17 @@ function ConfirmedCard({
     <div className="space-y-3" data-testid="excel-confirmed-card">
       <StatusCard
         variant="ok"
-        title={`✅ task_type 已确认：${TASK_LABEL[taskType]}`}
+        title={`✅ 类型已确认：${TASK_LABEL[taskType]}`}
         description={
           overrodeFrom
             ? `您选择了 ${TASK_LABEL[taskType]}，覆盖系统推荐 ${TASK_LABEL[overrodeFrom]}`
-            : "下一步由后续 story (3.E.6) 接管 — 将路由到结果下载界面。"
+            : "下一步将进入结果下载界面。"
         }
         ariaLabel="console.excel.confirmed"
         icon="🎯"
       />
       <div className="rounded-md border border-border bg-muted/30 p-4 text-sm text-muted-foreground">
-        📋 通用 LP / 未知 task_type 暂未接入模板。VRPTW / Schedule / Inventory 走自动映射 + 试跑 + 下载结果，请回到上一步选其它 task_type。
+        📋 通用 LP / 未知类型暂未接入模板。VRPTW 路线 / 排班/调度 / 库存预测可自动映射、试跑并下载结果，请回到上一步选择其它类型。
       </div>
       <button
         type="button"
@@ -1208,7 +1210,7 @@ export default function ConsoleExcelPage(): JSX.Element {
         <div className="mx-auto max-w-3xl px-6 text-center">
           <h1 className="text-balance text-3xl font-bold">上传 Excel，自动求解</h1>
           <p className="mt-2 text-balance text-muted-foreground">
-            适合 VRPTW / 排班 / 库存预测 — 不写代码，拖一下就行（≤5 MB / 50K 行）
+            适合 VRPTW 路线 / 排班调度 / 库存预测 - 不写代码，拖一下就行（≤5 MB / 50K 行）
           </p>
         </div>
       </section>
@@ -1232,7 +1234,7 @@ export default function ConsoleExcelPage(): JSX.Element {
               <StatusCard
                 variant="ok"
                 title="✅ 已收到您的 Excel 文件"
-                description={`${state.file.name} · ${(state.file.size / 1024 / 1024).toFixed(2)} MB`}
+                description={`${state.file.name} · ${(state.file.size / 1024 / 1024).toFixed(2)} MB · 本地解析完成，原始文件未上传`}
                 ariaLabel="console.excel.received"
                 icon="📊"
               />
