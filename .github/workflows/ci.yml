@@ -42,6 +42,7 @@ jobs:
       chat_load_plan: ${{ steps.filter.outputs.chat_load_plan }}
       api_gateway_perf: ${{ steps.filter.outputs.api_gateway_perf }}
       traffic_replay: ${{ steps.filter.outputs.traffic_replay }}
+      j3_incident_contract: ${{ steps.filter.outputs.j3_incident_contract }}
       sandbox_security_audit: ${{ steps.filter.outputs.sandbox_security_audit }}
       llm_router: ${{ steps.filter.outputs.llm_router }}
       gtm_toolkit: ${{ steps.filter.outputs.gtm_toolkit }}
@@ -139,6 +140,12 @@ jobs:
               - 'tests/test_traffic_replay_plan.py'
               - 'docs/runbooks/production-traffic-replay.md'
               - 'reports/prod-traffic-replay/**'
+            j3_incident_contract:
+              - 'tools/incidents/**'
+              - 'scripts/validate_j3_incident_contract.py'
+              - 'tests/test_j3_incident_contract.py'
+              - 'docs/runbooks/j3-sre-incident-tier3.md'
+              - 'reports/j3-sre-incident/**'
             sandbox_security_audit:
               - 'infra/sandbox-security/**'
               - 'scripts/validate_sandbox_security_audit.py'
@@ -617,6 +624,30 @@ jobs:
           done
       - name: Run traffic replay plan tests
         run: uv run pytest tests/test_traffic_replay_plan.py -v
+
+  # ===== J3 SRE incident Tier 3 contract validation (Story 3.12) =====
+  j3-incident-contract-validation:
+    needs: changes
+    if: needs.changes.outputs.j3_incident_contract == 'true' || needs.changes.outputs.ci_or_root == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: pip install uv==${{ env.UV_VERSION }}
+      - run: uv sync --all-packages --extra dev
+      - name: Validate J3 incident contract
+        run: uv run python scripts/validate_j3_incident_contract.py
+      - name: Validate real J3 incident evidence manifests when present
+        run: |
+          shopt -s globstar nullglob
+          manifests=(reports/j3-sre-incident/**/incident_manifest.json)
+          for manifest in "${manifests[@]}"; do
+            uv run python scripts/validate_j3_incident_contract.py --evidence "$manifest"
+          done
+      - name: Run J3 incident contract tests
+        run: uv run pytest tests/test_j3_incident_contract.py -v
 
   # ===== Sandbox security audit validation (Story M3.7) =====
   sandbox-security-audit-validation:
