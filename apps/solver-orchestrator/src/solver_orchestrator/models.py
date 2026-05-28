@@ -3,6 +3,9 @@
 Tables added by infra/local-init/02-solver-schema.sql:
 - optimizations
 - idempotency_keys (P23 dedup)
+- optimization_batches
+- optimization_batch_items
+- optimization_batch_idempotency_keys
 - predictions
 - prediction_idempotency_keys
 """
@@ -126,6 +129,72 @@ class IdempotencyKey(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
+
+
+class OptimizationBatch(Base):
+    """Story 3.13 — batch grouping row, with status derived from children."""
+
+    __tablename__ = "optimization_batches"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    api_key_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    __table_args__ = (
+        Index("idx_optimization_batches_user_id_created_at", "user_id", text("created_at DESC")),
+    )
+
+
+class OptimizationBatchItem(Base):
+    """Story 3.13 — stable ordering from batch item index to child optimization."""
+
+    __tablename__ = "optimization_batch_items"
+
+    batch_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("optimization_batches.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    item_index: Mapped[int] = mapped_column(Integer, primary_key=True)
+    optimization_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("optimizations.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    __table_args__ = (
+        Index("idx_optimization_batch_items_batch_id_item_index", "batch_id", "item_index"),
+    )
+
+
+class OptimizationBatchIdempotencyKey(Base):
+    """Story 3.13 — whole-batch Idempotency-Key mapping."""
+
+    __tablename__ = "optimization_batch_idempotency_keys"
+
+    key: Mapped[str] = mapped_column(String(255), primary_key=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, nullable=False)
+    batch_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("optimization_batches.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    request_body_hash: Mapped[str] = mapped_column(Text, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    __table_args__ = (Index("idx_optimization_batch_idempotency_keys_expires_at", "expires_at"),)
 
 
 class Prediction(Base):
