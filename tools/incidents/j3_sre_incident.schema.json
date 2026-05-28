@@ -1,0 +1,304 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": true,
+  "properties": {
+    "commit_sha": {
+      "pattern": "^[0-9a-f]{7,40}$",
+      "type": "string"
+    },
+    "contract_version": {
+      "const": "j3_sre_incident_tier3_v1",
+      "type": "string"
+    },
+    "environment": {
+      "enum": [
+        "tier3-static-example",
+        "staging-incident-drill"
+      ],
+      "type": "string"
+    },
+    "example_only": {
+      "type": "boolean"
+    },
+    "fallback_reference": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence_mode": {
+          "type": "string"
+        },
+        "plan_path": {
+          "const": "tools/chat_load/incident_fallback_plan.json",
+          "type": "string"
+        },
+        "plan_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "source_story": {
+          "const": "M3.6c",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_story",
+        "plan_path",
+        "plan_sha256",
+        "evidence_mode"
+      ],
+      "type": "object"
+    },
+    "generated_by": {
+      "type": "string"
+    },
+    "incident_id": {
+      "pattern": "^[a-z0-9][a-z0-9._-]{2,63}$",
+      "type": "string"
+    },
+    "postmortem_skeleton": {
+      "$ref": "#/$defs/postmortem"
+    },
+    "provider_health_snapshot": {
+      "$ref": "#/$defs/providerHealth"
+    },
+    "providers": {
+      "$ref": "#/$defs/providers"
+    },
+    "severity": {
+      "const": "P0",
+      "type": "string"
+    },
+    "source_story": {
+      "const": "3.12",
+      "type": "string"
+    },
+    "status_page_announcement": {
+      "$ref": "#/$defs/statusPageAnnouncement"
+    },
+    "timeline": {
+      "$ref": "#/$defs/timeline"
+    },
+    "trigger": {
+      "const": "provider_health_deepseek_failure",
+      "type": "string"
+    }
+  },
+  "required": [
+    "source_story",
+    "contract_version",
+    "incident_id",
+    "example_only",
+    "generated_by",
+    "commit_sha",
+    "environment",
+    "severity",
+    "trigger",
+    "providers",
+    "timeline",
+    "provider_health_snapshot",
+    "fallback_reference",
+    "status_page_announcement",
+    "postmortem_skeleton"
+  ],
+  "title": "Story 3.12 J3 SRE incident Tier 3 manifest",
+  "type": "object",
+  "$defs": {
+    "postmortem": {
+      "additionalProperties": false,
+      "properties": {
+        "public_url_path": {
+          "pattern": "^/status/incidents/[a-z0-9][a-z0-9._-]{2,63}$",
+          "type": "string"
+        },
+        "publish_due_utc": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "sections": {
+          "additionalProperties": true,
+          "properties": {
+            "compensation_placeholder": {
+              "type": "string"
+            },
+            "detection": {
+              "type": "string"
+            },
+            "follow_ups": {
+              "type": "array"
+            },
+            "impact": {},
+            "mitigation": {
+              "type": "string"
+            },
+            "root_cause_placeholder": {
+              "type": "string"
+            },
+            "timeline": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "what_happened": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "what_happened",
+            "timeline",
+            "impact",
+            "detection",
+            "mitigation",
+            "root_cause_placeholder",
+            "follow_ups",
+            "compensation_placeholder"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "public_url_path",
+        "publish_due_utc",
+        "sections"
+      ],
+      "type": "object"
+    },
+    "providerHealth": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_path": {
+          "pattern": "^reports/j3-sre-incident/[a-z0-9][a-z0-9._-]{2,63}/(?!.*\\.\\.)[^\\\\:]+\\.json$",
+          "type": "string"
+        },
+        "component": {
+          "const": "llm-provider-deepseek",
+          "type": "string"
+        },
+        "observed_status": {
+          "const": "failed",
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "component",
+        "observed_status",
+        "artifact_path",
+        "summary"
+      ],
+      "type": "object"
+    },
+    "providers": {
+      "additionalProperties": false,
+      "properties": {
+        "fallback_provider": {
+          "const": "qwen-max",
+          "type": "string"
+        },
+        "primary_provider": {
+          "const": "deepseek-v3.5",
+          "type": "string"
+        }
+      },
+      "required": [
+        "primary_provider",
+        "fallback_provider"
+      ],
+      "type": "object"
+    },
+    "status": {
+      "enum": [
+        "investigating",
+        "identified",
+        "monitoring",
+        "resolved"
+      ],
+      "type": "string"
+    },
+    "statusPageAnnouncement": {
+      "additionalProperties": true,
+      "properties": {
+        "affected_scope": {
+          "type": "string"
+        },
+        "component": {
+          "const": "llm-provider-deepseek",
+          "type": "string"
+        },
+        "customer_visible": {
+          "type": "boolean"
+        },
+        "next_update_due_utc": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "public_summary": {
+          "type": "string"
+        },
+        "published_at_utc": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "started_at_utc": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "status": {
+          "$ref": "#/$defs/status"
+        }
+      },
+      "required": [
+        "status",
+        "component",
+        "started_at_utc",
+        "published_at_utc",
+        "public_summary",
+        "affected_scope",
+        "customer_visible",
+        "next_update_due_utc"
+      ],
+      "type": "object"
+    },
+    "timestamp": {
+      "pattern": "^20[0-9]{2}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+      "type": "string"
+    },
+    "timeline": {
+      "additionalProperties": false,
+      "properties": {
+        "fallback_confirmed_utc": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "fallback_decision_utc": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "incident_started_utc": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "p0_declared_utc": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "postmortem_due_utc": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "provider_health_failed_utc": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "sre_paged_utc": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "status_page_published_utc": {
+          "$ref": "#/$defs/timestamp"
+        }
+      },
+      "required": [
+        "incident_started_utc",
+        "provider_health_failed_utc",
+        "p0_declared_utc",
+        "sre_paged_utc",
+        "fallback_decision_utc",
+        "fallback_confirmed_utc",
+        "status_page_published_utc",
+        "postmortem_due_utc"
+      ],
+      "type": "object"
+    }
+  }
+}

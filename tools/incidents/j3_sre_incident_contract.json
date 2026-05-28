@@ -1,0 +1,25 @@
+{
+  "alert_seconds_max": 30,
+  "contract_version": "j3_sre_incident_tier3_v1",
+  "fallback_plan": {
+    "path": "tools/chat_load/incident_fallback_plan.json",
+    "sha256": "fff65b0ea93792b34dcd185f94798677f4b48274e5fbd0fc0d395af7dc74fe94",
+    "source_story": "M3.6c"
+  },
+  "fallback_provider": "qwen-max",
+  "incident_type": "provider_outage",
+  "journey": "J3",
+  "persona": "wang-zhe-sre",
+  "postmortem_publish_hours_max": 24,
+  "primary_provider": "deepseek-v3.5",
+  "severity": "P0",
+  "source_story": "3.12",
+  "status_page_publish_seconds_max": 60,
+  "status_vocabulary": [
+    "investigating",
+    "identified",
+    "monitoring",
+    "resolved"
+  ],
+  "trigger": "provider_health_deepseek_failure"
+}

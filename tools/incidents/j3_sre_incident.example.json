@@ -1,0 +1,81 @@
+{
+  "commit_sha": "0000000",
+  "contract_version": "j3_sre_incident_tier3_v1",
+  "environment": "tier3-static-example",
+  "example_only": true,
+  "fallback_reference": {
+    "evidence_mode": "referenced-not-embedded",
+    "plan_path": "tools/chat_load/incident_fallback_plan.json",
+    "plan_sha256": "fff65b0ea93792b34dcd185f94798677f4b48274e5fbd0fc0d395af7dc74fe94",
+    "source_story": "M3.6c"
+  },
+  "generated_by": "Story 3.12 static example; not real incident evidence",
+  "incident_id": "example-j3-incident-20260528",
+  "postmortem_skeleton": {
+    "public_url_path": "/status/incidents/example-j3-incident-20260528",
+    "publish_due_utc": "2026-05-29T19:14:00Z",
+    "sections": {
+      "compensation_placeholder": "Record affected-scope handoff for billing and customer-success review; no refund is executed by this static example.",
+      "detection": "Provider Health observed DeepSeek failure and P0 was declared by SRE.",
+      "follow_ups": [
+        {
+          "owner": "SRE",
+          "status": "todo",
+          "title": "Attach redacted Provider Health and fallback evidence in a future operator evidence PR"
+        },
+        {
+          "owner": "Billing",
+          "status": "todo",
+          "title": "Review compensation eligibility after real impact is confirmed"
+        }
+      ],
+      "impact": "Public-safe placeholder for affected scope; no tenant, customer, prompt, or provider payload data.",
+      "mitigation": "Manual Qwen-Max incident fallback confirmed; continue monitoring until provider recovery.",
+      "root_cause_placeholder": "Root cause is pending provider and internal log review.",
+      "timeline": [
+        "incident_started_utc",
+        "provider_health_failed_utc",
+        "p0_declared_utc",
+        "sre_paged_utc",
+        "fallback_decision_utc",
+        "fallback_confirmed_utc",
+        "status_page_published_utc",
+        "postmortem_due_utc"
+      ],
+      "what_happened": "DeepSeek provider health degraded; SRE prepared public-safe investigating notice and postmortem skeleton."
+    }
+  },
+  "provider_health_snapshot": {
+    "artifact_path": "reports/j3-sre-incident/example-j3-incident-20260528/provider-health-snapshot.json",
+    "component": "llm-provider-deepseek",
+    "observed_status": "failed",
+    "summary": "Synthetic Provider Health snapshot path for future redacted evidence."
+  },
+  "providers": {
+    "fallback_provider": "qwen-max",
+    "primary_provider": "deepseek-v3.5"
+  },
+  "severity": "P0",
+  "source_story": "3.12",
+  "status_page_announcement": {
+    "affected_scope": "Partial degradation for DeepSeek-backed NL flows",
+    "component": "llm-provider-deepseek",
+    "customer_visible": true,
+    "next_update_due_utc": "2026-05-28T19:45:00Z",
+    "public_summary": "We are investigating degraded responses from the DeepSeek provider path and have activated the emergency fallback workflow.",
+    "published_at_utc": "2026-05-28T19:15:00Z",
+    "started_at_utc": "2026-05-28T19:12:00Z",
+    "status": "investigating"
+  },
+  "timeline": {
+    "fallback_confirmed_utc": "2026-05-28T19:17:30Z",
+    "fallback_decision_utc": "2026-05-28T19:14:30Z",
+    "incident_started_utc": "2026-05-28T19:12:00Z",
+    "p0_declared_utc": "2026-05-28T19:14:00Z",
+    "postmortem_due_utc": "2026-05-29T19:14:00Z",
+    "provider_health_failed_utc": "2026-05-28T19:12:20Z",
+    "sre_paged_utc": "2026-05-28T19:14:10Z",
+    "status_page_published_utc": "2026-05-28T19:15:00Z"
+  },
+  "trigger": "provider_health_deepseek_failure"
+}
