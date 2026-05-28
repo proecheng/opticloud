@@ -108,7 +108,7 @@ development_status:
   3-10-backtest-discount: done                 # FR E10 (v2) — 2026-05-27 backtest 50% billing discount; post-review metadata drift fix applied
   3-11-j2-lina-csv-vertical-slice: done        # J2 — 2026-05-28 Lina CSV browser recovery vertical slice; post-review privacy/raw-row retention fixes applied
   3-12-j3-sre-incident-tier3: done            # J3 — 2026-05-28 SRE incident Tier 3 static contract + status/postmortem skeleton validator; post-review fake-completion/nested-field fixes applied
-  3-13-batch-endpoint: backlog                 # L2 (v1 末)
+  3-13-batch-endpoint: done                    # L2 (v1 末) — 2026-05-28 batch endpoint shipped; post-review progress/idempotency fixes applied
   3-14-mock-real-divergence-test: backlog      # Q-T1 (partial in 3.1)
 
   # ===== Epic 3.E: Excel UX (9 stories) =====

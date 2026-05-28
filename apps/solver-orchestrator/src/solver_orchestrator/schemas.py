@@ -143,6 +143,47 @@ class OptimizationResponse(BaseModel):
     ip_attribution: IPAttributionSchema | None = None  # Story 6.A.5
 
 
+class OptimizationBatchRequest(BaseModel):
+    """Story 3.13 — async batch optimization request."""
+
+    tasks: list[OptimizationRequest] = Field(..., min_length=1, max_length=100)
+
+
+class OptimizationBatchCounts(BaseModel):
+    """Story 3.13 — derived batch child status counts."""
+
+    queued: int = 0
+    in_progress: int = 0
+    completed: int = 0
+    failed: int = 0
+    timeout: int = 0
+    cancelled: int = 0
+
+
+class OptimizationBatchItemResponse(BaseModel):
+    """Story 3.13 — child status/result plus stable batch item index."""
+
+    index: int
+
+    model_config = {"extra": "allow"}
+
+
+class OptimizationBatchResponse(BaseModel):
+    """Story 3.13 — batch polling response."""
+
+    batch_id: uuid.UUID
+    batch_status: str
+    task_count: int
+    counts: OptimizationBatchCounts | None = None
+    progress_pct: int | None = None
+    eta_seconds: int | None = None
+    optimization_ids: list[uuid.UUID]
+    items: list[OptimizationBatchItemResponse]
+    errors: list[dict[str, Any]] = []
+    created_at: datetime | None = None
+    completed_at: datetime | None = None
+
+
 # ===== Story 3.2: POST /v1/predictions =====
 
 
