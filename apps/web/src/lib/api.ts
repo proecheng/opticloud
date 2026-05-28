@@ -51,6 +51,8 @@ export interface ApiError {
     remediation_hint_key: string;
   }>;
   next_action_url?: string;
+  request_id?: string;
+  trace_id?: string;
 }
 
 function extractErrorDetail(value: unknown): string {
@@ -79,6 +81,8 @@ function normalizeErrorPayload(status: number, body: unknown): ApiError {
       : undefined,
     next_action_url:
       typeof payload.next_action_url === "string" ? payload.next_action_url : undefined,
+    request_id: typeof payload.request_id === "string" ? payload.request_id : undefined,
+    trace_id: typeof payload.trace_id === "string" ? payload.trace_id : undefined,
   };
 }
 
@@ -88,6 +92,8 @@ export class OptiCloudClientError extends Error {
   detail: string;
   errors: ApiError["errors"];
   next_action_url?: string;
+  request_id?: string;
+  trace_id?: string;
   constructor(payload: ApiError) {
     super(`[${payload.status}] ${payload.title}: ${payload.detail}`);
     this.status = payload.status;
@@ -95,6 +101,8 @@ export class OptiCloudClientError extends Error {
     this.detail = payload.detail;
     this.errors = payload.errors;
     this.next_action_url = payload.next_action_url;
+    this.request_id = payload.request_id;
+    this.trace_id = payload.trace_id;
   }
 }
 
@@ -305,6 +313,40 @@ export interface ReproductionRerunResponse extends OptimizationResponse {
     status: "used";
     detail: string;
   };
+}
+
+export type PredictionFamily = "arima" | "chronos";
+
+export interface PredictionRequest {
+  family: PredictionFamily;
+  data: number[];
+  horizon: number;
+}
+
+export interface PredictionQuantiles {
+  p10: number[];
+  p50: number[];
+  p90: number[];
+}
+
+export interface PredictionDisclaimer {
+  zh: "本预测仅供参考";
+  en: "This forecast is for reference only";
+  bilingual: "本预测仅供参考 / This forecast is for reference only";
+}
+
+export interface PredictionResponse {
+  prediction_id: string;
+  status: "completed";
+  family: string;
+  horizon: number;
+  prediction: PredictionQuantiles;
+  drift_score: number;
+  disclaimer: PredictionDisclaimer;
+  model_version: ModelVersion;
+  predict_seconds: number;
+  created_at: string;
+  completed_at: string;
 }
 
 // ===== Login (Story 1.2 — OTP 2FA) =====
@@ -750,6 +792,30 @@ export async function postOptimization(
       headers: {
         Authorization: `Bearer ${apiKey}`,
         "Idempotency-Key": idempotencyKey,
+      },
+      body: JSON.stringify(body),
+    },
+    SOLVER_SERVICE_URL,
+  );
+}
+
+export async function postPrediction(
+  apiKey: string,
+  body: PredictionRequest,
+  idempotencyKey?: string,
+): Promise<PredictionResponse> {
+  const replayKey =
+    idempotencyKey ??
+    (typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}`);
+  return request<PredictionResponse>(
+    "/v1/predictions",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Idempotency-Key": replayKey,
       },
       body: JSON.stringify(body),
     },
