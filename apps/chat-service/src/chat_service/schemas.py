@@ -49,6 +49,23 @@ CriticConfidenceDisplayTier = Literal["high", "mid", "low"]
 LanguagePreviewStatus = Literal["generated", "fallback"]
 LanguagePreviewSource = Literal["llm_language_internal_beta", "heuristic_language_internal_beta"]
 AigcWatermarkTier = Literal["strict", "loose"]
+ModelPreviewStatus = Literal["ready_to_confirm", "needs_clarification", "blocked"]
+ModelPreviewSource = Literal["chat_model_preview_internal_beta"]
+ModelPreviewActionKind = Literal["confirm", "edit", "cancel"]
+ModelPreviewClientAction = Literal[
+    "chat.model_preview.confirm",
+    "chat.model_preview.edit",
+    "chat.model_preview.cancel",
+]
+ModelPreviewDisabledReasonCode = Literal[
+    "model_not_ready",
+    "needs_clarification",
+    "safety_gate_blocked",
+    "human_review_required",
+    "sandbox_not_succeeded",
+    "task_type_unknown",
+    "dependency_drift",
+]
 
 _AIGC_TRACE_ID_PATTERN = r"^trc_[0-9a-f]{16}$"
 _AIGC_REASON_CODE_PATTERN = re.compile(r"^[a-z0-9_]{1,64}$")
@@ -319,6 +336,108 @@ class SandboxPreview(BaseModel):
         return self
 
 
+class ModelPreviewValidationError(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    field_path: str = Field(min_length=1, max_length=128)
+    message: str = Field(min_length=1, max_length=160)
+    remediation_hint_key: str | None = Field(default=None, min_length=1, max_length=128)
+
+    @field_validator("field_path")
+    @classmethod
+    def validate_model_preview_error_path(cls, value: str) -> str:
+        allowed_prefixes = (
+            "formulator_preview",
+            "coder_preview",
+            "critic_preview",
+            "sandbox_preview",
+            "human_review",
+            "model_preview",
+        )
+        if not any(
+            value == prefix or value.startswith(f"{prefix}.") for prefix in allowed_prefixes
+        ):
+            raise ValueError("model preview validation error must point to an upstream preview")
+        return value
+
+    @field_validator("field_path", "message", "remediation_hint_key")
+    @classmethod
+    def validate_no_leak_text(cls, value: str | None) -> str | None:
+        if value is not None and _AIGC_NO_LEAK_PATTERN.search(value):
+            raise ValueError("model preview validation errors must not leak internals")
+        return value
+
+
+class ModelPreviewAction(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    kind: ModelPreviewActionKind
+    label_zh: str = Field(min_length=1, max_length=32)
+    label_en: str = Field(min_length=1, max_length=48)
+    enabled: bool
+    client_action: ModelPreviewClientAction
+    disabled_reason_code: ModelPreviewDisabledReasonCode | None
+
+    @model_validator(mode="after")
+    def validate_action_contract(self) -> ModelPreviewAction:
+        expected = {
+            "confirm": ("确认模型", "Confirm model", "chat.model_preview.confirm"),
+            "edit": ("编辑模型", "Edit model", "chat.model_preview.edit"),
+            "cancel": ("取消", "Cancel", "chat.model_preview.cancel"),
+        }[self.kind]
+        if (self.label_zh, self.label_en, self.client_action) != expected:
+            raise ValueError("model preview action labels and client_action must match kind")
+        if self.enabled and self.disabled_reason_code is not None:
+            raise ValueError("enabled model preview action must not include disabled reason")
+        if not self.enabled and self.disabled_reason_code is None:
+            raise ValueError("disabled model preview action requires disabled reason")
+        return self
+
+
+class ModelPreview(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    preview_id: str = Field(pattern=r"^mpv_[0-9a-f]{16}$")
+    status: ModelPreviewStatus
+    source: ModelPreviewSource
+    task_type: TaskType
+    variables: dict[str, object]
+    objective: dict[str, object]
+    constraints: dict[str, object]
+    code_artifact: CoderCodeArtifact | None
+    actions: list[ModelPreviewAction] = Field(min_length=3, max_length=3)
+    requires_human_review: bool
+    critic_confidence: float = Field(ge=0.0, le=1.0)
+    sandbox_status: SandboxPreviewStatus
+    validation_errors: list[ModelPreviewValidationError] = Field(
+        default_factory=list,
+        max_length=10,
+    )
+
+    @model_validator(mode="after")
+    def validate_model_preview_contract(self) -> ModelPreview:
+        if [action.kind for action in self.actions] != ["confirm", "edit", "cancel"]:
+            raise ValueError("model preview actions must be confirm, edit, cancel in order")
+        confirm, edit, cancel = self.actions
+        if not edit.enabled or not cancel.enabled:
+            raise ValueError("model preview edit and cancel actions must stay enabled")
+        if self.status == "ready_to_confirm":
+            if not confirm.enabled or confirm.disabled_reason_code is not None:
+                raise ValueError("ready model preview requires enabled confirm action")
+            if self.code_artifact is None:
+                raise ValueError("ready model preview requires code_artifact")
+            if self.requires_human_review:
+                raise ValueError("ready model preview must not require human review")
+            if self.sandbox_status != "succeeded":
+                raise ValueError("ready model preview requires succeeded sandbox status")
+            if self.task_type == "unknown":
+                raise ValueError("ready model preview requires known task_type")
+        else:
+            if confirm.enabled or confirm.disabled_reason_code is None:
+                raise ValueError("non-ready model preview requires disabled confirm action")
+        return self
+
+
 class HumanReviewNotice(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -550,6 +669,7 @@ class ChatInternalBetaMessageResponse(BaseModel):
     sandbox_preview: SandboxPreview
     human_review: HumanReviewPreview
     critic_confidence_display: CriticConfidenceDisplayPreview
+    model_preview: ModelPreview
     language_preview: LanguagePreview
     aigc_gate: AigcGate
     llm_invoked: bool
@@ -574,4 +694,12 @@ class ChatInternalBetaMessageResponse(BaseModel):
             raise ValueError("critic confidence display threshold must match critic preview")
         if self.critic_confidence_display.human_review_escalated != self.human_review.escalated:
             raise ValueError("critic confidence display escalation flag must match human review")
+        if self.model_preview.task_type != self.formulator_preview.task_type:
+            raise ValueError("model preview task_type must match formulator preview")
+        if self.model_preview.critic_confidence != self.critic_preview.confidence:
+            raise ValueError("model preview critic confidence must match critic preview")
+        if self.model_preview.requires_human_review != self.human_review.escalated:
+            raise ValueError("model preview human review flag must match human review")
+        if self.model_preview.sandbox_status != self.sandbox_preview.status:
+            raise ValueError("model preview sandbox status must match sandbox preview")
         return self

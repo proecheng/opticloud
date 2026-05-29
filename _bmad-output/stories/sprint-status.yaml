@@ -144,7 +144,7 @@ development_status:
   4-b-6-sandbox-logs-stream-v1-5: done
   4-b-7-critic-redteam-tests: done
 
-  4-c-1-preview-confirm-model: backlog
+  4-c-1-preview-confirm-model: done
   4-c-2-sse-streaming: backlog
   4-c-3-file-upload-csv-excel-json: backlog
   4-c-4-what-if-followup: backlog
