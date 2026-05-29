@@ -198,7 +198,9 @@ def test_digest_order_is_stable_for_same_filename_and_size(
         "client_request_id": "file-context-digest-tie-001",
     }
     first_context = csv_context(headers=["sku", "month"], summary="csv rows=24 headers=sku,month")
-    second_context = csv_context(headers=["sku", "demand"], summary="csv rows=24 headers=sku,demand")
+    second_context = csv_context(
+        headers=["sku", "demand"], summary="csv rows=24 headers=sku,demand"
+    )
 
     first = post_json({**base, "file_contexts": [first_context, second_context]}).json()
     reordered = post_json({**base, "file_contexts": [second_context, first_context]}).json()
