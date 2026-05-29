@@ -148,7 +148,7 @@ development_status:
   4-c-2-sse-streaming: done
   4-c-3-file-upload-csv-excel-json: done
   4-c-4-what-if-followup: done
-  4-c-5-partial-upload-recovery: backlog
+  4-c-5-partial-upload-recovery: done
   4-c-6-chat-interface-tier2: backlog
 
   # ===== Epic 5.A/B/C/D: Billing (27 stories) =====

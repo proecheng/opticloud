@@ -27,6 +27,11 @@ export interface ChatFileContextPayload {
   summary: string;
 }
 
+export interface ChatCsvParsedRow {
+  cells: string[];
+  row_number: number;
+}
+
 export class ChatFileContextRejectError extends Error {
   code: ChatFileContextRejectCode;
   max_mb?: string;
@@ -55,6 +60,17 @@ const NO_LEAK_PATTERN =
   /(sk-[A-Za-z0-9_-]{4,}|api[_\s-]?key|bearer\s+[A-Za-z0-9._-]+|authorization|cookie|password|token|raw[_ -]?(response|request|row|value)|provider[_ -]?(request|response|payload)?|prompt|traceback|generated[_ -]?code|sandbox[_ -]?output|charge_id|optimization_id|prediction_id|callback[_ -]?url|[A-Za-z]:\\|\/tmp\/|\/var\/|queue[_ -]?payload)/i;
 
 export async function parseChatFileContext(file: File): Promise<ChatFileContextPayload> {
+  const { filename, kind } = prepareChatFile(file);
+  if (kind === "csv") return parseCsvContext(file, filename);
+  if (kind === "excel") return parseExcelContext(file, filename);
+  if (kind === "json") return parseJsonContext(file, filename);
+  throw new ChatFileContextRejectError("unsupported_type", "仅支持 CSV、Excel 或 JSON 文件。");
+}
+
+export function prepareChatFile(file: File): {
+  filename: string;
+  kind: ChatFileContextKind;
+} {
   const filename = safeFilename(file.name);
   if (file.size > MAX_SIZE_BYTES) {
     throw new ChatFileContextRejectError(
@@ -63,37 +79,43 @@ export async function parseChatFileContext(file: File): Promise<ChatFileContextP
       "5",
     );
   }
-  const kind = classifyKind(filename, file.type);
-  if (kind === "csv") return parseCsvContext(file, filename);
-  if (kind === "excel") return parseExcelContext(file, filename);
-  if (kind === "json") return parseJsonContext(file, filename);
-  throw new ChatFileContextRejectError("unsupported_type", "仅支持 CSV、Excel 或 JSON 文件。");
+  return { filename, kind: classifyKind(filename, file.type) };
 }
 
 async function parseCsvContext(file: File, filename: string): Promise<ChatFileContextPayload> {
   try {
     const text = await file.text();
-    const rows = parseCsvRows(text);
-    const headerRow = rows.find((row) => row.some((cell) => cell.trim()));
-    const headers = safeTerms(headerRow ?? [], MAX_HEADERS);
-    const rowCount = Math.max(0, rows.length - 1);
-    return {
-      source: SOURCE,
-      kind: "csv",
+    return buildChatCsvContextFromRows(parseChatCsvRows(text), {
       filename,
-      size_bytes: file.size,
-      mime_type: safeMime(file.type || "text/csv"),
-      row_count: rowCount,
-      sheet_count: 0,
-      sheets: [],
-      top_level_keys: [],
-      detected_fields: safeTerms(headers, MAX_FIELDS),
-      summary: `csv rows=${rowCount} headers=${headers.join(", ")}`,
-    };
+      sizeBytes: file.size,
+      mimeType: file.type || "text/csv",
+    });
   } catch (error) {
     if (error instanceof ChatFileContextRejectError) throw error;
     throw new ChatFileContextRejectError("parse_failed", "无法解析 CSV 文件。");
   }
+}
+
+export function buildChatCsvContextFromRows(
+  rows: string[][],
+  source: { filename: string; sizeBytes: number; mimeType: string },
+): ChatFileContextPayload {
+  const headerRow = rows.find((row) => row.some((cell) => cell.trim()));
+  const headers = safeTerms(headerRow ?? [], MAX_HEADERS);
+  const rowCount = Math.max(0, rows.length - 1);
+  return {
+    source: SOURCE,
+    kind: "csv",
+    filename: source.filename,
+    size_bytes: source.sizeBytes,
+    mime_type: safeMime(source.mimeType || "text/csv"),
+    row_count: rowCount,
+    sheet_count: 0,
+    sheets: [],
+    top_level_keys: [],
+    detected_fields: safeTerms(headers, MAX_FIELDS),
+    summary: `csv rows=${rowCount} headers=${headers.join(", ")}`,
+  };
 }
 
 async function parseExcelContext(file: File, filename: string): Promise<ChatFileContextPayload> {
@@ -188,11 +210,25 @@ function requireSupportedMime(
   return kind;
 }
 
-function parseCsvRows(text: string): string[][] {
-  const rows: string[][] = [];
+export function parseChatCsvRows(text: string): string[][] {
+  return parseChatCsvRowsWithLineNumbers(text).map((row) => row.cells);
+}
+
+export function parseChatCsvRowsWithLineNumbers(text: string): ChatCsvParsedRow[] {
+  const rows: ChatCsvParsedRow[] = [];
   let current = "";
   let row: string[] = [];
   let inQuotes = false;
+  let physicalRowNumber = 1;
+  const pushRow = (): void => {
+    row.push(current);
+    if (row.some((cell) => cell.trim())) {
+      rows.push({ cells: row, row_number: physicalRowNumber });
+    }
+    row = [];
+    current = "";
+  };
+
   for (let index = 0; index < text.length; index += 1) {
     const char = text[index];
     const next = text[index + 1];
@@ -206,16 +242,13 @@ function parseCsvRows(text: string): string[][] {
       current = "";
     } else if ((char === "\n" || char === "\r") && !inQuotes) {
       if (char === "\r" && next === "\n") index += 1;
-      row.push(current);
-      if (row.some((cell) => cell.trim())) rows.push(row);
-      row = [];
-      current = "";
+      pushRow();
+      physicalRowNumber += 1;
     } else {
       current += char;
     }
   }
-  row.push(current);
-  if (row.some((cell) => cell.trim())) rows.push(row);
+  pushRow();
   return rows;
 }
 
