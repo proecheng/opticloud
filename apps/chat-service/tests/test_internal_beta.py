@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 from collections.abc import Iterator
 
+import aigc_filter
 import pytest
 from chat_service.main import app
 from fastapi.testclient import TestClient
@@ -62,6 +63,7 @@ def test_internal_beta_defaults_fail_closed_without_leaking_aigc_gate() -> None:
     body = response.json()
     assert body == {"detail": "Not found"}
     assert "aigc_gate" not in body
+    assert "aigc_watermark" not in body
     assert "human_review" not in body
     assert "critic_confidence_display" not in body
 
@@ -73,6 +75,7 @@ def test_internal_beta_disabled_rejects_invalid_body_without_schema_leak() -> No
     body = response.json()
     assert body == {"detail": "Not found"}
     assert "aigc_gate" not in body
+    assert "aigc_watermark" not in body
     assert "human_review" not in body
     assert "critic_confidence_display" not in body
 
@@ -131,7 +134,29 @@ def test_internal_beta_rejects_unauthorized_headers_before_body_validation(
     )
 
     assert response.status_code == 404
-    assert response.json() == {"detail": "Not found"}
+    body = response.json()
+    assert body == {"detail": "Not found"}
+    assert "aigc_watermark" not in body
+
+
+def test_no_public_chat_or_stream_routes_are_exposed(monkeypatch: pytest.MonkeyPatch) -> None:
+    enable_internal_beta(monkeypatch)
+
+    public_response = client.post(
+        "/v1/chat",
+        json={"message": "求最短路径，把车辆路线排出来"},
+        headers=VALID_HEADERS,
+    )
+    stream_response = client.post(
+        "/v1/chat/stream",
+        json={"message": "求最短路径，把车辆路线排出来"},
+        headers=VALID_HEADERS,
+    )
+
+    assert public_response.status_code == 404
+    assert stream_response.status_code == 404
+    assert "aigc_watermark" not in public_response.json()
+    assert "aigc_watermark" not in stream_response.json()
 
 
 def test_vrptw_message_returns_internal_beta_contract(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -277,28 +302,43 @@ def test_vrptw_message_returns_internal_beta_contract(monkeypatch: pytest.Monkey
         "human_review_escalated": True,
         "validation_errors": [],
     }
-    assert body["language_preview"] == {
-        "status": "fallback",
-        "source": "heuristic_language_internal_beta",
-        "response_locale": "zh-CN",
-        "summary": "已识别为 VRPTW 请求，并生成 internal beta 预览。",
-        "disclaimer": {
-            "zh": "AI 生成内容仅供参考，请在提交求解前核对。",
-            "en": "AI-generated content is for reference only. Review it before submitting a solve.",
-            "bilingual": (
-                "AI 生成内容仅供参考，请在提交求解前核对。 / "
-                "AI-generated content is for reference only. Review it before submitting a solve."
-            ),
-        },
-        "validation_errors": [
-            {
-                "field_path": "language.completion",
-                "message": "language completion used deterministic fallback",
-                "remediation_hint_key": "chat.language.fallback_used",
-            }
-        ],
-        "supported_locales": ["zh-CN", "en-US", "mixed"],
+    language_preview = body["language_preview"]
+    detected = aigc_filter.detect_watermark(language_preview["summary"])
+    assert language_preview["status"] == "fallback"
+    assert language_preview["source"] == "heuristic_language_internal_beta"
+    assert language_preview["response_locale"] == "zh-CN"
+    assert language_preview["summary"].startswith(
+        "已识别为 VRPTW 请求，并生成 internal beta 预览。"
+    )
+    assert aigc_filter.AIGC_VISIBLE_MARKER in language_preview["summary"]
+    assert detected.present is True
+    assert language_preview["aigc_watermark"] == {
+        "aria_label": aigc_filter.AIGC_ARIA_LABEL,
+        "visible_marker": aigc_filter.AIGC_VISIBLE_MARKER,
+        "trace_id": detected.trace_id,
+        "provider": aigc_filter.PROVIDER_MARKER,
+        "module_version": detected.module_version,
+        "tier": "strict",
+        "blocked": False,
+        "reason_codes": [],
+        "metadata": {"self_loop_bypass": False},
     }
+    assert language_preview["disclaimer"] == {
+        "zh": "AI 生成内容仅供参考，请在提交求解前核对。",
+        "en": "AI-generated content is for reference only. Review it before submitting a solve.",
+        "bilingual": (
+            "AI 生成内容仅供参考，请在提交求解前核对。 / "
+            "AI-generated content is for reference only. Review it before submitting a solve."
+        ),
+    }
+    assert language_preview["validation_errors"] == [
+        {
+            "field_path": "language.completion",
+            "message": "language completion used deterministic fallback",
+            "remediation_hint_key": "chat.language.fallback_used",
+        }
+    ]
+    assert language_preview["supported_locales"] == ["zh-CN", "en-US", "mixed"]
     assert body["aigc_gate"] == {"status": "filing_pending", "public_surface": "hidden"}
     assert body["llm_invoked"] is True
     assert body["critic_invoked"] is True

@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 
 import pytest
+from chat_service.aigc_watermark import apply_aigc_filter_to_summary
 from chat_service.critic import _passing_checks
 from chat_service.sandbox import generate_sandbox_preview
 from chat_service.schemas import (
@@ -100,6 +101,10 @@ def test_sandbox_preview_contract_rejects_non_executed_payload_drift() -> None:
 
 
 def test_internal_beta_response_contract_rejects_sandbox_invocation_drift() -> None:
+    language_summary, aigc_watermark = apply_aigc_filter_to_summary(
+        "Detected LP request and generated an internal beta preview."
+    )
+
     with pytest.raises(ValidationError) as exc_info:
         ChatInternalBetaMessageResponse(
             mode="internal_beta",
@@ -176,7 +181,8 @@ def test_internal_beta_response_contract_rejects_sandbox_invocation_drift() -> N
                 status="fallback",
                 source="heuristic_language_internal_beta",
                 response_locale="en-US",
-                summary="Detected LP request and generated an internal beta preview.",
+                summary=language_summary,
+                aigc_watermark=aigc_watermark,
                 disclaimer=ChatDisclaimer(
                     zh="AI 生成内容仅供参考，请在提交求解前核对。",
                     en="AI-generated content is for reference only. Review it before submitting a solve.",
