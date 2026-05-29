@@ -15,7 +15,9 @@ def _critic_preview(
     threshold: float = 0.6,
     reasoning: str = "Critic validated schema, safety, and business-logic consistency.",
 ) -> CriticPreview:
-    source = "llm_critic_internal_beta" if status == "validated" else "heuristic_critic_internal_beta"
+    source = (
+        "llm_critic_internal_beta" if status == "validated" else "heuristic_critic_internal_beta"
+    )
     return CriticPreview(
         status=status,
         source=source,
