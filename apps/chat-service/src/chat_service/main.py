@@ -5,6 +5,7 @@ from typing import Annotated
 
 from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
+from fastapi.responses import StreamingResponse
 from pydantic import ValidationError
 
 from chat_service import __version__
@@ -25,6 +26,7 @@ from chat_service.schemas import (
     ChatInternalBetaMessageRequest,
     ChatInternalBetaMessageResponse,
 )
+from chat_service.streaming import build_stream_events, iter_sse_payload
 
 app = FastAPI(
     title="OptiCloud Chat Service",
@@ -48,6 +50,65 @@ async def create_internal_beta_message(
     x_internal_beta_user: Annotated[str | None, Header(alias="X-Internal-Beta-User")] = None,
     x_internal_beta_token: Annotated[str | None, Header(alias="X-Internal-Beta-Token")] = None,
 ) -> ChatInternalBetaMessageResponse:
+    request = await _validate_internal_beta_request(
+        raw_request,
+        x_internal_beta_tenant=x_internal_beta_tenant,
+        x_internal_beta_user=x_internal_beta_user,
+        x_internal_beta_token=x_internal_beta_token,
+    )
+    return _build_internal_beta_response(
+        request,
+        tenant=x_internal_beta_tenant or "",
+        user=x_internal_beta_user or "",
+    )
+
+
+@app.post("/v1/chat/internal-beta/messages/stream")
+async def stream_internal_beta_message(
+    raw_request: Request,
+    x_internal_beta_tenant: Annotated[str | None, Header(alias="X-Internal-Beta-Tenant")] = None,
+    x_internal_beta_user: Annotated[str | None, Header(alias="X-Internal-Beta-User")] = None,
+    x_internal_beta_token: Annotated[str | None, Header(alias="X-Internal-Beta-Token")] = None,
+    last_event_id: Annotated[str | None, Header(alias="Last-Event-ID")] = None,
+) -> StreamingResponse:
+    request = await _validate_internal_beta_request(
+        raw_request,
+        x_internal_beta_tenant=x_internal_beta_tenant,
+        x_internal_beta_user=x_internal_beta_user,
+        x_internal_beta_token=x_internal_beta_token,
+    )
+    response = _build_internal_beta_response(
+        request,
+        tenant=x_internal_beta_tenant or "",
+        user=x_internal_beta_user or "",
+    )
+    events = build_stream_events(
+        message_id=response.message_id,
+        locale=response.locale,
+        content=response.language_preview.summary,
+        model_preview_id=response.model_preview.preview_id,
+        model_preview_status=response.model_preview.status,
+        aigc_watermark_trace_id=response.language_preview.aigc_watermark.trace_id,
+        aigc_gate=response.aigc_gate.model_dump(mode="json"),
+    )
+    return StreamingResponse(
+        iter_sse_payload(events, last_event_id=last_event_id),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+        },
+    )
+
+
+async def _validate_internal_beta_request(
+    raw_request: Request,
+    *,
+    x_internal_beta_tenant: str | None,
+    x_internal_beta_user: str | None,
+    x_internal_beta_token: str | None,
+) -> ChatInternalBetaMessageRequest:
     config = load_internal_beta_config()
     try:
         validate_internal_beta_access(
@@ -65,12 +126,20 @@ async def create_internal_beta_message(
         raise RequestValidationError(exc.errors()) from exc
     except ValueError as exc:
         raise HTTPException(status_code=422, detail="Invalid JSON body") from exc
+    return request
 
+
+def _build_internal_beta_response(
+    request: ChatInternalBetaMessageRequest,
+    *,
+    tenant: str,
+    user: str,
+) -> ChatInternalBetaMessageResponse:
     locale = request.locale or detect_locale(request.message)
     message_excerpt = build_message_excerpt(request.message)
     message_id = _message_id(
-        tenant=x_internal_beta_tenant or "",
-        user=x_internal_beta_user or "",
+        tenant=tenant,
+        user=user,
         message=request.message,
         client_request_id=request.client_request_id,
     )
