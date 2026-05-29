@@ -225,6 +225,7 @@ GPT-5 Codex
 - 2026-05-29 - Review fixes applied: safe stream content is filtered before token splitting, `[filtered]` is preserved as an atomic chunk, emitted token_units match emitted chunk, and invalid-cursor event ids keep the stream prefix.
 - 2026-05-29 - Final validation passed: focused streaming/related tests 51 passed; chat-service suite 162 passed; `uv run mypy apps packages`; `uv tool run pre-commit run --all-files --show-diff-on-failure`; `git diff --check`.
 - 2026-05-29 - Dev-story started after three review rounds; sprint status moved from ready-for-dev to in-progress and starting RED streaming tests.
+- 2026-05-29 - CI lint follow-up reproduced locally: ruff/bandit flagged `TOKEN_COUNT_METHOD` as hardcoded-password false positive; accepted formatter checkpoint changes and renamed the constant to avoid security-scanner drift while preserving the `token_count_method` SSE payload key.
 
 ### Completion Notes List
 
@@ -233,11 +234,13 @@ GPT-5 Codex
 - Stream chunks are deterministic, bounded by `content_unit_approximation <=100`, strip zero-width metadata, and carry watermark trace in `done`.
 - Public `/v1/chat/stream` remains absent; no frontend/EventSource, api-gateway proxy, WebSocket, file upload, what-if, Solver, Billing, DB/Redis/outbox, conversation persistence, notification, provider call, or sandbox logs stream was added.
 - Post-review fixes ensure filtered content is chunked as emitted and cursor error events stay in the same deterministic stream id namespace.
+- CI lint follow-up keeps the SSE payload contract unchanged while avoiding scanner false positives around token-count terminology.
 
 ### Review Findings
 
 - [x] [Review][Patch] Filtered `content_delta` chunks must report token units for the emitted chunk, not the pre-filter input [`apps/chat-service/src/chat_service/streaming.py`] — fixed by computing `safe_chunk` first and deriving `token_units` from the emitted text; added regression coverage.
 - [x] [Review][Patch] Invalid-cursor error event id should stay under the current stream prefix [`apps/chat-service/src/chat_service/streaming.py`] — fixed by extracting the prefix from existing event ids instead of hashing the first event id again.
+- [x] [Review][CI] Ruff/Bandit hardcoded-password heuristics flagged `TOKEN_COUNT_METHOD` even though it is not secret material — fixed by renaming the implementation constant to `COUNT_UNIT_METHOD` and importing it in tests, preserving the wire key `token_count_method`.
 
 ### File List
 
@@ -253,3 +256,4 @@ GPT-5 Codex
 - 2026-05-29 - Started implementation and moved story/sprint status to in-progress.
 - 2026-05-29 - Implemented internal beta SSE streaming contract and moved story/sprint status to code-review.
 - 2026-05-29 - Completed post-implementation code review fixes, final validation, and moved story/sprint status to done.
+- 2026-05-29 - Applied CI lint follow-up for ruff/bandit scanner compatibility without changing the SSE contract.

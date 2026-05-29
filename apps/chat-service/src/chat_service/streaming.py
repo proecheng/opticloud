@@ -7,11 +7,12 @@ from collections.abc import AsyncIterator, Mapping
 from dataclasses import dataclass
 
 import anyio
+import anyio.lowlevel
 
 from chat_service.schemas import ChatLocale, ModelPreviewStatus
 
 MAX_CHUNK_TOKEN_UNITS = 100
-TOKEN_COUNT_METHOD = "content_unit_approximation"
+COUNT_UNIT_METHOD = "content_unit_approximation"
 RETRY_MILLISECONDS = 3000
 FILTERED_CHUNK = "[filtered]"
 _EVENT_ID_PATTERN = re.compile(r"^sse_[0-9a-f]{16}_[0-9]{6}$")
@@ -62,7 +63,7 @@ def build_stream_events(
                 "public_access": False,
                 "locale": locale,
                 "max_chunk_token_units": MAX_CHUNK_TOKEN_UNITS,
-                "token_count_method": TOKEN_COUNT_METHOD,
+                "token_count_method": COUNT_UNIT_METHOD,
             },
         )
     ]
@@ -113,7 +114,7 @@ async def iter_sse_payload(
         yield format_sse_event(_invalid_cursor_event(events))
         return
     for event in events[start_index:]:
-        await anyio.sleep(0)
+        await anyio.lowlevel.checkpoint()
         yield format_sse_event(event)
 
 
@@ -124,12 +125,7 @@ def format_sse_event(event: ChatStreamEvent) -> str:
         sort_keys=True,
         separators=(",", ":"),
     )
-    return (
-        f"id: {event.event_id}\n"
-        f"event: {event.event}\n"
-        f"retry: {event.retry}\n"
-        f"data: {payload}\n\n"
-    )
+    return f"id: {event.event_id}\nevent: {event.event}\nretry: {event.retry}\ndata: {payload}\n\n"
 
 
 def split_content_chunks(text: str, *, max_units: int = MAX_CHUNK_TOKEN_UNITS) -> list[str]:

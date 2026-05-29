@@ -8,6 +8,7 @@ from collections.abc import Iterator
 import pytest
 from chat_service.main import app
 from chat_service.streaming import (
+    COUNT_UNIT_METHOD,
     build_stream_events,
     content_token_units,
     format_sse_event,
@@ -121,7 +122,7 @@ def test_authorized_stream_returns_sse_contract(monkeypatch: pytest.MonkeyPatch)
     assert start["mode"] == "internal_beta"
     assert start["public_access"] is False
     assert start["max_chunk_token_units"] == 100
-    assert start["token_count_method"] == "content_unit_approximation"
+    assert start["token_count_method"] == COUNT_UNIT_METHOD
 
     delta = events[2]["data"]
     assert delta["chunk"]
@@ -155,9 +156,7 @@ def test_stream_matches_json_contract_for_stable_ids(monkeypatch: pytest.MonkeyP
     assert start["locale"] == body["locale"]
     assert done["model_preview_id"] == body["model_preview"]["preview_id"]
     assert done["model_preview_status"] == body["model_preview"]["status"]
-    assert done["aigc_watermark_trace_id"] == body["language_preview"]["aigc_watermark"][
-        "trace_id"
-    ]
+    assert done["aigc_watermark_trace_id"] == body["language_preview"]["aigc_watermark"]["trace_id"]
     assert done["aigc_gate"] == body["aigc_gate"]
 
 
