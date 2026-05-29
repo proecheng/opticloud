@@ -17,6 +17,9 @@ CoderPreviewSource = Literal[
     "template_coder_internal_beta",
     "heuristic_coder_internal_beta",
 ]
+CriticPreviewStatus = Literal["validated", "needs_clarification", "skipped"]
+CriticPreviewSource = Literal["llm_critic_internal_beta", "heuristic_critic_internal_beta"]
+CriticCheckName = Literal["schema", "safety", "business_logic"]
 LanguagePreviewStatus = Literal["generated", "fallback"]
 LanguagePreviewSource = Literal["llm_language_internal_beta", "heuristic_language_internal_beta"]
 
@@ -135,6 +138,57 @@ class CoderPreview(BaseModel):
         return self
 
 
+class CriticValidationError(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    field_path: str = Field(min_length=1, max_length=128)
+    message: str = Field(min_length=1, max_length=160)
+    remediation_hint_key: str | None = Field(default=None, min_length=1, max_length=128)
+
+
+class CriticCheck(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    passed: bool
+    message: str = Field(min_length=1, max_length=160)
+    field_path: str | None = Field(default=None, min_length=1, max_length=128)
+
+
+class CriticPreview(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    status: CriticPreviewStatus
+    source: CriticPreviewSource
+    task_type: TaskType
+    confidence: float = Field(ge=0.0, le=1.0)
+    reasoning: str = Field(min_length=1, max_length=280)
+    checks: dict[CriticCheckName, CriticCheck]
+    validation_errors: list[CriticValidationError] = Field(default_factory=list, max_length=10)
+    supported_task_types: list[TaskType]
+    calibration_threshold: float = Field(ge=0.0, le=1.0)
+    threshold_source: str = Field(min_length=1, max_length=160)
+
+    @model_validator(mode="after")
+    def validate_critic_contract(self) -> CriticPreview:
+        expected_checks = {"schema", "safety", "business_logic"}
+        if set(self.checks) != expected_checks:
+            raise ValueError("critic checks must cover schema, safety, and business_logic")
+        if self.status == "validated" and self.source != "llm_critic_internal_beta":
+            raise ValueError("validated critic preview requires LLM source")
+        if self.status != "validated" and self.source != "heuristic_critic_internal_beta":
+            raise ValueError("non-validated critic preview requires heuristic source")
+        if self.supported_task_types != [
+            "lp",
+            "vrptw",
+            "prediction",
+            "schedule",
+            "inventory",
+            "unknown",
+        ]:
+            raise ValueError("supported_task_types must use the canonical order")
+        return self
+
+
 class LanguageValidationError(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -187,9 +241,12 @@ class ChatInternalBetaMessageResponse(BaseModel):
     router_preview: RouterPreview
     formulator_preview: FormulatorPreview
     coder_preview: CoderPreview
+    critic_preview: CriticPreview
     language_preview: LanguagePreview
     aigc_gate: AigcGate
     llm_invoked: bool
+    critic_invoked: bool
+    critic_llm_invoked: bool
     provider_request_sent: Literal[False]
     solver_invoked: Literal[False]
     sandbox_invoked: Literal[False]

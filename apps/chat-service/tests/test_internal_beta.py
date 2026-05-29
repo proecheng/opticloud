@@ -182,6 +182,40 @@ def test_vrptw_message_returns_internal_beta_contract(monkeypatch: pytest.Monkey
         ],
         "supported_task_types": ["lp", "vrptw", "prediction", "schedule", "inventory", "unknown"],
     }
+    assert body["critic_preview"] == {
+        "status": "skipped",
+        "source": "heuristic_critic_internal_beta",
+        "task_type": "vrptw",
+        "confidence": 0.0,
+        "reasoning": "Critic skipped because no generated code artifact is available.",
+        "checks": {
+            "schema": {
+                "passed": False,
+                "message": "generated code artifact is required before critic validation",
+                "field_path": "coder_preview.artifact",
+            },
+            "safety": {
+                "passed": False,
+                "message": "generated code artifact is required before safety validation",
+                "field_path": "coder_preview.artifact",
+            },
+            "business_logic": {
+                "passed": False,
+                "message": "generated code artifact is required before business validation",
+                "field_path": "coder_preview.artifact",
+            },
+        },
+        "validation_errors": [
+            {
+                "field_path": "coder_preview.artifact",
+                "message": "generated code artifact is required before critic validation",
+                "remediation_hint_key": "chat.critic.artifact_required",
+            }
+        ],
+        "supported_task_types": ["lp", "vrptw", "prediction", "schedule", "inventory", "unknown"],
+        "calibration_threshold": 0.6,
+        "threshold_source": "apps/critic-service/config/critic-calibration.json",
+    }
     assert body["language_preview"] == {
         "status": "fallback",
         "source": "heuristic_language_internal_beta",
@@ -206,12 +240,17 @@ def test_vrptw_message_returns_internal_beta_contract(monkeypatch: pytest.Monkey
     }
     assert body["aigc_gate"] == {"status": "filing_pending", "public_surface": "hidden"}
     assert body["llm_invoked"] is True
+    assert body["critic_invoked"] is True
+    assert body["critic_llm_invoked"] is False
     assert body["provider_request_sent"] is False
     assert body["formulator_preview"]["source"] != "provider_response"
     assert body["coder_preview"]["source"] != "provider_response"
+    assert body["critic_preview"]["source"] != "provider_response"
     assert body["language_preview"]["source"] != "provider_response"
     assert body["solver_invoked"] is False
     assert body["sandbox_invoked"] is False
+    assert "human_review_queue" not in body
+    assert "aigc_filter" not in body
 
 
 def test_vrptw_message_uses_llm_router_intent_contract(
@@ -250,6 +289,12 @@ def test_llm_router_guardrail_preserves_supported_non_route_task_types(
     assert body["coder_preview"]["task_type"] == "prediction"
     assert body["coder_preview"]["status"] == "needs_clarification"
     assert body["coder_preview"]["artifact"] is None
+    assert body["critic_invoked"] is True
+    assert body["critic_llm_invoked"] is False
+    assert body["critic_preview"]["status"] == "skipped"
+    assert body["critic_preview"]["confidence"] < body["critic_preview"]["calibration_threshold"]
+    assert "human_review_queue" not in body
+    assert "escalated" not in body
     assert body["llm_invoked"] is True
     assert body["provider_request_sent"] is False
 
@@ -286,9 +331,12 @@ def test_router_preview_is_deterministic_for_supported_task_types(
         assert body["coder_preview"]["status"] == "skipped"
         assert body["coder_preview"]["task_type"] == "unknown"
         assert body["coder_preview"]["artifact"] is None
+        assert body["critic_preview"]["status"] == "skipped"
+        assert body["critic_llm_invoked"] is False
     else:
         assert body["formulator_preview"]["task_type"] == expected_task_type
         assert body["coder_preview"]["task_type"] == expected_task_type
+        assert body["critic_preview"]["task_type"] == expected_task_type
     assert body["language_preview"]["response_locale"] == expected_locale
     assert body["language_preview"]["supported_locales"] == ["zh-CN", "en-US", "mixed"]
 
@@ -329,6 +377,16 @@ def test_internal_beta_response_keeps_g6_latency_validation_boundaries(
     assert body["provider_request_sent"] is False
     assert body["solver_invoked"] is False
     assert body["sandbox_invoked"] is False
+    assert body["critic_invoked"] is True
+    assert body["critic_llm_invoked"] is False
+    assert body["critic_preview"]["status"] == "skipped"
+    assert body["critic_preview"]["calibration_threshold"] == 0.6
+    assert body["critic_preview"]["threshold_source"] == (
+        "apps/critic-service/config/critic-calibration.json"
+    )
+    assert set(body["critic_preview"]["checks"]) == {"schema", "safety", "business_logic"}
+    assert "human_review_queue" not in body
+    assert "escalated" not in body
     assert "hard_gate_pass" not in body
     assert "staging_pass" not in body
     assert "evidence_manifest" not in body
@@ -336,6 +394,7 @@ def test_internal_beta_response_keeps_g6_latency_validation_boundaries(
     assert "grafana_screenshot" not in body
     assert "provider" not in body
     assert "raw_response" not in body
+    assert "raw_response_redacted" not in body
 
 
 def test_explicit_locale_override_drives_language_preview(
