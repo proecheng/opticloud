@@ -52,6 +52,7 @@ def generate_sandbox_preview(
     *,
     coder_preview: CoderPreview,
     critic_preview: CriticPreview,
+    allow_logs_stream: bool = False,
 ) -> SandboxRouteResult:
     limits = _sandbox_limits_preview()
     skip_error = _skip_reason(coder_preview, critic_preview)
@@ -84,6 +85,7 @@ def generate_sandbox_preview(
         stdin="",
         input_files=[],
         limits=SandboxLimits(),
+        allow_logs_stream=allow_logs_stream,
     )
 
     try:

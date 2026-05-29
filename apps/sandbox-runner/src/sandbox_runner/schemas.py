@@ -13,6 +13,7 @@ class SandboxStatus(StrEnum):
 class SandboxErrorCode(StrEnum):
     INVALID_INPUT_PATH = "invalid_input_path"
     LLM_SELF_LOOP_BLOCKED = "llm_self_loop_blocked"
+    LOGS_STREAM_DEFERRED = "logs_stream_deferred"
     NETWORK_DISABLED = "network_disabled"
     RESULT_BUDGET_EXCEEDED = "result_budget_exceeded"
     UNSUPPORTED_BINARY_PAYLOAD = "unsupported_binary_payload"
@@ -36,6 +37,7 @@ class SandboxExecutionRequest(BaseModel):
     stdin: str = Field(default="", max_length=65536)
     input_files: list[SandboxInputFile] = Field(default_factory=list, max_length=32)
     limits: SandboxLimits = Field(default_factory=SandboxLimits)
+    allow_logs_stream: bool = False
 
 
 class SandboxResultFile(BaseModel):

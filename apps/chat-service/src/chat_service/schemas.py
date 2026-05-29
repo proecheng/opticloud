@@ -30,6 +30,7 @@ SandboxPreviewSource = Literal[
 SandboxPreviewErrorCode = Literal[
     "invalid_input_path",
     "llm_self_loop_blocked",
+    "logs_stream_deferred",
     "network_disabled",
     "result_budget_exceeded",
     "unsupported_binary_payload",

@@ -141,7 +141,7 @@ development_status:
   4-b-3-critic-confidence-escalate: done
   4-b-4-confidence-label-ui: done
   4-b-5-aigc-filter-invoke: done
-  4-b-6-sandbox-logs-stream-v1-5: backlog
+  4-b-6-sandbox-logs-stream-v1-5: done
   4-b-7-critic-redteam-tests: backlog
 
   4-c-1-preview-confirm-model: backlog

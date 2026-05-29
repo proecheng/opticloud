@@ -37,6 +37,16 @@ LLM_SELF_LOOP_PATTERNS = (
 
 
 def validate_request_policy(request: SandboxExecutionRequest) -> None:
+    if request.allow_logs_stream:
+        raise SandboxPolicyError(
+            SandboxErrorCode.LOGS_STREAM_DEFERRED,
+            (
+                "Sandbox logs streaming is reserved for v1.5+ and is not available in "
+                "the current internal beta contract."
+            ),
+            executor_invoked=False,
+        )
+
     validate_input_paths(request)
     combined = f"{request.code}\n{request.stdin}".lower()
 
