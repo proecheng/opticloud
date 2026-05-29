@@ -10,6 +10,7 @@ from opticloud_shared.llm_router import Completion, LLMRouterError, Prompt, Prom
 from opticloud_shared.llm_router.registry import CANONICAL_MODEL_ALIASES
 from pydantic import ValidationError
 
+from chat_service.aigc_watermark import apply_aigc_filter_to_summary
 from chat_service.schemas import (
     ChatDisclaimer,
     ChatLocale,
@@ -214,12 +215,15 @@ def parse_language_response_completion(
     if errors is None:
         return None
 
+    filtered_summary, aigc_watermark = apply_aigc_filter_to_summary(summary.strip())
+
     try:
         return LanguagePreview(
             status="generated",
             source=LLM_LANGUAGE_SOURCE,
             response_locale=locale,
-            summary=summary.strip(),
+            summary=filtered_summary,
+            aigc_watermark=aigc_watermark,
             disclaimer=_disclaimer(),
             validation_errors=errors,
             supported_locales=list(SUPPORTED_LOCALES),
@@ -247,11 +251,14 @@ def heuristic_language_preview(
     else:
         summary = f"已识别为 {_TASK_LABELS_EN[task_type]} request，并生成 internal beta preview。"
 
+    filtered_summary, aigc_watermark = apply_aigc_filter_to_summary(summary)
+
     return LanguagePreview(
         status="fallback",
         source=HEURISTIC_LANGUAGE_SOURCE,
         response_locale=locale,
-        summary=summary,
+        summary=filtered_summary,
+        aigc_watermark=aigc_watermark,
         disclaimer=_disclaimer(),
         validation_errors=validation_errors or [],
         supported_locales=list(SUPPORTED_LOCALES),

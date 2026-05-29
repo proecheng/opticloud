@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import re
 from typing import Literal
 
+import aigc_filter
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 ChatLocale = Literal["zh-CN", "en-US", "mixed"]
@@ -45,6 +47,21 @@ HumanReviewReasonCode = Literal[
 CriticConfidenceDisplayTier = Literal["high", "mid", "low"]
 LanguagePreviewStatus = Literal["generated", "fallback"]
 LanguagePreviewSource = Literal["llm_language_internal_beta", "heuristic_language_internal_beta"]
+AigcWatermarkTier = Literal["strict", "loose"]
+
+_AIGC_TRACE_ID_PATTERN = r"^trc_[0-9a-f]{16}$"
+_AIGC_REASON_CODE_PATTERN = re.compile(r"^[a-z0-9_]{1,64}$")
+_AIGC_SAFE_VERSION_PATTERN = r"^[0-9A-Za-z][0-9A-Za-z._-]{0,31}$"
+_AIGC_ALLOWED_METADATA_KEYS = {"self_loop_bypass"}
+_AIGC_NO_LEAK_PATTERN = re.compile(
+    r"(sk-[A-Za-z0-9_-]{4,}|api[_\s-]?key|bearer\s+[A-Za-z0-9._-]+|"
+    r"authorization|cookie|password|token|raw[_ -]?(?:response|request)|"
+    r"raw[_ -]?(?:summary|user[_ -]?message)|"
+    r"provider[_ -]?(?:request|response|payload)?|prompt|traceback|"
+    r"generated[_ -]?code|sandbox[_ -]?output|"
+    r"[A-Za-z]:\\|/tmp/|/var/|queue[_ -]?payload)",
+    re.IGNORECASE,
+)
 
 
 class ChatInternalBetaMessageRequest(BaseModel):
@@ -426,25 +443,94 @@ class ChatDisclaimer(BaseModel):
     ]
 
 
+class AigcWatermarkPreview(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    aria_label: str = Field(min_length=1, max_length=64)
+    visible_marker: str = Field(min_length=1, max_length=64)
+    trace_id: str = Field(pattern=_AIGC_TRACE_ID_PATTERN)
+    provider: str = Field(min_length=1, max_length=64)
+    module_version: str = Field(min_length=1, max_length=32, pattern=_AIGC_SAFE_VERSION_PATTERN)
+    tier: AigcWatermarkTier
+    blocked: bool
+    reason_codes: list[str] = Field(default_factory=list, max_length=8)
+    metadata: dict[str, object] = Field(default_factory=dict, max_length=4)
+
+    @field_validator("reason_codes")
+    @classmethod
+    def validate_reason_codes(cls, value: list[str]) -> list[str]:
+        normalized: list[str] = []
+        for code in value:
+            clean = code.strip()
+            if (
+                clean != code
+                or not _AIGC_REASON_CODE_PATTERN.fullmatch(clean)
+                or _AIGC_NO_LEAK_PATTERN.search(clean)
+            ):
+                raise ValueError("aigc reason_codes must be bounded policy codes")
+            normalized.append(clean)
+        if len(set(normalized)) != len(normalized):
+            raise ValueError("aigc reason_codes must not contain duplicates")
+        return normalized
+
+    @field_validator("metadata")
+    @classmethod
+    def validate_metadata(cls, value: dict[str, object]) -> dict[str, object]:
+        if set(value) - _AIGC_ALLOWED_METADATA_KEYS:
+            raise ValueError("aigc metadata contains unsupported keys")
+        for key, raw_value in value.items():
+            if _AIGC_NO_LEAK_PATTERN.search(key):
+                raise ValueError("aigc metadata keys must not leak internals")
+            if key == "self_loop_bypass" and not isinstance(raw_value, bool):
+                raise ValueError("aigc self_loop_bypass metadata must be boolean")
+        return value
+
+    @model_validator(mode="after")
+    def validate_blocked_reason_consistency(self) -> AigcWatermarkPreview:
+        if self.aria_label != aigc_filter.AIGC_ARIA_LABEL:
+            raise ValueError("aigc aria_label must match shared module")
+        if self.visible_marker != aigc_filter.AIGC_VISIBLE_MARKER:
+            raise ValueError("aigc visible_marker must match shared module")
+        if self.provider != aigc_filter.PROVIDER_MARKER:
+            raise ValueError("aigc provider must match shared module")
+        if self.blocked and "blocked_content" not in self.reason_codes:
+            raise ValueError("blocked aigc output requires blocked_content reason")
+        if not self.blocked and self.reason_codes:
+            raise ValueError("unblocked aigc output must not include reason_codes")
+        return self
+
+
 class LanguagePreview(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     status: LanguagePreviewStatus
     source: LanguagePreviewSource
     response_locale: ChatLocale
-    summary: str = Field(min_length=1, max_length=360)
+    summary: str = Field(min_length=1, max_length=1800)
+    aigc_watermark: AigcWatermarkPreview
     disclaimer: ChatDisclaimer
     validation_errors: list[LanguageValidationError] = Field(default_factory=list, max_length=10)
     supported_locales: list[ChatLocale]
 
     @model_validator(mode="after")
-    def validate_status_source(self) -> LanguagePreview:
+    def validate_status_source_and_watermark(self) -> LanguagePreview:
         if self.status == "generated" and self.source != "llm_language_internal_beta":
             raise ValueError("generated language preview requires LLM source")
         if self.status == "fallback" and self.source != "heuristic_language_internal_beta":
             raise ValueError("fallback language preview requires heuristic source")
         if self.supported_locales != ["zh-CN", "en-US", "mixed"]:
             raise ValueError("supported_locales must use the canonical order")
+        if aigc_filter.AIGC_VISIBLE_MARKER not in self.summary:
+            raise ValueError("language summary requires shared AIGC visible marker")
+        detected = aigc_filter.detect_watermark(self.summary)
+        if not detected.present:
+            raise ValueError("language summary requires detectable AIGC watermark metadata")
+        if detected.trace_id != self.aigc_watermark.trace_id:
+            raise ValueError("language summary watermark trace_id must match preview")
+        if detected.provider != self.aigc_watermark.provider:
+            raise ValueError("language summary watermark provider must match preview")
+        if detected.module_version != self.aigc_watermark.module_version:
+            raise ValueError("language summary watermark module_version must match preview")
         return self
 
 
