@@ -16,6 +16,7 @@ from chat_service.gate import InternalBetaAccessDeniedError, validate_internal_b
 from chat_service.language_response import generate_language_response_with_llm
 from chat_service.llm_intent import route_intent_with_llm
 from chat_service.router_preview import build_message_excerpt, detect_locale
+from chat_service.sandbox import generate_sandbox_preview
 from chat_service.schemas import (
     AigcGate,
     ChatInternalBetaMessageRequest,
@@ -92,6 +93,10 @@ async def create_internal_beta_message(
         prompt_id=message_id,
         coder_preview=coder_result.preview,
     )
+    sandbox_result = generate_sandbox_preview(
+        coder_preview=coder_result.preview,
+        critic_preview=critic_result.preview,
+    )
     language_result = generate_language_response_with_llm(
         message=request.message,
         locale=locale,
@@ -112,6 +117,7 @@ async def create_internal_beta_message(
         formulator_preview=formulator_result.preview,
         coder_preview=coder_result.preview,
         critic_preview=critic_result.preview,
+        sandbox_preview=sandbox_result.preview,
         language_preview=language_result.preview,
         aigc_gate=AigcGate(status="filing_pending", public_surface="hidden"),
         llm_invoked=(
@@ -131,7 +137,7 @@ async def create_internal_beta_message(
             or language_result.provider_request_sent
         ),
         solver_invoked=False,
-        sandbox_invoked=False,
+        sandbox_invoked=sandbox_result.sandbox_invoked,
     )
 
 

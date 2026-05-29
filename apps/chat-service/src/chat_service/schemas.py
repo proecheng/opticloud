@@ -20,6 +20,18 @@ CoderPreviewSource = Literal[
 CriticPreviewStatus = Literal["validated", "needs_clarification", "skipped"]
 CriticPreviewSource = Literal["llm_critic_internal_beta", "heuristic_critic_internal_beta"]
 CriticCheckName = Literal["schema", "safety", "business_logic"]
+SandboxPreviewStatus = Literal["succeeded", "failed", "policy_blocked", "skipped"]
+SandboxPreviewSource = Literal[
+    "sandbox_runner_local_contract_internal_beta",
+    "heuristic_sandbox_internal_beta",
+]
+SandboxPreviewErrorCode = Literal[
+    "invalid_input_path",
+    "llm_self_loop_blocked",
+    "network_disabled",
+    "result_budget_exceeded",
+    "unsupported_binary_payload",
+]
 LanguagePreviewStatus = Literal["generated", "fallback"]
 LanguagePreviewSource = Literal["llm_language_internal_beta", "heuristic_language_internal_beta"]
 
@@ -189,6 +201,95 @@ class CriticPreview(BaseModel):
         return self
 
 
+class SandboxValidationError(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    field_path: str = Field(min_length=1, max_length=128)
+    message: str = Field(min_length=1, max_length=160)
+    remediation_hint_key: str | None = Field(default=None, min_length=1, max_length=128)
+
+
+class SandboxResultFilePreview(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    path: str = Field(min_length=1, max_length=256)
+    size_bytes: int = Field(ge=0)
+    sha256: str = Field(min_length=64, max_length=64)
+
+    @field_validator("path")
+    @classmethod
+    def validate_relative_result_path(cls, value: str) -> str:
+        normalized = value.strip()
+        if (
+            not normalized
+            or normalized.startswith("/")
+            or normalized.startswith("\\")
+            or ":" in normalized
+            or ".." in normalized.replace("\\", "/").split("/")
+        ):
+            raise ValueError("result file path must be relative")
+        return normalized
+
+
+class SandboxLimitsPreview(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    cpu_vcpu: Literal[1]
+    memory_mb: Literal[1024]
+    soft_timeout_seconds: Literal[30]
+    hard_timeout_seconds: Literal[90]
+    network_disabled: Literal[True]
+    read_only_filesystem: Literal[True]
+    result_file_budget_bytes: Literal[104857600]
+
+
+class SandboxPreview(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    status: SandboxPreviewStatus
+    source: SandboxPreviewSource
+    task_type: TaskType
+    stdout_excerpt: str = Field(max_length=512)
+    stderr_excerpt: str = Field(max_length=512)
+    exit_code: int | None = Field(default=None, ge=0, le=255)
+    result_files: list[SandboxResultFilePreview] = Field(default_factory=list, max_length=20)
+    error_code: SandboxPreviewErrorCode | None = None
+    limits: SandboxLimitsPreview
+    validation_errors: list[SandboxValidationError] = Field(default_factory=list, max_length=10)
+    contract_version: Literal["sandbox-runner-p58-p62-local-v1"]
+
+    @model_validator(mode="after")
+    def validate_sandbox_contract(self) -> SandboxPreview:
+        if self.status == "skipped" and self.source != "heuristic_sandbox_internal_beta":
+            raise ValueError("skipped sandbox preview requires heuristic source")
+        if (
+            self.status != "skipped"
+            and self.source != "sandbox_runner_local_contract_internal_beta"
+        ):
+            raise ValueError("non-skipped sandbox preview requires sandbox-runner source")
+        if self.status == "skipped" and (
+            self.exit_code is not None
+            or self.result_files
+            or self.error_code is not None
+            or self.stdout_excerpt
+            or self.stderr_excerpt
+        ):
+            raise ValueError("skipped sandbox preview must not include execution output")
+        if self.status == "policy_blocked" and (
+            self.exit_code is not None or self.result_files or self.stdout_excerpt
+        ):
+            raise ValueError("policy-blocked sandbox preview must not include execution output")
+        if self.status == "policy_blocked" and self.error_code is None:
+            raise ValueError("policy-blocked sandbox preview requires error_code")
+        if self.status in {"succeeded", "failed"} and self.error_code is not None:
+            raise ValueError("completed sandbox preview must not include error_code")
+        if self.status == "succeeded" and self.exit_code != 0:
+            raise ValueError("succeeded sandbox preview requires exit_code 0")
+        if self.status == "failed" and self.exit_code in (None, 0):
+            raise ValueError("failed sandbox preview requires non-zero exit_code")
+        return self
+
+
 class LanguageValidationError(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -242,6 +343,7 @@ class ChatInternalBetaMessageResponse(BaseModel):
     formulator_preview: FormulatorPreview
     coder_preview: CoderPreview
     critic_preview: CriticPreview
+    sandbox_preview: SandboxPreview
     language_preview: LanguagePreview
     aigc_gate: AigcGate
     llm_invoked: bool
@@ -249,4 +351,12 @@ class ChatInternalBetaMessageResponse(BaseModel):
     critic_llm_invoked: bool
     provider_request_sent: Literal[False]
     solver_invoked: Literal[False]
-    sandbox_invoked: Literal[False]
+    sandbox_invoked: bool
+
+    @model_validator(mode="after")
+    def validate_sandbox_invocation_flag(self) -> ChatInternalBetaMessageResponse:
+        if self.sandbox_preview.status == "skipped" and self.sandbox_invoked:
+            raise ValueError("skipped sandbox preview must set sandbox_invoked=false")
+        if self.sandbox_preview.status != "skipped" and not self.sandbox_invoked:
+            raise ValueError("non-skipped sandbox preview must set sandbox_invoked=true")
+        return self
