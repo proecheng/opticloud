@@ -216,6 +216,33 @@ def test_vrptw_message_returns_internal_beta_contract(monkeypatch: pytest.Monkey
         "calibration_threshold": 0.6,
         "threshold_source": "apps/critic-service/config/critic-calibration.json",
     }
+    assert body["sandbox_preview"] == {
+        "status": "skipped",
+        "source": "heuristic_sandbox_internal_beta",
+        "task_type": "vrptw",
+        "stdout_excerpt": "",
+        "stderr_excerpt": "",
+        "exit_code": None,
+        "result_files": [],
+        "error_code": None,
+        "limits": {
+            "cpu_vcpu": 1,
+            "memory_mb": 1024,
+            "soft_timeout_seconds": 30,
+            "hard_timeout_seconds": 90,
+            "network_disabled": True,
+            "read_only_filesystem": True,
+            "result_file_budget_bytes": 104857600,
+        },
+        "validation_errors": [
+            {
+                "field_path": "coder_preview.artifact",
+                "message": "generated code artifact is required before sandbox execution",
+                "remediation_hint_key": "chat.sandbox.artifact_required",
+            }
+        ],
+        "contract_version": "sandbox-runner-p58-p62-local-v1",
+    }
     assert body["language_preview"] == {
         "status": "fallback",
         "source": "heuristic_language_internal_beta",
@@ -251,6 +278,8 @@ def test_vrptw_message_returns_internal_beta_contract(monkeypatch: pytest.Monkey
     assert body["sandbox_invoked"] is False
     assert "human_review_queue" not in body
     assert "aigc_filter" not in body
+    assert "sandbox_result" not in body
+    assert "execution_log" not in body
 
 
 def test_vrptw_message_uses_llm_router_intent_contract(
@@ -292,6 +321,8 @@ def test_llm_router_guardrail_preserves_supported_non_route_task_types(
     assert body["critic_invoked"] is True
     assert body["critic_llm_invoked"] is False
     assert body["critic_preview"]["status"] == "skipped"
+    assert body["sandbox_preview"]["status"] == "skipped"
+    assert body["sandbox_invoked"] is False
     assert body["critic_preview"]["confidence"] < body["critic_preview"]["calibration_threshold"]
     assert "human_review_queue" not in body
     assert "escalated" not in body
@@ -385,6 +416,16 @@ def test_internal_beta_response_keeps_g6_latency_validation_boundaries(
         "apps/critic-service/config/critic-calibration.json"
     )
     assert set(body["critic_preview"]["checks"]) == {"schema", "safety", "business_logic"}
+    assert body["sandbox_preview"]["status"] == "skipped"
+    assert body["sandbox_preview"]["limits"] == {
+        "cpu_vcpu": 1,
+        "memory_mb": 1024,
+        "soft_timeout_seconds": 30,
+        "hard_timeout_seconds": 90,
+        "network_disabled": True,
+        "read_only_filesystem": True,
+        "result_file_budget_bytes": 104857600,
+    }
     assert "human_review_queue" not in body
     assert "escalated" not in body
     assert "hard_gate_pass" not in body

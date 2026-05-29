@@ -137,7 +137,7 @@ development_status:
   4-a-6-g6-chat-latency-validation: done
 
   4-b-1-critic-validate-code: done
-  4-b-2-sandbox-gvisor-execute: backlog
+  4-b-2-sandbox-gvisor-execute: code-review
   4-b-3-critic-confidence-escalate: backlog
   4-b-4-confidence-label-ui: backlog
   4-b-5-aigc-filter-invoke: backlog

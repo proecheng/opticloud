@@ -89,6 +89,7 @@ jobs:
               - 'infra/local-init/10-cost-attribution.sql'
             chat_service:
               - 'apps/chat-service/**'
+              - 'apps/sandbox-runner/**'
               - 'packages/shared-py/opticloud_shared/llm_router/**'
               - 'packages/shared-py/opticloud_shared/__init__.py'
               - 'packages/shared-py/pyproject.toml'
@@ -453,7 +454,7 @@ jobs:
       - run: uv sync --all-packages --extra dev
       - run: uv run pytest apps/chat-service/tests/ -v
         env:
-          PYTHONPATH: apps/chat-service/src
+          PYTHONPATH: apps/chat-service/src:apps/sandbox-runner/src
 
   # ===== Other service stubs (will populate as services come online) =====
   # api-gateway-test, ...
