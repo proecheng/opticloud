@@ -126,7 +126,7 @@ development_status:
 
   # ===== Epic 4.A/B/C: Chat & NL (19 stories) — M3 AIGC gated =====
   epic-4-a: in-progress
-  epic-4-b: backlog
+  epic-4-b: in-progress
   epic-4-c: backlog
 
   4-a-1-nl-chat-input-internal-beta: done
@@ -136,7 +136,7 @@ development_status:
   4-a-5-zh-en-mixed: done
   4-a-6-g6-chat-latency-validation: done
 
-  4-b-1-critic-validate-code: backlog
+  4-b-1-critic-validate-code: done
   4-b-2-sandbox-gvisor-execute: backlog
   4-b-3-critic-confidence-escalate: backlog
   4-b-4-confidence-label-ui: backlog

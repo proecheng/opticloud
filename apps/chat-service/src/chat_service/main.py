@@ -10,6 +10,7 @@ from pydantic import ValidationError
 from chat_service import __version__
 from chat_service.coder import generate_code_with_llm
 from chat_service.config import load_internal_beta_config
+from chat_service.critic import generate_critic_validation_with_llm
 from chat_service.formulator import extract_formulation_with_llm
 from chat_service.gate import InternalBetaAccessDeniedError, validate_internal_beta_access
 from chat_service.language_response import generate_language_response_with_llm
@@ -86,6 +87,11 @@ async def create_internal_beta_message(
         prompt_id=message_id,
         formulator_preview=formulator_result.preview,
     )
+    critic_result = generate_critic_validation_with_llm(
+        locale=locale,
+        prompt_id=message_id,
+        coder_preview=coder_result.preview,
+    )
     language_result = generate_language_response_with_llm(
         message=request.message,
         locale=locale,
@@ -105,18 +111,23 @@ async def create_internal_beta_message(
         router_preview=intent_result.preview,
         formulator_preview=formulator_result.preview,
         coder_preview=coder_result.preview,
+        critic_preview=critic_result.preview,
         language_preview=language_result.preview,
         aigc_gate=AigcGate(status="filing_pending", public_surface="hidden"),
         llm_invoked=(
             intent_result.llm_invoked
             or formulator_result.formulator_invoked
             or coder_result.coder_invoked
+            or critic_result.critic_llm_invoked
             or language_result.language_invoked
         ),
+        critic_invoked=critic_result.critic_invoked,
+        critic_llm_invoked=critic_result.critic_llm_invoked,
         provider_request_sent=(
             intent_result.provider_request_sent
             or formulator_result.provider_request_sent
             or coder_result.provider_request_sent
+            or critic_result.provider_request_sent
             or language_result.provider_request_sent
         ),
         solver_invoked=False,
