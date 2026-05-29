@@ -117,7 +117,8 @@ def build_what_if_preview(
     adjusted_variables = _apply_safe_delta(sanitized.variables, message)
     diff = _build_diff("variables", sanitized.variables, adjusted_variables)
     can_compare_current_preview = (
-        model_preview.status == "ready_to_confirm" and model_preview.task_type == sanitized.task_type
+        model_preview.status == "ready_to_confirm"
+        and model_preview.task_type == sanitized.task_type
     )
     if not diff and can_compare_current_preview:
         diff = _build_diff("objective", sanitized.objective, model_preview.objective)
