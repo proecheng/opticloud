@@ -63,6 +63,7 @@ def test_internal_beta_defaults_fail_closed_without_leaking_aigc_gate() -> None:
     assert body == {"detail": "Not found"}
     assert "aigc_gate" not in body
     assert "human_review" not in body
+    assert "critic_confidence_display" not in body
 
 
 def test_internal_beta_disabled_rejects_invalid_body_without_schema_leak() -> None:
@@ -73,6 +74,7 @@ def test_internal_beta_disabled_rejects_invalid_body_without_schema_leak() -> No
     assert body == {"detail": "Not found"}
     assert "aigc_gate" not in body
     assert "human_review" not in body
+    assert "critic_confidence_display" not in body
 
 
 def test_internal_beta_requires_founder_legal_signoff(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -263,6 +265,18 @@ def test_vrptw_message_returns_internal_beta_contract(monkeypatch: pytest.Monkey
     }
     assert body["human_review"]["review_id"].startswith("hrv_")
     assert len(body["human_review"]["review_id"]) == 28
+    assert body["critic_confidence_display"] == {
+        "score": 0.0,
+        "tier": "low",
+        "label_zh": "低置信请人工 review",
+        "label_en": "Low confidence; human review recommended",
+        "reasoning_zh": "Critic 置信度低，已转人工复核。",
+        "reasoning_en": "Critic confidence is low; this has been routed for human review.",
+        "aria_label": "Confidence: 0.00 - Low confidence; human review recommended",
+        "calibration_threshold": 0.6,
+        "human_review_escalated": True,
+        "validation_errors": [],
+    }
     assert body["language_preview"] == {
         "status": "fallback",
         "source": "heuristic_language_internal_beta",
@@ -353,6 +367,8 @@ def test_llm_router_guardrail_preserves_supported_non_route_task_types(
         "zh": "AI 不确定，已转人工复核。",
         "en": "AI is uncertain; this has been routed for human review.",
     }
+    assert body["critic_confidence_display"]["tier"] == "low"
+    assert body["critic_confidence_display"]["human_review_escalated"] is True
     assert "human_review_queue" not in body
     assert "escalated" not in body
     assert body["llm_invoked"] is True
@@ -461,6 +477,9 @@ def test_internal_beta_response_keeps_g6_latency_validation_boundaries(
         "apps/critic-service/config/critic-calibration.json"
     )
     assert body["human_review"]["user_notice"]["zh"] == "AI 不确定，已转人工复核。"
+    assert body["critic_confidence_display"]["score"] == body["critic_preview"]["confidence"]
+    assert body["critic_confidence_display"]["calibration_threshold"] == 0.6
+    assert body["critic_confidence_display"]["aria_label"].startswith("Confidence: 0.00")
     assert "human_review_queue" not in body
     assert "escalated" not in body
     assert "hard_gate_pass" not in body

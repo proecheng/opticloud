@@ -42,6 +42,7 @@ HumanReviewReasonCode = Literal[
     "critic_skipped_below_threshold",
     "not_escalated",
 ]
+CriticConfidenceDisplayTier = Literal["high", "mid", "low"]
 LanguagePreviewStatus = Literal["generated", "fallback"]
 LanguagePreviewSource = Literal["llm_language_internal_beta", "heuristic_language_internal_beta"]
 
@@ -355,6 +356,57 @@ class HumanReviewPreview(BaseModel):
         return self
 
 
+class CriticConfidenceDisplayValidationError(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    field_path: str = Field(min_length=1, max_length=128)
+    message: str = Field(min_length=1, max_length=160)
+    remediation_hint_key: str | None = Field(default=None, min_length=1, max_length=128)
+
+
+class CriticConfidenceDisplayPreview(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    score: float = Field(ge=0.0, le=1.0)
+    tier: CriticConfidenceDisplayTier
+    label_zh: str = Field(min_length=1, max_length=64)
+    label_en: str = Field(min_length=1, max_length=96)
+    reasoning_zh: str = Field(min_length=1, max_length=240)
+    reasoning_en: str = Field(min_length=1, max_length=240)
+    aria_label: str = Field(min_length=1, max_length=160)
+    calibration_threshold: float = Field(ge=0.0, le=1.0)
+    human_review_escalated: bool
+    validation_errors: list[CriticConfidenceDisplayValidationError] = Field(
+        default_factory=list,
+        max_length=10,
+    )
+
+    @model_validator(mode="after")
+    def validate_display_contract(self) -> CriticConfidenceDisplayPreview:
+        expected_tier = _confidence_display_tier(self.score)
+        if self.tier != expected_tier:
+            raise ValueError("critic confidence display tier must match score brackets")
+        expected_labels = {
+            "high": ("高置信", "High confidence"),
+            "mid": ("中置信", "Medium confidence"),
+            "low": ("低置信请人工 review", "Low confidence; human review recommended"),
+        }[expected_tier]
+        if (self.label_zh, self.label_en) != expected_labels:
+            raise ValueError("critic confidence display labels must match tier")
+        expected_aria_label = f"Confidence: {self.score:.2f} - {self.label_en}"
+        if self.aria_label != expected_aria_label:
+            raise ValueError("critic confidence display aria_label must match score and label")
+        return self
+
+
+def _confidence_display_tier(score: float) -> CriticConfidenceDisplayTier:
+    if score >= 0.85:
+        return "high"
+    if score >= 0.6:
+        return "mid"
+    return "low"
+
+
 class LanguageValidationError(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -410,6 +462,7 @@ class ChatInternalBetaMessageResponse(BaseModel):
     critic_preview: CriticPreview
     sandbox_preview: SandboxPreview
     human_review: HumanReviewPreview
+    critic_confidence_display: CriticConfidenceDisplayPreview
     language_preview: LanguagePreview
     aigc_gate: AigcGate
     llm_invoked: bool
@@ -425,4 +478,13 @@ class ChatInternalBetaMessageResponse(BaseModel):
             raise ValueError("skipped sandbox preview must set sandbox_invoked=false")
         if self.sandbox_preview.status != "skipped" and not self.sandbox_invoked:
             raise ValueError("non-skipped sandbox preview must set sandbox_invoked=true")
+        if self.critic_confidence_display.score != self.critic_preview.confidence:
+            raise ValueError("critic confidence display score must match critic preview")
+        if (
+            self.critic_confidence_display.calibration_threshold
+            != self.critic_preview.calibration_threshold
+        ):
+            raise ValueError("critic confidence display threshold must match critic preview")
+        if self.critic_confidence_display.human_review_escalated != self.human_review.escalated:
+            raise ValueError("critic confidence display escalation flag must match human review")
         return self

@@ -9,6 +9,7 @@ from pydantic import ValidationError
 
 from chat_service import __version__
 from chat_service.coder import generate_code_with_llm
+from chat_service.confidence_display import generate_confidence_display_preview
 from chat_service.config import load_internal_beta_config
 from chat_service.critic import generate_critic_validation_with_llm
 from chat_service.formulator import extract_formulation_with_llm
@@ -98,6 +99,10 @@ async def create_internal_beta_message(
         message_id=message_id,
         critic_preview=critic_result.preview,
     )
+    confidence_display_result = generate_confidence_display_preview(
+        critic_preview=critic_result.preview,
+        human_review_escalated=human_review_result.preview.escalated,
+    )
     sandbox_result = generate_sandbox_preview(
         coder_preview=coder_result.preview,
         critic_preview=critic_result.preview,
@@ -124,6 +129,7 @@ async def create_internal_beta_message(
         critic_preview=critic_result.preview,
         sandbox_preview=sandbox_result.preview,
         human_review=human_review_result.preview,
+        critic_confidence_display=confidence_display_result.preview,
         language_preview=language_result.preview,
         aigc_gate=AigcGate(status="filing_pending", public_surface="hidden"),
         llm_invoked=(
