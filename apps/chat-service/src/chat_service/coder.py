@@ -377,11 +377,17 @@ def validate_code_artifact(
     entrypoint = function_defs.get(artifact.entrypoint)
 
     if input_model is None or not _inherits_basemodel(input_model):
-        errors.append(_validation_error("artifact.input_model", "input model must inherit BaseModel"))
+        errors.append(
+            _validation_error("artifact.input_model", "input model must inherit BaseModel")
+        )
     if output_model is None or not _inherits_basemodel(output_model):
-        errors.append(_validation_error("artifact.output_model", "output model must inherit BaseModel"))
+        errors.append(
+            _validation_error("artifact.output_model", "output model must inherit BaseModel")
+        )
     if entrypoint is None or isinstance(entrypoint, ast.AsyncFunctionDef):
-        errors.append(_validation_error("artifact.entrypoint", "entrypoint must be a sync function"))
+        errors.append(
+            _validation_error("artifact.entrypoint", "entrypoint must be a sync function")
+        )
     else:
         if (
             not entrypoint.args.args
@@ -427,7 +433,9 @@ def _payload_contains_unsafe_text(value: object, *, original_message: str | None
             if _payload_contains_unsafe_text(child, original_message=original):
                 return True
     if isinstance(value, list):
-        return any(_payload_contains_unsafe_text(child, original_message=original) for child in value)
+        return any(
+            _payload_contains_unsafe_text(child, original_message=original) for child in value
+        )
     return False
 
 
