@@ -6,6 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 ChatLocale = Literal["zh-CN", "en-US", "mixed"]
 TaskType = Literal["lp", "vrptw", "prediction", "schedule", "inventory", "unknown"]
+RouterPreviewSource = Literal["heuristic_internal_beta", "llm_router_internal_beta"]
 
 
 class ChatInternalBetaMessageRequest(BaseModel):
@@ -32,7 +33,7 @@ class RouterPreview(BaseModel):
     task_type: TaskType
     confidence: float = Field(ge=0.0, le=1.0)
     reasoning: str
-    source: Literal["heuristic_internal_beta"]
+    source: RouterPreviewSource
     supported_task_types: list[TaskType]
 
 
@@ -53,6 +54,7 @@ class ChatInternalBetaMessageResponse(BaseModel):
     locale: ChatLocale
     router_preview: RouterPreview
     aigc_gate: AigcGate
-    llm_invoked: Literal[False]
+    llm_invoked: bool
+    provider_request_sent: Literal[False]
     solver_invoked: Literal[False]
     sandbox_invoked: Literal[False]

@@ -89,6 +89,9 @@ jobs:
               - 'infra/local-init/10-cost-attribution.sql'
             chat_service:
               - 'apps/chat-service/**'
+              - 'packages/shared-py/opticloud_shared/llm_router/**'
+              - 'packages/shared-py/opticloud_shared/__init__.py'
+              - 'packages/shared-py/pyproject.toml'
             critic_service:
               - 'apps/critic-service/**'
             critic_calibration:
