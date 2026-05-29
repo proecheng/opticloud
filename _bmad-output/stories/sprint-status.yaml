@@ -3,7 +3,7 @@
 # Source: epics.md (21 Epics / 192 Stories, post AE rounds)
 # Path B unlock node sequence (5 + J1 vertical slice 4 锚点 + Critical Gaps)
 
-last_updated: 2026-05-29
+last_updated: 2026-05-30
 
 # ===== STATUS DEFINITIONS =====
 # backlog            — not yet started
@@ -147,7 +147,7 @@ development_status:
   4-c-1-preview-confirm-model: done
   4-c-2-sse-streaming: done
   4-c-3-file-upload-csv-excel-json: done
-  4-c-4-what-if-followup: backlog
+  4-c-4-what-if-followup: done
   4-c-5-partial-upload-recovery: backlog
   4-c-6-chat-interface-tier2: backlog
 

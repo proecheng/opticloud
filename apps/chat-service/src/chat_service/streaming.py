@@ -52,6 +52,7 @@ def build_stream_events(
     aigc_watermark_trace_id: str,
     aigc_gate: Mapping[str, object],
     file_context_preview: Mapping[str, object] | None = None,
+    what_if_preview: Mapping[str, object] | None = None,
 ) -> list[ChatStreamEvent]:
     prefix = _event_id_prefix(message_id)
     events = [
@@ -101,6 +102,7 @@ def build_stream_events(
                 "file_context_preview": (
                     dict(file_context_preview) if file_context_preview is not None else None
                 ),
+                "what_if_preview": dict(what_if_preview) if what_if_preview is not None else None,
             },
         )
     )

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import re
 from typing import Literal
 
@@ -67,6 +68,11 @@ ModelPreviewDisabledReasonCode = Literal[
     "task_type_unknown",
     "dependency_drift",
 ]
+ChatWhatIfContextSource = Literal["chat_model_preview_context_v1"]
+ChatWhatIfSolutionStatus = Literal["solved", "previewed", "unknown"]
+ChatWhatIfPreviewSource = Literal["chat_what_if_preview_internal_beta"]
+ChatWhatIfPreviewStatus = Literal["previewed", "needs_clarification", "blocked"]
+ChatWhatIfDiffChangeType = Literal["added", "removed", "modified"]
 
 _AIGC_TRACE_ID_PATTERN = r"^trc_[0-9a-f]{16}$"
 _AIGC_REASON_CODE_PATTERN = re.compile(r"^[a-z0-9_]{1,64}$")
@@ -75,6 +81,7 @@ _AIGC_ALLOWED_METADATA_KEYS = {"self_loop_bypass"}
 _CHAT_FILE_CONTEXT_SOURCE = "parsed_browser_file_context_v1"
 _CHAT_FILE_CONTEXT_MAX_SIZE_BYTES = 5 * 1024 * 1024
 _CHAT_FILE_CONTEXT_MAX_ROWS = 50_000
+_WHAT_IF_NUMBER_ABS_MAX = 1_000_000_000_000
 _CHAT_FILE_CONTEXT_FILENAME_PATTERN = re.compile(r"^[^/\\:\x00-\x1f]{1,120}$")
 _CHAT_FILE_CONTEXT_DRIVE_PATTERN = re.compile(r"^[A-Za-z]:")
 _AIGC_NO_LEAK_PATTERN = re.compile(
@@ -83,6 +90,9 @@ _AIGC_NO_LEAK_PATTERN = re.compile(
     r"raw[_ -]?(?:summary|user[_ -]?message)|"
     r"provider[_ -]?(?:request|response|payload)?|prompt|traceback|"
     r"generated[_ -]?code|sandbox[_ -]?output|"
+    r"solver[_ -]?(?:result|response|payload)|route[_ -]?rows?|assignment[_ -]?table|"
+    r"full[_ -]?time[_ -]?series|result[_ -]?file[_ -]?path|"
+    r"charge[_ -]?id|optimization[_ -]?id|prediction[_ -]?id|callback[_ -]?url|"
     r"[A-Za-z]:\\|/tmp/|/var/|queue[_ -]?payload)",
     re.IGNORECASE,
 )
@@ -196,6 +206,128 @@ class ChatFileContextPreview(BaseModel):
         return _validate_file_context_terms(value, "file context preview", max_items=30)
 
 
+class ChatWhatIfSolutionPreview(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    status: ChatWhatIfSolutionStatus
+    objective_value: float | None = None
+    objective_unit: str | None = Field(default=None, max_length=40)
+    summary: str = Field(default="", max_length=240)
+
+    @field_validator("objective_value")
+    @classmethod
+    def validate_finite_objective(cls, value: float | None) -> float | None:
+        if value is not None and not _is_safe_number(value):
+            raise ValueError("objective_value must be finite")
+        return value
+
+    @field_validator("objective_unit", "summary")
+    @classmethod
+    def validate_safe_solution_text(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        clean = value.strip()
+        if _AIGC_NO_LEAK_PATTERN.search(clean) or any(char in clean for char in "\r\n\t"):
+            raise ValueError("solution preview text must be bounded safe metadata")
+        return clean
+
+
+class ChatWhatIfContext(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    source: ChatWhatIfContextSource
+    base_message_id: str = Field(pattern=r"^msg_[0-9a-f]{24}$")
+    base_model_preview_id: str = Field(pattern=r"^mpv_[0-9a-f]{16}$")
+    task_type: TaskType
+    variables: dict[str, object] = Field(default_factory=dict, max_length=40)
+    objective: dict[str, object] = Field(default_factory=dict, max_length=20)
+    constraints: dict[str, object] = Field(default_factory=dict, max_length=40)
+    sandbox_status: SandboxPreviewStatus
+    summary: str = Field(min_length=1, max_length=360)
+    base_solution_preview: ChatWhatIfSolutionPreview | None = None
+
+    @field_validator("variables", "objective", "constraints")
+    @classmethod
+    def validate_bounded_mapping(cls, value: dict[str, object]) -> dict[str, object]:
+        _validate_what_if_mapping(value)
+        return value
+
+    @field_validator("summary")
+    @classmethod
+    def validate_safe_summary(cls, value: str) -> str:
+        clean = value.strip()
+        if (
+            not clean
+            or _AIGC_NO_LEAK_PATTERN.search(clean)
+            or any(char in clean for char in "\r\n\t")
+        ):
+            raise ValueError("what-if summary must be bounded safe metadata")
+        return clean
+
+
+class ChatWhatIfDiffItem(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    field_path: str = Field(min_length=1, max_length=128)
+    before: object | None = None
+    after: object | None = None
+    change_type: ChatWhatIfDiffChangeType
+
+    @field_validator("field_path")
+    @classmethod
+    def validate_diff_path(cls, value: str) -> str:
+        _validate_what_if_diff_path(value)
+        return value
+
+    @field_validator("before", "after")
+    @classmethod
+    def validate_preview_value(cls, value: object | None) -> object | None:
+        if value is not None:
+            _validate_what_if_value(value)
+        return value
+
+
+class ChatWhatIfPreview(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    source: ChatWhatIfPreviewSource
+    base_message_id: str = Field(pattern=r"^msg_[0-9a-f]{24}$")
+    base_model_preview_id: str = Field(pattern=r"^mpv_[0-9a-f]{16}$")
+    status: ChatWhatIfPreviewStatus
+    task_type: TaskType
+    change_summary: str = Field(min_length=1, max_length=240)
+    changed_fields: list[str] = Field(default_factory=list, max_length=12)
+    diff: list[ChatWhatIfDiffItem] = Field(default_factory=list, max_length=12)
+
+    @field_validator("change_summary")
+    @classmethod
+    def validate_change_summary(cls, value: str) -> str:
+        clean = value.strip()
+        if not clean or _AIGC_NO_LEAK_PATTERN.search(clean):
+            raise ValueError("what-if change summary must be safe")
+        return clean
+
+    @field_validator("changed_fields")
+    @classmethod
+    def validate_changed_fields(cls, value: list[str]) -> list[str]:
+        for field_path in value:
+            _validate_what_if_diff_path(field_path)
+        if len(set(value)) != len(value):
+            raise ValueError("changed_fields must not contain duplicates")
+        return value
+
+    @model_validator(mode="after")
+    def validate_diff_alignment(self) -> ChatWhatIfPreview:
+        diff_fields = [item.field_path for item in self.diff]
+        if self.changed_fields != diff_fields:
+            raise ValueError("changed_fields must match diff field_path order")
+        if self.status == "previewed" and not self.diff:
+            raise ValueError("previewed what-if preview requires diff")
+        if self.status != "previewed" and self.diff:
+            raise ValueError("non-previewed what-if preview must not include diff")
+        return self
+
+
 class ChatInternalBetaMessageRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -203,6 +335,7 @@ class ChatInternalBetaMessageRequest(BaseModel):
     locale: ChatLocale | None = None
     client_request_id: str | None = Field(default=None, min_length=1, max_length=128)
     file_contexts: list[ChatFileContext] = Field(default_factory=list, max_length=3)
+    what_if_context: ChatWhatIfContext | None = None
 
     @field_validator("message")
     @classmethod
@@ -266,6 +399,81 @@ def _validate_preview_contract_terms(value: ChatFileContextPreview | None) -> No
     if value is None:
         return
     _validate_no_leak_mapping(value.model_dump(mode="json"))
+
+
+def _validate_what_if_mapping(value: dict[str, object]) -> None:
+    _validate_what_if_value(value)
+
+
+def _validate_what_if_value(value: object, *, depth: int = 0) -> None:
+    if depth > 4:
+        raise ValueError("what-if context nesting is too deep")
+    if isinstance(value, str):
+        clean = value.strip()
+        if (
+            not clean
+            or len(clean) > 120
+            or _AIGC_NO_LEAK_PATTERN.search(clean)
+            or any(char in clean for char in "\r\n\t")
+        ):
+            raise ValueError("what-if context contains unsafe text")
+        return
+    if isinstance(value, bool) or value is None:
+        return
+    if isinstance(value, int | float):
+        if not _is_safe_number(value):
+            raise ValueError("what-if context numbers must be finite")
+        return
+    if isinstance(value, dict):
+        if len(value) > 40:
+            raise ValueError("what-if context mapping is too large")
+        for key, child in value.items():
+            _validate_what_if_key(str(key))
+            _validate_what_if_value(child, depth=depth + 1)
+        return
+    if isinstance(value, list):
+        if len(value) > 40:
+            raise ValueError("what-if context list is too large")
+        for child in value:
+            _validate_what_if_value(child, depth=depth + 1)
+        return
+    raise ValueError("what-if context value type is unsupported")
+
+
+def _validate_what_if_key(value: str) -> None:
+    clean = value.strip()
+    if (
+        not clean
+        or len(clean) > 64
+        or _AIGC_NO_LEAK_PATTERN.search(clean)
+        or any(char in clean for char in "\r\n\t")
+        or "/" in clean
+        or "\\" in clean
+        or ":" in clean
+        or ".." in clean
+    ):
+        raise ValueError("what-if context keys must be safe terms")
+
+
+def _validate_what_if_diff_path(value: str) -> None:
+    allowed_prefixes = (
+        "variables.",
+        "objective.",
+        "constraints.",
+        "base_solution_preview.",
+    )
+    if not any(value.startswith(prefix) for prefix in allowed_prefixes):
+        raise ValueError("what-if diff field_path has unsupported prefix")
+    for segment in value.split("."):
+        _validate_what_if_key(segment)
+
+
+def _is_safe_number(value: int | float) -> bool:
+    try:
+        numeric = float(value)
+    except OverflowError:
+        return False
+    return math.isfinite(numeric) and abs(numeric) <= _WHAT_IF_NUMBER_ABS_MAX
 
 
 class RouterPreview(BaseModel):
@@ -840,6 +1048,7 @@ class ChatInternalBetaMessageResponse(BaseModel):
     model_preview: ModelPreview
     language_preview: LanguagePreview
     file_context_preview: ChatFileContextPreview | None = None
+    what_if_preview: ChatWhatIfPreview | None = None
     aigc_gate: AigcGate
     llm_invoked: bool
     critic_invoked: bool
@@ -872,4 +1081,6 @@ class ChatInternalBetaMessageResponse(BaseModel):
         if self.model_preview.sandbox_status != self.sandbox_preview.status:
             raise ValueError("model preview sandbox status must match sandbox preview")
         _validate_preview_contract_terms(self.file_context_preview)
+        if self.what_if_preview is not None:
+            _validate_no_leak_mapping(self.what_if_preview.model_dump(mode="json"))
         return self
