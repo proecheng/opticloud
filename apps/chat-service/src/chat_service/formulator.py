@@ -261,7 +261,9 @@ def _value_too_large(value: object) -> bool:
             _value_too_large(child) for child in value.values()
         )
     if isinstance(value, list):
-        return len(value) > _MAX_NESTED_LIST_ITEMS or any(_value_too_large(child) for child in value)
+        return len(value) > _MAX_NESTED_LIST_ITEMS or any(
+            _value_too_large(child) for child in value
+        )
     return False
 
 
@@ -288,7 +290,9 @@ def _value_contains_unsafe_text(value: object, *, original_message: str | None) 
             if _value_contains_unsafe_text(item, original_message=original_message):
                 return True
     if isinstance(value, list):
-        return any(_value_contains_unsafe_text(item, original_message=original_message) for item in value)
+        return any(
+            _value_contains_unsafe_text(item, original_message=original_message) for item in value
+        )
     return False
 
 

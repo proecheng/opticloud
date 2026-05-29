@@ -222,7 +222,9 @@ def test_extract_formulation_with_llm_unknown_model_falls_back_before_invocation
     assert result.preview.status == "needs_clarification"
 
 
-def test_extract_formulation_with_llm_prompt_validation_failure_falls_back_before_invocation() -> None:
+def test_extract_formulation_with_llm_prompt_validation_failure_falls_back_before_invocation() -> (
+    None
+):
     router_preview = classify_message("请做库存优化，api_key=sk-live-secret")
     called = False
 
