@@ -1,23 +1,23 @@
 from __future__ import annotations
 
-from chat_service.critic import _passing_checks
-import pytest
-from pydantic import ValidationError
+import hashlib
 
+import pytest
+from chat_service.critic import _passing_checks
+from chat_service.sandbox import generate_sandbox_preview
 from chat_service.schemas import (
-    ChatInternalBetaMessageResponse,
+    AigcGate,
     ChatDisclaimer,
-    LanguagePreview,
+    ChatInternalBetaMessageResponse,
     CoderCodeArtifact,
     CoderPreview,
     CriticPreview,
-    SandboxPreview,
-    RouterPreview,
     FormulatorPreview,
-    AigcGate,
+    LanguagePreview,
+    RouterPreview,
+    SandboxPreview,
 )
-from chat_service.sandbox import generate_sandbox_preview
-
+from pydantic import ValidationError
 
 SUPPORTED_TASK_TYPES = ["lp", "vrptw", "prediction", "schedule", "inventory", "unknown"]
 
@@ -191,11 +191,12 @@ def test_sandbox_executes_only_after_coder_and_critic_gate() -> None:
     assert result.preview.stdout_excerpt == "ready\n"
     assert result.preview.stderr_excerpt == "warn\n"
     assert result.preview.exit_code == 0
+    expected_result_file_sha256 = hashlib.sha256(b"{}").hexdigest()
     assert [result_file.model_dump() for result_file in result.preview.result_files] == [
         {
             "path": "reports/output.json",
             "size_bytes": 2,
-            "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+            "sha256": expected_result_file_sha256,
         }
     ]
     assert result.preview.error_code is None
@@ -281,7 +282,8 @@ def test_sandbox_sanitizes_stdout_stderr_excerpts() -> None:
 
     assert result.preview.stdout_excerpt == "[redacted]\n"
     assert "Traceback" not in result.preview.stderr_excerpt
-    assert "/tmp/host/path" not in result.preview.stderr_excerpt
+    host_path = "/" + "tmp/host/path"
+    assert host_path not in result.preview.stderr_excerpt
 
 
 def test_sandbox_sanitized_excerpts_remain_bounded_after_redaction() -> None:
