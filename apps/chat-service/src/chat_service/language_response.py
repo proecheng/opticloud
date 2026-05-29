@@ -239,6 +239,7 @@ def heuristic_language_preview(
     formulator_preview: FormulatorPreview,
     coder_preview: CoderPreview,
     validation_errors: list[LanguageValidationError] | None = None,
+    file_context_attached: bool = False,
 ) -> LanguagePreview:
     task_type = _resolved_task_type(router_preview, formulator_preview, coder_preview)
     if locale == "zh-CN":
@@ -250,6 +251,13 @@ def heuristic_language_preview(
         )
     else:
         summary = f"已识别为 {_TASK_LABELS_EN[task_type]} request，并生成 internal beta preview。"
+    if file_context_attached:
+        if locale == "en-US":
+            summary += " Uploaded file context was read as bounded metadata."
+        elif locale == "mixed":
+            summary += " 已读取上传文件上下文 as bounded metadata."
+        else:
+            summary += " 已读取上传文件上下文。"
 
     filtered_summary, aigc_watermark = apply_aigc_filter_to_summary(summary)
 
@@ -274,6 +282,7 @@ def generate_language_response_with_llm(
     router_preview: RouterPreview,
     formulator_preview: FormulatorPreview,
     coder_preview: CoderPreview,
+    file_context_attached: bool = False,
     completion_func: CompletionFunc = complete,
     model_alias: str = "deepseek-v3.5",
 ) -> LanguageRouteResult:
@@ -291,6 +300,7 @@ def generate_language_response_with_llm(
                         "chat.language.model_required",
                     )
                 ],
+                file_context_attached=file_context_attached,
             ),
             language_invoked=False,
         )
@@ -319,6 +329,7 @@ def generate_language_response_with_llm(
                         "chat.language.prompt_invalid",
                     )
                 ],
+                file_context_attached=file_context_attached,
             ),
             language_invoked=False,
         )
@@ -339,6 +350,7 @@ def generate_language_response_with_llm(
                         "chat.language.completion_unavailable",
                     )
                 ],
+                file_context_attached=file_context_attached,
             ),
             language_invoked=True,
         )
@@ -357,6 +369,7 @@ def generate_language_response_with_llm(
                         "chat.language.completion_unavailable",
                     )
                 ],
+                file_context_attached=file_context_attached,
             ),
             language_invoked=True,
         )
@@ -380,6 +393,7 @@ def generate_language_response_with_llm(
                     "chat.language.fallback_used",
                 )
             ],
+            file_context_attached=file_context_attached,
         )
 
     return LanguageRouteResult(preview=preview, language_invoked=True)

@@ -295,3 +295,24 @@ def test_streaming_helpers_format_chunk_and_strip_zero_width_metadata() -> None:
     assert formatted.startswith("id: ")
     assert "\nevent: content_delta\n" in formatted
     assert formatted.endswith("\n\n")
+
+
+def test_sse_formatter_filters_secret_like_values_inside_lists() -> None:
+    formatted = format_sse_event(
+        build_stream_events(
+            message_id="msg_0123456789abcdef01234567",
+            locale="en-US",
+            content="hello world",
+            model_preview_id="mpv_0123456789abcdef",
+            model_preview_status="blocked",
+            aigc_watermark_trace_id="trc_0123456789abcdef",
+            aigc_gate={"status": "filing_pending", "public_surface": "hidden"},
+            file_context_preview={
+                "filenames": ["safe.csv"],
+                "detected_fields": ["sku", "api_key", "demand"],
+            },
+        )[-1]
+    )
+
+    assert "api_key" not in formatted
+    assert "[filtered]" in formatted

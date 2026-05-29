@@ -146,7 +146,7 @@ development_status:
 
   4-c-1-preview-confirm-model: done
   4-c-2-sse-streaming: done
-  4-c-3-file-upload-csv-excel-json: backlog
+  4-c-3-file-upload-csv-excel-json: done
   4-c-4-what-if-followup: backlog
   4-c-5-partial-upload-recovery: backlog
   4-c-6-chat-interface-tier2: backlog
