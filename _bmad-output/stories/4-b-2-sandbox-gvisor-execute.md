@@ -1,6 +1,6 @@
 # Story 4.B.2: Sandbox gVisor 隔离执行 (N11，调 Story M3.1)
 
-Status: code-review
+Status: done
 
 owner: Chat Platform / Sandbox / AI Safety
 
@@ -75,11 +75,11 @@ owner: Chat Platform / Sandbox / AI Safety
   - [x] 先写失败测试并确认新增 Sandbox contract/internal beta expectation 为 RED。
   - [x] 实现最小代码让测试转绿。
   - [x] 加 negative tests 覆盖 policy block、non-zero exit、gate skipped、sanitization、limits contract 和 no escalation。
-- [ ] Task 5: 验证、审查与关闭。 (AC: 6)
+- [x] Task 5: 验证、审查与关闭。 (AC: 6)
   - [x] 跑 focused 与 full validation。
   - [x] 执行 post-implementation code review 并修复 findings。
   - [x] 更新 Dev Agent Record、File List、Change Log 和 sprint-status。
-  - [ ] commit、push、创建或同步 GitHub PR。
+  - [x] commit、push、创建或同步 GitHub PR。
 
 ### Review Findings
 
@@ -215,6 +215,8 @@ GPT-5 Codex
 - 2026-05-29 - Post-implementation code review found and fixed two contract issues: redaction expansion could exceed bounded stdout/stderr fields, and schema validation did not reject non-executed preview output drift.
 - 2026-05-29 - Review-fix validation passed: `$env:PYTHONPATH='apps/sandbox-runner/src'; uv run pytest apps/chat-service/tests/test_sandbox.py -q` (`10 passed`), `$env:PYTHONPATH='apps/sandbox-runner/src'; uv run pytest apps/chat-service/tests/test_internal_beta.py -q` (`25 passed`), and `uv run mypy apps packages`.
 - 2026-05-29 - Full closure validation passed: `$env:PYTHONPATH='apps/sandbox-runner/src'; uv run pytest apps/chat-service/tests -q` (`107 passed`), `$env:PYTHONPATH='apps/sandbox-runner/src'; uv run pytest apps/sandbox-runner/tests -q` (`9 passed`), `uv run mypy apps packages`, `uv tool run pre-commit run --all-files --show-diff-on-failure`, `git diff --check`, and focused combined regression (`35 passed`).
+- 2026-05-29 - GitHub synchronized: committed, pushed `codex/4-b-2-sandbox-gvisor-execute`, and opened PR #100.
+- 2026-05-29 - Story and sprint status moved to done after PR sync.
 
 ### Completion Notes
 
@@ -225,6 +227,7 @@ GPT-5 Codex
 - Focused and service-level validation is green; story is ready for post-implementation code review.
 - Post-implementation review hardened bounded excerpt handling and response contract invariants so skipped/policy-blocked previews cannot carry execution output drift and `sandbox_invoked` cannot contradict preview status.
 - Closure validation is green and 4.B.2 is ready for commit/push/PR.
+- GitHub PR #100 created for 4.B.2.
 
 ### File List
 
@@ -245,3 +248,4 @@ GPT-5 Codex
 - 2026-05-29 - Added Sandbox preview contract, local sandbox-runner adapter, Chat response wiring, tests, and CI dependency/path updates; moved story/sprint status to code-review.
 - 2026-05-29 - Completed post-implementation code review and fixed two contract findings; ready for final validation and GitHub sync.
 - 2026-05-29 - Final validation passed; ready for GitHub sync.
+- 2026-05-29 - GitHub PR #100 created and story/sprint status moved to done.
