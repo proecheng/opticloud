@@ -51,6 +51,7 @@ def build_stream_events(
     model_preview_status: ModelPreviewStatus,
     aigc_watermark_trace_id: str,
     aigc_gate: Mapping[str, object],
+    file_context_preview: Mapping[str, object] | None = None,
 ) -> list[ChatStreamEvent]:
     prefix = _event_id_prefix(message_id)
     events = [
@@ -97,6 +98,9 @@ def build_stream_events(
                 "model_preview_status": model_preview_status,
                 "aigc_watermark_trace_id": aigc_watermark_trace_id,
                 "aigc_gate": dict(aigc_gate),
+                "file_context_preview": (
+                    dict(file_context_preview) if file_context_preview is not None else None
+                ),
             },
         )
     )
@@ -210,15 +214,18 @@ def _safe_stream_content(content: str) -> str:
 def _safe_data(data: dict[str, object]) -> dict[str, object]:
     safe: dict[str, object] = {}
     for key, value in data.items():
-        if isinstance(value, str):
-            safe[key] = FILTERED_CHUNK if _NO_LEAK_PATTERN.search(value) else value
-        elif isinstance(value, dict):
-            safe[key] = _safe_data(
-                {str(child_key): child_value for child_key, child_value in value.items()}
-            )
-        else:
-            safe[key] = value
+        safe[key] = _safe_value(value)
     return safe
+
+
+def _safe_value(value: object) -> object:
+    if isinstance(value, str):
+        return FILTERED_CHUNK if _NO_LEAK_PATTERN.search(value) else value
+    if isinstance(value, dict):
+        return _safe_data({str(child_key): child_value for child_key, child_value in value.items()})
+    if isinstance(value, list):
+        return [_safe_value(child) for child in value]
+    return value
 
 
 def _join_tokens(tokens: list[str]) -> str:

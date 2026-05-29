@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 ChatLocale = Literal["zh-CN", "en-US", "mixed"]
 TaskType = Literal["lp", "vrptw", "prediction", "schedule", "inventory", "unknown"]
+ChatFileContextKind = Literal["csv", "excel", "json"]
 RouterPreviewSource = Literal["heuristic_internal_beta", "llm_router_internal_beta"]
 FormulatorPreviewStatus = Literal["extracted", "needs_clarification", "skipped"]
 FormulatorPreviewSource = Literal[
@@ -71,6 +72,11 @@ _AIGC_TRACE_ID_PATTERN = r"^trc_[0-9a-f]{16}$"
 _AIGC_REASON_CODE_PATTERN = re.compile(r"^[a-z0-9_]{1,64}$")
 _AIGC_SAFE_VERSION_PATTERN = r"^[0-9A-Za-z][0-9A-Za-z._-]{0,31}$"
 _AIGC_ALLOWED_METADATA_KEYS = {"self_loop_bypass"}
+_CHAT_FILE_CONTEXT_SOURCE = "parsed_browser_file_context_v1"
+_CHAT_FILE_CONTEXT_MAX_SIZE_BYTES = 5 * 1024 * 1024
+_CHAT_FILE_CONTEXT_MAX_ROWS = 50_000
+_CHAT_FILE_CONTEXT_FILENAME_PATTERN = re.compile(r"^[^/\\:\x00-\x1f]{1,120}$")
+_CHAT_FILE_CONTEXT_DRIVE_PATTERN = re.compile(r"^[A-Za-z]:")
 _AIGC_NO_LEAK_PATTERN = re.compile(
     r"(sk-[A-Za-z0-9_-]{4,}|api[_\s-]?key|bearer\s+[A-Za-z0-9._-]+|"
     r"authorization|cookie|password|token|raw[_ -]?(?:response|request)|"
@@ -82,12 +88,121 @@ _AIGC_NO_LEAK_PATTERN = re.compile(
 )
 
 
+class ChatFileSheetContext(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(min_length=1, max_length=64)
+    headers: list[str] = Field(default_factory=list, max_length=20)
+    row_count: int = Field(ge=0, le=_CHAT_FILE_CONTEXT_MAX_ROWS)
+
+    @field_validator("name")
+    @classmethod
+    def validate_sheet_name(cls, value: str) -> str:
+        clean = value.strip()
+        if not clean or _AIGC_NO_LEAK_PATTERN.search(clean):
+            raise ValueError("sheet name must be bounded safe metadata")
+        return clean[:64]
+
+    @field_validator("headers")
+    @classmethod
+    def validate_headers(cls, value: list[str]) -> list[str]:
+        return _validate_file_context_terms(value, "sheet headers", max_items=20)
+
+
+class ChatFileContext(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    source: Literal["parsed_browser_file_context_v1"]
+    kind: ChatFileContextKind
+    filename: str = Field(min_length=1, max_length=120)
+    size_bytes: int = Field(ge=0, le=_CHAT_FILE_CONTEXT_MAX_SIZE_BYTES)
+    mime_type: str = Field(min_length=1, max_length=100)
+    row_count: int = Field(ge=0, le=_CHAT_FILE_CONTEXT_MAX_ROWS)
+    sheet_count: int = Field(ge=0, le=12)
+    sheets: list[ChatFileSheetContext] = Field(default_factory=list, max_length=12)
+    top_level_keys: list[str] = Field(default_factory=list, max_length=30)
+    detected_fields: list[str] = Field(default_factory=list, max_length=30)
+    summary: str = Field(default="", max_length=240)
+
+    @field_validator("filename")
+    @classmethod
+    def validate_filename(cls, value: str) -> str:
+        clean = value.strip()
+        if (
+            clean != value
+            or not _CHAT_FILE_CONTEXT_FILENAME_PATTERN.fullmatch(clean)
+            or _CHAT_FILE_CONTEXT_DRIVE_PATTERN.match(clean)
+            or ".." in clean
+            or _AIGC_NO_LEAK_PATTERN.search(clean)
+        ):
+            raise ValueError("filename must be a safe basename")
+        return clean
+
+    @field_validator("mime_type")
+    @classmethod
+    def validate_mime_type(cls, value: str) -> str:
+        clean = value.strip().lower()
+        if (
+            not clean
+            or len(clean) > 100
+            or any(char in clean for char in "\r\n\t")
+            or _AIGC_NO_LEAK_PATTERN.search(clean)
+        ):
+            raise ValueError("mime_type must be bounded safe metadata")
+        return clean
+
+    @field_validator("top_level_keys", "detected_fields")
+    @classmethod
+    def validate_terms(cls, value: list[str]) -> list[str]:
+        return _validate_file_context_terms(value, "file context terms", max_items=30)
+
+    @field_validator("summary")
+    @classmethod
+    def validate_summary(cls, value: str) -> str:
+        clean = value.strip()
+        if _AIGC_NO_LEAK_PATTERN.search(clean):
+            return "[filtered]"
+        return clean[:240]
+
+    @model_validator(mode="after")
+    def validate_file_context_contract(self) -> ChatFileContext:
+        if self.source != _CHAT_FILE_CONTEXT_SOURCE:
+            raise ValueError("file context source must match browser parser contract")
+        if self.kind == "excel":
+            if self.sheet_count != len(self.sheets):
+                raise ValueError("excel sheet_count must match sheets length")
+        else:
+            if self.sheet_count != 0 or self.sheets:
+                raise ValueError("non-excel file context must not include sheets")
+        if self.kind == "json" and not self.top_level_keys:
+            raise ValueError("json file context requires top_level_keys")
+        if self.kind != "json" and self.top_level_keys:
+            raise ValueError("non-json file context must not include top_level_keys")
+        return self
+
+
+class ChatFileContextPreview(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    file_count: int = Field(ge=1, le=3)
+    kinds: list[ChatFileContextKind] = Field(min_length=1, max_length=3)
+    total_rows: int = Field(ge=0, le=_CHAT_FILE_CONTEXT_MAX_ROWS * 3)
+    filenames: list[str] = Field(min_length=1, max_length=3)
+    detected_fields: list[str] = Field(default_factory=list, max_length=30)
+
+    @field_validator("filenames", "detected_fields")
+    @classmethod
+    def validate_preview_terms(cls, value: list[str]) -> list[str]:
+        return _validate_file_context_terms(value, "file context preview", max_items=30)
+
+
 class ChatInternalBetaMessageRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     message: str = Field(min_length=1, max_length=2200)
     locale: ChatLocale | None = None
     client_request_id: str | None = Field(default=None, min_length=1, max_length=128)
+    file_contexts: list[ChatFileContext] = Field(default_factory=list, max_length=3)
 
     @field_validator("message")
     @classmethod
@@ -98,6 +213,59 @@ class ChatInternalBetaMessageRequest(BaseModel):
         if len(trimmed) > 2000:
             raise ValueError("message must contain at most 2000 characters after trimming")
         return trimmed
+
+
+def _validate_file_context_terms(
+    values: list[str],
+    label: str,
+    *,
+    max_items: int,
+) -> list[str]:
+    normalized: list[str] = []
+    seen: set[str] = set()
+    if len(values) > max_items:
+        raise ValueError(f"{label} exceeds max items")
+    for value in values:
+        clean = value.strip()
+        if (
+            not clean
+            or len(clean) > 64
+            or _AIGC_NO_LEAK_PATTERN.search(clean)
+            or any(char in clean for char in "\r\n\t")
+            or "/" in clean
+            or "\\" in clean
+            or ":" in clean
+            or ".." in clean
+        ):
+            raise ValueError(f"{label} contains unsafe metadata")
+        if clean not in seen:
+            normalized.append(clean)
+            seen.add(clean)
+    return normalized
+
+
+def _validate_no_leak_text(value: str | None) -> str | None:
+    if value is not None and _AIGC_NO_LEAK_PATTERN.search(value):
+        raise ValueError("text must not leak internals")
+    return value
+
+
+def _validate_no_leak_mapping(value: object) -> None:
+    if isinstance(value, str):
+        _validate_no_leak_text(value)
+    elif isinstance(value, dict):
+        for key, child in value.items():
+            _validate_no_leak_text(str(key))
+            _validate_no_leak_mapping(child)
+    elif isinstance(value, list):
+        for child in value:
+            _validate_no_leak_mapping(child)
+
+
+def _validate_preview_contract_terms(value: ChatFileContextPreview | None) -> None:
+    if value is None:
+        return
+    _validate_no_leak_mapping(value.model_dump(mode="json"))
 
 
 class RouterPreview(BaseModel):
@@ -671,6 +839,7 @@ class ChatInternalBetaMessageResponse(BaseModel):
     critic_confidence_display: CriticConfidenceDisplayPreview
     model_preview: ModelPreview
     language_preview: LanguagePreview
+    file_context_preview: ChatFileContextPreview | None = None
     aigc_gate: AigcGate
     llm_invoked: bool
     critic_invoked: bool
@@ -702,4 +871,5 @@ class ChatInternalBetaMessageResponse(BaseModel):
             raise ValueError("model preview human review flag must match human review")
         if self.model_preview.sandbox_status != self.sandbox_preview.status:
             raise ValueError("model preview sandbox status must match sandbox preview")
+        _validate_preview_contract_terms(self.file_context_preview)
         return self

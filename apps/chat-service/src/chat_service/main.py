@@ -4,7 +4,6 @@ import hashlib
 from typing import Annotated
 
 from fastapi import FastAPI, Header, HTTPException, Request
-from fastapi.exceptions import RequestValidationError
 from fastapi.responses import StreamingResponse
 from pydantic import ValidationError
 
@@ -13,6 +12,11 @@ from chat_service.coder import generate_code_with_llm
 from chat_service.confidence_display import generate_confidence_display_preview
 from chat_service.config import load_internal_beta_config
 from chat_service.critic import generate_critic_validation_with_llm
+from chat_service.file_context import (
+    build_file_context_preview,
+    build_message_with_file_context,
+    canonical_file_context_digest,
+)
 from chat_service.formulator import extract_formulation_with_llm
 from chat_service.gate import InternalBetaAccessDeniedError, validate_internal_beta_access
 from chat_service.human_review import generate_human_review_preview
@@ -90,6 +94,11 @@ async def stream_internal_beta_message(
         model_preview_status=response.model_preview.status,
         aigc_watermark_trace_id=response.language_preview.aigc_watermark.trace_id,
         aigc_gate=response.aigc_gate.model_dump(mode="json"),
+        file_context_preview=(
+            response.file_context_preview.model_dump(mode="json")
+            if response.file_context_preview is not None
+            else None
+        ),
     )
     return StreamingResponse(
         iter_sse_payload(events, last_event_id=last_event_id),
@@ -123,10 +132,23 @@ async def _validate_internal_beta_request(
     try:
         request = ChatInternalBetaMessageRequest.model_validate(await raw_request.json())
     except ValidationError as exc:
-        raise RequestValidationError(exc.errors()) from exc
+        raise HTTPException(status_code=422, detail=_safe_validation_errors(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=422, detail="Invalid JSON body") from exc
     return request
+
+
+def _safe_validation_errors(exc: ValidationError) -> list[dict[str, object]]:
+    safe_errors: list[dict[str, object]] = []
+    for error in exc.errors():
+        safe_errors.append(
+            {
+                "type": error.get("type", "value_error"),
+                "loc": error.get("loc", ()),
+                "msg": error.get("msg", "Invalid input"),
+            }
+        )
+    return safe_errors
 
 
 def _build_internal_beta_response(
@@ -137,25 +159,29 @@ def _build_internal_beta_response(
 ) -> ChatInternalBetaMessageResponse:
     locale = request.locale or detect_locale(request.message)
     message_excerpt = build_message_excerpt(request.message)
+    contextual_message = build_message_with_file_context(request.message, request.file_contexts)
+    file_context_digest = canonical_file_context_digest(request.file_contexts)
+    file_context_preview = build_file_context_preview(request.file_contexts)
     message_id = _message_id(
         tenant=tenant,
         user=user,
         message=request.message,
         client_request_id=request.client_request_id,
+        file_context_digest=file_context_digest,
     )
     intent_result = route_intent_with_llm(
-        message=request.message,
+        message=contextual_message,
         locale=locale,
         prompt_id=message_id,
     )
     formulator_result = extract_formulation_with_llm(
-        message=request.message,
+        message=contextual_message,
         locale=locale,
         prompt_id=message_id,
         router_preview=intent_result.preview,
     )
     coder_result = generate_code_with_llm(
-        message=request.message,
+        message=contextual_message,
         locale=locale,
         prompt_id=message_id,
         formulator_preview=formulator_result.preview,
@@ -187,13 +213,14 @@ def _build_internal_beta_response(
         sandbox_invoked=sandbox_result.sandbox_invoked,
     )
     language_result = generate_language_response_with_llm(
-        message=request.message,
+        message=contextual_message,
         locale=locale,
         prompt_id=message_id,
         message_excerpt=message_excerpt,
         router_preview=intent_result.preview,
         formulator_preview=formulator_result.preview,
         coder_preview=coder_result.preview,
+        file_context_attached=file_context_preview is not None,
     )
 
     return ChatInternalBetaMessageResponse(
@@ -211,6 +238,7 @@ def _build_internal_beta_response(
         critic_confidence_display=confidence_display_result.preview,
         model_preview=model_preview,
         language_preview=language_result.preview,
+        file_context_preview=file_context_preview,
         aigc_gate=AigcGate(status="filing_pending", public_surface="hidden"),
         llm_invoked=(
             intent_result.llm_invoked
@@ -239,8 +267,11 @@ def _message_id(
     user: str,
     message: str,
     client_request_id: str | None,
+    file_context_digest: str = "",
 ) -> str:
     digest = hashlib.sha256(
-        "\n".join([tenant, user, client_request_id or "", message]).encode("utf-8")
+        "\n".join([tenant, user, client_request_id or "", message, file_context_digest]).encode(
+            "utf-8"
+        )
     ).hexdigest()
     return f"msg_{digest[:24]}"
