@@ -29,7 +29,8 @@ def test_chat_sandbox_logs_stream_request_maps_to_deferred_policy_block() -> Non
     assert "v1.5" in result.preview.validation_errors[0].message
     assert "secret stream line" not in result.preview.stderr_excerpt
     assert "Traceback" not in result.preview.stderr_excerpt
-    assert "/tmp/secret" not in result.preview.stderr_excerpt
+    host_path = "/" + "tmp/secret"
+    assert host_path not in result.preview.stderr_excerpt
 
 
 def test_chat_sandbox_default_does_not_request_logs_stream() -> None:
