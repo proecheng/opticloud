@@ -138,7 +138,7 @@ development_status:
 
   4-b-1-critic-validate-code: done
   4-b-2-sandbox-gvisor-execute: done
-  4-b-3-critic-confidence-escalate: backlog
+  4-b-3-critic-confidence-escalate: done
   4-b-4-confidence-label-ui: backlog
   4-b-5-aigc-filter-invoke: backlog
   4-b-6-sandbox-logs-stream-v1-5: backlog
