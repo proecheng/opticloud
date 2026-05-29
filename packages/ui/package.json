@@ -14,7 +14,7 @@
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
     "test": "vitest run",
-    "test:a11y": "vitest run --include 'src/**/*.a11y.test.tsx'",
+    "test:a11y": "vitest run src/components/Tier1.a11y.test.tsx src/components/VoucherCard/index.a11y.test.tsx",
     "chromatic": "chromatic --exit-zero-on-changes"
   },
   "peerDependencies": {

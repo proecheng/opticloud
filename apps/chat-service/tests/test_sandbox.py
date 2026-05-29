@@ -11,8 +11,10 @@ from chat_service.schemas import (
     ChatInternalBetaMessageResponse,
     CoderCodeArtifact,
     CoderPreview,
+    CriticConfidenceDisplayPreview,
     CriticPreview,
     FormulatorPreview,
+    HumanReviewPreview,
     LanguagePreview,
     RouterPreview,
     SandboxPreview,
@@ -98,7 +100,7 @@ def test_sandbox_preview_contract_rejects_non_executed_payload_drift() -> None:
 
 
 def test_internal_beta_response_contract_rejects_sandbox_invocation_drift() -> None:
-    with pytest.raises(ValidationError):
+    with pytest.raises(ValidationError) as exc_info:
         ChatInternalBetaMessageResponse(
             mode="internal_beta",
             public_access=False,
@@ -132,6 +134,18 @@ def test_internal_beta_response_contract_rejects_sandbox_invocation_drift() -> N
                 supported_task_types=SUPPORTED_TASK_TYPES,
             ),
             critic_preview=_validated_critic_preview(),
+            critic_confidence_display=CriticConfidenceDisplayPreview(
+                score=0.86,
+                tier="high",
+                label_zh="高置信",
+                label_en="High confidence",
+                reasoning_zh="Critic 已验证 schema、安全性和业务一致性。",
+                reasoning_en="Critic validated schema, safety, and business-logic consistency.",
+                aria_label="Confidence: 0.86 - High confidence",
+                calibration_threshold=0.6,
+                human_review_escalated=False,
+                validation_errors=[],
+            ),
             sandbox_preview=SandboxPreview(
                 status="skipped",
                 source="heuristic_sandbox_internal_beta",
@@ -144,6 +158,19 @@ def test_internal_beta_response_contract_rejects_sandbox_invocation_drift() -> N
                 limits=_sandbox_limits(),
                 validation_errors=[],
                 contract_version="sandbox-runner-p58-p62-local-v1",
+            ),
+            human_review=HumanReviewPreview(
+                escalated=False,
+                source="heuristic_human_review_internal_beta",
+                queue="events.critic",
+                event_type="critic.review.escalated",
+                review_id="hrv_0123456789abcdef01234567",
+                reason_code="not_escalated",
+                critic_confidence=0.86,
+                calibration_threshold=0.6,
+                threshold_source="apps/critic-service/config/critic-calibration.json",
+                user_notice=None,
+                validation_errors=[],
             ),
             language_preview=LanguagePreview(
                 status="fallback",
@@ -169,6 +196,7 @@ def test_internal_beta_response_contract_rejects_sandbox_invocation_drift() -> N
             solver_invoked=False,
             sandbox_invoked=True,
         )
+    assert "skipped sandbox preview must set sandbox_invoked=false" in str(exc_info.value)
 
 
 def test_sandbox_executes_only_after_coder_and_critic_gate() -> None:
