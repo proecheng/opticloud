@@ -49,11 +49,15 @@ from solver_orchestrator.models import (
     CostAttribution,
     IdempotencyKey,
     Optimization,
+    OptimizationBatch,
+    OptimizationBatchIdempotencyKey,
+    OptimizationBatchItem,
     Prediction,
     PredictionIdempotencyKey,
     ReproductionVoucher,
 )
 from solver_orchestrator.provider_routing import (
+    ProviderRouteMetadata,
     ProviderRouteResult,
     ProviderRouteStatus,
     provider_route_to_system_metadata,
@@ -72,6 +76,7 @@ from solver_orchestrator.schemas import (
     CitationSchema,
     IPAttributionSchema,
     ModelVersionSchema,
+    OptimizationBatchRequest,
     OptimizationRequest,
     OptimizationResponse,
     PredictionQuantiles,
@@ -90,12 +95,22 @@ SOLVER_BUDGET_EPSILON_SECONDS = 1e-9
 BACKTEST_DISCOUNT_MULTIPLIER = 0.5
 BACKTEST_DISCOUNT_KIND = "backtest"
 PREDICTION_MAX_ABS_DATA_VALUE = 1_000_000_000_000.0
+BATCH_TERMINAL_STATUSES = {"completed", "failed", "timeout", "cancelled"}
+BATCH_COUNT_STATUSES = ("queued", "in_progress", "completed", "failed", "timeout", "cancelled")
 
 
 @dataclass(frozen=True)
 class _PredictionContractViolationError(Exception):
     field: str
     detail: str
+
+
+@dataclass(frozen=True)
+class _BatchValidatedTask:
+    body: dict[str, Any]
+    model_version: dict[str, Any]
+    provider_route: ProviderRouteMetadata
+    execution_mode: dict[str, object]
 
 
 # ===== Story 0.7: Health =====
@@ -745,6 +760,395 @@ def _idempotency_conflict_response(
         ],
         request_id=request_id,
     )
+
+
+def _prefix_problem_response_errors(response: JSONResponse, prefix: str) -> JSONResponse:
+    content = json.loads(bytes(response.body))
+    errors = content.get("errors")
+    if isinstance(errors, list):
+        for item in errors:
+            if not isinstance(item, dict):
+                continue
+            field_path = item.get("field_path")
+            if isinstance(field_path, str):
+                item["field_path"] = f"{prefix}.{field_path}"
+    return JSONResponse(
+        content=content,
+        status_code=response.status_code,
+        media_type=PROBLEM_JSON,
+    )
+
+
+def _batch_invalid_mode_response(*, mode: str, request_id: str | None) -> JSONResponse:
+    return _rfc7807_error(
+        title="Invalid Execution Mode",
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        detail="batch endpoint only accepts async execution mode",
+        errors=[
+            ErrorDetail(
+                field_path="query.mode",
+                value=mode,
+                constraint="must be omitted or async for batch endpoint",
+                remediation_hint_key="errors.422.invalid_execution_mode",
+            )
+        ],
+        request_id=request_id,
+    )
+
+
+def _batch_billing_not_supported_response(
+    *, billing_charge_id: str, request_id: str | None
+) -> JSONResponse:
+    return _rfc7807_error(
+        title="Billing Not Supported For Batch Optimizations",
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        detail="X-Billing-Charge-Id is not supported for /v1/optimizations/batch",
+        errors=[
+            ErrorDetail(
+                field_path="header.X-Billing-Charge-Id",
+                value=billing_charge_id,
+                constraint="batch billing requires a future per-item or batch reservation contract",
+                remediation_hint_key="errors.422.billing_not_supported_for_async_optimizations",
+            )
+        ],
+        request_id=request_id,
+    )
+
+
+def _batch_not_found_response(*, request_id: str | None) -> JSONResponse:
+    response = _rfc7807_error(
+        title="Not Found",
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail="batch not found",
+        request_id=request_id,
+    )
+    content = json.loads(bytes(response.body))
+    content["instance"] = "/v1/optimizations/batch/{batch_id}"
+    return JSONResponse(
+        content=content,
+        status_code=status.HTTP_404_NOT_FOUND,
+        media_type=PROBLEM_JSON,
+    )
+
+
+def _batch_task_type_response(
+    *, index: int, task_type: str, request_id: str | None
+) -> JSONResponse:
+    return _rfc7807_error(
+        title="Unsupported Task Type",
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        detail="batch endpoint only supports task_type 'lp' in Story 3.13",
+        errors=[
+            ErrorDetail(
+                field_path=f"tasks[{index}].task_type",
+                value=task_type,
+                constraint="must be lp",
+                remediation_hint_key="errors.422.unsupported_task_type",
+            )
+        ],
+        request_id=request_id,
+    )
+
+
+def _batch_attempt_plan_error_response(
+    attempt_plan: FallbackAttemptPlan,
+    *,
+    task_type: str,
+    index: int,
+    request_id: str | None,
+) -> JSONResponse | None:
+    if attempt_plan.status is FallbackPlanStatus.UNAUDITED_SELF_ALGORITHM:
+        response = _unaudited_self_algorithm_error(
+            attempt_plan,
+            field_path=(
+                f"fallback_chain[{attempt_plan.invalid_index}]"
+                if attempt_plan.invalid_index is not None
+                else "fallback_chain"
+            ),
+            request_id=request_id,
+        )
+        return _prefix_problem_response_errors(response, f"tasks[{index}]")
+    if attempt_plan.status is FallbackPlanStatus.INVALID_FALLBACK_SOLVER:
+        invalid_idx = attempt_plan.invalid_index if attempt_plan.invalid_index is not None else 0
+        supported = attempt_plan.supported_solvers or []
+        invalid_candidate = attempt_plan.invalid_candidate
+        return _rfc7807_error(
+            title="Unsupported Fallback Solver",
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"fallback_chain[{invalid_idx}]='{invalid_candidate}' is not supported for "
+                f"task_type '{task_type}'. Supported: {', '.join(supported)}"
+            ),
+            errors=[
+                ErrorDetail(
+                    field_path=f"tasks[{index}].fallback_chain[{invalid_idx}]",
+                    value=invalid_candidate,
+                    constraint=f"must be one of: {', '.join(supported)}",
+                    remediation_hint_key="errors.400.unsupported_fallback_solver",
+                )
+            ],
+            next_action="https://api.opticloud.cn/v1/algorithms",
+            request_id=request_id,
+        )
+    return None
+
+
+def _validate_batch_task(
+    payload: OptimizationRequest,
+    *,
+    index: int,
+    request_id: str | None,
+) -> tuple[_BatchValidatedTask | None, JSONResponse | None]:
+    if payload.task_type != "lp":
+        return None, _batch_task_type_response(
+            index=index,
+            task_type=payload.task_type,
+            request_id=request_id,
+        )
+    if payload.options.anonymous and not payload.options.reproducible:
+        return None, _rfc7807_error(
+            title="Invalid Anonymous Option",
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="options.anonymous requires options.reproducible=true",
+            errors=[
+                ErrorDetail(
+                    field_path=f"tasks[{index}].options.anonymous",
+                    value=True,
+                    constraint="requires options.reproducible=true",
+                    remediation_hint_key="errors.422.anonymous_requires_reproducible",
+                )
+            ],
+            request_id=request_id,
+        )
+    route = select_provider_route(payload.task_type, payload.solver)
+    route_error = _provider_route_error_response(
+        route,
+        task_type=payload.task_type,
+        requested_solver=payload.solver,
+        request_id=request_id,
+    )
+    if route_error is not None:
+        return None, _prefix_problem_response_errors(route_error, f"tasks[{index}]")
+    assert route.algorithm is not None
+    assert route.selected_solver is not None
+    attempt_plan = build_fallback_attempts(
+        primary_route=route,
+        task_type=payload.task_type,
+        requested_solver=payload.solver,
+        fallback_chain=payload.fallback_chain,
+    )
+    attempt_plan_error = _batch_attempt_plan_error_response(
+        attempt_plan,
+        task_type=payload.task_type,
+        index=index,
+        request_id=request_id,
+    )
+    if attempt_plan_error is not None:
+        return None, attempt_plan_error
+    primary_route_metadata = attempt_route_metadata(
+        attempt_plan.attempts[0], task_type=payload.task_type
+    )
+    estimated_seconds = _estimate_optimization_seconds(payload)
+    _effective_mode, _auto_async, execution_mode_metadata = _execution_mode_metadata(
+        requested_mode="async",
+        estimated_seconds=estimated_seconds,
+    )
+    return (
+        _BatchValidatedTask(
+            body=payload.model_dump(by_alias=True),
+            model_version=dict(route.model_version),
+            provider_route=primary_route_metadata,
+            execution_mode=execution_mode_metadata,
+        ),
+        None,
+    )
+
+
+def _hash_batch_body(body: dict[str, Any]) -> str:
+    return _hash_body({"body": body, "mode": "async"})
+
+
+def _batch_status_from_counts(counts: dict[str, int]) -> str:
+    total = sum(counts.values())
+    if total == 0:
+        return "queued"
+    active = counts["queued"] + counts["in_progress"]
+    failures = counts["failed"] + counts["timeout"] + counts["cancelled"]
+    if counts["queued"] == total:
+        return "queued"
+    if active > 0:
+        return "in_progress"
+    if counts["completed"] == total:
+        return "completed"
+    if counts["cancelled"] == total:
+        return "cancelled"
+    if counts["completed"] > 0 and failures > 0:
+        return "partial_failed"
+    if counts["completed"] == 0 and failures > 0:
+        return "failed"
+    return "failed"
+
+
+def _batch_completed_at(status_value: str, children: list[Optimization]) -> datetime | None:
+    if status_value in {"queued", "in_progress"}:
+        return None
+    completed_values: list[datetime] = []
+    for opt in children:
+        if opt.status in BATCH_TERMINAL_STATUSES and opt.completed_at is not None:
+            completed_values.append(opt.completed_at)
+    if not completed_values:
+        return None
+    return max(completed_values)
+
+
+def _batch_eta_seconds(status_value: str, child_payloads: list[dict[str, Any]]) -> int | None:
+    if status_value == "completed":
+        return 0
+    if status_value not in {"queued", "in_progress"}:
+        return None
+    values: list[int] = []
+    for payload in child_payloads:
+        eta_seconds = payload.get("eta_seconds")
+        if payload.get("status") in {"queued", "in_progress"} and isinstance(eta_seconds, int):
+            values.append(eta_seconds)
+    return max(values) if values else None
+
+
+def _batch_progress_pct(batch_status: str, child_payloads: list[dict[str, Any]]) -> int:
+    task_count = len(child_payloads)
+    if task_count == 0:
+        return 0
+    raw_progress = int(
+        math.floor(sum(int(item.get("progress_pct") or 0) for item in child_payloads) / task_count)
+    )
+    if batch_status == "completed":
+        return 100
+    return min(raw_progress, 99)
+
+
+def _build_batch_response_content(
+    batch: OptimizationBatch,
+    ordered_children: list[tuple[int, Optimization]],
+) -> dict[str, Any]:
+    counts = dict.fromkeys(BATCH_COUNT_STATUSES, 0)
+    child_payloads: list[dict[str, Any]] = []
+    items: list[dict[str, Any]] = []
+    errors: list[dict[str, Any]] = []
+    optimization_ids: list[str] = []
+    children: list[Optimization] = []
+    for index, opt in ordered_children:
+        children.append(opt)
+        optimization_ids.append(str(opt.id))
+        if opt.status in counts:
+            counts[opt.status] += 1
+        if opt.status == "completed":
+            content = _build_response_content(opt)
+        else:
+            content = _build_optimization_status_response_content(opt)
+        child_payloads.append(content)
+        item = {"index": index, **content}
+        items.append(item)
+        if opt.status in {"failed", "timeout", "cancelled"}:
+            errors.append(
+                {
+                    "index": index,
+                    "optimization_id": str(opt.id),
+                    "status": opt.status,
+                    "error": _redact_status_error(opt.error),
+                }
+            )
+    batch_status = _batch_status_from_counts(counts)
+    task_count = len(items)
+    return {
+        "batch_id": str(batch.id),
+        "batch_status": batch_status,
+        "task_count": task_count,
+        "counts": counts,
+        "progress_pct": _batch_progress_pct(batch_status, child_payloads),
+        "eta_seconds": _batch_eta_seconds(batch_status, child_payloads),
+        "optimization_ids": optimization_ids,
+        "items": items,
+        "errors": errors,
+        "created_at": _status_datetime(batch.created_at),
+        "completed_at": _status_datetime(_batch_completed_at(batch_status, children)),
+    }
+
+
+async def _load_batch_children(
+    session: AsyncSession,
+    *,
+    batch_id: uuid.UUID,
+) -> list[tuple[int, Optimization]]:
+    rows = (
+        (
+            await session.execute(
+                select(OptimizationBatchItem.item_index, Optimization)
+                .join(Optimization, Optimization.id == OptimizationBatchItem.optimization_id)
+                .where(OptimizationBatchItem.batch_id == batch_id)
+                .order_by(OptimizationBatchItem.item_index.asc())
+            )
+        )
+        .tuples()
+        .all()
+    )
+    return [(index, opt) for index, opt in rows]
+
+
+async def _build_batch_response(
+    session: AsyncSession,
+    *,
+    batch: OptimizationBatch,
+    status_code: int = status.HTTP_200_OK,
+) -> JSONResponse:
+    ordered_children = await _load_batch_children(session, batch_id=batch.id)
+    return JSONResponse(
+        content=_build_batch_response_content(batch, ordered_children),
+        status_code=status_code,
+        headers={"Location": f"/v1/optimizations/batch/{batch.id}"}
+        if status_code == status.HTTP_202_ACCEPTED
+        else None,
+    )
+
+
+async def _load_owner_batch(
+    session: AsyncSession,
+    *,
+    batch_id: uuid.UUID,
+    user_id: uuid.UUID,
+) -> OptimizationBatch | None:
+    result = await session.execute(
+        select(OptimizationBatch).where(
+            OptimizationBatch.id == batch_id,
+            OptimizationBatch.user_id == user_id,
+        )
+    )
+    return result.scalar_one_or_none()
+
+
+async def _load_batch_idempotency_replay(
+    session: AsyncSession,
+    *,
+    user_id: uuid.UUID,
+    idempotency_key: str,
+    request_body_hash: str,
+) -> tuple[OptimizationBatch | None, bool]:
+    existing_query = await session.execute(
+        select(OptimizationBatchIdempotencyKey).where(
+            OptimizationBatchIdempotencyKey.user_id == user_id,
+            OptimizationBatchIdempotencyKey.key == idempotency_key,
+        )
+    )
+    existing = existing_query.scalar_one_or_none()
+    if existing is None:
+        return None, False
+    if existing.request_body_hash != request_body_hash:
+        return None, True
+    existing_batch = await _load_owner_batch(
+        session,
+        batch_id=existing.batch_id,
+        user_id=user_id,
+    )
+    return existing_batch, False
 
 
 async def _add_optimization_idempotency_key(
@@ -1698,6 +2102,145 @@ async def post_optimization(
         return idempotency_error
 
     return _build_success_response(opt)
+
+
+@router.post(
+    "/optimizations/batch",
+    tags=["execution"],
+    summary="批量提交异步优化任务 (Story 3.13)",
+)
+async def post_optimization_batch(
+    payload: OptimizationBatchRequest,
+    request: Request,
+    mode: str | None = Query(default=None),
+    authorization: str | None = Header(default=None),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+    billing_charge_id: str | None = Header(default=None, alias="X-Billing-Charge-Id"),
+    session: AsyncSession = Depends(get_session),
+) -> JSONResponse:
+    client_ip = request.client.host if request.client else None
+    user_id, api_key_id, scopes = await verify_api_key(authorization, session, client_ip=client_ip)
+    require_scope("optimize:write", scopes)
+    request_id = request.headers.get("x-request-id") or str(uuid.uuid4())
+
+    if mode is not None and mode.strip().lower() != "async":
+        return _batch_invalid_mode_response(mode=mode, request_id=request_id)
+    if billing_charge_id:
+        return _batch_billing_not_supported_response(
+            billing_charge_id=billing_charge_id,
+            request_id=request_id,
+        )
+
+    validated_tasks: list[_BatchValidatedTask] = []
+    for index, task in enumerate(payload.tasks):
+        validated, validation_error = _validate_batch_task(
+            task,
+            index=index,
+            request_id=request_id,
+        )
+        if validation_error is not None:
+            return validation_error
+        assert validated is not None
+        validated_tasks.append(validated)
+
+    body_dict = payload.model_dump(by_alias=True)
+    body_hash = _hash_batch_body(body_dict)
+    if idempotency_key:
+        existing_batch, body_conflict = await _load_batch_idempotency_replay(
+            session,
+            user_id=user_id,
+            idempotency_key=idempotency_key,
+            request_body_hash=body_hash,
+        )
+        if body_conflict:
+            return _idempotency_conflict_response(
+                idempotency_key=idempotency_key,
+                request_id=request_id,
+            )
+        if existing_batch is not None:
+            return await _build_batch_response(
+                session,
+                batch=existing_batch,
+                status_code=status.HTTP_202_ACCEPTED,
+            )
+
+    batch = OptimizationBatch(user_id=user_id, api_key_id=api_key_id)
+    session.add(batch)
+    try:
+        await session.flush()
+        task_count = len(validated_tasks)
+        for index, validated_task in enumerate(validated_tasks):
+            opt = Optimization(
+                user_id=user_id,
+                api_key_id=api_key_id,
+                task_type="lp",
+                status="queued",
+                input_payload=_attach_system_metadata(
+                    validated_task.body,
+                    provider_route=validated_task.provider_route,
+                    execution_mode=validated_task.execution_mode,
+                    batch={
+                        "batch_id": str(batch.id),
+                        "item_index": index,
+                        "task_count": task_count,
+                    },
+                ),
+                model_version=validated_task.model_version,
+                idempotency_key=None,
+            )
+            session.add(opt)
+            await session.flush()
+            session.add(
+                OptimizationBatchItem(
+                    batch_id=batch.id,
+                    item_index=index,
+                    optimization_id=opt.id,
+                )
+            )
+        if idempotency_key:
+            session.add(
+                OptimizationBatchIdempotencyKey(
+                    key=idempotency_key,
+                    user_id=user_id,
+                    batch_id=batch.id,
+                    request_body_hash=body_hash,
+                    expires_at=datetime.now(UTC) + timedelta(hours=24),
+                )
+            )
+        await session.flush()
+    except IntegrityError:
+        await session.rollback()
+        if idempotency_key:
+            replay_session = session
+            replay_batch, body_conflict = await _load_batch_idempotency_replay(
+                replay_session,
+                user_id=user_id,
+                idempotency_key=idempotency_key,
+                request_body_hash=body_hash,
+            )
+            if body_conflict:
+                return _idempotency_conflict_response(
+                    idempotency_key=idempotency_key,
+                    request_id=request_id,
+                )
+            if replay_batch is not None:
+                return await _build_batch_response(
+                    replay_session,
+                    batch=replay_batch,
+                    status_code=status.HTTP_202_ACCEPTED,
+                )
+        return _idempotency_conflict_response(
+            idempotency_key=idempotency_key or "",
+            detail="failed to persist batch atomically",
+            constraint="batch, children, items and idempotency key must be unique",
+            request_id=request_id,
+        )
+
+    return await _build_batch_response(
+        session,
+        batch=batch,
+        status_code=status.HTTP_202_ACCEPTED,
+    )
 
 
 @router.post(
@@ -2853,6 +3396,29 @@ async def post_optimization_demo(request: Request) -> JSONResponse:
         detail=result.error_constraint or "solve failed",
         request_id=request_id,
     )
+
+
+@router.get(
+    "/optimizations/batch/{batch_id}",
+    tags=["execution"],
+    summary="查询批量优化状态 (Story 3.13)",
+)
+async def get_optimization_batch(
+    batch_id: uuid.UUID,
+    request: Request,
+    authorization: str | None = Header(default=None),
+    session: AsyncSession = Depends(get_session),
+) -> JSONResponse:
+    client_ip = request.client.host if request.client else None
+    user_id, _api_key_id, _scopes = await verify_api_key(
+        authorization, session, client_ip=client_ip
+    )
+    batch = await _load_owner_batch(session, batch_id=batch_id, user_id=user_id)
+    if batch is None:
+        return _batch_not_found_response(
+            request_id=request.headers.get("x-request-id") or str(uuid.uuid4())
+        )
+    return await _build_batch_response(session, batch=batch)
 
 
 @router.get(

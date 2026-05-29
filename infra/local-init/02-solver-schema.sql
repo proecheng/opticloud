@@ -37,6 +37,41 @@ CREATE TABLE IF NOT EXISTS idempotency_keys (
 CREATE INDEX IF NOT EXISTS idx_idempotency_keys_expires_at
     ON idempotency_keys(expires_at);
 
+-- Story 3.13: async optimization batch grouping and whole-batch idempotency.
+CREATE TABLE IF NOT EXISTS optimization_batches (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id             UUID NOT NULL,
+    api_key_id          UUID NOT NULL,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_optimization_batches_user_id_created_at
+    ON optimization_batches(user_id, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS optimization_batch_items (
+    batch_id            UUID NOT NULL REFERENCES optimization_batches(id) ON DELETE CASCADE,
+    item_index          INTEGER NOT NULL,
+    optimization_id     UUID NOT NULL UNIQUE REFERENCES optimizations(id) ON DELETE CASCADE,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (batch_id, item_index)
+);
+
+CREATE INDEX IF NOT EXISTS idx_optimization_batch_items_batch_id_item_index
+    ON optimization_batch_items(batch_id, item_index);
+
+CREATE TABLE IF NOT EXISTS optimization_batch_idempotency_keys (
+    user_id             UUID NOT NULL,
+    key                 VARCHAR(255) NOT NULL,
+    batch_id            UUID NOT NULL REFERENCES optimization_batches(id) ON DELETE CASCADE,
+    request_body_hash   TEXT NOT NULL,
+    expires_at          TIMESTAMPTZ NOT NULL,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (user_id, key)
+);
+
+CREATE INDEX IF NOT EXISTS idx_optimization_batch_idempotency_keys_expires_at
+    ON optimization_batch_idempotency_keys(expires_at);
+
 -- Story 6.B.3: scope solver idempotency by user + key rather than global key.
 ALTER TABLE idempotency_keys
     DROP CONSTRAINT IF EXISTS idempotency_keys_pkey;
