@@ -31,6 +31,11 @@ from chat_service.schemas import (
     ChatInternalBetaMessageResponse,
 )
 from chat_service.streaming import build_stream_events, iter_sse_payload
+from chat_service.what_if_context import (
+    build_message_with_what_if_context,
+    build_what_if_preview,
+    canonical_what_if_context_digest,
+)
 
 app = FastAPI(
     title="OptiCloud Chat Service",
@@ -99,6 +104,11 @@ async def stream_internal_beta_message(
             if response.file_context_preview is not None
             else None
         ),
+        what_if_preview=(
+            response.what_if_preview.model_dump(mode="json")
+            if response.what_if_preview is not None
+            else None
+        ),
     )
     return StreamingResponse(
         iter_sse_payload(events, last_event_id=last_event_id),
@@ -159,8 +169,16 @@ def _build_internal_beta_response(
 ) -> ChatInternalBetaMessageResponse:
     locale = request.locale or detect_locale(request.message)
     message_excerpt = build_message_excerpt(request.message)
-    contextual_message = build_message_with_file_context(request.message, request.file_contexts)
+    file_contextual_message = build_message_with_file_context(
+        request.message,
+        request.file_contexts,
+    )
+    contextual_message = build_message_with_what_if_context(
+        file_contextual_message,
+        request.what_if_context,
+    )
     file_context_digest = canonical_file_context_digest(request.file_contexts)
+    what_if_context_digest = canonical_what_if_context_digest(request.what_if_context)
     file_context_preview = build_file_context_preview(request.file_contexts)
     message_id = _message_id(
         tenant=tenant,
@@ -168,6 +186,7 @@ def _build_internal_beta_response(
         message=request.message,
         client_request_id=request.client_request_id,
         file_context_digest=file_context_digest,
+        what_if_context_digest=what_if_context_digest,
     )
     intent_result = route_intent_with_llm(
         message=contextual_message,
@@ -212,6 +231,11 @@ def _build_internal_beta_response(
         human_review=human_review_result.preview,
         sandbox_invoked=sandbox_result.sandbox_invoked,
     )
+    what_if_preview = build_what_if_preview(
+        request.what_if_context,
+        message=request.message,
+        model_preview=model_preview,
+    )
     language_result = generate_language_response_with_llm(
         message=contextual_message,
         locale=locale,
@@ -239,6 +263,7 @@ def _build_internal_beta_response(
         model_preview=model_preview,
         language_preview=language_result.preview,
         file_context_preview=file_context_preview,
+        what_if_preview=what_if_preview,
         aigc_gate=AigcGate(status="filing_pending", public_surface="hidden"),
         llm_invoked=(
             intent_result.llm_invoked
@@ -268,10 +293,18 @@ def _message_id(
     message: str,
     client_request_id: str | None,
     file_context_digest: str = "",
+    what_if_context_digest: str = "",
 ) -> str:
     digest = hashlib.sha256(
-        "\n".join([tenant, user, client_request_id or "", message, file_context_digest]).encode(
-            "utf-8"
-        )
+        "\n".join(
+            [
+                tenant,
+                user,
+                client_request_id or "",
+                message,
+                file_context_digest,
+                what_if_context_digest,
+            ]
+        ).encode("utf-8")
     ).hexdigest()
     return f"msg_{digest[:24]}"
