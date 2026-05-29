@@ -17,6 +17,8 @@ CoderPreviewSource = Literal[
     "template_coder_internal_beta",
     "heuristic_coder_internal_beta",
 ]
+LanguagePreviewStatus = Literal["generated", "fallback"]
+LanguagePreviewSource = Literal["llm_language_internal_beta", "heuristic_language_internal_beta"]
 
 
 class ChatInternalBetaMessageRequest(BaseModel):
@@ -133,6 +135,47 @@ class CoderPreview(BaseModel):
         return self
 
 
+class LanguageValidationError(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    field_path: str = Field(min_length=1, max_length=128)
+    message: str = Field(min_length=1, max_length=160)
+    remediation_hint_key: str | None = Field(default=None, min_length=1, max_length=128)
+
+
+class ChatDisclaimer(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    zh: Literal["AI 生成内容仅供参考，请在提交求解前核对。"]
+    en: Literal["AI-generated content is for reference only. Review it before submitting a solve."]
+    bilingual: Literal[
+        "AI 生成内容仅供参考，请在提交求解前核对。 / "
+        "AI-generated content is for reference only. Review it before submitting a solve."
+    ]
+
+
+class LanguagePreview(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    status: LanguagePreviewStatus
+    source: LanguagePreviewSource
+    response_locale: ChatLocale
+    summary: str = Field(min_length=1, max_length=360)
+    disclaimer: ChatDisclaimer
+    validation_errors: list[LanguageValidationError] = Field(default_factory=list, max_length=10)
+    supported_locales: list[ChatLocale]
+
+    @model_validator(mode="after")
+    def validate_status_source(self) -> LanguagePreview:
+        if self.status == "generated" and self.source != "llm_language_internal_beta":
+            raise ValueError("generated language preview requires LLM source")
+        if self.status == "fallback" and self.source != "heuristic_language_internal_beta":
+            raise ValueError("fallback language preview requires heuristic source")
+        if self.supported_locales != ["zh-CN", "en-US", "mixed"]:
+            raise ValueError("supported_locales must use the canonical order")
+        return self
+
+
 class ChatInternalBetaMessageResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -144,6 +187,7 @@ class ChatInternalBetaMessageResponse(BaseModel):
     router_preview: RouterPreview
     formulator_preview: FormulatorPreview
     coder_preview: CoderPreview
+    language_preview: LanguagePreview
     aigc_gate: AigcGate
     llm_invoked: bool
     provider_request_sent: Literal[False]

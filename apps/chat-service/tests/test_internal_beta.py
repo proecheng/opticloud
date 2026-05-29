@@ -182,9 +182,34 @@ def test_vrptw_message_returns_internal_beta_contract(monkeypatch: pytest.Monkey
         ],
         "supported_task_types": ["lp", "vrptw", "prediction", "schedule", "inventory", "unknown"],
     }
+    assert body["language_preview"] == {
+        "status": "fallback",
+        "source": "heuristic_language_internal_beta",
+        "response_locale": "zh-CN",
+        "summary": "已识别为 VRPTW 请求，并生成 internal beta 预览。",
+        "disclaimer": {
+            "zh": "AI 生成内容仅供参考，请在提交求解前核对。",
+            "en": "AI-generated content is for reference only. Review it before submitting a solve.",
+            "bilingual": (
+                "AI 生成内容仅供参考，请在提交求解前核对。 / "
+                "AI-generated content is for reference only. Review it before submitting a solve."
+            ),
+        },
+        "validation_errors": [
+            {
+                "field_path": "language.completion",
+                "message": "language completion used deterministic fallback",
+                "remediation_hint_key": "chat.language.fallback_used",
+            }
+        ],
+        "supported_locales": ["zh-CN", "en-US", "mixed"],
+    }
     assert body["aigc_gate"] == {"status": "filing_pending", "public_surface": "hidden"}
     assert body["llm_invoked"] is True
     assert body["provider_request_sent"] is False
+    assert body["formulator_preview"]["source"] != "provider_response"
+    assert body["coder_preview"]["source"] != "provider_response"
+    assert body["language_preview"]["source"] != "provider_response"
     assert body["solver_invoked"] is False
     assert body["sandbox_invoked"] is False
 
@@ -264,6 +289,49 @@ def test_router_preview_is_deterministic_for_supported_task_types(
     else:
         assert body["formulator_preview"]["task_type"] == expected_task_type
         assert body["coder_preview"]["task_type"] == expected_task_type
+    assert body["language_preview"]["response_locale"] == expected_locale
+    assert body["language_preview"]["supported_locales"] == ["zh-CN", "en-US", "mixed"]
+
+
+def test_mixed_language_message_returns_same_locale_language_preview(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    enable_internal_beta(monkeypatch)
+    message = "请 solve route optimization for 北京 deliveries"
+
+    response = post_message(payload={"message": message})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["locale"] == "mixed"
+    assert body["language_preview"]["response_locale"] == "mixed"
+    assert "已识别" in body["language_preview"]["summary"]
+    assert "request" in body["language_preview"]["summary"]
+    assert message not in body["language_preview"]["summary"]
+    assert body["message_excerpt"] not in body["language_preview"]["summary"]
+    assert body["language_preview"]["disclaimer"]["zh"]
+    assert body["language_preview"]["disclaimer"]["en"]
+    assert body["provider_request_sent"] is False
+
+
+def test_explicit_locale_override_drives_language_preview(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    enable_internal_beta(monkeypatch)
+
+    response = post_message(
+        payload={
+            "message": "求最短路径，把车辆路线排出来",
+            "locale": "en-US",
+        }
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["locale"] == "en-US"
+    assert body["language_preview"]["response_locale"] == "en-US"
+    assert body["language_preview"]["summary"].startswith("Detected")
+    assert "已识别" not in body["language_preview"]["summary"]
 
 
 @pytest.mark.parametrize(

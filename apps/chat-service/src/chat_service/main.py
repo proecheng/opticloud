@@ -12,6 +12,7 @@ from chat_service.coder import generate_code_with_llm
 from chat_service.config import load_internal_beta_config
 from chat_service.formulator import extract_formulation_with_llm
 from chat_service.gate import InternalBetaAccessDeniedError, validate_internal_beta_access
+from chat_service.language_response import generate_language_response_with_llm
 from chat_service.llm_intent import route_intent_with_llm
 from chat_service.router_preview import build_message_excerpt, detect_locale
 from chat_service.schemas import (
@@ -61,6 +62,7 @@ async def create_internal_beta_message(
         raise HTTPException(status_code=422, detail="Invalid JSON body") from exc
 
     locale = request.locale or detect_locale(request.message)
+    message_excerpt = build_message_excerpt(request.message)
     message_id = _message_id(
         tenant=x_internal_beta_tenant or "",
         user=x_internal_beta_user or "",
@@ -84,23 +86,39 @@ async def create_internal_beta_message(
         prompt_id=message_id,
         formulator_preview=formulator_result.preview,
     )
+    language_result = generate_language_response_with_llm(
+        message=request.message,
+        locale=locale,
+        prompt_id=message_id,
+        message_excerpt=message_excerpt,
+        router_preview=intent_result.preview,
+        formulator_preview=formulator_result.preview,
+        coder_preview=coder_result.preview,
+    )
 
     return ChatInternalBetaMessageResponse(
         mode="internal_beta",
         public_access=False,
         message_id=message_id,
-        message_excerpt=build_message_excerpt(request.message),
+        message_excerpt=message_excerpt,
         locale=locale,
         router_preview=intent_result.preview,
         formulator_preview=formulator_result.preview,
         coder_preview=coder_result.preview,
+        language_preview=language_result.preview,
         aigc_gate=AigcGate(status="filing_pending", public_surface="hidden"),
         llm_invoked=(
             intent_result.llm_invoked
             or formulator_result.formulator_invoked
             or coder_result.coder_invoked
+            or language_result.language_invoked
         ),
-        provider_request_sent=intent_result.provider_request_sent,
+        provider_request_sent=(
+            intent_result.provider_request_sent
+            or formulator_result.provider_request_sent
+            or coder_result.provider_request_sent
+            or language_result.provider_request_sent
+        ),
         solver_invoked=False,
         sandbox_invoked=False,
     )
