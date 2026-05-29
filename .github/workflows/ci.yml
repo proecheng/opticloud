@@ -90,9 +90,11 @@ jobs:
             chat_service:
               - 'apps/chat-service/**'
               - 'apps/sandbox-runner/**'
+              - 'packages/shared-py/aigc_filter/**'
               - 'packages/shared-py/opticloud_shared/llm_router/**'
               - 'packages/shared-py/opticloud_shared/__init__.py'
               - 'packages/shared-py/pyproject.toml'
+              - 'tests/aigc/**'
             critic_service:
               - 'apps/critic-service/**'
             critic_calibration:
