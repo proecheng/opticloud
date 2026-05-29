@@ -22,6 +22,7 @@ INCIDENT_FALLBACK_PLAN_PATH = REPO_ROOT / "tools" / "chat_load" / "incident_fall
 INCIDENT_FALLBACK_EXAMPLE_MANIFEST_PATH = (
     REPO_ROOT / "tools" / "chat_load" / "incident_fallback_evidence_manifest.example.json"
 )
+G6_VALIDATION_PATH = REPO_ROOT / "tools" / "chat_load" / "g6_chat_latency_validation.json"
 
 
 def _load_validator() -> ModuleType:
@@ -499,6 +500,113 @@ def test_incident_fallback_plan_pins_providers_thresholds_and_prompt_hash() -> N
         validator.validate_incident_fallback_plan(plan, validator.prompt_fixture_hash(prompts))
         == []
     )
+
+
+def test_g6_chat_latency_validation_contract_pins_hard_gate_boundary() -> None:
+    validator = _load_validator()
+    prompts = _load_json(PROMPTS_PATH)
+    profiles = _load_json(PROFILES_PATH)
+    contract = _load_json(G6_VALIDATION_PATH)
+
+    assert (
+        validator.validate_g6_chat_latency_validation(
+            contract,
+            expected_hash=validator.prompt_fixture_hash(prompts),
+            profiles_config=profiles,
+        )
+        == []
+    )
+
+
+def test_g6_chat_latency_validation_rejects_false_pass_claims() -> None:
+    validator = _load_validator()
+    prompts = _load_json(PROMPTS_PATH)
+    profiles = _load_json(PROFILES_PATH)
+    contract = _load_json(G6_VALIDATION_PATH)
+    contract["hard_gate_pass"] = True
+    contract["nested"] = {"staging_pass": True, "passed": True}
+    contract["g6_status"] = "passed"
+
+    errors = validator.validate_g6_chat_latency_validation(
+        contract,
+        expected_hash=validator.prompt_fixture_hash(prompts),
+        profiles_config=profiles,
+    )
+
+    _assert_invalid(errors, "hard_gate_pass must be False")
+    _assert_invalid(errors, "g6_status must be requires_real_staging_evidence")
+    _assert_invalid(errors, "cannot claim G6 hard-gate or staging pass")
+
+
+def test_g6_chat_latency_validation_rejects_wrong_unlock_source() -> None:
+    validator = _load_validator()
+    prompts = _load_json(PROMPTS_PATH)
+    profiles = _load_json(PROFILES_PATH)
+    contract = _load_json(G6_VALIDATION_PATH)
+    contract["required_evidence_manifest"] = (
+        "reports/chat-single-node/<run_id>/evidence_manifest.json"
+    )
+    contract["blocked_unlock_sources"] = ["example_manifest"]
+    contract["blocked_unlock_conditions"] = ["docs-only"]
+    contract["nested_manifest"] = {"example_only": True}
+
+    errors = validator.validate_g6_chat_latency_validation(
+        contract,
+        expected_hash=validator.prompt_fixture_hash(prompts),
+        profiles_config=profiles,
+    )
+
+    _assert_invalid(errors, "required_evidence_manifest must be reports/chat-load")
+    _assert_invalid(errors, "blocked_unlock_sources must include")
+    _assert_invalid(errors, "blocked_unlock_conditions must include example_only=true")
+    _assert_invalid(errors, "cannot use example_only=true evidence")
+
+
+def test_g6_chat_latency_validation_rejects_profile_or_blocker_order_drift() -> None:
+    validator = _load_validator()
+    prompts = _load_json(PROMPTS_PATH)
+    profiles = _load_json(PROFILES_PATH)
+    contract = _load_json(G6_VALIDATION_PATH)
+    contract["required_profiles"] = ["baseline", "stress", "stress"]
+    contract["blocked_unlock_sources"] = [
+        "reports/chat-single-node/**",
+        "tools/chat_load/evidence_manifest.example.json",
+        "reports/chat-incident-fallback/**",
+        "docs-only-checklist",
+    ]
+
+    errors = validator.validate_g6_chat_latency_validation(
+        contract,
+        expected_hash=validator.prompt_fixture_hash(prompts),
+        profiles_config=profiles,
+    )
+
+    _assert_invalid(errors, "required_profiles must be baseline/stress/soak")
+    _assert_invalid(errors, "blocked_unlock_sources must include")
+
+
+def test_g6_chat_latency_validation_rejects_threshold_prompt_and_stress_drift() -> None:
+    validator = _load_validator()
+    prompts = _load_json(PROMPTS_PATH)
+    profiles = _load_json(PROFILES_PATH)
+    contract = _load_json(G6_VALIDATION_PATH)
+    contract["prompt_fixture_sha256"] = "0" * 64
+    contract["hard_gate_thresholds"]["first_token_p95_max_ms"] = 2999
+    contract["stress_profile"]["users"] = 99
+    contract["stress_profile"]["target_rps"] = 99
+    contract["stress_profile"]["run_time_seconds"] = 1799
+
+    errors = validator.validate_g6_chat_latency_validation(
+        contract,
+        expected_hash=validator.prompt_fixture_hash(prompts),
+        profiles_config=profiles,
+    )
+
+    _assert_invalid(errors, "prompt_fixture_sha256 does not match")
+    _assert_invalid(errors, "hard_gate_thresholds.first_token_p95_max_ms must be 3000")
+    _assert_invalid(errors, "stress_profile.users must match staging profile")
+    _assert_invalid(errors, "stress_profile.target_rps must match staging profile")
+    _assert_invalid(errors, "stress_profile.run_time_seconds must match staging profile")
 
 
 def test_incident_fallback_plan_provider_and_threshold_drift_is_rejected() -> None:

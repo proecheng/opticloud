@@ -314,6 +314,30 @@ def test_mixed_language_message_returns_same_locale_language_preview(
     assert body["provider_request_sent"] is False
 
 
+def test_internal_beta_response_keeps_g6_latency_validation_boundaries(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    enable_internal_beta(monkeypatch)
+
+    response = post_message(payload={"message": "linear programming objective with constraints"})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["mode"] == "internal_beta"
+    assert body["public_access"] is False
+    assert body["aigc_gate"] == {"status": "filing_pending", "public_surface": "hidden"}
+    assert body["provider_request_sent"] is False
+    assert body["solver_invoked"] is False
+    assert body["sandbox_invoked"] is False
+    assert "hard_gate_pass" not in body
+    assert "staging_pass" not in body
+    assert "evidence_manifest" not in body
+    assert "locust_report" not in body
+    assert "grafana_screenshot" not in body
+    assert "provider" not in body
+    assert "raw_response" not in body
+
+
 def test_explicit_locale_override_drives_language_preview(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

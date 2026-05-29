@@ -100,6 +100,19 @@ uv run python scripts/validate_chat_load_plan.py \
 - Soak: 0 OOM and 0 deadlock.
 - G6 hard gate: first-token P95 < 3000 ms, streaming >= 20 token/s, E2E solve P95 <= 90000 ms.
 
+## Story 4.A.6 Interpretation
+
+Story 4.A.6 validates the G6 readiness and false-pass boundary for the current internal beta Chat chain. It does not prove that G6 has passed.
+
+The G6 status remains `requires_real_staging_evidence` unless a real operator manifest exists at `reports/chat-load/<run_id>/evidence_manifest.json`, sets `example_only=false`, uses `cluster.node_count=5`, and passes:
+
+```bash
+uv run python scripts/validate_chat_load_plan.py \
+  --evidence reports/chat-load/<run_id>/evidence_manifest.json
+```
+
+Do not use the committed example manifest, single-node evidence, incident fallback evidence, or a docs-only checklist as G6 pass evidence.
+
 ## Failure Handling
 
 If G6 fails, do not mark the hard-gate passed. Open follow-up architecture work for the relevant cause:
