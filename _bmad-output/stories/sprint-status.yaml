@@ -132,7 +132,7 @@ development_status:
   4-a-1-nl-chat-input-internal-beta: done
   4-a-2-router-llm-intent: done
   4-a-3-formulator-extract: done
-  4-a-4-coder-generate: backlog
+  4-a-4-coder-generate: done
   4-a-5-zh-en-mixed: backlog
   4-a-6-g6-chat-latency-validation: backlog
 

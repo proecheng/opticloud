@@ -168,6 +168,20 @@ def test_vrptw_message_returns_internal_beta_contract(monkeypatch: pytest.Monkey
         ],
         "supported_task_types": ["lp", "vrptw", "prediction", "schedule", "inventory", "unknown"],
     }
+    assert body["coder_preview"] == {
+        "status": "needs_clarification",
+        "source": "heuristic_coder_internal_beta",
+        "task_type": "vrptw",
+        "artifact": None,
+        "validation_errors": [
+            {
+                "field_path": "formulator_preview.variables",
+                "message": "structured formulation is required before code generation",
+                "remediation_hint_key": "chat.coder.formulator_extracted_required",
+            }
+        ],
+        "supported_task_types": ["lp", "vrptw", "prediction", "schedule", "inventory", "unknown"],
+    }
     assert body["aigc_gate"] == {"status": "filing_pending", "public_surface": "hidden"}
     assert body["llm_invoked"] is True
     assert body["provider_request_sent"] is False
@@ -208,6 +222,9 @@ def test_llm_router_guardrail_preserves_supported_non_route_task_types(
     assert body["router_preview"]["source"] == "heuristic_internal_beta"
     assert body["formulator_preview"]["task_type"] == "prediction"
     assert body["formulator_preview"]["status"] == "needs_clarification"
+    assert body["coder_preview"]["task_type"] == "prediction"
+    assert body["coder_preview"]["status"] == "needs_clarification"
+    assert body["coder_preview"]["artifact"] is None
     assert body["llm_invoked"] is True
     assert body["provider_request_sent"] is False
 
@@ -241,8 +258,12 @@ def test_router_preview_is_deterministic_for_supported_task_types(
         assert body["router_preview"]["confidence"] <= 0.4
         assert body["formulator_preview"]["status"] == "skipped"
         assert body["formulator_preview"]["task_type"] == "unknown"
+        assert body["coder_preview"]["status"] == "skipped"
+        assert body["coder_preview"]["task_type"] == "unknown"
+        assert body["coder_preview"]["artifact"] is None
     else:
         assert body["formulator_preview"]["task_type"] == expected_task_type
+        assert body["coder_preview"]["task_type"] == expected_task_type
 
 
 @pytest.mark.parametrize(
