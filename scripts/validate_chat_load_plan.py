@@ -34,8 +34,34 @@ INCIDENT_FALLBACK_SCHEMA_PATH = CHAT_LOAD_DIR / "incident_fallback_evidence_mani
 INCIDENT_FALLBACK_EXAMPLE_MANIFEST_PATH = (
     CHAT_LOAD_DIR / "incident_fallback_evidence_manifest.example.json"
 )
+G6_CHAT_LATENCY_VALIDATION_PATH = CHAT_LOAD_DIR / "g6_chat_latency_validation.json"
 REQUIRED_PROFILES = {"baseline", "stress", "soak"}
 SINGLE_NODE_PROFILE = "single_node_baseline"
+G6_REQUIRED_STORY_CHAIN = [
+    "4.A.1",
+    "4.A.2",
+    "4.A.3",
+    "4.A.4",
+    "4.A.5",
+    "M3.6a",
+    "M3.6b",
+    "M3.6c",
+]
+G6_BLOCKED_UNLOCK_SOURCES = [
+    "tools/chat_load/evidence_manifest.example.json",
+    "reports/chat-single-node/**",
+    "reports/chat-incident-fallback/**",
+    "docs-only-checklist",
+]
+G6_BLOCKED_UNLOCK_CONDITIONS = [
+    "example_only=true",
+]
+G6_PASS_CLAIM_KEYS = {
+    "hard_gate_pass",
+    "staging_pass",
+    "g6_pass",
+    "passed",
+}
 INCIDENT_FALLBACK_ARTIFACTS = {
     "locust_report",
     "provider_health_snapshot",
@@ -420,6 +446,152 @@ def validate_incident_fallback_plan(data: dict[str, Any], expected_hash: str) ->
     for key in ("switch_budget_seconds", "fallback_first_token_p95_max_ms"):
         _require_numeric(data, key, errors, "incident_fallback_plan")
     errors.extend(validate_no_secret_like_values(data, "incident_fallback_plan.json"))
+    return errors
+
+
+def validate_g6_chat_latency_validation(
+    data: dict[str, Any],
+    *,
+    expected_hash: str,
+    profiles_config: dict[str, Any],
+) -> list[str]:
+    errors: list[str] = []
+    expected_values: dict[str, Any] = {
+        "dataset_version": "g6_chat_latency_validation_v1",
+        "source_story": "4.A.6",
+        "linked_hard_gate_story": "M3.6a",
+        "g6_status": "requires_real_staging_evidence",
+        "real_evidence_required": True,
+        "hard_gate_pass": False,
+        "current_internal_beta_endpoint": "/v1/chat/internal-beta/messages",
+        "target_staging_sse_endpoint": "/v1/chat/stream",
+        "required_evidence_manifest": "reports/chat-load/<run_id>/evidence_manifest.json",
+        "required_validator_mode": "--evidence",
+        "prompt_fixture": "tools/chat_load/prompts_v1.json",
+    }
+    for key, value in expected_values.items():
+        if data.get(key) != value:
+            if key == "required_evidence_manifest":
+                errors.append(
+                    "g6_chat_latency_validation.json required_evidence_manifest must be "
+                    "reports/chat-load/<run_id>/evidence_manifest.json"
+                )
+            else:
+                errors.append(f"g6_chat_latency_validation.json {key} must be {value}")
+
+    if data.get("prompt_fixture_sha256") != expected_hash:
+        errors.append(
+            "g6_chat_latency_validation.json prompt_fixture_sha256 does not match "
+            "prompts_v1.json"
+        )
+
+    required_profiles = data.get("required_profiles")
+    if required_profiles != ["baseline", "stress", "soak"]:
+        errors.append(
+            "g6_chat_latency_validation.json required_profiles must be baseline/stress/soak"
+        )
+
+    story_chain = data.get("required_story_chain")
+    if story_chain != G6_REQUIRED_STORY_CHAIN:
+        errors.append("g6_chat_latency_validation.json required_story_chain drifted")
+
+    blocked_sources = data.get("blocked_unlock_sources")
+    if blocked_sources != G6_BLOCKED_UNLOCK_SOURCES:
+        errors.append(
+            "g6_chat_latency_validation.json blocked_unlock_sources must include "
+            "example, single-node, incident fallback, and docs-only sources"
+        )
+
+    blocked_conditions = data.get("blocked_unlock_conditions")
+    if blocked_conditions != G6_BLOCKED_UNLOCK_CONDITIONS:
+        errors.append(
+            "g6_chat_latency_validation.json blocked_unlock_conditions must include "
+            "example_only=true"
+        )
+
+    thresholds = data.get("hard_gate_thresholds")
+    expected_thresholds = {
+        "first_token_p95_max_ms": 3000,
+        "streaming_min_tokens_per_second": 20,
+        "e2e_solve_p95_max_ms": 90000,
+    }
+    if not isinstance(thresholds, dict):
+        errors.append("g6_chat_latency_validation.json hard_gate_thresholds must be an object")
+    else:
+        for key, value in expected_thresholds.items():
+            if thresholds.get(key) != value:
+                errors.append(
+                    f"g6_chat_latency_validation.json hard_gate_thresholds.{key} must be {value}"
+                )
+        for key in thresholds:
+            if key.endswith("_seconds") and "first_token" in key:
+                errors.append(
+                    "g6_chat_latency_validation.json first-token threshold must use ms fields"
+                )
+
+    response_invariants = data.get("internal_beta_response_invariants")
+    expected_invariants = {
+        "public_access": False,
+        "provider_request_sent": False,
+        "solver_invoked": False,
+        "sandbox_invoked": False,
+        "aigc_public_surface": "hidden",
+    }
+    if response_invariants != expected_invariants:
+        errors.append("g6_chat_latency_validation.json internal_beta_response_invariants drifted")
+
+    profiles = profiles_config.get("profiles") if isinstance(profiles_config, dict) else None
+    hard_gate = (
+        profiles_config.get("hard_gate_thresholds") if isinstance(profiles_config, dict) else None
+    )
+    if isinstance(hard_gate, dict):
+        for key, value in expected_thresholds.items():
+            if hard_gate.get(key) != value:
+                errors.append(f"staging_profiles.json hard_gate_thresholds.{key} drifted from G6")
+    else:
+        errors.append("staging_profiles.json hard_gate_thresholds must be available for G6")
+
+    stress_profile = data.get("stress_profile")
+    staging_stress = profiles.get("stress") if isinstance(profiles, dict) else None
+    if not isinstance(stress_profile, dict):
+        errors.append("g6_chat_latency_validation.json stress_profile must be an object")
+    elif not isinstance(staging_stress, dict):
+        errors.append("staging_profiles.json stress profile must be available for G6")
+    else:
+        expected_stress = {
+            "profile": "stress",
+            "users": staging_stress.get("users"),
+            "run_time_seconds": staging_stress.get("run_time_seconds"),
+            "target_rps": staging_stress.get("target_rps"),
+            "first_token_p95_max_ms": staging_stress.get("first_token_p95_max_ms"),
+        }
+        for key, value in expected_stress.items():
+            if stress_profile.get(key) != value:
+                errors.append(
+                    f"g6_chat_latency_validation.json stress_profile.{key} "
+                    "must match staging profile"
+                )
+        if stress_profile.get("users") != 100:
+            errors.append("g6_chat_latency_validation.json stress_profile.users must be 100")
+        if stress_profile.get("target_rps") != 100:
+            errors.append("g6_chat_latency_validation.json stress_profile.target_rps must be 100")
+        if stress_profile.get("run_time_seconds") != 1800:
+            errors.append(
+                "g6_chat_latency_validation.json stress_profile.run_time_seconds must be 1800"
+            )
+
+    for path, value in _walk_values(data):
+        key = path.rsplit(".", 1)[-1]
+        if key in G6_PASS_CLAIM_KEYS and value:
+            errors.append(
+                "g6_chat_latency_validation.json cannot claim G6 hard-gate or staging pass"
+            )
+        if key == "example_only" and value is True:
+            errors.append(
+                "g6_chat_latency_validation.json cannot use example_only=true evidence"
+            )
+
+    errors.extend(validate_no_secret_like_values(data, "g6_chat_latency_validation.json"))
     return errors
 
 
@@ -1182,6 +1354,7 @@ def validate_all(
     incident_fallback_plan = load_json(INCIDENT_FALLBACK_PLAN_PATH)
     incident_fallback_schema = load_json(INCIDENT_FALLBACK_SCHEMA_PATH)
     incident_fallback_example_manifest = load_json(INCIDENT_FALLBACK_EXAMPLE_MANIFEST_PATH)
+    g6_chat_latency_validation = load_json(G6_CHAT_LATENCY_VALIDATION_PATH)
     if not isinstance(prompts, dict):
         return ["prompts_v1.json must contain an object"]
     expected_hash = prompt_fixture_hash(prompts)
@@ -1201,6 +1374,16 @@ def validate_all(
         errors.append("incident_fallback_plan.json must contain an object")
     else:
         errors.extend(validate_incident_fallback_plan(incident_fallback_plan, expected_hash))
+    if not isinstance(g6_chat_latency_validation, dict):
+        errors.append("g6_chat_latency_validation.json must contain an object")
+    else:
+        errors.extend(
+            validate_g6_chat_latency_validation(
+                g6_chat_latency_validation,
+                expected_hash=expected_hash,
+                profiles_config=profiles if isinstance(profiles, dict) else {},
+            )
+        )
     if not isinstance(schema, dict):
         errors.append("evidence_manifest.schema.json must contain an object")
     else:

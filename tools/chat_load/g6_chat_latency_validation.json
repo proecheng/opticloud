@@ -1,0 +1,57 @@
+{
+  "blocked_unlock_sources": [
+    "tools/chat_load/evidence_manifest.example.json",
+    "reports/chat-single-node/**",
+    "reports/chat-incident-fallback/**",
+    "docs-only-checklist"
+  ],
+  "blocked_unlock_conditions": [
+    "example_only=true"
+  ],
+  "current_internal_beta_endpoint": "/v1/chat/internal-beta/messages",
+  "dataset_version": "g6_chat_latency_validation_v1",
+  "g6_status": "requires_real_staging_evidence",
+  "hard_gate_pass": false,
+  "hard_gate_thresholds": {
+    "e2e_solve_p95_max_ms": 90000,
+    "first_token_p95_max_ms": 3000,
+    "streaming_min_tokens_per_second": 20
+  },
+  "internal_beta_response_invariants": {
+    "aigc_public_surface": "hidden",
+    "provider_request_sent": false,
+    "public_access": false,
+    "sandbox_invoked": false,
+    "solver_invoked": false
+  },
+  "linked_hard_gate_story": "M3.6a",
+  "prompt_fixture": "tools/chat_load/prompts_v1.json",
+  "prompt_fixture_sha256": "57a47193517b19cca0983c5f00c17b246197c80620db9f87d17cdd16db79529c",
+  "real_evidence_required": true,
+  "required_evidence_manifest": "reports/chat-load/<run_id>/evidence_manifest.json",
+  "required_profiles": [
+    "baseline",
+    "stress",
+    "soak"
+  ],
+  "required_story_chain": [
+    "4.A.1",
+    "4.A.2",
+    "4.A.3",
+    "4.A.4",
+    "4.A.5",
+    "M3.6a",
+    "M3.6b",
+    "M3.6c"
+  ],
+  "required_validator_mode": "--evidence",
+  "source_story": "4.A.6",
+  "stress_profile": {
+    "first_token_p95_max_ms": 3000,
+    "profile": "stress",
+    "run_time_seconds": 1800,
+    "target_rps": 100,
+    "users": 100
+  },
+  "target_staging_sse_endpoint": "/v1/chat/stream"
+}
