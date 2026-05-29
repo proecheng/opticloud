@@ -13,6 +13,7 @@ from chat_service.config import load_internal_beta_config
 from chat_service.critic import generate_critic_validation_with_llm
 from chat_service.formulator import extract_formulation_with_llm
 from chat_service.gate import InternalBetaAccessDeniedError, validate_internal_beta_access
+from chat_service.human_review import generate_human_review_preview
 from chat_service.language_response import generate_language_response_with_llm
 from chat_service.llm_intent import route_intent_with_llm
 from chat_service.router_preview import build_message_excerpt, detect_locale
@@ -93,6 +94,10 @@ async def create_internal_beta_message(
         prompt_id=message_id,
         coder_preview=coder_result.preview,
     )
+    human_review_result = generate_human_review_preview(
+        message_id=message_id,
+        critic_preview=critic_result.preview,
+    )
     sandbox_result = generate_sandbox_preview(
         coder_preview=coder_result.preview,
         critic_preview=critic_result.preview,
@@ -118,6 +123,7 @@ async def create_internal_beta_message(
         coder_preview=coder_result.preview,
         critic_preview=critic_result.preview,
         sandbox_preview=sandbox_result.preview,
+        human_review=human_review_result.preview,
         language_preview=language_result.preview,
         aigc_gate=AigcGate(status="filing_pending", public_surface="hidden"),
         llm_invoked=(

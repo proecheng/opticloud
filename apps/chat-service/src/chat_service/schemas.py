@@ -32,6 +32,16 @@ SandboxPreviewErrorCode = Literal[
     "result_budget_exceeded",
     "unsupported_binary_payload",
 ]
+HumanReviewPreviewSource = Literal[
+    "critic_threshold_internal_beta",
+    "heuristic_human_review_internal_beta",
+]
+HumanReviewReasonCode = Literal[
+    "critic_confidence_below_threshold",
+    "critic_not_validated_below_threshold",
+    "critic_skipped_below_threshold",
+    "not_escalated",
+]
 LanguagePreviewStatus = Literal["generated", "fallback"]
 LanguagePreviewSource = Literal["llm_language_internal_beta", "heuristic_language_internal_beta"]
 
@@ -290,6 +300,61 @@ class SandboxPreview(BaseModel):
         return self
 
 
+class HumanReviewNotice(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    zh: Literal["AI 不确定，已转人工复核。"]
+    en: Literal["AI is uncertain; this has been routed for human review."]
+
+
+class HumanReviewValidationError(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    field_path: str = Field(min_length=1, max_length=128)
+    message: str = Field(min_length=1, max_length=160)
+    remediation_hint_key: str | None = Field(default=None, min_length=1, max_length=128)
+
+
+class HumanReviewPreview(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    escalated: bool
+    source: HumanReviewPreviewSource
+    queue: Literal["events.critic"]
+    event_type: Literal["critic.review.escalated"]
+    review_id: str = Field(min_length=28, max_length=28, pattern=r"^hrv_[0-9a-f]{24}$")
+    reason_code: HumanReviewReasonCode
+    critic_confidence: float = Field(ge=0.0, le=1.0)
+    calibration_threshold: float = Field(ge=0.0, le=1.0)
+    threshold_source: str = Field(min_length=1, max_length=160)
+    user_notice: HumanReviewNotice | None
+    validation_errors: list[HumanReviewValidationError] = Field(default_factory=list, max_length=10)
+
+    @model_validator(mode="after")
+    def validate_human_review_contract(self) -> HumanReviewPreview:
+        if self.escalated:
+            if self.source != "critic_threshold_internal_beta":
+                raise ValueError("escalated human review requires critic threshold source")
+            if self.critic_confidence >= self.calibration_threshold:
+                raise ValueError("escalated human review requires confidence below threshold")
+            if self.reason_code == "not_escalated":
+                raise ValueError("escalated human review requires escalation reason code")
+            if self.user_notice is None:
+                raise ValueError("escalated human review requires user_notice")
+        else:
+            if self.source != "heuristic_human_review_internal_beta":
+                raise ValueError("non-escalated human review requires heuristic source")
+            if self.critic_confidence < self.calibration_threshold:
+                raise ValueError(
+                    "non-escalated human review requires confidence at or above threshold"
+                )
+            if self.reason_code != "not_escalated":
+                raise ValueError("non-escalated human review requires not_escalated reason code")
+            if self.user_notice is not None:
+                raise ValueError("non-escalated human review must not include user_notice")
+        return self
+
+
 class LanguageValidationError(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -344,6 +409,7 @@ class ChatInternalBetaMessageResponse(BaseModel):
     coder_preview: CoderPreview
     critic_preview: CriticPreview
     sandbox_preview: SandboxPreview
+    human_review: HumanReviewPreview
     language_preview: LanguagePreview
     aigc_gate: AigcGate
     llm_invoked: bool

@@ -62,6 +62,7 @@ def test_internal_beta_defaults_fail_closed_without_leaking_aigc_gate() -> None:
     body = response.json()
     assert body == {"detail": "Not found"}
     assert "aigc_gate" not in body
+    assert "human_review" not in body
 
 
 def test_internal_beta_disabled_rejects_invalid_body_without_schema_leak() -> None:
@@ -71,6 +72,7 @@ def test_internal_beta_disabled_rejects_invalid_body_without_schema_leak() -> No
     body = response.json()
     assert body == {"detail": "Not found"}
     assert "aigc_gate" not in body
+    assert "human_review" not in body
 
 
 def test_internal_beta_requires_founder_legal_signoff(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -243,6 +245,24 @@ def test_vrptw_message_returns_internal_beta_contract(monkeypatch: pytest.Monkey
         ],
         "contract_version": "sandbox-runner-p58-p62-local-v1",
     }
+    assert body["human_review"] == {
+        "escalated": True,
+        "source": "critic_threshold_internal_beta",
+        "queue": "events.critic",
+        "event_type": "critic.review.escalated",
+        "review_id": body["human_review"]["review_id"],
+        "reason_code": "critic_skipped_below_threshold",
+        "critic_confidence": 0.0,
+        "calibration_threshold": 0.6,
+        "threshold_source": "apps/critic-service/config/critic-calibration.json",
+        "user_notice": {
+            "zh": "AI 不确定，已转人工复核。",
+            "en": "AI is uncertain; this has been routed for human review.",
+        },
+        "validation_errors": [],
+    }
+    assert body["human_review"]["review_id"].startswith("hrv_")
+    assert len(body["human_review"]["review_id"]) == 28
     assert body["language_preview"] == {
         "status": "fallback",
         "source": "heuristic_language_internal_beta",
@@ -277,6 +297,7 @@ def test_vrptw_message_returns_internal_beta_contract(monkeypatch: pytest.Monkey
     assert body["solver_invoked"] is False
     assert body["sandbox_invoked"] is False
     assert "human_review_queue" not in body
+    assert "escalated" not in body
     assert "aigc_filter" not in body
     assert "sandbox_result" not in body
     assert "execution_log" not in body
@@ -324,6 +345,14 @@ def test_llm_router_guardrail_preserves_supported_non_route_task_types(
     assert body["sandbox_preview"]["status"] == "skipped"
     assert body["sandbox_invoked"] is False
     assert body["critic_preview"]["confidence"] < body["critic_preview"]["calibration_threshold"]
+    assert body["human_review"]["escalated"] is True
+    assert body["human_review"]["queue"] == "events.critic"
+    assert body["human_review"]["event_type"] == "critic.review.escalated"
+    assert body["human_review"]["reason_code"] == "critic_skipped_below_threshold"
+    assert body["human_review"]["user_notice"] == {
+        "zh": "AI 不确定，已转人工复核。",
+        "en": "AI is uncertain; this has been routed for human review.",
+    }
     assert "human_review_queue" not in body
     assert "escalated" not in body
     assert body["llm_invoked"] is True
@@ -426,6 +455,12 @@ def test_internal_beta_response_keeps_g6_latency_validation_boundaries(
         "read_only_filesystem": True,
         "result_file_budget_bytes": 104857600,
     }
+    assert body["human_review"]["escalated"] is True
+    assert body["human_review"]["reason_code"] == "critic_skipped_below_threshold"
+    assert body["human_review"]["threshold_source"] == (
+        "apps/critic-service/config/critic-calibration.json"
+    )
+    assert body["human_review"]["user_notice"]["zh"] == "AI 不确定，已转人工复核。"
     assert "human_review_queue" not in body
     assert "escalated" not in body
     assert "hard_gate_pass" not in body
