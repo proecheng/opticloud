@@ -146,15 +146,51 @@ def test_vrptw_message_returns_internal_beta_contract(monkeypatch: pytest.Monkey
     assert body["locale"] == "zh-CN"
     assert body["router_preview"] == {
         "task_type": "vrptw",
-        "confidence": 0.86,
-        "reasoning": "matched route or vehicle-routing keywords",
-        "source": "heuristic_internal_beta",
+        "confidence": 0.92,
+        "reasoning": "matched LLM router intent output",
+        "source": "llm_router_internal_beta",
         "supported_task_types": ["lp", "vrptw", "prediction", "schedule", "inventory", "unknown"],
     }
     assert body["aigc_gate"] == {"status": "filing_pending", "public_surface": "hidden"}
-    assert body["llm_invoked"] is False
+    assert body["llm_invoked"] is True
+    assert body["provider_request_sent"] is False
     assert body["solver_invoked"] is False
     assert body["sandbox_invoked"] is False
+
+
+def test_vrptw_message_uses_llm_router_intent_contract(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    enable_internal_beta(monkeypatch)
+    message = "求最短路径，把车辆路线排出来"
+
+    response = post_message(payload={"message": message, "client_request_id": "req-chat-beta-002"})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["router_preview"]["task_type"] == "vrptw"
+    assert body["router_preview"]["confidence"] == 0.92
+    assert body["router_preview"]["source"] == "llm_router_internal_beta"
+    assert message not in body["router_preview"]["reasoning"]
+    assert body["llm_invoked"] is True
+    assert body["provider_request_sent"] is False
+    assert "provider" not in body
+    assert "raw_response_redacted" not in body
+
+
+def test_llm_router_guardrail_preserves_supported_non_route_task_types(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    enable_internal_beta(monkeypatch)
+
+    response = post_message(payload={"message": "请预测下个月 SKU 销量"})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["router_preview"]["task_type"] == "prediction"
+    assert body["router_preview"]["source"] == "heuristic_internal_beta"
+    assert body["llm_invoked"] is True
+    assert body["provider_request_sent"] is False
 
 
 @pytest.mark.parametrize(

@@ -10,7 +10,8 @@ from pydantic import ValidationError
 from chat_service import __version__
 from chat_service.config import load_internal_beta_config
 from chat_service.gate import InternalBetaAccessDeniedError, validate_internal_beta_access
-from chat_service.router_preview import build_message_excerpt, classify_message, detect_locale
+from chat_service.llm_intent import route_intent_with_llm
+from chat_service.router_preview import build_message_excerpt, detect_locale
 from chat_service.schemas import (
     AigcGate,
     ChatInternalBetaMessageRequest,
@@ -58,12 +59,16 @@ async def create_internal_beta_message(
         raise HTTPException(status_code=422, detail="Invalid JSON body") from exc
 
     locale = request.locale or detect_locale(request.message)
-    router_preview = classify_message(request.message)
     message_id = _message_id(
         tenant=x_internal_beta_tenant or "",
         user=x_internal_beta_user or "",
         message=request.message,
         client_request_id=request.client_request_id,
+    )
+    intent_result = route_intent_with_llm(
+        message=request.message,
+        locale=locale,
+        prompt_id=message_id,
     )
 
     return ChatInternalBetaMessageResponse(
@@ -72,9 +77,10 @@ async def create_internal_beta_message(
         message_id=message_id,
         message_excerpt=build_message_excerpt(request.message),
         locale=locale,
-        router_preview=router_preview,
+        router_preview=intent_result.preview,
         aigc_gate=AigcGate(status="filing_pending", public_surface="hidden"),
-        llm_invoked=False,
+        llm_invoked=intent_result.llm_invoked,
+        provider_request_sent=intent_result.provider_request_sent,
         solver_invoked=False,
         sandbox_invoked=False,
     )
