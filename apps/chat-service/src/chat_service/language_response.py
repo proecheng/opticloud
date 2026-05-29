@@ -245,9 +245,7 @@ def heuristic_language_preview(
             "internal beta preview."
         )
     else:
-        summary = (
-            f"已识别为 {_TASK_LABELS_EN[task_type]} request，并生成 internal beta preview。"
-        )
+        summary = f"已识别为 {_TASK_LABELS_EN[task_type]} request，并生成 internal beta preview。"
 
     return LanguagePreview(
         status="fallback",
