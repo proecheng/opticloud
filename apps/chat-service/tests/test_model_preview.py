@@ -42,7 +42,9 @@ def test_model_preview_ready_to_confirm_uses_upstream_previews() -> None:
     assert result.critic_confidence == 0.86
     assert result.sandbox_status == "succeeded"
     assert result.validation_errors == []
-    assert [(action.kind, action.enabled, action.disabled_reason_code) for action in result.actions] == [
+    assert [
+        (action.kind, action.enabled, action.disabled_reason_code) for action in result.actions
+    ] == [
         ("confirm", True, None),
         ("edit", True, None),
         ("cancel", True, None),
