@@ -7,6 +7,10 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 ChatLocale = Literal["zh-CN", "en-US", "mixed"]
 TaskType = Literal["lp", "vrptw", "prediction", "schedule", "inventory", "unknown"]
 RouterPreviewSource = Literal["heuristic_internal_beta", "llm_router_internal_beta"]
+FormulatorPreviewStatus = Literal["extracted", "needs_clarification", "skipped"]
+FormulatorPreviewSource = Literal[
+    "llm_formulator_internal_beta", "heuristic_formulator_internal_beta"
+]
 
 
 class ChatInternalBetaMessageRequest(BaseModel):
@@ -44,6 +48,28 @@ class AigcGate(BaseModel):
     public_surface: Literal["hidden"]
 
 
+class FormulatorValidationError(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    field_path: str = Field(min_length=1, max_length=128)
+    message: str = Field(min_length=1, max_length=160)
+    remediation_hint_key: str | None = Field(default=None, min_length=1, max_length=128)
+
+
+class FormulatorPreview(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    status: FormulatorPreviewStatus
+    source: FormulatorPreviewSource
+    task_type: TaskType
+    confidence: float = Field(ge=0.0, le=1.0)
+    variables: dict[str, object]
+    objective: dict[str, object]
+    constraints: dict[str, object]
+    validation_errors: list[FormulatorValidationError] = Field(default_factory=list, max_length=10)
+    supported_task_types: list[TaskType]
+
+
 class ChatInternalBetaMessageResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -53,6 +79,7 @@ class ChatInternalBetaMessageResponse(BaseModel):
     message_excerpt: str
     locale: ChatLocale
     router_preview: RouterPreview
+    formulator_preview: FormulatorPreview
     aigc_gate: AigcGate
     llm_invoked: bool
     provider_request_sent: Literal[False]
