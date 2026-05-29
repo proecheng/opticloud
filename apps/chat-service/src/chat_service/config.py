@@ -25,7 +25,7 @@ class InternalBetaConfig:
             and self.signoff == REQUIRED_SIGNOFF
             and self.tenant != ""
             and 0 < len(self.users) <= self.max_users
-            and self.token != ""
+            and bool(self.token)
         )
 
 

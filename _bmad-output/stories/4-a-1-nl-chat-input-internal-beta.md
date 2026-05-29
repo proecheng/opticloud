@@ -190,6 +190,7 @@ GPT-5
 - 2026-05-29 - Adjacent validation passed: `uv run python scripts/validate_llm_router_contract.py` -> `llm router contract OK`; `uv run pytest tests/llm_router/test_implementations_parity.py -q` -> 14 passed.
 - 2026-05-29 - Static validation passed: `uv run mypy apps packages`; `uv tool run pre-commit run --all-files --show-diff-on-failure`; `git diff --check`.
 - 2026-05-29 - Post-implementation code review found and fixed one boundary leak: request body validation now occurs only after the internal beta gate accepts tenant/user/token.
+- 2026-05-29 - GitHub CI lint follow-up: changed empty-token check from string literal comparison to truthiness to satisfy Linux Bandit B105 without changing fail-closed behavior.
 
 ### Implementation Plan
 
@@ -230,6 +231,7 @@ Validation after review fix:
 - `uv run mypy apps packages` -> success, no issues found in 97 source files.
 - `uv tool run pre-commit run --all-files --show-diff-on-failure` -> passed.
 - `git diff --check` -> passed.
+- GitHub PR #93 first run: all checks passed except `lint`; lint failure was Bandit B105 on empty-token comparison in `config.py` and was patched.
 
 ### File List
 
@@ -253,3 +255,4 @@ Validation after review fix:
 - 2026-05-29 - Dev implementation started; status moved to in-progress after RED focused test failure.
 - 2026-05-29 - Implemented internal beta chat-service entrypoint with fail-closed gate, deterministic router preview, focused CI and offline tests.
 - 2026-05-29 - Addressed post-implementation review finding by gating before request body validation; story marked done after focused, adjacent, static, pre-commit and diff-check validation passed.
+- 2026-05-29 - Addressed GitHub CI Bandit lint finding on empty-token comparison; no behavior change.
