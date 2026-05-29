@@ -3,7 +3,7 @@
 # Source: epics.md (21 Epics / 192 Stories, post AE rounds)
 # Path B unlock node sequence (5 + J1 vertical slice 4 锚点 + Critical Gaps)
 
-last_updated: 2026-05-28
+last_updated: 2026-05-29
 
 # ===== STATUS DEFINITIONS =====
 # backlog            — not yet started
@@ -125,11 +125,11 @@ development_status:
   3-e-9-laozhang-vertical-slice-e2e: done
 
   # ===== Epic 4.A/B/C: Chat & NL (19 stories) — M3 AIGC gated =====
-  epic-4-a: backlog
+  epic-4-a: in-progress
   epic-4-b: backlog
   epic-4-c: backlog
 
-  4-a-1-nl-chat-input-internal-beta: backlog
+  4-a-1-nl-chat-input-internal-beta: done
   4-a-2-router-llm-intent: backlog
   4-a-3-formulator-extract: backlog
   4-a-4-coder-generate: backlog

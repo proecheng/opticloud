@@ -12,6 +12,7 @@ requires-python = ">=3.11,<3.13"
 members = [
   "apps/auth-service",
   "apps/billing-service",
+  "apps/chat-service",
   "apps/outbox-relayer",
   "apps/sandbox-runner",
   "apps/solver-orchestrator",

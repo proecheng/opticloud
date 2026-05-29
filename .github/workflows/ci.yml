@@ -436,8 +436,24 @@ jobs:
           REDIS_URL: redis://localhost:6379
         run: uv run pytest apps/outbox-relayer/tests/ -v
 
+  # ===== chat-service tests (Story 4.A.1) =====
+  chat-service-test:
+    needs: changes
+    if: needs.changes.outputs.chat_service == 'true' || needs.changes.outputs.shared_py == 'true' || needs.changes.outputs.ci_or_root == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: pip install uv==${{ env.UV_VERSION }}
+      - run: uv sync --all-packages --extra dev
+      - run: uv run pytest apps/chat-service/tests/ -v
+        env:
+          PYTHONPATH: apps/chat-service/src
+
   # ===== Other service stubs (will populate as services come online) =====
-  # api-gateway-test, solver-orchestrator-test, ...
+  # api-gateway-test, ...
 
   # ===== sandbox-runner tests (Story M3.1) =====
   sandbox-runner-test:
