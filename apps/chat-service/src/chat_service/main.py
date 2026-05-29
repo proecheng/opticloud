@@ -8,6 +8,7 @@ from fastapi.exceptions import RequestValidationError
 from pydantic import ValidationError
 
 from chat_service import __version__
+from chat_service.coder import generate_code_with_llm
 from chat_service.config import load_internal_beta_config
 from chat_service.formulator import extract_formulation_with_llm
 from chat_service.gate import InternalBetaAccessDeniedError, validate_internal_beta_access
@@ -77,6 +78,12 @@ async def create_internal_beta_message(
         prompt_id=message_id,
         router_preview=intent_result.preview,
     )
+    coder_result = generate_code_with_llm(
+        message=request.message,
+        locale=locale,
+        prompt_id=message_id,
+        formulator_preview=formulator_result.preview,
+    )
 
     return ChatInternalBetaMessageResponse(
         mode="internal_beta",
@@ -86,8 +93,13 @@ async def create_internal_beta_message(
         locale=locale,
         router_preview=intent_result.preview,
         formulator_preview=formulator_result.preview,
+        coder_preview=coder_result.preview,
         aigc_gate=AigcGate(status="filing_pending", public_surface="hidden"),
-        llm_invoked=intent_result.llm_invoked or formulator_result.formulator_invoked,
+        llm_invoked=(
+            intent_result.llm_invoked
+            or formulator_result.formulator_invoked
+            or coder_result.coder_invoked
+        ),
         provider_request_sent=intent_result.provider_request_sent,
         solver_invoked=False,
         sandbox_invoked=False,
