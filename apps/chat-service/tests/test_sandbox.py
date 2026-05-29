@@ -5,6 +5,7 @@ import hashlib
 import pytest
 from chat_service.aigc_watermark import apply_aigc_filter_to_summary
 from chat_service.critic import _passing_checks
+from chat_service.model_preview import generate_model_preview
 from chat_service.sandbox import generate_sandbox_preview
 from chat_service.schemas import (
     AigcGate,
@@ -150,6 +151,56 @@ def test_internal_beta_response_contract_rejects_sandbox_invocation_drift() -> N
                 calibration_threshold=0.6,
                 human_review_escalated=False,
                 validation_errors=[],
+            ),
+            model_preview=generate_model_preview(
+                prompt_id="msg_contract",
+                formulator_preview=FormulatorPreview(
+                    status="needs_clarification",
+                    source="heuristic_formulator_internal_beta",
+                    task_type="lp",
+                    confidence=0.4,
+                    variables={},
+                    objective={},
+                    constraints={},
+                    validation_errors=[],
+                    supported_task_types=SUPPORTED_TASK_TYPES,
+                ),
+                coder_preview=CoderPreview(
+                    status="needs_clarification",
+                    source="heuristic_coder_internal_beta",
+                    task_type="lp",
+                    artifact=None,
+                    validation_errors=[],
+                    supported_task_types=SUPPORTED_TASK_TYPES,
+                ),
+                critic_preview=_validated_critic_preview(),
+                sandbox_preview=SandboxPreview(
+                    status="skipped",
+                    source="heuristic_sandbox_internal_beta",
+                    task_type="lp",
+                    stdout_excerpt="",
+                    stderr_excerpt="",
+                    exit_code=None,
+                    result_files=[],
+                    error_code=None,
+                    limits=_sandbox_limits(),
+                    validation_errors=[],
+                    contract_version="sandbox-runner-p58-p62-local-v1",
+                ),
+                human_review=HumanReviewPreview(
+                    escalated=False,
+                    source="heuristic_human_review_internal_beta",
+                    queue="events.critic",
+                    event_type="critic.review.escalated",
+                    review_id="hrv_0123456789abcdef01234567",
+                    reason_code="not_escalated",
+                    critic_confidence=0.86,
+                    calibration_threshold=0.6,
+                    threshold_source="apps/critic-service/config/critic-calibration.json",
+                    user_notice=None,
+                    validation_errors=[],
+                ),
+                sandbox_invoked=False,
             ),
             sandbox_preview=SandboxPreview(
                 status="skipped",

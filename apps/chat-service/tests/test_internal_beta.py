@@ -64,6 +64,7 @@ def test_internal_beta_defaults_fail_closed_without_leaking_aigc_gate() -> None:
     assert body == {"detail": "Not found"}
     assert "aigc_gate" not in body
     assert "aigc_watermark" not in body
+    assert "model_preview" not in body
     assert "human_review" not in body
     assert "critic_confidence_display" not in body
 
@@ -76,6 +77,7 @@ def test_internal_beta_disabled_rejects_invalid_body_without_schema_leak() -> No
     assert body == {"detail": "Not found"}
     assert "aigc_gate" not in body
     assert "aigc_watermark" not in body
+    assert "model_preview" not in body
     assert "human_review" not in body
     assert "critic_confidence_display" not in body
 
@@ -137,6 +139,7 @@ def test_internal_beta_rejects_unauthorized_headers_before_body_validation(
     body = response.json()
     assert body == {"detail": "Not found"}
     assert "aigc_watermark" not in body
+    assert "model_preview" not in body
 
 
 def test_no_public_chat_or_stream_routes_are_exposed(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -302,6 +305,74 @@ def test_vrptw_message_returns_internal_beta_contract(monkeypatch: pytest.Monkey
         "human_review_escalated": True,
         "validation_errors": [],
     }
+    assert body["model_preview"] == {
+        "preview_id": body["model_preview"]["preview_id"],
+        "status": "blocked",
+        "source": "chat_model_preview_internal_beta",
+        "task_type": "vrptw",
+        "variables": {},
+        "objective": {"kind": "minimize_total_distance"},
+        "constraints": {},
+        "code_artifact": None,
+        "actions": [
+            {
+                "kind": "confirm",
+                "label_zh": "确认模型",
+                "label_en": "Confirm model",
+                "enabled": False,
+                "client_action": "chat.model_preview.confirm",
+                "disabled_reason_code": "human_review_required",
+            },
+            {
+                "kind": "edit",
+                "label_zh": "编辑模型",
+                "label_en": "Edit model",
+                "enabled": True,
+                "client_action": "chat.model_preview.edit",
+                "disabled_reason_code": None,
+            },
+            {
+                "kind": "cancel",
+                "label_zh": "取消",
+                "label_en": "Cancel",
+                "enabled": True,
+                "client_action": "chat.model_preview.cancel",
+                "disabled_reason_code": None,
+            },
+        ],
+        "requires_human_review": True,
+        "critic_confidence": 0.0,
+        "sandbox_status": "skipped",
+        "validation_errors": [
+            {
+                "field_path": "formulator_preview.variables",
+                "message": "structured variables missing from deterministic completion",
+                "remediation_hint_key": "chat.formulator.variables_required",
+            },
+            {
+                "field_path": "coder_preview.formulator_preview.variables",
+                "message": "structured formulation is required before code generation",
+                "remediation_hint_key": "chat.coder.formulator_extracted_required",
+            },
+            {
+                "field_path": "critic_preview.coder_preview.artifact",
+                "message": "code artifact is required before critic validation",
+                "remediation_hint_key": "chat.critic.artifact_required",
+            },
+            {
+                "field_path": "human_review.reason_code",
+                "message": "human review is required before model confirmation",
+                "remediation_hint_key": "chat.model_preview.human_review_required",
+            },
+            {
+                "field_path": "sandbox_preview.coder_preview.artifact",
+                "message": "code artifact is required before sandbox execution",
+                "remediation_hint_key": "chat.sandbox.artifact_required",
+            },
+        ],
+    }
+    assert body["model_preview"]["preview_id"].startswith("mpv_")
+    assert len(body["model_preview"]["preview_id"]) == 20
     language_preview = body["language_preview"]
     detected = aigc_filter.detect_watermark(language_preview["summary"])
     assert language_preview["status"] == "fallback"
@@ -355,6 +426,12 @@ def test_vrptw_message_returns_internal_beta_contract(monkeypatch: pytest.Monkey
     assert "aigc_filter" not in body
     assert "sandbox_result" not in body
     assert "execution_log" not in body
+    assert "confirm_url" not in body["model_preview"]
+    assert "solve_url" not in body["model_preview"]
+    assert "charge_id" not in body["model_preview"]
+    assert "optimization_id" not in body["model_preview"]
+    assert "prediction_id" not in body["model_preview"]
+    assert "conversation_id" not in body["model_preview"]
 
 
 def test_vrptw_message_uses_llm_router_intent_contract(
