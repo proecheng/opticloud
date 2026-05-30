@@ -15,6 +15,7 @@ from billing_service.reconciler import (
     reconcile_window,
 )
 from billing_service.saga_orchestrator import SagaOrchestrator
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 # ===== Pure-function tests (no DB) =====
@@ -45,6 +46,13 @@ def test_expected_bounds_charged_completed_use_partial_range() -> None:
         lo, hi = expected_bounds(state, Decimal("6.00"))
         assert lo == Decimal("-6.00")
         assert hi == Decimal("-0.01")
+
+
+def test_expected_bounds_completed_topup_is_positive_exact_amount() -> None:
+    """5.A.6 — completed topups reconcile as +amount, not negative charges."""
+    lo, hi = expected_bounds("completed", Decimal("10.00"), saga_type="topup")
+    assert lo == Decimal("10.00")
+    assert hi == Decimal("10.00")
 
 
 # ===== DB-backed tests =====
@@ -225,3 +233,55 @@ async def test_reconcile_partial_finalize_within_bounds(
     report = await reconcile_window(session, start_window, end_window)
     saga_in_diffs = [r for r in report.results if r.saga_id == saga.id]
     assert saga_in_diffs == [], f"partial finalize within bounds was flagged: {saga_in_diffs}"
+
+
+async def test_reconcile_completed_topup_with_positive_ledger_reports_ok(
+    orch: SagaOrchestrator,
+    session: AsyncSession,
+) -> None:
+    """5.A.6 — confirmed topup rows are positive and must not be flagged as charge drift."""
+    user_id = uuid.uuid4()
+    await session.execute(
+        text(
+            """
+        INSERT INTO users (id, phone, email, created_at, updated_at)
+        VALUES (:id, :phone, :email, NOW(), NOW())
+        """,
+        ),
+        {
+            "id": user_id,
+            "phone": f"+86-r-{user_id.hex[:10]}",
+            "email": f"reco-topup-{user_id.hex[:10]}@opticloud.test",
+        },
+    )
+    await session.commit()
+
+    start_window = datetime.now(UTC) - timedelta(seconds=5)
+    amount = Decimal("10.00")
+    saga = await orch.start(
+        "topup",
+        user_id,
+        f"reco-topup-{uuid.uuid4()}",
+        {"reference_id": str(uuid.uuid4()), "purpose": "topup"},
+        amount=amount,
+    )
+    saga.current_state = "completed"
+    saga.updated_at = datetime.now(UTC)
+    session.add(
+        CreditTransaction(
+            user_id=user_id,
+            saga_id=saga.id,
+            amount=amount,
+            kind="topup",
+            bucket="topup",
+            currency="CNY",
+            metadata_json={"provider": "manual", "payment_ref": "pay-reco", "expires_at": None},
+            created_at=datetime.now(UTC),
+        )
+    )
+    await session.commit()
+    end_window = datetime.now(UTC) + timedelta(seconds=5)
+
+    report = await reconcile_window(session, start_window, end_window)
+    saga_in_diffs = [r for r in report.results if r.saga_id == saga.id]
+    assert saga_in_diffs == [], f"completed topup was flagged: {saga_in_diffs}"
