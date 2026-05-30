@@ -134,15 +134,21 @@ class AccountDeletionStatusResponse(BaseModel):
     grace_period_days: int = 7
 
 
-# ===== Story 5.C.3: PIPL JSON data export =====
+# ===== Story 5.C.3 / 5.C.4: PIPL JSON/CSV data export =====
+
+
+class DataExportCreateRequest(BaseModel):
+    """Authenticated data export create request."""
+
+    format: Literal["json", "csv"] = "json"
 
 
 class DataExportStatusResponse(BaseModel):
-    """Authenticated JSON data export request/status response."""
+    """Authenticated data export request/status response."""
 
     id: uuid.UUID
     status: Literal["queued", "processing", "completed", "failed", "expired"]
-    format: Literal["json"] = "json"
+    format: Literal["json", "csv"] = "json"
     requested_at: datetime
     sla_deadline_at: datetime
     completed_at: datetime | None = None

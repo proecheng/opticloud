@@ -7,10 +7,15 @@ tables through raw SQL so service ORM boundaries remain intact.
 
 from __future__ import annotations
 
+import base64
+import binascii
+import csv
 import hashlib
+import io
 import json
 import re
 import uuid
+import zipfile
 from collections.abc import Iterable, Mapping
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
@@ -24,8 +29,30 @@ from auth_service.models import APIKey, AuditLog, DataExportRequest, User
 
 EXPORT_SLA_DAYS = 7
 EXPORT_EXPIRES_DAYS = 7
-SCHEMA_VERSION = "pipl_export_json_v1"
-EXPORT_FORMAT = "json"
+SNAPSHOT_SCHEMA_VERSION = "pipl_export_snapshot_v1"
+JSON_SCHEMA_VERSION = "pipl_export_json_v1"
+CSV_SCHEMA_VERSION = "pipl_export_csv_v1"
+JSON_FORMAT = "json"
+CSV_FORMAT = "csv"
+SUPPORTED_FORMATS = {JSON_FORMAT, CSV_FORMAT}
+CSV_ARCHIVE_FILENAME = "opticloud-pipl-data-export-csv.zip"
+CSV_MEDIA_TYPE = "application/zip"
+CSV_ZIP_TIMESTAMP = (2026, 1, 1, 0, 0, 0)
+CSV_SECTION_PATHS = {
+    "auth.profile": "auth/profile.csv",
+    "auth.api_keys": "auth/api_keys.csv",
+    "auth.account_deletion_requests": "auth/account_deletion_requests.csv",
+    "auth.account_merge_proposals": "auth/account_merge_proposals.csv",
+    "auth.account_freeze_appeals": "auth/account_freeze_appeals.csv",
+    "auth.risk_flags": "auth/risk_flags.csv",
+    "auth.audit_logs": "auth/audit_logs.csv",
+    "solver.optimizations": "solver/optimizations.csv",
+    "solver.optimization_batches": "solver/optimization_batches.csv",
+    "solver.predictions": "solver/predictions.csv",
+    "billing.saga_instances": "billing/saga_instances.csv",
+    "billing.credit_transactions": "billing/credit_transactions.csv",
+    "billing.subscriptions": "billing/subscriptions.csv",
+}
 
 _SECRET_KEY_RE = re.compile(
     r"(api[_-]?key|key[_-]?hash|token[_-]?hash|request[_-]?body[_-]?hash|"
@@ -40,6 +67,7 @@ _SECRET_VALUE_RE = re.compile(
 )
 _SAFE_TABLE_RE = re.compile(r"^[a-z_][a-z0-9_]*$")
 _SAFE_SQL_FRAGMENT_RE = re.compile(r"^[a-zA-Z0-9_ (),.:=<>']+$")
+_NUMERIC_LITERAL_RE = re.compile(r"^[+-]?(?:\d+(?:\.\d+)?|\.\d+)$")
 
 
 def _now() -> datetime:
@@ -82,6 +110,12 @@ def sanitize_export_value(value: Any) -> Any:
     if isinstance(value, str):
         return _SECRET_VALUE_RE.sub("[REDACTED]", value)
     return _to_jsonable(value)
+
+
+def _validate_export_format(export_format: str) -> str:
+    if export_format not in SUPPORTED_FORMATS:
+        raise ValueError("unsupported data export format")
+    return export_format
 
 
 def _safe_error(exc: BaseException) -> str:
@@ -134,14 +168,21 @@ async def request_data_export(
     session: AsyncSession,
     *,
     user_id: uuid.UUID,
+    export_format: str = JSON_FORMAT,
     now: datetime | None = None,
 ) -> DataExportRequest:
+    export_format = _validate_export_format(export_format)
     current_time = now or _now()
     await session.execute(
         text("SELECT pg_advisory_xact_lock(hashtextextended(:lock_key, 0))"),
-        {"lock_key": f"data-export:{user_id}:json"},
+        {"lock_key": f"data-export:{user_id}:{export_format}"},
     )
-    existing = await _get_active_export_request(session, user_id=user_id, now=current_time)
+    existing = await _get_active_export_request(
+        session,
+        user_id=user_id,
+        export_format=export_format,
+        now=current_time,
+    )
     if existing is not None:
         return existing
 
@@ -149,7 +190,7 @@ async def request_data_export(
     request = DataExportRequest(
         user_id_snapshot=user_id,
         user_id=user.id if user is not None and user.deleted_at is None else None,
-        format=EXPORT_FORMAT,
+        format=export_format,
         status="queued",
         requested_at=current_time,
         sla_deadline_at=current_time + timedelta(days=EXPORT_SLA_DAYS),
@@ -169,7 +210,7 @@ async def request_data_export(
             audit_metadata={
                 "data_export_id": str(request.id),
                 "user_id_snapshot": str(user_id),
-                "format": EXPORT_FORMAT,
+                "format": export_format,
                 "sla_deadline_at": request.sla_deadline_at.isoformat(),
             },
         )
@@ -181,7 +222,7 @@ async def request_data_export(
         payload={
             "data_export_id": str(request.id),
             "user_id_snapshot": str(user_id),
-            "format": EXPORT_FORMAT,
+            "format": export_format,
             "sla_deadline_at": request.sla_deadline_at.isoformat(),
         },
         occurred_at=current_time,
@@ -194,13 +235,14 @@ async def _get_active_export_request(
     session: AsyncSession,
     *,
     user_id: uuid.UUID,
+    export_format: str,
     now: datetime,
 ) -> DataExportRequest | None:
     result = await session.execute(
         select(DataExportRequest)
         .where(
             DataExportRequest.user_id_snapshot == user_id,
-            DataExportRequest.format == EXPORT_FORMAT,
+            DataExportRequest.format == export_format,
             DataExportRequest.status.in_(("queued", "processing", "completed")),
             ((DataExportRequest.expires_at.is_(None)) | (DataExportRequest.expires_at > now)),
         )
@@ -233,23 +275,18 @@ async def complete_pending_data_export_requests(
         request.updated_at = current_time
         await session.flush()
         try:
-            package = await _build_data_export_package(
+            package, downloadable_bytes = await _build_data_export_package(
                 session,
                 user_id=request.user_id_snapshot,
+                export_format=request.format,
                 generated_at=current_time,
             )
-            encoded = json.dumps(
-                package,
-                ensure_ascii=False,
-                sort_keys=True,
-                separators=(",", ":"),
-            ).encode("utf-8")
             request.status = "completed"
             request.completed_at = current_time
             request.expires_at = current_time + timedelta(days=EXPORT_EXPIRES_DAYS)
             request.package_json = package
-            request.package_sha256 = hashlib.sha256(encoded).hexdigest()
-            request.package_bytes = len(encoded)
+            request.package_sha256 = hashlib.sha256(downloadable_bytes).hexdigest()
+            request.package_bytes = len(downloadable_bytes)
             request.download_url = f"/v1/auth/data-exports/{request.id}/download"
             request.last_error = None
             request.updated_at = current_time
@@ -263,7 +300,7 @@ async def complete_pending_data_export_requests(
                     audit_metadata={
                         "data_export_id": str(request.id),
                         "user_id_snapshot": str(request.user_id_snapshot),
-                        "format": EXPORT_FORMAT,
+                        "format": request.format,
                         "package_sha256": request.package_sha256,
                         "package_bytes": request.package_bytes,
                     },
@@ -276,7 +313,7 @@ async def complete_pending_data_export_requests(
                 payload={
                     "data_export_id": str(request.id),
                     "user_id_snapshot": str(request.user_id_snapshot),
-                    "format": EXPORT_FORMAT,
+                    "format": request.format,
                     "package_sha256": request.package_sha256,
                     "package_bytes": request.package_bytes,
                     "section_counts": _section_counts(package),
@@ -303,7 +340,7 @@ async def complete_pending_data_export_requests(
                     audit_metadata={
                         "data_export_id": str(request.id),
                         "user_id_snapshot": str(request.user_id_snapshot),
-                        "format": EXPORT_FORMAT,
+                        "format": request.format,
                         "error_type": type(exc).__name__,
                     },
                 )
@@ -328,6 +365,26 @@ def _section_counts(package: Mapping[str, Any]) -> dict[str, int]:
 
 
 async def _build_data_export_package(
+    session: AsyncSession,
+    *,
+    user_id: uuid.UUID,
+    export_format: str,
+    generated_at: datetime,
+) -> tuple[dict[str, Any], bytes]:
+    export_format = _validate_export_format(export_format)
+    snapshot = await _build_data_export_snapshot(
+        session,
+        user_id=user_id,
+        generated_at=generated_at,
+    )
+    if export_format == CSV_FORMAT:
+        package = _render_csv_export_package(snapshot)
+    else:
+        package = _render_json_export_package(snapshot)
+    return package, _downloadable_bytes(package)
+
+
+async def _build_data_export_snapshot(
     session: AsyncSession,
     *,
     user_id: uuid.UUID,
@@ -415,13 +472,233 @@ async def _build_data_export_package(
     manifest["chat.messages"] = _section("unavailable", reason="not_persisted_v1")
 
     return {
-        "schema_version": SCHEMA_VERSION,
-        "format": EXPORT_FORMAT,
+        "schema_version": SNAPSHOT_SCHEMA_VERSION,
         "generated_at": _to_jsonable(generated_at),
         "subject": {"user_id": str(user_id)},
         "manifest": {"sections": {k: manifest[k] for k in sorted(manifest)}},
         "data": {k: data[k] for k in sorted(data)},
     }
+
+
+def _render_json_export_package(snapshot: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        "schema_version": JSON_SCHEMA_VERSION,
+        "format": JSON_FORMAT,
+        "generated_at": snapshot["generated_at"],
+        "subject": snapshot["subject"],
+        "manifest": snapshot["manifest"],
+        "data": snapshot["data"],
+    }
+
+
+def _render_csv_export_package(snapshot: Mapping[str, Any]) -> dict[str, Any]:
+    files: dict[str, bytes] = {}
+    file_manifest: list[dict[str, Any]] = []
+    section_manifest = _csv_section_manifest(snapshot)
+    manifest_rows = _csv_manifest_rows(section_manifest)
+    manifest_bytes = _csv_bytes(
+        manifest_rows,
+        ("section", "status", "count", "reason", "path"),
+    )
+    files["manifest.csv"] = manifest_bytes
+
+    data = snapshot.get("data")
+    if not isinstance(data, Mapping):
+        raise ValueError("data export snapshot is malformed")
+
+    for section_name in sorted(section_manifest):
+        section = section_manifest[section_name]
+        path = section.get("path")
+        row_mappings = _section_rows(data.get(section_name, []))
+        if not path or not row_mappings:
+            continue
+        headers = sorted({key for row in row_mappings for key in row})
+        files[str(path)] = _csv_bytes(row_mappings, tuple(headers))
+
+    for path in sorted(files):
+        content = files[path]
+        file_manifest.append(
+            {
+                "path": path,
+                "rows": _csv_data_row_count(content),
+                "sha256": hashlib.sha256(content).hexdigest(),
+            }
+        )
+
+    archive_bytes = _zip_bytes(files)
+    archive_sha256 = hashlib.sha256(archive_bytes).hexdigest()
+    return {
+        "schema_version": CSV_SCHEMA_VERSION,
+        "format": CSV_FORMAT,
+        "generated_at": snapshot["generated_at"],
+        "subject": snapshot["subject"],
+        "manifest": {
+            "sections": section_manifest,
+            "files": file_manifest,
+        },
+        "archive": {
+            "media_type": CSV_MEDIA_TYPE,
+            "filename": CSV_ARCHIVE_FILENAME,
+            "encoding": "base64",
+            "sha256": archive_sha256,
+            "bytes": len(archive_bytes),
+            "content_base64": base64.b64encode(archive_bytes).decode("ascii"),
+        },
+    }
+
+
+def _downloadable_bytes(package: Mapping[str, Any]) -> bytes:
+    if package.get("format") == CSV_FORMAT:
+        archive = package.get("archive")
+        if not isinstance(archive, Mapping):
+            raise ValueError("CSV archive envelope missing")
+        if archive.get("encoding") != "base64":
+            raise ValueError("CSV archive envelope encoding invalid")
+        content_base64 = archive.get("content_base64")
+        if not isinstance(content_base64, str):
+            raise ValueError("CSV archive content missing")
+        try:
+            return base64.b64decode(content_base64.encode("ascii"), validate=True)
+        except (ValueError, binascii.Error) as exc:
+            raise ValueError("CSV archive content invalid") from exc
+    return json.dumps(
+        package,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+
+
+def csv_download_bytes(package: Mapping[str, Any]) -> bytes | None:
+    try:
+        if package.get("format") != CSV_FORMAT:
+            return None
+        archive = package.get("archive")
+        if not isinstance(archive, Mapping):
+            return None
+        if archive.get("media_type") != CSV_MEDIA_TYPE:
+            return None
+        return _downloadable_bytes(package)
+    except ValueError:
+        return None
+
+
+def _csv_section_manifest(snapshot: Mapping[str, Any]) -> dict[str, dict[str, Any]]:
+    manifest = snapshot.get("manifest")
+    data = snapshot.get("data")
+    if not isinstance(manifest, Mapping) or not isinstance(data, Mapping):
+        raise ValueError("data export snapshot is malformed")
+    raw_sections = manifest.get("sections")
+    if not isinstance(raw_sections, Mapping):
+        raise ValueError("data export manifest is malformed")
+
+    sections: dict[str, dict[str, Any]] = {}
+    for section_name in sorted(raw_sections):
+        raw_section = raw_sections[section_name]
+        if not isinstance(raw_section, Mapping):
+            raise ValueError("data export section manifest is malformed")
+        section = {
+            "status": str(raw_section.get("status", "unavailable")),
+            "count": int(raw_section.get("count", 0)),
+        }
+        reason = raw_section.get("reason")
+        if reason is not None:
+            section["reason"] = str(reason)
+        rows = _section_rows(data.get(section_name, []))
+        if section["status"] == "available" and rows:
+            path = CSV_SECTION_PATHS.get(str(section_name))
+            if path is None:
+                raise ValueError("unknown CSV section path")
+            section["path"] = path
+        sections[str(section_name)] = section
+    return sections
+
+
+def _csv_manifest_rows(
+    sections: Mapping[str, Mapping[str, Any]],
+) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for section_name in sorted(sections):
+        section = sections[section_name]
+        rows.append(
+            {
+                "section": section_name,
+                "status": section.get("status", ""),
+                "count": section.get("count", 0),
+                "reason": section.get("reason", ""),
+                "path": section.get("path", ""),
+            }
+        )
+    return rows
+
+
+def _ensure_mapping_row(row: Any) -> dict[str, Any]:
+    if isinstance(row, Mapping):
+        return {str(key): value for key, value in row.items()}
+    raise ValueError("CSV section rows must be objects")
+
+
+def _section_rows(value: Any) -> list[dict[str, Any]]:
+    if value is None:
+        return []
+    if isinstance(value, Mapping):
+        return [_ensure_mapping_row(value)]
+    if isinstance(value, list):
+        return [_ensure_mapping_row(row) for row in value]
+    raise ValueError("CSV section data must be an object or list")
+
+
+def _csv_bytes(rows: list[dict[str, Any]], headers: tuple[str, ...]) -> bytes:
+    output = io.StringIO(newline="")
+    writer = csv.DictWriter(output, fieldnames=list(headers), lineterminator="\n")
+    writer.writeheader()
+    for row in rows:
+        writer.writerow({header: _csv_cell(row.get(header)) for header in headers})
+    return output.getvalue().encode("utf-8")
+
+
+def _csv_cell(value: Any) -> str:
+    jsonable = sanitize_export_value(value)
+    formula_escape = isinstance(value, str)
+    if isinstance(jsonable, Mapping | list):
+        rendered = json.dumps(
+            jsonable,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+    elif jsonable is None:
+        rendered = ""
+    else:
+        rendered = str(jsonable)
+    if formula_escape and _needs_csv_formula_escape(rendered):
+        return "'" + rendered
+    return rendered
+
+
+def _needs_csv_formula_escape(value: str) -> bool:
+    if value.startswith(("=", "@", "\t", "\r", "\n")):
+        return True
+    if value.startswith(("+", "-")):
+        return not bool(_NUMERIC_LITERAL_RE.match(value))
+    return False
+
+
+def _csv_data_row_count(content: bytes) -> int:
+    text_content = content.decode("utf-8")
+    if not text_content:
+        return 0
+    return max(len(text_content.splitlines()) - 1, 0)
+
+
+def _zip_bytes(files: Mapping[str, bytes]) -> bytes:
+    output = io.BytesIO()
+    with zipfile.ZipFile(output, mode="w", compression=zipfile.ZIP_DEFLATED) as archive:
+        for path in sorted(files):
+            info = zipfile.ZipInfo(path, date_time=CSV_ZIP_TIMESTAMP)
+            info.compress_type = zipfile.ZIP_DEFLATED
+            archive.writestr(info, files[path])
+    return output.getvalue()
 
 
 async def _auth_profile(session: AsyncSession, user_id: uuid.UUID) -> dict[str, Any] | None:

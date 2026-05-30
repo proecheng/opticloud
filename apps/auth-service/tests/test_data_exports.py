@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import asyncio
+import csv
+import io
 import uuid
+import zipfile
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -56,6 +59,24 @@ async def _ensure_data_export_schema(engine: AsyncEngine) -> None:
         )
         await s.execute(
             text(
+                """
+                DO $$
+                BEGIN
+                    IF EXISTS (
+                        SELECT 1
+                        FROM information_schema.table_constraints
+                        WHERE table_name = 'data_export_requests'
+                          AND constraint_name = 'ck_data_export_requests_format'
+                    ) THEN
+                        ALTER TABLE data_export_requests
+                            DROP CONSTRAINT ck_data_export_requests_format;
+                    END IF;
+                END $$;
+                """
+            )
+        )
+        await s.execute(
+            text(
                 "CREATE INDEX IF NOT EXISTS idx_data_export_requests_user_requested "
                 "ON data_export_requests(user_id_snapshot, requested_at DESC)"
             )
@@ -68,9 +89,17 @@ async def _ensure_data_export_schema(engine: AsyncEngine) -> None:
         )
         await s.execute(
             text(
-                "CREATE UNIQUE INDEX IF NOT EXISTS uq_data_export_requests_inflight_json "
+                "ALTER TABLE data_export_requests "
+                "ADD CONSTRAINT ck_data_export_requests_format "
+                "CHECK (format IN ('json', 'csv'))"
+            )
+        )
+        await s.execute(text("DROP INDEX IF EXISTS uq_data_export_requests_inflight_json"))
+        await s.execute(
+            text(
+                "CREATE UNIQUE INDEX IF NOT EXISTS uq_data_export_requests_inflight_format "
                 "ON data_export_requests(user_id_snapshot, format) "
-                "WHERE format = 'json' AND status IN ('queued', 'processing')"
+                "WHERE format IN ('json', 'csv') AND status IN ('queued', 'processing')"
             )
         )
         await s.execute(text("DELETE FROM data_export_requests"))
@@ -210,10 +239,12 @@ async def _insert_cross_domain_rows(
             text(
                 """
                 INSERT INTO optimizations
-                    (id, user_id, api_key_id, task_type, status, input_payload, solution, error)
+                    (id, user_id, api_key_id, task_type, status, input_payload, solution, error,
+                     idempotency_key)
                 VALUES
                     (:id, :uid, :kid, 'lp', 'completed',
-                     CAST(:input_payload AS jsonb), CAST(:solution AS jsonb), NULL)
+                     CAST(:input_payload AS jsonb), CAST(:solution AS jsonb), NULL,
+                     '=SUM(1,1)')
                 """
             ),
             {
@@ -277,6 +308,40 @@ async def _insert_cross_domain_rows(
         await s.commit()
 
 
+async def _insert_csv_edge_rows(
+    engine: AsyncEngine,
+    *,
+    user_id: uuid.UUID,
+    api_key_id: uuid.UUID,
+) -> None:
+    maker = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
+    async with maker() as s:
+        await s.execute(
+            text(
+                """
+                INSERT INTO optimizations
+                    (id, user_id, api_key_id, task_type, status, input_payload, solution, error)
+                VALUES
+                    (:id, :uid, :kid, 'lp', 'completed',
+                     CAST(:input_payload AS jsonb), CAST(:solution AS jsonb), NULL)
+                """
+            ),
+            {
+                "id": uuid.uuid4(),
+                "uid": user_id,
+                "kid": api_key_id,
+                "input_payload": '{"note":"=SUM(1,1)","safe":"visible"}',
+                "solution": '{"nested":{"authorization":"Bearer secret-token","value":"@cmd"}}',
+            },
+        )
+        await s.commit()
+
+
+def _zip_text_entries(content: bytes) -> dict[str, str]:
+    with zipfile.ZipFile(io.BytesIO(content)) as archive:
+        return {name: archive.read(name).decode("utf-8") for name in sorted(archive.namelist())}
+
+
 async def test_data_export_request_is_idempotent(
     http_client: AsyncClient,
     engine: AsyncEngine,
@@ -319,6 +384,59 @@ async def test_data_export_request_is_idempotent(
     assert outbox_count == 1
 
 
+async def test_csv_data_export_request_is_format_scoped_and_idempotent(
+    http_client: AsyncClient,
+    engine: AsyncEngine,
+) -> None:
+    user_id, jwt = await _signup(http_client)
+
+    default_json = await http_client.post(
+        "/v1/auth/data-exports",
+        headers={"Authorization": f"Bearer {jwt}"},
+    )
+    csv_first = await http_client.post(
+        "/v1/auth/data-exports",
+        json={"format": "csv"},
+        headers={"Authorization": f"Bearer {jwt}"},
+    )
+    csv_second = await http_client.post(
+        "/v1/auth/data-exports",
+        json={"format": "csv"},
+        headers={"Authorization": f"Bearer {jwt}"},
+    )
+
+    assert default_json.status_code == 200, default_json.text
+    assert csv_first.status_code == 200, csv_first.text
+    assert csv_second.status_code == 200, csv_second.text
+    assert default_json.json()["format"] == "json"
+    assert csv_first.json()["format"] == "csv"
+    assert default_json.json()["id"] != csv_first.json()["id"]
+    assert csv_first.json()["id"] == csv_second.json()["id"]
+
+    unsupported = await http_client.post(
+        "/v1/auth/data-exports",
+        json={"format": "xlsx"},
+        headers={"Authorization": f"Bearer {jwt}"},
+    )
+    assert unsupported.status_code == 422
+
+    maker = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
+    async with maker() as s:
+        row_count = (
+            await s.execute(
+                text("SELECT count(*) FROM data_export_requests WHERE user_id_snapshot = :uid"),
+                {"uid": user_id},
+            )
+        ).scalar_one()
+        outbox_count = (
+            await s.execute(
+                text("SELECT count(*) FROM outbox WHERE event_type = 'data_export.requested'")
+            )
+        ).scalar_one()
+    assert row_count == 2
+    assert outbox_count == 2
+
+
 async def test_data_export_direct_concurrent_requests_share_one_row(
     http_client: AsyncClient,
     engine: AsyncEngine,
@@ -345,6 +463,49 @@ async def test_data_export_direct_concurrent_requests_share_one_row(
         outbox_count = (
             await s.execute(
                 text("SELECT count(*) FROM outbox WHERE event_type = 'data_export.requested'")
+            )
+        ).scalar_one()
+    assert row_count == 1
+    assert outbox_count == 1
+
+
+async def test_data_export_direct_concurrent_csv_requests_share_one_row(
+    http_client: AsyncClient,
+    engine: AsyncEngine,
+) -> None:
+    user_id, _ = await _signup(http_client)
+    maker = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
+
+    async def create_one() -> uuid.UUID:
+        async with maker() as s:
+            row = await data_export.request_data_export(
+                s,
+                user_id=user_id,
+                export_format="csv",
+            )
+            await s.commit()
+            return row.id
+
+    first_id, second_id = await asyncio.gather(create_one(), create_one())
+
+    assert first_id == second_id
+    async with maker() as s:
+        row_count = (
+            await s.execute(
+                text(
+                    "SELECT count(*) FROM data_export_requests "
+                    "WHERE user_id_snapshot = :uid AND format = 'csv'"
+                ),
+                {"uid": user_id},
+            )
+        ).scalar_one()
+        outbox_count = (
+            await s.execute(
+                text(
+                    "SELECT count(*) FROM outbox "
+                    "WHERE event_type = 'data_export.requested' "
+                    "AND payload->>'format' = 'csv'"
+                )
             )
         ).scalar_one()
     assert row_count == 1
@@ -445,6 +606,144 @@ async def test_worker_generates_sanitized_json_package(
     assert completion_events == 1
 
 
+async def test_worker_generates_sanitized_csv_zip_package(
+    http_client: AsyncClient,
+    engine: AsyncEngine,
+) -> None:
+    user_id, jwt = await _signup(http_client)
+    api_key_id, full_api_key = await _create_api_key(http_client, jwt)
+    await _insert_cross_domain_rows(engine, user_id=user_id, api_key_id=api_key_id)
+    await _insert_csv_edge_rows(engine, user_id=user_id, api_key_id=api_key_id)
+    created = await http_client.post(
+        "/v1/auth/data-exports",
+        json={"format": "csv"},
+        headers={"Authorization": f"Bearer {jwt}"},
+    )
+    export_id = uuid.UUID(created.json()["id"])
+
+    maker = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
+    async with maker() as s:
+        completed = await data_export.complete_pending_data_export_requests(
+            s,
+            now=datetime.now(UTC),
+        )
+        await s.commit()
+    assert completed == [export_id]
+
+    downloaded = await http_client.get(
+        f"/v1/auth/data-exports/{export_id}/download",
+        headers={"Authorization": f"Bearer {jwt}"},
+    )
+    assert downloaded.status_code == 200, downloaded.text
+    assert downloaded.headers["content-type"].startswith("application/zip")
+    assert "attachment" in downloaded.headers["content-disposition"]
+    entries = _zip_text_entries(downloaded.content)
+    assert {
+        "auth/api_keys.csv",
+        "auth/audit_logs.csv",
+        "auth/profile.csv",
+        "billing/credit_transactions.csv",
+        "billing/saga_instances.csv",
+        "manifest.csv",
+        "solver/optimizations.csv",
+        "solver/predictions.csv",
+    }.issubset(entries)
+    manifest_rows = list(csv.DictReader(io.StringIO(entries["manifest.csv"])))
+    manifest_by_section = {row["section"]: row for row in manifest_rows}
+    assert manifest_by_section["auth.profile"]["status"] == "available"
+    assert manifest_by_section["solver.optimizations"]["count"] == "2"
+    assert manifest_by_section["chat.messages"]["status"] == "unavailable"
+    assert manifest_by_section["chat.messages"]["path"] == ""
+
+    rendered = "\n".join(entries.values())
+    assert full_api_key not in rendered
+    assert "secret-token" not in rendered
+    assert "sk-secret-value" not in rendered
+    assert "jwt-secret" not in rendered
+    assert "hash-secret" not in rendered
+    assert "'=SUM(1,1)" in rendered
+    assert "'-10.0000" not in rendered
+    assert "-10.0000" in rendered
+    assert '""nested"":{""authorization"":""[REDACTED]"",""value"":""@cmd""}' in rendered
+
+    async with maker() as s:
+        row = (
+            await s.execute(select(DataExportRequest).where(DataExportRequest.id == export_id))
+        ).scalar_one()
+        assert row.status == "completed"
+        assert row.package_json is not None
+        assert row.package_json["format"] == "csv"
+        assert row.package_json["archive"]["content_base64"] not in rendered
+        assert row.package_sha256 is not None
+        assert row.package_bytes == len(downloaded.content)
+        completion_events = (
+            await s.execute(
+                text(
+                    "SELECT count(*) FROM outbox "
+                    "WHERE event_type = 'data_export.completed' "
+                    "AND payload->>'data_export_id' = :eid "
+                    "AND payload->>'format' = 'csv' "
+                    "AND payload ? 'content_base64' = false"
+                ),
+                {"eid": str(export_id)},
+            )
+        ).scalar_one()
+    assert completion_events == 1
+
+
+async def test_completed_csv_export_is_immutable_on_worker_replay(
+    http_client: AsyncClient,
+    engine: AsyncEngine,
+) -> None:
+    _, jwt = await _signup(http_client)
+    created = await http_client.post(
+        "/v1/auth/data-exports",
+        json={"format": "csv"},
+        headers={"Authorization": f"Bearer {jwt}"},
+    )
+    export_id = uuid.UUID(created.json()["id"])
+    maker = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
+
+    async with maker() as s:
+        first_completed = await data_export.complete_pending_data_export_requests(
+            s,
+            now=datetime.now(UTC),
+        )
+        await s.commit()
+    assert first_completed == [export_id]
+
+    async with maker() as s:
+        before = (
+            await s.execute(select(DataExportRequest).where(DataExportRequest.id == export_id))
+        ).scalar_one()
+        before_hash = before.package_sha256
+        before_completed_at = before.completed_at
+        second_completed = await data_export.complete_pending_data_export_requests(
+            s,
+            now=datetime.now(UTC) + timedelta(minutes=5),
+        )
+        await s.commit()
+    assert second_completed == []
+
+    async with maker() as s:
+        after = (
+            await s.execute(select(DataExportRequest).where(DataExportRequest.id == export_id))
+        ).scalar_one()
+        completion_events = (
+            await s.execute(
+                text(
+                    "SELECT count(*) FROM outbox "
+                    "WHERE event_type = 'data_export.completed' "
+                    "AND payload->>'data_export_id' = :eid"
+                ),
+                {"eid": str(export_id)},
+            )
+        ).scalar_one()
+    assert after.package_sha256 == before_hash
+    assert after.completed_at == before_completed_at
+    assert completion_events == 1
+
+
 async def test_download_rejects_queued_and_expired_packages(
     http_client: AsyncClient,
     engine: AsyncEngine,
@@ -494,6 +793,52 @@ async def test_download_rejects_queued_and_expired_packages(
         headers={"Authorization": f"Bearer {jwt}"},
     )
     assert expired.status_code == 410
+
+
+async def test_csv_download_rejects_missing_archive_envelope(
+    http_client: AsyncClient,
+    engine: AsyncEngine,
+) -> None:
+    _, jwt = await _signup(http_client)
+    created = await http_client.post(
+        "/v1/auth/data-exports",
+        json={"format": "csv"},
+        headers={"Authorization": f"Bearer {jwt}"},
+    )
+    export_id = uuid.UUID(created.json()["id"])
+
+    maker = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
+    async with maker() as s:
+        await s.execute(
+            text(
+                """
+                UPDATE data_export_requests
+                SET status = 'completed',
+                    completed_at = :completed_at,
+                    expires_at = :expires_at,
+                    package_json = CAST(:package AS jsonb),
+                    package_sha256 = :sha,
+                    package_bytes = 2,
+                    download_url = :url
+                WHERE id = :id
+                """
+            ),
+            {
+                "id": export_id,
+                "completed_at": datetime.now(UTC),
+                "expires_at": datetime.now(UTC) + timedelta(days=1),
+                "package": '{"schema_version":"pipl_export_csv_v1","format":"csv"}',
+                "sha": "0" * 64,
+                "url": f"/v1/auth/data-exports/{export_id}/download",
+            },
+        )
+        await s.commit()
+
+    downloaded = await http_client.get(
+        f"/v1/auth/data-exports/{export_id}/download",
+        headers={"Authorization": f"Bearer {jwt}"},
+    )
+    assert downloaded.status_code == 409
 
 
 async def test_worker_failure_records_bounded_error_without_completion_event(

@@ -130,8 +130,8 @@ CREATE TABLE IF NOT EXISTS account_deletion_requests (
 CREATE INDEX idx_account_deletion_requests_hard_delete_at
     ON account_deletion_requests(hard_delete_at);
 
--- ===== data_export_requests (Story 5.C.3 + FR B10) =====
--- Self-service PIPL JSON export lifecycle. v1 stores the JSON package in DB;
+-- ===== data_export_requests (Story 5.C.3 / 5.C.4 + FR B10) =====
+-- Self-service PIPL JSON/CSV export lifecycle. v1 stores packages in DB;
 -- object storage / signed email delivery are deferred to later stories.
 CREATE TABLE IF NOT EXISTS data_export_requests (
     id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -152,7 +152,7 @@ CREATE TABLE IF NOT EXISTS data_export_requests (
     created_at              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT ck_data_export_requests_format
-        CHECK (format IN ('json')),
+        CHECK (format IN ('json', 'csv')),
     CONSTRAINT ck_data_export_requests_status
         CHECK (status IN ('queued', 'processing', 'completed', 'failed', 'expired'))
 );
@@ -162,9 +162,15 @@ CREATE INDEX IF NOT EXISTS idx_data_export_requests_user_requested
 CREATE INDEX IF NOT EXISTS idx_data_export_requests_queued
     ON data_export_requests(requested_at)
     WHERE status = 'queued';
-CREATE UNIQUE INDEX IF NOT EXISTS uq_data_export_requests_inflight_json
+ALTER TABLE data_export_requests
+    DROP CONSTRAINT IF EXISTS ck_data_export_requests_format;
+ALTER TABLE data_export_requests
+    ADD CONSTRAINT ck_data_export_requests_format
+        CHECK (format IN ('json', 'csv'));
+DROP INDEX IF EXISTS uq_data_export_requests_inflight_json;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_data_export_requests_inflight_format
     ON data_export_requests(user_id_snapshot, format)
-    WHERE format = 'json' AND status IN ('queued', 'processing');
+    WHERE format IN ('json', 'csv') AND status IN ('queued', 'processing');
 
 -- ===== account_merge_proposals (Story 1.7 + FR A7/A8) =====
 CREATE TABLE IF NOT EXISTS account_merge_proposals (

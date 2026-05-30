@@ -1,4 +1,4 @@
-"""PIPL JSON data export worker CLI — Story 5.C.3.
+"""PIPL JSON/CSV data export worker CLI — Story 5.C.3 / 5.C.4.
 
 Usage:
     uv run python -m auth_service.data_export_cli
@@ -48,7 +48,7 @@ async def _run(now: datetime | None = None, limit: int = 10) -> int:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="PIPL JSON data export worker")
+    parser = argparse.ArgumentParser(description="PIPL JSON/CSV data export worker")
     parser.add_argument(
         "--now",
         type=lambda s: datetime.fromisoformat(s).astimezone(UTC),

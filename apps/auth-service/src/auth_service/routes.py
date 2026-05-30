@@ -11,7 +11,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Literal
 
 import structlog
-from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
+from fastapi import APIRouter, Body, Depends, Header, HTTPException, Request, Response, status
 from fastapi.responses import JSONResponse
 from sqlalchemy import and_, select, text, update
 from sqlalchemy.exc import IntegrityError
@@ -36,6 +36,7 @@ from auth_service.schemas import (
     APIKeyCreateResponse,
     APIKeyGeoAnomalyWarning,
     APIKeyListItem,
+    DataExportCreateRequest,
     DataExportStatusResponse,
     GuardianConsentPendingResponse,
     LoginRequest,
@@ -783,15 +784,21 @@ async def request_account_deletion(
 @router.post(
     "/data-exports",
     response_model=DataExportStatusResponse,
-    summary="请求 PIPL JSON 数据导出",
+    summary="请求 PIPL JSON/CSV 数据导出",
     status_code=status.HTTP_200_OK,
 )
 async def request_data_export(
+    body: DataExportCreateRequest | None = Body(default=None),
     authorization: str | None = Header(default=None),
     session: AsyncSession = Depends(get_session),
 ) -> DataExportStatusResponse:
     user_id = await _resolve_user_from_jwt(authorization)
-    export = await data_export.request_data_export(session, user_id=user_id)
+    export_format = body.format if body is not None else data_export.JSON_FORMAT
+    export = await data_export.request_data_export(
+        session,
+        user_id=user_id,
+        export_format=export_format,
+    )
     await session.commit()
     return DataExportStatusResponse.model_validate(data_export.status_response(export))
 
@@ -799,7 +806,7 @@ async def request_data_export(
 @router.get(
     "/data-exports/{export_id}",
     response_model=DataExportStatusResponse,
-    summary="查看 PIPL JSON 数据导出状态",
+    summary="查看 PIPL JSON/CSV 数据导出状态",
 )
 async def get_data_export_status(
     export_id: uuid.UUID,
@@ -819,13 +826,13 @@ async def get_data_export_status(
 
 @router.get(
     "/data-exports/{export_id}/download",
-    summary="下载已完成的 PIPL JSON 数据导出包",
+    summary="下载已完成的 PIPL JSON/CSV 数据导出包",
 )
 async def download_data_export(
     export_id: uuid.UUID,
     authorization: str | None = Header(default=None),
     session: AsyncSession = Depends(get_session),
-) -> dict[str, object]:
+) -> Response:
     user_id = await _resolve_user_from_jwt(authorization)
     export = await data_export.get_export_request_for_user(
         session,
@@ -846,7 +853,23 @@ async def download_data_export(
             status_code=status.HTTP_409_CONFLICT,
             detail="data export package unavailable",
         )
-    return export.package_json
+    if export.format == data_export.CSV_FORMAT:
+        archive = data_export.csv_download_bytes(export.package_json)
+        if archive is None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="data export package unavailable",
+            )
+        return Response(
+            content=archive,
+            media_type=data_export.CSV_MEDIA_TYPE,
+            headers={
+                "Content-Disposition": (
+                    f'attachment; filename="{data_export.CSV_ARCHIVE_FILENAME}"'
+                )
+            },
+        )
+    return JSONResponse(content=export.package_json)
 
 
 @router.post(

@@ -180,7 +180,7 @@ class AccountDeletionRequest(Base):
 
 
 class DataExportRequest(Base):
-    """Story 5.C.3 — PIPL JSON data export lifecycle."""
+    """Story 5.C.3 / 5.C.4 — PIPL JSON/CSV data export lifecycle."""
 
     __tablename__ = "data_export_requests"
     __table_args__ = (
@@ -191,11 +191,13 @@ class DataExportRequest(Base):
             postgresql_where=text("status = 'queued'"),
         ),
         Index(
-            "uq_data_export_requests_inflight_json",
+            "uq_data_export_requests_inflight_format",
             "user_id_snapshot",
             "format",
             unique=True,
-            postgresql_where=text("format = 'json' AND status IN ('queued', 'processing')"),
+            postgresql_where=text(
+                "format IN ('json', 'csv') AND status IN ('queued', 'processing')"
+            ),
         ),
     )
 
