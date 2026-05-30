@@ -87,4 +87,23 @@ async def require_user(
         ) from e
 
 
-__all__ = ["require_user", "rfc7807_error"]
+async def require_internal_service(
+    x_internal_service_auth: str | None = Header(default=None, alias="X-Internal-Service-Auth"),
+) -> None:
+    """Require the billing internal shared secret for payment-confirmation routes."""
+    expected = settings.internal_service_secret.get_secret_value()
+    if not expected:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="billing internal service secret is not configured",
+        )
+    if x_internal_service_auth is None or not hmac.compare_digest(
+        x_internal_service_auth, expected
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="invalid internal service auth",
+        )
+
+
+__all__ = ["require_internal_service", "require_user", "rfc7807_error"]

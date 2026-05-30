@@ -1,7 +1,9 @@
-"""Billing HTTP routes (Story 5.A.1 + 5.A.4 + 5.A.5).
+"""Billing HTTP routes (Story 5.A.1 + 5.A.4 + 5.A.5 + 5.A.6).
 
 Endpoints (all require Bearer JWT or X-Internal-Service-Auth):
 - GET  /v1/billing/balance               — read current credits balance (pure)
+- POST /v1/billing/topups                — create pending topup request
+- POST /v1/billing/topups/{id}/confirm   — internal payment-confirmation credit
 - POST /v1/billing/charges/estimate      — 5.A.5: pre-charge guard preview
 - POST /v1/billing/charges               — create a Saga + lazy-seed if first call (5.A.5: gates on `confirmed` when warnings exist)
 - POST /v1/billing/charges/{id}/reserve  — 5.A.4: PENDING → RESERVED only
@@ -14,6 +16,7 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime
 from decimal import Decimal
+from typing import cast
 
 from fastapi import APIRouter, Depends, Header, HTTPException, status
 from opticloud_shared.errors import ErrorDetail, rfc7807_error
@@ -22,12 +25,13 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import Response
 
-from billing_service.auth_dep import require_user
+from billing_service.auth_dep import require_internal_service, require_user
 from billing_service.buckets import (
     ALL_BUCKETS,
     BUCKET_EXPIRES_HINT_ZH,
     BUCKET_LABELS_ZH,
     BUCKET_SIGNUP,
+    BUCKET_TOPUP,
 )
 from billing_service.config import settings
 from billing_service.db import get_session
@@ -38,7 +42,7 @@ from billing_service.exceptions import (
     SagaNotFoundError,
     SagaTerminalError,
 )
-from billing_service.models import CreditTransaction, SagaInstance
+from billing_service.models import CreditTransaction, OutboxEvent, SagaInstance
 from billing_service.pricing import classify_warnings, compute_charge_amount
 from billing_service.saga_orchestrator import SagaOrchestrator
 from billing_service.schemas import (
@@ -51,6 +55,9 @@ from billing_service.schemas import (
     FinalizeChargeRequest,
     FinalizeChargeResponse,
     ReserveChargeResponse,
+    TopupConfirmRequest,
+    TopupCreateRequest,
+    TopupResponse,
     WarningResponse,
     validate_idempotency_key,
 )
@@ -63,6 +70,25 @@ ESTIMATE_TOTAL: Counter = Counter(
     "POST /v1/billing/charges/estimate calls labelled by warning shape",
     ["warnings_kind"],
 )
+
+
+def _problem_response(
+    *,
+    title: str,
+    status_code: int,
+    detail: str,
+    errors: list[ErrorDetail] | None = None,
+) -> Response:
+    """Typed wrapper around the shared RFC 7807 helper for strict mypy."""
+    return cast(
+        Response,
+        rfc7807_error(
+            title=title,
+            status_code=status_code,
+            detail=detail,
+            errors=errors,
+        ),
+    )
 
 
 async def _balance_for(session: AsyncSession, user_id: uuid.UUID) -> Decimal:
@@ -120,6 +146,33 @@ async def _seed_demo_balance(session: AsyncSession, user_id: uuid.UUID) -> None:
         )
     )
     await session.flush()
+
+
+def _topup_response(saga: SagaInstance, *, balance_after: Decimal | None = None) -> TopupResponse:
+    amount = saga.amount or Decimal("0")
+    return TopupResponse(
+        topup_id=str(saga.id),
+        current_state=saga.current_state,
+        amount=f"{amount:.2f}",
+        bucket="topup",
+        expires_at=None,
+        expires_hint=BUCKET_EXPIRES_HINT_ZH[BUCKET_TOPUP] or "永不过期",
+        balance_after=f"{balance_after:.2f}" if balance_after is not None else None,
+    )
+
+
+async def _topup_ledger_rows(session: AsyncSession, topup_id: uuid.UUID) -> list[CreditTransaction]:
+    stmt = select(CreditTransaction).where(
+        CreditTransaction.saga_id == topup_id,
+        CreditTransaction.kind == "topup",
+        CreditTransaction.bucket == BUCKET_TOPUP,
+    )
+    return list((await session.execute(stmt)).scalars().all())
+
+
+def _ledger_payment_ref(row: CreditTransaction) -> str | None:
+    raw = row.metadata_json.get("payment_ref")
+    return raw if isinstance(raw, str) else None
 
 
 def _classify_with_settings(estimated: Decimal, balance: Decimal) -> list[WarningResponse]:
@@ -211,6 +264,137 @@ async def get_balance(
     )
 
 
+@billing_router.post("/topups", response_model=TopupResponse, status_code=status.HTTP_201_CREATED)
+async def create_topup(
+    body: TopupCreateRequest,
+    user_id: uuid.UUID = Depends(require_user),
+    session: AsyncSession = Depends(get_session),
+    idempotency_key: str = Header(..., alias="Idempotency-Key"),
+) -> Response | TopupResponse:
+    """Story 5.A.6 — create an idempotent pending topup request.
+
+    This public route never credits the ledger. Credits are written only by the
+    internal payment-confirmation route after a trusted payment callback.
+    """
+    try:
+        validate_idempotency_key(idempotency_key)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+
+    orch = SagaOrchestrator(session)
+    try:
+        saga = await orch.start(
+            saga_type="topup",
+            user_id=user_id,
+            idempotency_key=idempotency_key,
+            payload={
+                "reference_id": body.reference_id,
+                "purpose": "topup",
+            },
+            amount=body.amount,
+        )
+    except CrossTenantKeyError as e:
+        await session.rollback()
+        return _problem_response(
+            title="Cross-tenant key reuse forbidden",
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(e),
+        )
+    except IdempotencyConflictError as e:
+        await session.rollback()
+        return _problem_response(
+            title="Idempotency Conflict",
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(e),
+        )
+
+    await session.commit()
+    return _topup_response(saga)
+
+
+@billing_router.post("/topups/{topup_id}/confirm", response_model=TopupResponse)
+async def confirm_topup(
+    topup_id: uuid.UUID,
+    body: TopupConfirmRequest,
+    _internal: None = Depends(require_internal_service),
+    session: AsyncSession = Depends(get_session),
+) -> Response | TopupResponse:
+    """Story 5.A.6 — internal payment confirmation writes topup Credits once."""
+    stmt = select(SagaInstance).where(SagaInstance.id == topup_id).with_for_update()
+    saga = (await session.execute(stmt)).scalar_one_or_none()
+    if saga is None or saga.saga_type != "topup":
+        await session.rollback()
+        return _problem_response(
+            title="Topup Not Found",
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"topup {topup_id} not found",
+        )
+
+    amount = saga.amount or Decimal("0")
+    existing_rows = await _topup_ledger_rows(session, topup_id)
+    if existing_rows:
+        existing_ref = _ledger_payment_ref(existing_rows[0])
+        if existing_ref != body.payment_ref:
+            await session.rollback()
+            return _problem_response(
+                title="Payment Reference Conflict",
+                status_code=status.HTTP_409_CONFLICT,
+                detail="topup has already been confirmed with a different payment_ref",
+            )
+        balance_after = await _balance_for(session, saga.user_id)
+        return _topup_response(saga, balance_after=balance_after)
+
+    if saga.current_state != "pending":
+        await session.rollback()
+        return _problem_response(
+            title="Topup Already Finalized",
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"topup is already {saga.current_state}",
+        )
+
+    now = datetime.now(UTC)
+    saga.current_state = "completed"
+    saga.updated_at = now
+    session.add(
+        CreditTransaction(
+            user_id=saga.user_id,
+            saga_id=saga.id,
+            amount=amount,
+            kind="topup",
+            bucket=BUCKET_TOPUP,
+            currency="CNY",
+            metadata_json={
+                "provider": body.provider,
+                "payment_ref": body.payment_ref,
+                "expires_at": None,
+            },
+            created_at=now,
+        )
+    )
+    session.add(
+        OutboxEvent(
+            aggregate_type="saga_instance",
+            aggregate_id=saga.id,
+            event_type="billing.topup.confirmed",
+            event_version=1,
+            payload={
+                "saga_id": str(saga.id),
+                "saga_type": saga.saga_type,
+                "to_state": saga.current_state,
+                "bucket": BUCKET_TOPUP,
+                "provider": body.provider,
+                "payment_ref": body.payment_ref,
+            },
+            headers={"compensation": "none"},
+            occurred_at=now,
+        )
+    )
+
+    await session.commit()
+    balance_after = await _balance_for(session, saga.user_id)
+    return _topup_response(saga, balance_after=balance_after)
+
+
 @billing_router.post("/charges", response_model=ChargeResponse, status_code=status.HTTP_201_CREATED)
 async def create_charge(
     body: ChargeCreateRequest,
@@ -230,7 +414,7 @@ async def create_charge(
     balance_before = await _balance_for(session, user_id)
     if body.amount > balance_before:
         await session.commit()
-        return rfc7807_error(
+        return _problem_response(
             title="Insufficient balance",
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=f"Required: ¥{body.amount}, available: ¥{balance_before}",
@@ -248,7 +432,7 @@ async def create_charge(
     warnings = _classify_with_settings(body.amount, balance_before)
     if warnings and not body.confirmed:
         await session.commit()
-        return rfc7807_error(
+        return _problem_response(
             title="Explicit Confirmation Required",
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=warnings[0].message,
@@ -284,14 +468,14 @@ async def create_charge(
         )
     except CrossTenantKeyError as e:
         await session.rollback()
-        return rfc7807_error(
+        return _problem_response(
             title="Cross-tenant key reuse forbidden",
             status_code=status.HTTP_403_FORBIDDEN,
             detail=str(e),
         )
     except IdempotencyConflictError as e:
         await session.rollback()
-        return rfc7807_error(
+        return _problem_response(
             title="Idempotency Conflict",
             status_code=status.HTTP_409_CONFLICT,
             detail=str(e),
@@ -325,7 +509,7 @@ async def reserve_charge(
         saga = await orch.get(charge_id)
     except SagaNotFoundError as e:
         await session.rollback()
-        return rfc7807_error(
+        return _problem_response(
             title="Charge Not Found",
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e),
@@ -333,7 +517,7 @@ async def reserve_charge(
 
     if saga.user_id != user_id:
         await session.rollback()
-        return rfc7807_error(
+        return _problem_response(
             title="Forbidden",
             status_code=status.HTTP_403_FORBIDDEN,
             detail="charge belongs to another user",
@@ -343,7 +527,7 @@ async def reserve_charge(
         saga = await orch.apply(charge_id, "reserve")
     except (InvalidSagaTransitionError, SagaTerminalError) as e:
         await session.rollback()
-        return rfc7807_error(
+        return _problem_response(
             title="Reserve Not Applicable",
             status_code=status.HTTP_409_CONFLICT,
             detail=str(e),
@@ -446,7 +630,7 @@ async def finalize_charge(
         saga = await orch.get(charge_id)
     except SagaNotFoundError as e:
         await session.rollback()
-        return rfc7807_error(
+        return _problem_response(
             title="Charge Not Found",
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e),
@@ -454,7 +638,7 @@ async def finalize_charge(
 
     if saga.user_id != user_id:
         await session.rollback()
-        return rfc7807_error(
+        return _problem_response(
             title="Forbidden",
             status_code=status.HTTP_403_FORBIDDEN,
             detail="charge belongs to another user",
@@ -494,7 +678,7 @@ async def finalize_charge(
             )
         except (InvalidSagaTransitionError, SagaTerminalError) as e:
             await session.rollback()
-            return rfc7807_error(
+            return _problem_response(
                 title="Finalize Not Applicable",
                 status_code=status.HTTP_409_CONFLICT,
                 detail=str(e),
@@ -549,7 +733,7 @@ async def finalize_charge(
         )
     except (InvalidSagaTransitionError, SagaTerminalError) as e:
         await session.rollback()
-        return rfc7807_error(
+        return _problem_response(
             title="Finalize Not Applicable",
             status_code=status.HTTP_409_CONFLICT,
             detail=str(e),
@@ -603,7 +787,7 @@ async def confirm_charge(
         saga = await orch.get(charge_id)
     except SagaNotFoundError as e:
         await session.rollback()
-        return rfc7807_error(
+        return _problem_response(
             title="Charge Not Found",
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e),
@@ -611,7 +795,7 @@ async def confirm_charge(
 
     if saga.user_id != user_id:
         await session.rollback()
-        return rfc7807_error(
+        return _problem_response(
             title="Forbidden",
             status_code=status.HTTP_403_FORBIDDEN,
             detail="charge belongs to another user",
@@ -624,7 +808,7 @@ async def confirm_charge(
         saga = await orch.apply(charge_id, "service_success")
     except (InvalidSagaTransitionError, SagaTerminalError) as e:
         await session.rollback()
-        return rfc7807_error(
+        return _problem_response(
             title="Charge Already Finalized",
             status_code=status.HTTP_409_CONFLICT,
             detail=str(e),

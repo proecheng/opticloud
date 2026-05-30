@@ -80,7 +80,9 @@ def classify_drift(drift: Decimal) -> DriftSeverity:
     return DriftSeverity.MAJOR
 
 
-def expected_bounds(state: str, reserved_amount: Decimal) -> tuple[Decimal, Decimal]:
+def expected_bounds(
+    state: str, reserved_amount: Decimal, *, saga_type: str = "solve_charge"
+) -> tuple[Decimal, Decimal]:
     """Return (low, high) inclusive bounds for the ledger SUM at a terminal state.
 
     R2 D1 — reconciler can't see /finalize's actual_amount from saga.payload_ref
@@ -88,6 +90,13 @@ def expected_bounds(state: str, reserved_amount: Decimal) -> tuple[Decimal, Deci
     sum in [-A, -charge_min_amount] as OK because the user paid SOMETHING ≤ cap.
     """
     a = reserved_amount
+    if saga_type == "topup":
+        if state == "completed":
+            return (a, a)
+        if state in ("failed", "refunded", "rolled_back"):
+            return (Decimal("0"), Decimal("0"))
+        raise ValueError(f"expected_bounds() called with non-terminal state {state!r}")
+
     floor = settings.charge_min_amount
     if state == "failed":
         return (Decimal("0"), Decimal("0"))
@@ -146,7 +155,7 @@ async def reconcile_window(
         )
         actual_sum = Decimal(str((await session.execute(sum_stmt)).scalar_one()))
 
-        lo, hi = expected_bounds(saga.current_state, saga.amount)
+        lo, hi = expected_bounds(saga.current_state, saga.amount, saga_type=saga.saga_type)
         drift = _drift_relative_to_bounds(actual_sum, lo, hi)
         severity = classify_drift(drift)
 

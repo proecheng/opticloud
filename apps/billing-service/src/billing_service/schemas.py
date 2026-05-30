@@ -9,6 +9,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
 
+from billing_service.topups import normalize_topup_amount
+
 _IDEMPOTENCY_KEY_RE = re.compile(
     r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
 )
@@ -94,6 +96,50 @@ class ChargeResponse(BaseModel):
     balance_after: str
 
 
+class TopupCreateRequest(BaseModel):
+    """POST /v1/billing/topups body — Story 5.A.6."""
+
+    amount: Decimal = Field(..., gt=0, description='Topup pack amount in CNY, string "10.00"')
+    currency: Literal["CNY"] = "CNY"
+    reference_id: str = Field(..., description="UUID or payment-intent pointer for this topup")
+
+    @field_validator("amount", mode="before")
+    @classmethod
+    def _coerce_and_validate_amount(cls, v: object) -> Decimal:
+        return normalize_topup_amount(Decimal(str(v)))
+
+    @field_validator("reference_id")
+    @classmethod
+    def _validate_reference_id(cls, v: str) -> str:
+        validate_idempotency_key(v)
+        return v
+
+
+class TopupConfirmRequest(BaseModel):
+    """POST /v1/billing/topups/{id}/confirm body — internal payment callback."""
+
+    provider: Literal["manual", "stripe", "wechat", "alipay"] = "manual"
+    payment_ref: str = Field(
+        ...,
+        min_length=3,
+        max_length=128,
+        pattern=r"^[A-Za-z0-9][A-Za-z0-9_.:-]{2,127}$",
+    )
+
+
+class TopupResponse(BaseModel):
+    """Topup request/confirmation response."""
+
+    topup_id: str
+    current_state: str
+    amount: str
+    currency: str = "CNY"
+    bucket: Literal["topup"] = "topup"
+    expires_at: None = None
+    expires_hint: str = "永不过期"
+    balance_after: str | None = None
+
+
 class ReserveChargeResponse(BaseModel):
     """POST /v1/billing/charges/{id}/reserve response — 5.A.4 AC1."""
 
@@ -165,6 +211,9 @@ __all__ = [
     "FinalizeChargeRequest",
     "FinalizeChargeResponse",
     "ReserveChargeResponse",
+    "TopupConfirmRequest",
+    "TopupCreateRequest",
+    "TopupResponse",
     "WarningResponse",
     "validate_idempotency_key",
 ]
