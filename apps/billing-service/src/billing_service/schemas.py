@@ -236,6 +236,17 @@ class SubscriptionCreateRequest(BaseModel):
     plan_code: Literal["free", "starter", "pro", "team", "enterprise"]
 
 
+class SubscriptionProrationResponse(BaseModel):
+    """Prorated plan-change adjustment details."""
+
+    from_plan_code: Literal["free", "starter", "pro", "team", "enterprise"]
+    to_plan_code: Literal["free", "starter", "pro", "team", "enterprise"]
+    amount: str
+    currency: str = "CNY"
+    remaining_days: int
+    total_days: int
+
+
 class SubscriptionResponse(BaseModel):
     """Current or newly-created subscription response."""
 
@@ -252,6 +263,7 @@ class SubscriptionResponse(BaseModel):
     education_entitlement: str | None = None
     trial_ends_at: datetime | None = None
     fallback_plan_code: Literal["starter"] | None = None
+    proration: SubscriptionProrationResponse | None = None
 
 
 class EduStarterSyncRequest(BaseModel):
@@ -292,6 +304,7 @@ __all__ = [
     "RefillDueResponse",
     "ReserveChargeResponse",
     "SubscriptionCreateRequest",
+    "SubscriptionProrationResponse",
     "SubscriptionResponse",
     "TopupConfirmRequest",
     "TopupCreateRequest",

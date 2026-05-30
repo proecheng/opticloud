@@ -259,6 +259,28 @@ async def _refill_rows(session: AsyncSession, user_id: uuid.UUID) -> list[dict]:
     return [dict(row) for row in rows]
 
 
+async def _proration_rows(session: AsyncSession, user_id: uuid.UUID) -> list[dict]:
+    rows = (
+        (
+            await session.execute(
+                text(
+                    """
+                    SELECT amount, bucket, kind, metadata
+                      FROM credit_transactions
+                     WHERE user_id = :user_id
+                       AND kind = 'subscription_proration'
+                     ORDER BY created_at ASC
+                    """
+                ),
+                {"user_id": user_id},
+            )
+        )
+        .mappings()
+        .all()
+    )
+    return [dict(row) for row in rows]
+
+
 async def _subscription_metadata(session: AsyncSession, subscription_id: str) -> dict:
     return (
         await session.execute(
@@ -480,7 +502,7 @@ async def test_subscribe_cross_tenant_key_reuse_never_returns_owner_response(
     assert first.json()["subscription_id"] not in replay.text
 
 
-async def test_existing_same_plan_is_noop_and_different_plan_is_deferred(
+async def test_existing_same_plan_is_noop_and_unsupported_different_plan_is_deferred(
     http_client: AsyncClient,
     fresh_headers: tuple[uuid.UUID, dict[str, str]],
     session: AsyncSession,
@@ -498,7 +520,7 @@ async def test_existing_same_plan_is_noop_and_different_plan_is_deferred(
 
     different = await http_client.post(
         "/v1/billing/subscriptions",
-        json=_subscribe_body("pro"),
+        json=_subscribe_body("team"),
         headers={**headers, "Idempotency-Key": str(uuid.uuid4())},
     )
     assert different.status_code == 409, different.text
@@ -507,6 +529,341 @@ async def test_existing_same_plan_is_noop_and_different_plan_is_deferred(
     assert counts["subscriptions"] == 1
     assert counts["refills"] == 1
     assert await _monthly_balance(http_client, headers) == "2000.00"
+
+
+async def test_starter_to_pro_mid_period_writes_prorated_adjustment_once(
+    http_client: AsyncClient,
+    fresh_headers: tuple[uuid.UUID, dict[str, str]],
+    session: AsyncSession,
+) -> None:
+    user_id, headers = fresh_headers
+    starter = await _subscribe(http_client, headers, plan_code="starter")
+    subscription_id = uuid.UUID(starter["subscription_id"])
+    period_start = datetime(2026, 5, 1, tzinfo=UTC)
+    period_end = datetime.now(UTC) + timedelta(days=15)
+    period_end = period_end.replace(microsecond=0)
+    period_start = period_end - timedelta(days=30)
+    await session.execute(
+        text(
+            """
+            UPDATE billing_subscriptions
+               SET current_period_start = :period_start,
+                   current_period_end = :period_end,
+                   last_refilled_period_start = :period_start
+             WHERE id = :subscription_id
+            """
+        ),
+        {
+            "period_start": period_start,
+            "period_end": period_end,
+            "subscription_id": subscription_id,
+        },
+    )
+    await session.commit()
+
+    key = str(uuid.uuid4())
+    first = await http_client.post(
+        "/v1/billing/subscriptions",
+        json=_subscribe_body("pro"),
+        headers={**headers, "Idempotency-Key": key},
+    )
+    replay = await http_client.post(
+        "/v1/billing/subscriptions",
+        json=_subscribe_body("pro"),
+        headers={**headers, "Idempotency-Key": key},
+    )
+    repeat = await http_client.post(
+        "/v1/billing/subscriptions",
+        json=_subscribe_body("pro"),
+        headers={**headers, "Idempotency-Key": str(uuid.uuid4())},
+    )
+    current = await http_client.get("/v1/billing/subscriptions/current", headers=headers)
+
+    assert first.status_code == 201, first.text
+    assert replay.status_code == 201, replay.text
+    assert repeat.status_code == 201, repeat.text
+    assert replay.json() == first.json()
+    body = first.json()
+    assert repeat.json()["subscription_id"] == body["subscription_id"]
+    assert repeat.json()["plan_code"] == "pro"
+    assert repeat.json()["proration"] is None
+    assert body["subscription_id"] == str(subscription_id)
+    assert body["plan_code"] == "pro"
+    assert body["monthly_credits"] == "10000.00"
+    assert body["current_period_start"] == period_start.isoformat().replace("+00:00", "Z")
+    assert body["current_period_end"] == period_end.isoformat().replace("+00:00", "Z")
+    assert body["proration"] == {
+        "from_plan_code": "starter",
+        "to_plan_code": "pro",
+        "amount": "4000.00",
+        "currency": "CNY",
+        "remaining_days": 15,
+        "total_days": 30,
+    }
+    assert current.status_code == 200, current.text
+    assert current.json()["plan_code"] == "pro"
+    assert current.json()["proration"] is None
+    rows = await _proration_rows(session, user_id)
+    assert len(rows) == 1
+    assert str(rows[0]["amount"]) == "4000.0000"
+    assert rows[0]["bucket"] == "monthly"
+    assert rows[0]["metadata"]["from_plan_code"] == "starter"
+    assert rows[0]["metadata"]["to_plan_code"] == "pro"
+    assert rows[0]["metadata"]["remaining_days"] == "15"
+    assert rows[0]["metadata"]["total_days"] == "30"
+    assert rows[0]["metadata"]["trigger"] == "plan_upgrade_proration"
+    assert await _monthly_balance(http_client, headers) == "6000.00"
+    outbox = await _subscription_outbox_payloads(session, str(subscription_id))
+    event_types = [row["event_type"] for row in outbox]
+    assert event_types.count("billing.subscription.plan_changed") == 1
+    plan_changed = next(
+        row["payload"] for row in outbox if row["event_type"] == "billing.subscription.plan_changed"
+    )
+    assert plan_changed["from_plan_code"] == "starter"
+    assert plan_changed["to_plan_code"] == "pro"
+    assert plan_changed["proration_amount"] == "4000.00"
+    forbidden = {"token", "jwt", "email", "phone", "payment_ref", "provider", "raw_body"}
+    for row in outbox:
+        payload_text = str(row["payload"]).lower()
+        for field in forbidden:
+            assert field not in payload_text
+    assert await _stored_response_body(session, key) == body
+
+
+async def test_starter_to_pro_proration_rejects_due_period_without_cache(
+    http_client: AsyncClient,
+    fresh_headers: tuple[uuid.UUID, dict[str, str]],
+    session: AsyncSession,
+) -> None:
+    user_id, headers = fresh_headers
+    starter = await _subscribe(http_client, headers, plan_code="starter")
+    subscription_id = uuid.UUID(starter["subscription_id"])
+    due_end = datetime.now(UTC) - timedelta(minutes=1)
+    due_start = due_end - timedelta(days=30)
+    await session.execute(
+        text(
+            """
+            UPDATE billing_subscriptions
+               SET current_period_start = :period_start,
+                   current_period_end = :period_end,
+                   last_refilled_period_start = :period_start
+             WHERE id = :subscription_id
+            """
+        ),
+        {
+            "period_start": due_start,
+            "period_end": due_end,
+            "subscription_id": subscription_id,
+        },
+    )
+    await session.commit()
+    key = str(uuid.uuid4())
+
+    response = await http_client.post(
+        "/v1/billing/subscriptions",
+        json=_subscribe_body("pro"),
+        headers={**headers, "Idempotency-Key": key},
+    )
+
+    assert response.status_code == 409, response.text
+    assert response.json()["title"] == "Subscription period already due"
+    assert await _stored_response_body(session, key) is None
+    current = await http_client.get("/v1/billing/subscriptions/current", headers=headers)
+    assert current.status_code == 200, current.text
+    assert current.json()["plan_code"] == "starter"
+    assert await _proration_rows(session, user_id) == []
+    await session.execute(
+        text(
+            """
+            UPDATE billing_subscriptions
+               SET current_period_start = :period_start,
+                   current_period_end = :period_end,
+                   last_refilled_period_start = :period_start
+             WHERE id = :subscription_id
+            """
+        ),
+        {
+            "period_start": datetime.now(UTC),
+            "period_end": datetime.now(UTC) + timedelta(days=30),
+            "subscription_id": subscription_id,
+        },
+    )
+    await session.commit()
+
+
+async def test_starter_to_pro_proration_next_due_refills_full_pro_once(
+    http_client: AsyncClient,
+    fresh_headers: tuple[uuid.UUID, dict[str, str]],
+    session: AsyncSession,
+) -> None:
+    user_id, headers = fresh_headers
+    starter = await _subscribe(http_client, headers, plan_code="starter")
+    subscription_id = uuid.UUID(starter["subscription_id"])
+    period_end = datetime.now(UTC) + timedelta(days=15)
+    period_start = period_end - timedelta(days=30)
+    await session.execute(
+        text(
+            """
+            UPDATE billing_subscriptions
+               SET current_period_start = :period_start,
+                   current_period_end = :period_end,
+                   last_refilled_period_start = :period_start
+             WHERE id = :subscription_id
+            """
+        ),
+        {
+            "period_start": period_start,
+            "period_end": period_end,
+            "subscription_id": subscription_id,
+        },
+    )
+    await session.commit()
+    upgraded = await http_client.post(
+        "/v1/billing/subscriptions",
+        json=_subscribe_body("pro"),
+        headers={**headers, "Idempotency-Key": str(uuid.uuid4())},
+    )
+    assert upgraded.status_code == 201, upgraded.text
+
+    first = await http_client.post(
+        "/v1/billing/subscriptions/refill-due",
+        json={"as_of": (period_end + timedelta(seconds=1)).isoformat().replace("+00:00", "Z")},
+        headers=_internal_headers(),
+    )
+    replay = await http_client.post(
+        "/v1/billing/subscriptions/refill-due",
+        json={"as_of": (period_end + timedelta(seconds=1)).isoformat().replace("+00:00", "Z")},
+        headers=_internal_headers(),
+    )
+
+    assert first.status_code == 200, first.text
+    assert replay.status_code == 200, replay.text
+    assert first.json()["processed"] >= 1
+    assert first.json()["refilled"] >= 1
+    assert replay.json()["processed"] == 0
+    rows = await _refill_rows(session, user_id)
+    assert [str(row["amount"]) for row in rows] == ["2000.0000", "10000.0000"]
+    assert rows[-1]["metadata"]["plan_code"] == "pro"
+    assert rows[-1]["metadata"]["trigger"] == "scheduled_refill"
+    assert await _monthly_balance(http_client, headers) == "16000.00"
+
+
+async def test_generic_proration_rejects_education_paths_without_metadata_loss(
+    http_client: AsyncClient,
+    session: AsyncSession,
+    token_factory: tuple[Ed25519PrivateKey, callable[[uuid.UUID], str]],
+) -> None:
+    _, token_for = token_factory
+    user_id = uuid.uuid4()
+    await _create_user_row(session, user_id, edu_tier=True, with_edu_signup_seed=True)
+    headers = {"Authorization": f"Bearer {token_for(user_id)}"}
+    starter = await _subscribe(http_client, headers, plan_code="starter")
+    key = str(uuid.uuid4())
+
+    response = await http_client.post(
+        "/v1/billing/subscriptions",
+        json=_subscribe_body("pro"),
+        headers={**headers, "Idempotency-Key": key},
+    )
+
+    assert response.status_code == 409, response.text
+    assert response.json()["title"] == "Plan change deferred"
+    assert await _stored_response_body(session, key) is None
+    current = await http_client.get("/v1/billing/subscriptions/current", headers=headers)
+    assert current.status_code == 200, current.text
+    assert current.json()["subscription_id"] == starter["subscription_id"]
+    assert current.json()["plan_code"] == "starter"
+    assert current.json()["education_entitlement"] == "starter_free"
+    assert current.json()["refill_bucket"] == "edu"
+    metadata = await _subscription_metadata(session, starter["subscription_id"])
+    assert metadata["source"] == "edu_tier"
+    assert metadata["education_entitlement"] == "starter_free"
+    assert await _proration_rows(session, user_id) == []
+
+
+async def test_generic_proration_rejects_education_metadata_drift_without_rewrite(
+    http_client: AsyncClient,
+    session: AsyncSession,
+    token_factory: tuple[Ed25519PrivateKey, callable[[uuid.UUID], str]],
+) -> None:
+    _, token_for = token_factory
+    user_id = uuid.uuid4()
+    await _create_user_row(session, user_id, edu_tier=False)
+    headers = {"Authorization": f"Bearer {token_for(user_id)}"}
+    starter = await _subscribe(http_client, headers, plan_code="starter")
+    await session.execute(
+        text(
+            """
+            UPDATE billing_subscriptions
+               SET metadata = jsonb_build_object(
+                   'source', 'edu_tier',
+                   'education_pro_trial_used', true,
+                   'education_pro_trial_started_at', '2026-05-01T00:00:00+00:00'
+               )
+             WHERE id = :subscription_id
+            """
+        ),
+        {"subscription_id": uuid.UUID(starter["subscription_id"])},
+    )
+    await session.commit()
+    key = str(uuid.uuid4())
+
+    response = await http_client.post(
+        "/v1/billing/subscriptions",
+        json=_subscribe_body("pro"),
+        headers={**headers, "Idempotency-Key": key},
+    )
+
+    assert response.status_code == 409, response.text
+    assert response.json()["title"] == "Plan change deferred"
+    assert await _stored_response_body(session, key) is None
+    current = await http_client.get("/v1/billing/subscriptions/current", headers=headers)
+    assert current.status_code == 200, current.text
+    assert current.json()["plan_code"] == "starter"
+    metadata = await _subscription_metadata(session, starter["subscription_id"])
+    assert metadata["source"] == "edu_tier"
+    assert metadata["education_pro_trial_used"] is True
+    assert await _proration_rows(session, user_id) == []
+
+
+@pytest.mark.parametrize(
+    ("initial_plan", "target_plan"),
+    [
+        ("free", "pro"),
+        ("starter", "team"),
+        ("pro", "starter"),
+        ("pro", "team"),
+        ("team", "enterprise"),
+    ],
+)
+async def test_unsupported_plan_changes_remain_deferred_without_cache(
+    http_client: AsyncClient,
+    session: AsyncSession,
+    token_factory: tuple[Ed25519PrivateKey, callable[[uuid.UUID], str]],
+    initial_plan: str,
+    target_plan: str,
+) -> None:
+    _, token_for = token_factory
+    user_id = uuid.uuid4()
+    await _create_user_row(session, user_id)
+    headers = {"Authorization": f"Bearer {token_for(user_id)}"}
+    active = await _subscribe(http_client, headers, plan_code=initial_plan)
+    key = str(uuid.uuid4())
+
+    response = await http_client.post(
+        "/v1/billing/subscriptions",
+        json=_subscribe_body(target_plan),
+        headers={**headers, "Idempotency-Key": key},
+    )
+
+    assert response.status_code == 409, response.text
+    assert response.json()["title"] == "Plan change deferred"
+    assert await _stored_response_body(session, key) is None
+    current = await http_client.get("/v1/billing/subscriptions/current", headers=headers)
+    assert current.status_code == 200, current.text
+    assert current.json()["subscription_id"] == active["subscription_id"]
+    assert current.json()["plan_code"] == initial_plan
+    assert await _proration_rows(session, user_id) == []
 
 
 async def test_edu_sync_reuses_signup_seed_without_duplicate_initial_refill(
