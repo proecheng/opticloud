@@ -55,6 +55,14 @@ class SagaNotFoundError(SagaError):
         super().__init__(f"saga {saga_id} not found")
 
 
+class UnsafeSagaPayloadRefError(SagaError):
+    """Saga payload_ref contains non-pointer, PII, secret, or monetary data."""
+
+    def __init__(self, detail: str) -> None:
+        self.detail = detail
+        super().__init__(f"unsafe saga payload_ref: {detail}")
+
+
 class CrossTenantKeyError(SagaError):
     """Idempotency key was created by a different user (M2.2a S1 fix)."""
 

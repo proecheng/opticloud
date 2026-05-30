@@ -25,15 +25,27 @@ class CostUnit(StrEnum):
 
 
 _BLOCKED_METADATA_KEYS = {
-    "prompt",
-    "completion",
-    "api_key",
     "authorization",
-    "jwt",
-    "phone",
+    "balance",
+    "bank",
+    "bearer",
+    "completion",
+    "credit",
     "email",
+    "id_card",
+    "input",
+    "input_payload",
+    "jwt",
     "password",
+    "payment",
+    "phone",
+    "prompt",
+    "raw_input",
+    "raw_payload",
+    "secret",
     "token",
+    "api_key",
+    "amount",
 }
 
 
@@ -89,7 +101,8 @@ class CostTelemetryEvent(BaseModel):
 
 def _find_blocked_metadata_key(value: Mapping[str, Any]) -> str | None:
     for key, item in value.items():
-        if key.lower() in _BLOCKED_METADATA_KEYS:
+        lowered_key = key.lower()
+        if any(blocked in lowered_key for blocked in _BLOCKED_METADATA_KEYS):
             return key
         if isinstance(item, Mapping):
             nested = _find_blocked_metadata_key(item)

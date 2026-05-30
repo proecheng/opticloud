@@ -43,7 +43,7 @@ async def test_i1_no_dangling_state_random_path(
         "solve_charge",
         test_user_id,
         f"i1-{uuid.uuid4()}",
-        {"x": 1},
+        {"reference_id": str(uuid.uuid4())},
         amount=Decimal("6"),
     )
     # Walk through the 4 happy-path triggers
@@ -69,7 +69,7 @@ async def test_i2_refund_le_charge(
         "solve_charge",
         test_user_id,
         f"i2-a-{uuid.uuid4()}",
-        {"x": 1},
+        {"reference_id": str(uuid.uuid4())},
         amount=Decimal("8.00"),
     )
     await orch.apply(saga.id, "reserve")
@@ -89,7 +89,7 @@ async def test_i2_refund_le_charge(
         "solve_charge",
         test_user_id,
         f"i2-b-{uuid.uuid4()}",
-        {"x": 1},
+        {"reference_id": str(uuid.uuid4())},
         amount=Decimal("8.00"),
     )
     await orch.apply(saga_b.id, "balance_insufficient")  # PENDING → FAILED
@@ -117,7 +117,7 @@ async def test_i3_terminal_rejects_any_trigger(
         "solve_charge",
         test_user_id,
         f"i3-{terminal.value}-{uuid.uuid4()}",
-        {"x": 1},
+        {"reference_id": str(uuid.uuid4())},
         amount=Decimal("5"),
     )
     if terminal == State.FAILED:

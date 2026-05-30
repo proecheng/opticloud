@@ -524,7 +524,7 @@ async def test_create_charge_blocked_when_confirmed_false_with_warnings(
 async def test_create_charge_accepts_confirmed_true_with_warnings(
     http_client: AsyncClient, auth_headers: dict[str, str], engine
 ) -> None:
-    """AC8 row 10: POST /charges with confirmed=true → 201 + payload_ref.user_explicitly_confirmed_at persisted."""
+    """AC8 row 10: POST /charges with confirmed=true stores pointer-safe confirmation ref."""
     ref_id = str(uuid.uuid4())
     r = await http_client.post(
         "/v1/billing/charges",
@@ -541,16 +541,17 @@ async def test_create_charge_accepts_confirmed_true_with_warnings(
     assert r.status_code == 201, r.text
     charge_id = uuid.UUID(r.json()["charge_id"])
 
-    # Verify payload_ref has the flag (R1.3 — read SagaInstance, not credit_transactions)
-    # 5.A.5 uses a boolean flag (not a timestamp) so idempotent body-hashes still match.
-    # The "when" comes from saga.created_at.
+    # Verify payload_ref has a pointer-safe marker, not raw billing parameters.
     from billing_service.models import SagaInstance  # local import keeps top tidy
 
     maker = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
     async with maker() as s:
         saga = await s.get(SagaInstance, charge_id)
         assert saga is not None
-        assert saga.payload_ref.get("user_explicitly_confirmed") is True
+        assert saga.payload_ref.get("confirmation_ref") == "precharge-confirmed"
+        assert "max_solve_seconds" not in saga.payload_ref
+        assert "rate_per_second" not in saga.payload_ref
+        assert "user_explicitly_confirmed" not in saga.payload_ref
         assert saga.created_at is not None
 
 

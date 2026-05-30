@@ -566,7 +566,7 @@ async def test_billing_header_solve_infeasible_calls_finalize_failure(
 
 
 async def test_billing_header_finalize_5xx_records_failure_flag(
-    client_with_db: AsyncClient, api_key, monkeypatch
+    client_with_db: AsyncClient, api_key, db_engine, monkeypatch
 ) -> None:
     """AC8 row 22 — finalize 5xx → solve result still returned; opt.error.billing_finalize_failed=true."""
     auth, _ = api_key
@@ -591,7 +591,6 @@ async def test_billing_header_finalize_5xx_records_failure_flag(
     body = r.json()
     assert body["status"] == "completed"
 
-    # Verify opt.error.billing_finalize_failed=true by reading back the optimization
     opt_id = body["optimization_id"]
     get = await client_with_db.get(
         f"/v1/optimizations/{opt_id}",
@@ -599,11 +598,23 @@ async def test_billing_header_finalize_5xx_records_failure_flag(
     )
     assert get.status_code == 200
     fetched = get.json()
-    # The success response from GET /optimizations/{id} only returns full success shape;
-    # to inspect opt.error.billing_finalize_failed we need to query DB directly.
-    # For simplicity, just confirm GET returns successfully (the flag is observable in DB
-    # and via Prometheus metrics — full assertion deferred to integration smoke).
     assert fetched["optimization_id"] == opt_id
+
+    maker = async_sessionmaker(db_engine, expire_on_commit=False, class_=AsyncSession)
+    async with maker() as s:
+        error = (
+            await s.execute(
+                text("SELECT error FROM optimizations WHERE id = :id"),
+                {"id": uuid.UUID(opt_id)},
+            )
+        ).scalar_one()
+    assert error["billing_finalize_failed"] is True
+    assert error["billing_finalize_error"] == "HTTP 503"
+    assert error["billing_charge_id"] == str(charge_id)
+    assert error["billing_status"] == "success"
+    assert error["billing_elapsed_seconds"] >= 0
+    assert error["billing_retry_count"] == 0
+    assert "billing_finalize_failed" not in fetched
 
 
 async def test_solver_auth_updates_last_used_at(

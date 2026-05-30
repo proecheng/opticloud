@@ -76,7 +76,9 @@ async def test_happy_path_full_lifecycle(
 
 
 async def test_invalid_trigger_raises(orch: SagaOrchestrator, test_user_id: uuid.UUID) -> None:
-    saga = await orch.start("solve_charge", test_user_id, f"inv-{uuid.uuid4()}", {"x": 1})
+    saga = await orch.start(
+        "solve_charge", test_user_id, f"inv-{uuid.uuid4()}", {"reference_id": "x"}
+    )
     with pytest.raises(InvalidSagaTransitionError):
         await orch.apply(saga.id, "this_trigger_does_not_exist")
 
@@ -84,7 +86,9 @@ async def test_invalid_trigger_raises(orch: SagaOrchestrator, test_user_id: uuid
 async def test_wrong_state_transition_raises(
     orch: SagaOrchestrator, test_user_id: uuid.UUID
 ) -> None:
-    saga = await orch.start("solve_charge", test_user_id, f"wrong-{uuid.uuid4()}", {"x": 1})
+    saga = await orch.start(
+        "solve_charge", test_user_id, f"wrong-{uuid.uuid4()}", {"reference_id": "x"}
+    )
     # PENDING does not accept "service_success" (that's RESERVED → CHARGED)
     with pytest.raises(InvalidSagaTransitionError):
         await orch.apply(saga.id, "service_success")
@@ -98,7 +102,9 @@ async def test_saga_not_found_raises(orch: SagaOrchestrator) -> None:
 async def test_terminal_state_rejects_apply(
     orch: SagaOrchestrator, test_user_id: uuid.UUID
 ) -> None:
-    saga = await orch.start("solve_charge", test_user_id, f"term-{uuid.uuid4()}", {"x": 1})
+    saga = await orch.start(
+        "solve_charge", test_user_id, f"term-{uuid.uuid4()}", {"reference_id": "x"}
+    )
     await orch.apply(saga.id, "balance_insufficient")  # PENDING → FAILED (terminal)
 
     with pytest.raises(SagaTerminalError):
@@ -160,9 +166,11 @@ async def test_same_key_diff_body_raises_conflict(
     orch: SagaOrchestrator, test_user_id: uuid.UUID
 ) -> None:
     key = f"conf-{uuid.uuid4()}"
-    await orch.start("solve_charge", test_user_id, key, {"a": 1}, amount=Decimal("6"))
+    await orch.start("solve_charge", test_user_id, key, {"reference_id": "a"}, amount=Decimal("6"))
     with pytest.raises(IdempotencyConflictError):
-        await orch.start("solve_charge", test_user_id, key, {"a": 2}, amount=Decimal("6"))
+        await orch.start(
+            "solve_charge", test_user_id, key, {"reference_id": "b"}, amount=Decimal("6")
+        )
 
 
 # ===== AC10: apply() transition-idempotent =====
@@ -177,7 +185,7 @@ async def test_replaying_same_trigger_is_noop(
         "solve_charge",
         test_user_id,
         f"idem-apply-{uuid.uuid4()}",
-        {"x": 1},
+        {"reference_id": str(uuid.uuid4())},
         amount=Decimal("6"),
     )
     await orch.apply(saga.id, "reserve")

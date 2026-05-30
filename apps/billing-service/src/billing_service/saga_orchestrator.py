@@ -37,6 +37,7 @@ from opticloud_shared.saga import (
     State,
     Transition,
     valid_transitions_from,
+    validate_payload_ref_safety,
 )
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -49,6 +50,7 @@ from billing_service.exceptions import (
     InvalidSagaTransitionError,
     SagaNotFoundError,
     SagaTerminalError,
+    UnsafeSagaPayloadRefError,
 )
 from billing_service.models import (
     CreditTransaction,
@@ -102,6 +104,11 @@ class SagaOrchestrator:
         Raises:
             IdempotencyConflict: same key + different body hash.
         """
+        try:
+            validate_payload_ref_safety(payload, fixture_id=f"saga:{saga_type}")
+        except ValueError as exc:
+            raise UnsafeSagaPayloadRefError(str(exc)) from exc
+
         body_hash = hash_body(
             {"saga_type": saga_type, "payload": payload, "amount": str(amount) if amount else None}
         )

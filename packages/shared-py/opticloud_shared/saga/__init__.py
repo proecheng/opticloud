@@ -21,6 +21,7 @@ from opticloud_shared.saga.contract_fixtures import (
     build_saga_contract_fixtures,
     canonical_body_hash,
     validate_contract_fixture_manifest,
+    validate_payload_ref_safety,
 )
 from opticloud_shared.saga.state_machine import (
     TERMINAL_STATES,
@@ -49,5 +50,6 @@ __all__ = [
     "is_terminal",
     "next_states",
     "validate_contract_fixture_manifest",
+    "validate_payload_ref_safety",
     "valid_transitions_from",
 ]

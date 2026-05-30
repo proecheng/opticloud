@@ -126,7 +126,11 @@ async def test_p1_no_money_created(
     """Net ledger for any walk: -A <= sum <= 0 (no free money)."""
     amount = Decimal(amount_int)
     saga = await orch.start(
-        "solve_charge", test_user_id, f"p1-{uuid.uuid4()}", {"walk": walk}, amount=amount
+        "solve_charge",
+        test_user_id,
+        f"p1-{uuid.uuid4()}",
+        {"scenario_id": "-".join(walk)},
+        amount=amount,
     )
     for trig in walk:
         try:
@@ -214,7 +218,11 @@ async def test_p3_amount_immutable_through_walk(
     """saga.amount stays equal to the start() value through all transitions."""
     amount = Decimal(amount_int)
     saga = await orch.start(
-        "solve_charge", test_user_id, f"p3-{uuid.uuid4()}", {"walk": walk}, amount=amount
+        "solve_charge",
+        test_user_id,
+        f"p3-{uuid.uuid4()}",
+        {"scenario_id": "-".join(walk)},
+        amount=amount,
     )
     assert saga.amount == amount
     for trig in walk:
@@ -310,12 +318,12 @@ async def test_p5_cross_tenant_key_collision_raises(
     key = f"p5-{uuid.uuid4()}"
     amount = Decimal(amount_int)
     orch1 = SagaOrchestrator(session)
-    await orch1.start("solve_charge", test_user_id, key, {"x": 1}, amount=amount)
+    await orch1.start("solve_charge", test_user_id, key, {"reference_id": "x"}, amount=amount)
 
     other_user = uuid.uuid4()
     orch2 = SagaOrchestrator(session)
     with pytest.raises(CrossTenantKeyError):
-        await orch2.start("solve_charge", other_user, key, {"x": 1}, amount=amount)
+        await orch2.start("solve_charge", other_user, key, {"reference_id": "x"}, amount=amount)
 
 
 # ===== P6: outbox event count =====
@@ -331,7 +339,11 @@ async def test_p6_outbox_count_equals_transition_count(
 ) -> None:
     """count(outbox WHERE saga.id) == number of successful apply() calls."""
     saga = await orch.start(
-        "solve_charge", test_user_id, f"p6-{uuid.uuid4()}", {"walk": walk}, amount=Decimal("5")
+        "solve_charge",
+        test_user_id,
+        f"p6-{uuid.uuid4()}",
+        {"scenario_id": "-".join(walk)},
+        amount=Decimal("5"),
     )
     successful = 0
     for trig in walk:

@@ -25,7 +25,9 @@ class ChargeCreateRequest(BaseModel):
     """POST /v1/billing/charges body.
 
     amount comes in as STRING (D3) for decimal precision; stored as Decimal.
-    Story 5.A.4 — added max_solve_seconds so finalize can cap actual amount.
+    5.A.0 — max_solve_seconds remains an accepted client-side pricing hint;
+    new Saga rows keep payload_ref pointer-only and finalize derives cap from
+    the reserved amount plus configured rate.
     Story 5.A.5 — added `confirmed` for pre-charge guard explicit opt-in.
     """
 
