@@ -12,6 +12,16 @@ deferred to 5.A.0a.
 See docs/adr/0001-saga-pattern.md for design rationale.
 """
 
+from opticloud_shared.saga.contract_fixtures import (
+    CONTRACT_FIXTURE_MANIFEST,
+    SAGA_CONTRACT_VERSION,
+    SagaContractFixture,
+    SagaFixtureManifest,
+    SagaFixtureStep,
+    build_saga_contract_fixtures,
+    canonical_body_hash,
+    validate_contract_fixture_manifest,
+)
 from opticloud_shared.saga.state_machine import (
     TERMINAL_STATES,
     TRANSITIONS,
@@ -24,12 +34,20 @@ from opticloud_shared.saga.state_machine import (
 )
 
 __all__ = [
+    "CONTRACT_FIXTURE_MANIFEST",
     "Compensation",
+    "SAGA_CONTRACT_VERSION",
+    "SagaContractFixture",
+    "SagaFixtureManifest",
+    "SagaFixtureStep",
     "State",
     "Transition",
     "TRANSITIONS",
     "TERMINAL_STATES",
+    "build_saga_contract_fixtures",
+    "canonical_body_hash",
     "is_terminal",
     "next_states",
+    "validate_contract_fixture_manifest",
     "valid_transitions_from",
 ]
