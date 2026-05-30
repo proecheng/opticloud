@@ -130,6 +130,42 @@ CREATE TABLE IF NOT EXISTS account_deletion_requests (
 CREATE INDEX idx_account_deletion_requests_hard_delete_at
     ON account_deletion_requests(hard_delete_at);
 
+-- ===== data_export_requests (Story 5.C.3 + FR B10) =====
+-- Self-service PIPL JSON export lifecycle. v1 stores the JSON package in DB;
+-- object storage / signed email delivery are deferred to later stories.
+CREATE TABLE IF NOT EXISTS data_export_requests (
+    id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id_snapshot        UUID NOT NULL,
+    user_id                 UUID NULL REFERENCES users(id) ON DELETE SET NULL,
+    format                  VARCHAR(16) NOT NULL DEFAULT 'json',
+    status                  VARCHAR(32) NOT NULL DEFAULT 'queued',
+    requested_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    sla_deadline_at         TIMESTAMPTZ NOT NULL,
+    processing_started_at   TIMESTAMPTZ NULL,
+    completed_at            TIMESTAMPTZ NULL,
+    expires_at              TIMESTAMPTZ NULL,
+    package_json            JSONB NULL,
+    package_sha256          CHAR(64) NULL,
+    package_bytes           INTEGER NULL,
+    download_url            TEXT NULL,
+    last_error              TEXT NULL,
+    created_at              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT ck_data_export_requests_format
+        CHECK (format IN ('json')),
+    CONSTRAINT ck_data_export_requests_status
+        CHECK (status IN ('queued', 'processing', 'completed', 'failed', 'expired'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_data_export_requests_user_requested
+    ON data_export_requests(user_id_snapshot, requested_at DESC);
+CREATE INDEX IF NOT EXISTS idx_data_export_requests_queued
+    ON data_export_requests(requested_at)
+    WHERE status = 'queued';
+CREATE UNIQUE INDEX IF NOT EXISTS uq_data_export_requests_inflight_json
+    ON data_export_requests(user_id_snapshot, format)
+    WHERE format = 'json' AND status IN ('queued', 'processing');
+
 -- ===== account_merge_proposals (Story 1.7 + FR A7/A8) =====
 CREATE TABLE IF NOT EXISTS account_merge_proposals (
     id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -210,6 +246,13 @@ DROP TRIGGER IF EXISTS trigger_guardian_consent_requests_updated_at
     ON guardian_consent_requests;
 CREATE TRIGGER trigger_guardian_consent_requests_updated_at
     BEFORE UPDATE ON guardian_consent_requests
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at();
+
+DROP TRIGGER IF EXISTS trigger_data_export_requests_updated_at
+    ON data_export_requests;
+CREATE TRIGGER trigger_data_export_requests_updated_at
+    BEFORE UPDATE ON data_export_requests
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at();
 

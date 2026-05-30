@@ -179,6 +179,57 @@ class AccountDeletionRequest(Base):
     )
 
 
+class DataExportRequest(Base):
+    """Story 5.C.3 — PIPL JSON data export lifecycle."""
+
+    __tablename__ = "data_export_requests"
+    __table_args__ = (
+        Index("idx_data_export_requests_user_requested", "user_id_snapshot", "requested_at"),
+        Index(
+            "idx_data_export_requests_queued",
+            "requested_at",
+            postgresql_where=text("status = 'queued'"),
+        ),
+        Index(
+            "uq_data_export_requests_inflight_json",
+            "user_id_snapshot",
+            "format",
+            unique=True,
+            postgresql_where=text("format = 'json' AND status IN ('queued', 'processing')"),
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()
+    )
+    user_id_snapshot: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    format: Mapped[str] = mapped_column(String(16), nullable=False, default="json")
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="queued")
+    requested_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    sla_deadline_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    processing_started_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    package_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    package_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    package_bytes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    download_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
 class AccountMergeProposal(Base):
     """Story 1.7 — frozen-account merge proposal review lifecycle."""
 

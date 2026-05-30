@@ -178,7 +178,7 @@ development_status:
 
   5-c-1-refund-failed-cancelled: done           # 2026-05-30 — internal auto-refund for failed/cancelled/infeasible; partial-refund rollback correction; post-review clean
   5-c-2-user-cancel-refund: done              # 2026-05-30 — user async cancel now refunds reserved/charged Credits through internal billing rollback; post-review Saga locking fix applied
-  5-c-3-pipl-data-export-json: backlog
+  5-c-3-pipl-data-export-json: done             # 2026-05-30 — PIPL JSON export request/status/download + auth-service actor; post-review concurrency idempotency fix applied
   5-c-4-pipl-data-export-csv: backlog
   5-c-5-pipl-self-service-portal: backlog      # E7
 

@@ -134,6 +134,25 @@ class AccountDeletionStatusResponse(BaseModel):
     grace_period_days: int = 7
 
 
+# ===== Story 5.C.3: PIPL JSON data export =====
+
+
+class DataExportStatusResponse(BaseModel):
+    """Authenticated JSON data export request/status response."""
+
+    id: uuid.UUID
+    status: Literal["queued", "processing", "completed", "failed", "expired"]
+    format: Literal["json"] = "json"
+    requested_at: datetime
+    sla_deadline_at: datetime
+    completed_at: datetime | None = None
+    expires_at: datetime | None = None
+    download_url: str | None = None
+    package_sha256: str | None = None
+    package_bytes: int | None = None
+    last_error: str | None = None
+
+
 # ===== Story 1.7: account merge proposals =====
 
 
