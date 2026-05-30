@@ -75,6 +75,24 @@ async def finalize(
     return await _call(method="POST", url=url, json_body=body, user_id=user_id, client=client)
 
 
+async def refund_user_cancel(
+    charge_id: uuid.UUID,
+    user_id: uuid.UUID,
+    *,
+    source_ref: str,
+    elapsed_seconds: float,
+    client: httpx.AsyncClient | None = None,
+) -> BillingResult:
+    """POST /v1/billing/charges/{id}/refund-user-cancel for user-initiated cancellation."""
+    url = f"{settings.billing_base_url}/v1/billing/charges/{charge_id}/refund-user-cancel"
+    body = {
+        "source": "solver_orchestrator",
+        "source_ref": source_ref,
+        "elapsed_seconds": elapsed_seconds,
+    }
+    return await _call(method="POST", url=url, json_body=body, user_id=user_id, client=client)
+
+
 async def _call(
     *,
     method: str,
@@ -127,4 +145,4 @@ async def _call(
             await client.aclose()
 
 
-__all__ = ["BillingResult", "finalize", "reserve"]
+__all__ = ["BillingResult", "finalize", "refund_user_cancel", "reserve"]

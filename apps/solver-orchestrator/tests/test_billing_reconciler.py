@@ -59,6 +59,7 @@ async def _seed_failed_optimization(
     has_succeeded: bool = False,
     cancel_finalize: bool = False,
     backtest_discount: bool = False,
+    user_cancel_refund: bool = False,
 ) -> tuple[uuid.UUID, uuid.UUID, uuid.UUID]:
     """INSERT an optimization row with billing_finalize_failed=true.
 
@@ -91,6 +92,17 @@ async def _seed_failed_optimization(
                 "billing_cancel_finalize_failed": True,
                 "billing_status": "failure",
                 "billing_failure_reason": "user_cancelled",
+                "refund_status": "pending_reconciliation",
+            }
+        )
+    if user_cancel_refund:
+        error_blob.update(
+            {
+                "billing_operation": "user_cancel_refund",
+                "billing_user_cancel_refund_failed": True,
+                "billing_status": "failure",
+                "billing_failure_reason": "user_cancelled",
+                "billing_source_ref": f"opt-{billing_charge_id}",
                 "refund_status": "pending_reconciliation",
             }
         )
@@ -147,7 +159,7 @@ async def _seed_failed_optimization(
                     }
                 }
             )
-            if cancel_finalize
+            if cancel_finalize or user_cancel_refund
             else "{}",
             "err": json.dumps(error_blob),
         },
@@ -239,6 +251,64 @@ async def test_retry_cancel_finalize_success_clears_cancel_flag_and_updates_refu
     input_payload, err_after = await _fetch_optimization_payloads(db_session, opt_id)
     assert "billing_finalize_failed" not in err_after
     assert "billing_cancel_finalize_failed" not in err_after
+    assert err_after["refund_status"] == "refunded"
+    assert input_payload["_system"]["billing"]["refund_status"] == "refunded"
+    assert input_payload["_system"]["billing"]["cancel_finalize_status"] == 200
+
+
+async def test_retry_user_cancel_refund_uses_refund_client_and_updates_refund_status(
+    db_session: AsyncSession, monkeypatch
+) -> None:
+    """Story 5.C.2 — user-cancel refund retry must not replay old finalize."""
+    await db_session.execute(
+        text(
+            "UPDATE optimizations SET error = error || jsonb_build_object('billing_retry_count', 999) "
+            "WHERE error ->> 'billing_finalize_failed' = 'true'"
+        )
+    )
+    await db_session.commit()
+    opt_id, _, charge_id = await _seed_failed_optimization(db_session, user_cancel_refund=True)
+    captured: dict[str, object] = {}
+
+    async def _finalize_should_not_run(*args, **kwargs):
+        raise AssertionError("user-cancel refund retry must not call finalize")
+
+    async def _refund_user_cancel(
+        cid,
+        uid,
+        *,
+        source_ref,
+        elapsed_seconds,
+        client=None,
+    ):
+        captured.update(
+            {
+                "cid": cid,
+                "source_ref": source_ref,
+                "elapsed_seconds": elapsed_seconds,
+            }
+        )
+        return BillingResult(
+            ok=True,
+            status_code=200,
+            body={"current_state": "rolled_back"},
+            error_message=None,
+        )
+
+    monkeypatch.setattr(billing_client, "finalize", _finalize_should_not_run)
+    monkeypatch.setattr(billing_client, "refund_user_cancel", _refund_user_cancel)
+
+    report = await retry_pending_finalizes(db_session, max_retries=5)
+    matches = [r for r in report.results if r.optimization_id == opt_id]
+    assert len(matches) == 1
+    assert matches[0].succeeded is True
+    assert captured["cid"] == charge_id
+    assert captured["source_ref"] == f"opt-{charge_id}"
+    assert captured["elapsed_seconds"] == 5.0
+
+    input_payload, err_after = await _fetch_optimization_payloads(db_session, opt_id)
+    assert "billing_finalize_failed" not in err_after
+    assert "billing_user_cancel_refund_failed" not in err_after
     assert err_after["refund_status"] == "refunded"
     assert input_payload["_system"]["billing"]["refund_status"] == "refunded"
     assert input_payload["_system"]["billing"]["cancel_finalize_status"] == 200

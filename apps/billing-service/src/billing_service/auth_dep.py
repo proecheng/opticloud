@@ -106,4 +106,24 @@ async def require_internal_service(
         )
 
 
-__all__ = ["require_internal_service", "require_user", "rfc7807_error"]
+async def require_internal_user(
+    x_internal_service_auth: str | None = Header(default=None, alias="X-Internal-Service-Auth"),
+    x_internal_user_id: str | None = Header(default=None, alias="X-Internal-User-Id"),
+) -> uuid.UUID:
+    """Require service auth and return the acting user id without JWT fallback."""
+    await require_internal_service(x_internal_service_auth)
+    if not x_internal_user_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="X-Internal-User-Id required with X-Internal-Service-Auth",
+        )
+    try:
+        return uuid.UUID(x_internal_user_id)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="X-Internal-User-Id is not a UUID",
+        ) from e
+
+
+__all__ = ["require_internal_service", "require_internal_user", "require_user", "rfc7807_error"]

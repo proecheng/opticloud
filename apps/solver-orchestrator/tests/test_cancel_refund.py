@@ -177,7 +177,7 @@ async def test_delete_queued_async_without_billing_cancels_no_refund(
     assert row["completed_at"] is not None
 
 
-async def test_async_billing_cancel_finalizes_failure_refund_once(
+async def test_async_billing_cancel_calls_user_cancel_refund_once(
     client_with_db: AsyncClient,
     api_key,
     db_engine: AsyncEngine,
@@ -186,7 +186,7 @@ async def test_async_billing_cancel_finalizes_failure_refund_once(
     auth, user_id, _ = api_key
     charge_id = uuid.uuid4()
     reserve_calls: list[tuple[uuid.UUID, uuid.UUID]] = []
-    finalize_calls: list[tuple[uuid.UUID, uuid.UUID, float, str, str | None]] = []
+    refund_calls: list[tuple[uuid.UUID, uuid.UUID, float, str]] = []
 
     async def _reserve(cid, uid, *, client=None):
         reserve_calls.append((cid, uid))
@@ -197,17 +197,21 @@ async def test_async_billing_cancel_finalizes_failure_refund_once(
             error_message=None,
         )
 
-    async def _finalize(cid, uid, *, elapsed_seconds, status, failure_reason=None, client=None):
-        finalize_calls.append((cid, uid, elapsed_seconds, status, failure_reason))
+    async def _finalize_should_not_run(*args, **kwargs):
+        raise AssertionError("user cancellation must use refund_user_cancel, not finalize")
+
+    async def _refund_user_cancel(cid, uid, *, source_ref, elapsed_seconds, client=None):
+        refund_calls.append((cid, uid, elapsed_seconds, source_ref))
         return BillingResult(
             ok=True,
             status_code=200,
-            body={"current_state": "refunded"},
+            body={"current_state": "rolled_back"},
             error_message=None,
         )
 
     monkeypatch.setattr(billing_client, "reserve", _reserve)
-    monkeypatch.setattr(billing_client, "finalize", _finalize)
+    monkeypatch.setattr(billing_client, "finalize", _finalize_should_not_run)
+    monkeypatch.setattr(billing_client, "refund_user_cancel", _refund_user_cancel)
 
     created = await client_with_db.post(
         "/v1/optimizations?mode=async",
@@ -231,7 +235,7 @@ async def test_async_billing_cancel_finalizes_failure_refund_once(
     assert cancelled.json()["refund_status"] == "refunded"
     assert repeated.json()["refund_status"] == "refunded"
     assert reserve_calls == [(charge_id, user_id)]
-    assert finalize_calls == [(charge_id, user_id, 0.0, "failure", "user_cancelled")]
+    assert refund_calls == [(charge_id, user_id, 0.0, str(optimization_id))]
     row = await _optimization_row(db_engine, optimization_id)
     assert row["input_payload"]["_system"]["billing"]["cancel_finalize_attempted"] is True
     assert row["input_payload"]["_system"]["billing"]["refund_status"] == "refunded"
@@ -239,7 +243,7 @@ async def test_async_billing_cancel_finalizes_failure_refund_once(
     assert row["error"]["billing_failure_reason"] == "user_cancelled"
 
 
-async def test_billing_finalize_failure_persists_reconciler_context_and_redacts_response(
+async def test_user_cancel_refund_failure_persists_reconciler_context_and_redacts_response(
     client_with_db: AsyncClient,
     api_key,
     db_engine: AsyncEngine,
@@ -256,11 +260,15 @@ async def test_billing_finalize_failure_persists_reconciler_context_and_redacts_
             error_message=None,
         )
 
-    async def _finalize(*args, **kwargs):
+    async def _finalize_should_not_run(*args, **kwargs):
+        raise AssertionError("user cancellation must use refund_user_cancel, not finalize")
+
+    async def _refund_user_cancel(*args, **kwargs):
         return BillingResult(ok=False, status_code=503, body=None, error_message="billing down")
 
     monkeypatch.setattr(billing_client, "reserve", _reserve)
-    monkeypatch.setattr(billing_client, "finalize", _finalize)
+    monkeypatch.setattr(billing_client, "finalize", _finalize_should_not_run)
+    monkeypatch.setattr(billing_client, "refund_user_cancel", _refund_user_cancel)
 
     created = await client_with_db.post(
         "/v1/optimizations?mode=async",
@@ -281,9 +289,11 @@ async def test_billing_finalize_failure_persists_reconciler_context_and_redacts_
     assert body["error"]["billing_charge_id"] == "[redacted]"
     row = await _optimization_row(db_engine, optimization_id)
     assert row["status"] == "cancelled"
-    assert row["error"]["billing_cancel_finalize_failed"] is True
+    assert row["error"]["billing_operation"] == "user_cancel_refund"
+    assert row["error"]["billing_user_cancel_refund_failed"] is True
     assert row["error"]["billing_finalize_failed"] is True
     assert row["error"]["billing_charge_id"] == str(charge_id)
+    assert row["error"]["billing_source_ref"] == str(optimization_id)
     assert row["error"]["billing_elapsed_seconds"] == 0.0
     assert row["error"]["billing_retry_count"] == 0
 

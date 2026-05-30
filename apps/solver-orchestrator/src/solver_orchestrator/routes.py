@@ -3493,25 +3493,24 @@ async def _finalize_cancelled_billing(
         )
         return "pending_reconciliation"
 
-    finalize_outcome = await billing_client.finalize(
+    refund_outcome = await billing_client.refund_user_cancel(
         charge_id,
         user_id,
+        source_ref=str(opt.id),
         elapsed_seconds=elapsed_seconds,
-        status="failure",
-        failure_reason="user_cancelled",
     )
-    if finalize_outcome.ok:
+    if refund_outcome.ok:
         current_state = (
-            finalize_outcome.body.get("current_state")
-            if isinstance(finalize_outcome.body, dict)
+            refund_outcome.body.get("current_state")
+            if isinstance(refund_outcome.body, dict)
             else None
         )
-        refund_status = "refunded" if current_state == "refunded" else "finalized"
+        refund_status = "refunded" if current_state in {"refunded", "rolled_back"} else "finalized"
         _set_optimization_billing_metadata(
             opt,
             {
                 "cancel_finalize_attempted": True,
-                "cancel_finalize_status": finalize_outcome.status_code,
+                "cancel_finalize_status": refund_outcome.status_code,
                 "refund_status": refund_status,
             },
         )
@@ -3529,17 +3528,20 @@ async def _finalize_cancelled_billing(
         opt,
         {
             "cancel_finalize_attempted": True,
-            "cancel_finalize_status": finalize_outcome.status_code,
+            "cancel_finalize_status": refund_outcome.status_code,
             "refund_status": "pending_reconciliation",
         },
     )
     _merge_optimization_error(
         opt,
         {
+            "billing_operation": "user_cancel_refund",
+            "billing_user_cancel_refund_failed": True,
             "billing_cancel_finalize_failed": True,
             "billing_finalize_failed": True,
-            "billing_finalize_error": finalize_outcome.error_message,
+            "billing_finalize_error": refund_outcome.error_message,
             "billing_charge_id": str(charge_id),
+            "billing_source_ref": str(opt.id),
             "billing_elapsed_seconds": elapsed_seconds,
             "billing_status": "failure",
             "billing_failure_reason": "user_cancelled",

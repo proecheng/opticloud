@@ -98,6 +98,13 @@ def _internal_headers(secret: str = _INTERNAL_SECRET) -> dict[str, str]:
     return {"X-Internal-Service-Auth": secret}
 
 
+def _internal_user_headers(user_id: uuid.UUID, secret: str = _INTERNAL_SECRET) -> dict[str, str]:
+    return {
+        "X-Internal-Service-Auth": secret,
+        "X-Internal-User-Id": str(user_id),
+    }
+
+
 # ===== AC7 tests =====
 
 
@@ -741,6 +748,209 @@ async def test_refund_auto_rejects_pending_completed_and_topup_without_mutation(
     )
     assert topup.status_code == 409
     assert await _saga_ledger_sum(session, str(topup_id)) == Decimal("0")
+
+
+# ===== Story 5.C.2 — user-initiated cancel refund =====
+
+
+def _user_cancel_refund_body(source_ref: str | None = None) -> dict[str, str | float]:
+    return {
+        "source": "solver_orchestrator",
+        "source_ref": source_ref or f"opt_{uuid.uuid4().hex}",
+        "elapsed_seconds": 5.0,
+    }
+
+
+async def test_refund_user_cancel_requires_internal_user_auth(
+    http_client: AsyncClient,
+    auth_headers: dict[str, str],
+    test_user_id: uuid.UUID,
+) -> None:
+    """5.C.2 AC2 — user JWT alone is not enough, and internal calls need a user id."""
+    charge_id = await _create_charge(http_client, auth_headers)
+
+    user_jwt = await http_client.post(
+        f"/v1/billing/charges/{charge_id}/refund-user-cancel",
+        headers=auth_headers,
+        json=_user_cancel_refund_body(),
+    )
+    no_user_id = await http_client.post(
+        f"/v1/billing/charges/{charge_id}/refund-user-cancel",
+        headers=_internal_headers(),
+        json=_user_cancel_refund_body(),
+    )
+    wrong_secret = await http_client.post(
+        f"/v1/billing/charges/{charge_id}/refund-user-cancel",
+        headers=_internal_user_headers(test_user_id, secret="wrong-secret"),  # noqa: S106
+        json=_user_cancel_refund_body(),
+    )
+
+    assert user_jwt.status_code == 401
+    assert no_user_id.status_code == 400
+    assert wrong_secret.status_code == 401
+
+
+async def test_refund_user_cancel_reserved_writes_net_zero_user_audit(
+    http_client: AsyncClient,
+    auth_headers: dict[str, str],
+    session: AsyncSession,
+    test_user_id: uuid.UUID,
+) -> None:
+    """5.C.2 AC4/8 — cancelling a reserved charge is net-zero and user-audited."""
+    charge_id = await _create_charge(http_client, auth_headers)
+    await http_client.post(f"/v1/billing/charges/{charge_id}/reserve", headers=auth_headers)
+    balance_before = float(
+        (await http_client.get("/v1/billing/balance", headers=auth_headers)).json()["balance"]
+    )
+
+    response = await http_client.post(
+        f"/v1/billing/charges/{charge_id}/refund-user-cancel",
+        headers=_internal_user_headers(test_user_id),
+        json=_user_cancel_refund_body(source_ref="opt_cancel_reserved_001"),
+    )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["current_state"] == "refunded"
+    assert body["refund_mode"] == "reserved_net_zero"
+    assert body["refunded_amount"] == "0.00"
+    assert await _saga_ledger_sum(session, charge_id) == Decimal("0.0000")
+    assert ("refund", Decimal("6.0000")) in await _ledger_kind_amounts(session, charge_id)
+    assert ("refund_reversal", Decimal("-6.0000")) in await _ledger_kind_amounts(session, charge_id)
+    balance_after = float(
+        (await http_client.get("/v1/billing/balance", headers=auth_headers)).json()["balance"]
+    )
+    assert abs(balance_after - balance_before) < 1e-6
+
+    audit_payload = (
+        await session.execute(
+            text(
+                "SELECT payload FROM outbox "
+                "WHERE aggregate_id = :id AND event_type = 'billing.refund_user_cancel.accepted'"
+            ),
+            {"id": uuid.UUID(charge_id)},
+        )
+    ).scalar_one()
+    assert audit_payload["source"] == "solver_orchestrator"
+    assert audit_payload["source_ref"] == "opt_cancel_reserved_001"
+    assert audit_payload["refunded_amount"] == "0.0000"
+    forbidden = {"email", "phone", "jwt", "api_key", "payment_ref", "raw_payload"}
+    assert forbidden.isdisjoint(audit_payload)
+
+
+async def test_refund_user_cancel_charged_full_amount_rolls_back_to_zero(
+    http_client: AsyncClient,
+    auth_headers: dict[str, str],
+    session: AsyncSession,
+    test_user_id: uuid.UUID,
+) -> None:
+    """5.C.2 AC5 — cancelling a full charged task refunds the paid amount."""
+    charge_id = await _create_charge(http_client, auth_headers)
+    await http_client.post(f"/v1/billing/charges/{charge_id}/reserve", headers=auth_headers)
+    finalized = await http_client.post(
+        f"/v1/billing/charges/{charge_id}/finalize",
+        headers=auth_headers,
+        json={"elapsed_seconds": 60.0, "status": "success", "failure_reason": None},
+    )
+    assert finalized.status_code == 200, finalized.text
+    balance_after_charge = float(finalized.json()["balance_after"])
+
+    response = await http_client.post(
+        f"/v1/billing/charges/{charge_id}/refund-user-cancel",
+        headers=_internal_user_headers(test_user_id),
+        json=_user_cancel_refund_body(source_ref="opt_cancel_full_001"),
+    )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["current_state"] == "rolled_back"
+    assert body["refund_mode"] == "charged_rollback"
+    assert body["refunded_amount"] == "6.00"
+    assert await _saga_ledger_sum(session, charge_id) == Decimal("0.0000")
+    assert abs(float(body["balance_after"]) - (balance_after_charge + 6.0)) < 1e-6
+
+
+async def test_refund_user_cancel_charged_partial_refunds_only_actual_paid(
+    http_client: AsyncClient,
+    auth_headers: dict[str, str],
+    session: AsyncSession,
+    test_user_id: uuid.UUID,
+) -> None:
+    """5.C.2 AC6 — after partial finalize, user cancel refunds only actual paid Credits."""
+    charge_id = await _create_charge(http_client, auth_headers)
+    await http_client.post(f"/v1/billing/charges/{charge_id}/reserve", headers=auth_headers)
+    finalized = await http_client.post(
+        f"/v1/billing/charges/{charge_id}/finalize",
+        headers=auth_headers,
+        json={"elapsed_seconds": 5.0, "status": "success", "failure_reason": None},
+    )
+    assert finalized.status_code == 200, finalized.text
+    assert finalized.json()["actual_amount"] == "0.50"
+    balance_after_charge = float(finalized.json()["balance_after"])
+
+    response = await http_client.post(
+        f"/v1/billing/charges/{charge_id}/refund-user-cancel",
+        headers=_internal_user_headers(test_user_id),
+        json=_user_cancel_refund_body(source_ref="opt_cancel_partial_001"),
+    )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["current_state"] == "rolled_back"
+    assert body["refund_mode"] == "charged_rollback"
+    assert body["refunded_amount"] == "0.50"
+    assert await _saga_ledger_sum(session, charge_id) == Decimal("0.0000")
+    ledger_rows = await _ledger_kind_amounts(session, charge_id)
+    assert ("charge", Decimal("-6.0000")) in ledger_rows
+    assert ("refund_partial", Decimal("5.5000")) in ledger_rows
+    assert ("refund", Decimal("6.0000")) in ledger_rows
+    assert ("refund_reversal", Decimal("-5.5000")) in ledger_rows
+    assert abs(float(body["balance_after"]) - (balance_after_charge + 0.5)) < 1e-6
+
+
+async def test_refund_user_cancel_wrong_user_and_replay_do_not_mutate(
+    http_client: AsyncClient,
+    auth_headers: dict[str, str],
+    session: AsyncSession,
+    test_user_id: uuid.UUID,
+) -> None:
+    """5.C.2 AC3/7 — wrong-user rejection and terminal replay do not add rows/events."""
+    charge_id = await _create_charge(http_client, auth_headers)
+    await http_client.post(f"/v1/billing/charges/{charge_id}/reserve", headers=auth_headers)
+    await http_client.post(
+        f"/v1/billing/charges/{charge_id}/finalize",
+        headers=auth_headers,
+        json={"elapsed_seconds": 60.0, "status": "success", "failure_reason": None},
+    )
+    rows_before_wrong_user = len(await _ledger_kind_amounts(session, charge_id))
+    wrong_user = await http_client.post(
+        f"/v1/billing/charges/{charge_id}/refund-user-cancel",
+        headers=_internal_user_headers(uuid.uuid4()),
+        json=_user_cancel_refund_body(source_ref="opt_wrong_user"),
+    )
+    assert wrong_user.status_code == 403
+    assert len(await _ledger_kind_amounts(session, charge_id)) == rows_before_wrong_user
+
+    request_body = _user_cancel_refund_body(source_ref="opt_cancel_replay")
+    first = await http_client.post(
+        f"/v1/billing/charges/{charge_id}/refund-user-cancel",
+        headers=_internal_user_headers(test_user_id),
+        json=request_body,
+    )
+    rows_after_first = len(await _ledger_kind_amounts(session, charge_id))
+    outbox_after_first = await _outbox_count(session, charge_id)
+
+    replay = await http_client.post(
+        f"/v1/billing/charges/{charge_id}/refund-user-cancel",
+        headers=_internal_user_headers(test_user_id),
+        json=request_body,
+    )
+
+    assert first.status_code == 200, first.text
+    assert replay.status_code == 200, replay.text
+    assert replay.json() == first.json()
+    assert len(await _ledger_kind_amounts(session, charge_id)) == rows_after_first
+    assert await _outbox_count(session, charge_id) == outbox_after_first
 
 
 # ===== Story 5.A.5 — pre-charge guard (AC8 rows 7-10) =====
