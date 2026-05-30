@@ -125,12 +125,12 @@ export default function ReproConsolePage(): JSX.Element {
   return (
     <main className="min-h-screen bg-background">
       <header className="border-b border-border bg-background">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-6 py-4">
           <Link href="/" className="flex items-center gap-2">
             <div className="h-7 w-7 rounded bg-primary" />
             <span className="font-semibold">OptiCloud</span>
           </Link>
-          <nav className="flex items-center gap-4 text-sm">
+          <nav className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
             <Link href="/console/excel" className="text-muted-foreground hover:text-foreground">
               Excel
             </Link>
@@ -145,6 +145,12 @@ export default function ReproConsolePage(): JSX.Element {
               className="text-muted-foreground hover:text-foreground"
             >
               Critic
+            </Link>
+            <Link
+              href="/console/data-exports"
+              className="text-muted-foreground hover:text-foreground"
+            >
+              数据导出
             </Link>
           </nav>
         </div>

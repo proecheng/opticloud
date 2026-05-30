@@ -521,6 +521,101 @@ export async function requestAccountDeletion(
   );
 }
 
+// ===== Data exports (Story 5.C.5 — PIPL self-service portal) =====
+
+export type DataExportFormat = "json" | "csv";
+export type DataExportStatus = "queued" | "processing" | "completed" | "failed" | "expired";
+
+export interface DataExportStatusResponse {
+  id: string;
+  status: DataExportStatus;
+  format: DataExportFormat;
+  requested_at: string;
+  sla_deadline_at: string;
+  completed_at: string | null;
+  expires_at: string | null;
+  download_url: string | null;
+  package_sha256: string | null;
+  package_bytes: number | null;
+  last_error: string | null;
+}
+
+export interface DataExportDownload {
+  blob: Blob;
+  filename: string;
+  mediaType: string;
+}
+
+export async function requestDataExport(
+  jwtAccess: string,
+  format: DataExportFormat = "json",
+): Promise<DataExportStatusResponse> {
+  return request<DataExportStatusResponse>(
+    "/v1/auth/data-exports",
+    {
+      method: "POST",
+      headers: { Authorization: `Bearer ${jwtAccess}` },
+      body: JSON.stringify({ format }),
+    },
+    AUTH_SERVICE_URL,
+  );
+}
+
+export async function getDataExportStatus(
+  jwtAccess: string,
+  exportId: string,
+): Promise<DataExportStatusResponse> {
+  return request<DataExportStatusResponse>(
+    `/v1/auth/data-exports/${encodeURIComponent(exportId)}`,
+    { headers: { Authorization: `Bearer ${jwtAccess}` } },
+    AUTH_SERVICE_URL,
+  );
+}
+
+export async function downloadDataExport(
+  jwtAccess: string,
+  exportStatus: Pick<DataExportStatusResponse, "id" | "format">,
+): Promise<DataExportDownload> {
+  const response = await fetch(
+    `${AUTH_SERVICE_URL}/v1/auth/data-exports/${encodeURIComponent(exportStatus.id)}/download`,
+    {
+      headers: {
+        Authorization: `Bearer ${jwtAccess}`,
+        "Accept-Language": getClientLocale(),
+      },
+    },
+  );
+
+  if (!response.ok) {
+    let payload: ApiError;
+    try {
+      payload = normalizeErrorPayload(response.status, (await response.json()) as unknown);
+    } catch {
+      payload = {
+        status: response.status,
+        title: "Download unavailable",
+        detail:
+          response.status === 409
+            ? "data export is not completed"
+            : response.status === 410
+              ? "data export expired"
+              : "data export package unavailable",
+      };
+    }
+    throw new OptiCloudClientError(payload);
+  }
+
+  const blob = await response.blob();
+  const extension = exportStatus.format === "csv" ? "zip" : "json";
+  const fallbackType =
+    exportStatus.format === "csv" ? "application/zip" : "application/json";
+  return {
+    blob,
+    filename: `opticloud-pipl-data-export-${exportStatus.id}.${extension}`,
+    mediaType: response.headers.get("Content-Type") ?? fallbackType,
+  };
+}
+
 // ===== Account merge (Story 1.7 — FR A7/A8) =====
 
 export interface AccountMergeEvidence {
