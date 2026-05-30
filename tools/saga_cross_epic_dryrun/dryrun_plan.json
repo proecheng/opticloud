@@ -1,0 +1,123 @@
+{
+  "dataset_version": "saga_cross_epic_dryrun_v1",
+  "story_key": "5-a-0c-saga-cross-epic-dryrun",
+  "source_story": "5.A.0c",
+  "upstream_stories": [
+    "5-a-0a-saga-implementation",
+    "5-a-0b-saga-contract-fixtures"
+  ],
+  "artifact_paths": [
+    "tools/saga_cross_epic_dryrun/dryrun_plan.json",
+    "tools/saga_cross_epic_dryrun/owner_signoff.example.json"
+  ],
+  "runbook_path": "docs/runbooks/saga-cross-epic-dryrun.md",
+  "fixture_manifest": {
+    "version": "2026-05-30.saga-fixtures.v1",
+    "sha256": "6741adad1791c8f0108144a23af80e628b91ef5d80a88e99efb4b1bc928e2986",
+    "total_fixtures": 52,
+    "executable_fixtures": 50,
+    "category_counts": {
+      "budget_pause_stub": 2,
+      "charge": 10,
+      "cost_telemetry": 8,
+      "idempotency": 8,
+      "refund": 8,
+      "rollback": 8,
+      "timeout": 8
+    }
+  },
+  "required_blocking_signoff_roles": [
+    "Billing Lead",
+    "Solver Lead",
+    "SRE"
+  ],
+  "owner_review_map": [
+    {
+      "role": "Billing Lead",
+      "blocking": true,
+      "fixture_categories": [
+        "charge",
+        "refund",
+        "rollback",
+        "idempotency",
+        "budget_pause_stub"
+      ],
+      "review_focus": [
+        "ledger_delta_matches_contract_fixtures",
+        "idempotency_same_body_replay_and_conflict_semantics",
+        "outbox_event_count_matches_state_transitions",
+        "paused_by_budget_remains_non_executable_gap"
+      ],
+      "notes": "Role-only placeholder. No people, tenants, accounts, service URLs, or live evidence."
+    },
+    {
+      "role": "Solver Lead",
+      "blocking": true,
+      "fixture_categories": [],
+      "review_focus": [
+        "no_billing_header_skips_reserve_and_finalize",
+        "reserve_success_then_solve_success_finalizes_success",
+        "reserve_failure_returns_422_without_solve_or_finalize",
+        "solve_failure_finalizes_failure",
+        "finalize_failure_preserves_solver_result_and_records_billing_failure"
+      ],
+      "notes": "Offline reference to existing solver billing integration semantics only."
+    },
+    {
+      "role": "SRE",
+      "blocking": true,
+      "fixture_categories": [
+        "timeout",
+        "rollback",
+        "budget_pause_stub"
+      ],
+      "review_focus": [
+        "timeout_and_retry_contract_is_visible",
+        "outbox_relayer_observability_boundary_is_documented",
+        "reconciler_and_incident_path_are_named_without_running_services",
+        "rollback_scenarios_have_owner_accountability"
+      ],
+      "notes": "offline only; does not run billing-service or solver-orchestrator."
+    },
+    {
+      "role": "Provider Interface Lead",
+      "blocking": false,
+      "fixture_categories": [
+        "cost_telemetry"
+      ],
+      "review_focus": [
+        "future_provider_interface_compatibility",
+        "cost_telemetry_hook_placeholder_stays_schema_only"
+      ],
+      "notes": "Consulted for SC9 compatibility. Non-blocking for this story."
+    }
+  ],
+  "decision_record": {
+    "decision": "standard_first_simplified_fallback",
+    "current_implementation_target": "standard_path",
+    "standard_path": {
+      "target_story": "5-a-0-saga-implementation",
+      "includes_full_state_machine": true,
+      "includes_idempotency": true,
+      "includes_outbox": true,
+      "includes_compensation_semantics": true
+    },
+    "simplified_fallback": {
+      "target_release": "v1.5+",
+      "implementation_now": false,
+      "auto_degrade_only": true,
+      "includes_idempotency": true,
+      "includes_outbox": true,
+      "includes_compensation_transactions": false,
+      "includes_full_state_machine": false
+    },
+    "rationale": "N5 continues with the standard Saga path. The simplified path is a future auto-degrade fallback only."
+  },
+  "claims": {
+    "real_committee_approval": false,
+    "production_dryrun": false,
+    "live_services_executed": false,
+    "ci_passed": false,
+    "release_approved": false
+  }
+}
