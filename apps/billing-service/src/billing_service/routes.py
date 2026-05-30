@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import logging
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any, cast
 
@@ -23,7 +23,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, status
 from opticloud_shared.cost_telemetry import CostTelemetryEvent, CostUnit, record_cost_event
 from opticloud_shared.errors import ErrorDetail, rfc7807_error
 from prometheus_client import Counter
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import Response
 
@@ -32,6 +32,7 @@ from billing_service.buckets import (
     ALL_BUCKETS,
     BUCKET_EXPIRES_HINT_ZH,
     BUCKET_LABELS_ZH,
+    BUCKET_MONTHLY,
     BUCKET_SIGNUP,
     BUCKET_TOPUP,
 )
@@ -45,12 +46,14 @@ from billing_service.exceptions import (
     SagaTerminalError,
 )
 from billing_service.models import (
+    BillingSubscription,
     CostAttribution,
     CreditTransaction,
     IdempotencyKeyRow,
     OutboxEvent,
     SagaInstance,
 )
+from billing_service.plans import PLANS, Plan, PlanCode, add_one_calendar_month, get_plan
 from billing_service.pricing import classify_warnings, compute_charge_amount
 from billing_service.saga_orchestrator import SagaOrchestrator, hash_body
 from billing_service.schemas import (
@@ -62,7 +65,14 @@ from billing_service.schemas import (
     EstimateResponse,
     FinalizeChargeRequest,
     FinalizeChargeResponse,
+    PlanListResponse,
+    PlanRateLimits,
+    PlanResponse,
+    RefillDueRequest,
+    RefillDueResponse,
     ReserveChargeResponse,
+    SubscriptionCreateRequest,
+    SubscriptionResponse,
     TopupConfirmRequest,
     TopupCreateRequest,
     TopupResponse,
@@ -170,6 +180,48 @@ def _topup_response(saga: SagaInstance, *, balance_after: Decimal | None = None)
     )
 
 
+def _plan_response(plan: Plan) -> PlanResponse:
+    return PlanResponse(
+        code=plan.code,
+        label=plan.label,
+        label_zh=plan.label_zh,
+        monthly_credits=f"{plan.monthly_credits:.2f}",
+        rate_limits=PlanRateLimits(
+            rps=plan.rate_limits.rps,
+            requests_per_minute=plan.rate_limits.requests_per_minute,
+            concurrent_solves=plan.rate_limits.concurrent_solves,
+            t5_t6_p5=plan.rate_limits.t5_t6_p5,
+            custom=plan.rate_limits.custom,
+        ),
+        commercial_review_required=plan.commercial_review_required,
+        external_payment_required=plan.external_payment_required,
+    )
+
+
+def _subscription_response(subscription: BillingSubscription) -> SubscriptionResponse:
+    plan = get_plan(cast(PlanCode, subscription.plan_code))
+    return SubscriptionResponse(
+        subscription_id=str(subscription.id),
+        plan_code=plan.code,
+        status=cast(Any, subscription.status),
+        current_period_start=subscription.current_period_start,
+        current_period_end=subscription.current_period_end,
+        monthly_credits=f"{plan.monthly_credits:.2f}",
+    )
+
+
+def _implicit_free_subscription_response() -> SubscriptionResponse:
+    plan = get_plan("free")
+    return SubscriptionResponse(
+        subscription_id=None,
+        plan_code=plan.code,
+        status="implicit_free",
+        current_period_start=None,
+        current_period_end=None,
+        monthly_credits=f"{plan.monthly_credits:.2f}",
+    )
+
+
 def _charge_saga_type(body: ChargeCreateRequest) -> str:
     return f"{body.purpose}_charge"
 
@@ -208,6 +260,14 @@ def _charge_response_json(response: ChargeResponse) -> dict[str, Any]:
     return response.model_dump(mode="json")
 
 
+def _subscription_response_json(response: SubscriptionResponse) -> dict[str, Any]:
+    return response.model_dump(mode="json")
+
+
+def _subscription_request_hash(body: SubscriptionCreateRequest) -> str:
+    return hash_body({"operation": "subscription_create", "plan_code": body.plan_code})
+
+
 async def _idempotency_row_by_key(
     session: AsyncSession, idempotency_key: str
 ) -> IdempotencyKeyRow | None:
@@ -224,6 +284,165 @@ async def _persist_charge_response_body(
         raise RuntimeError(f"idempotency row {idempotency_key!r} missing after Saga start")
     row.response_body = _charge_response_json(response)
     await session.flush()
+
+
+async def _active_subscription_for(
+    session: AsyncSession,
+    user_id: uuid.UUID,
+    *,
+    for_update: bool = False,
+) -> BillingSubscription | None:
+    stmt = select(BillingSubscription).where(
+        BillingSubscription.user_id == user_id,
+        BillingSubscription.status == "active",
+    )
+    if for_update:
+        stmt = stmt.with_for_update()
+    return (await session.execute(stmt)).scalar_one_or_none()
+
+
+async def _lock_user_for_subscription(session: AsyncSession, user_id: uuid.UUID) -> None:
+    """Serialize first-subscription creation per user without a billing-side User model."""
+    await session.execute(
+        text("SELECT id FROM users WHERE id = :user_id FOR UPDATE"), {"user_id": user_id}
+    )
+
+
+def _subscription_payload(subscription: BillingSubscription) -> dict[str, str]:
+    return {
+        "subscription_id": str(subscription.id),
+        "plan_code": subscription.plan_code,
+        "status": subscription.status,
+        "period_start": subscription.current_period_start.isoformat(),
+        "period_end": subscription.current_period_end.isoformat(),
+    }
+
+
+async def _write_subscription_outbox(
+    session: AsyncSession,
+    *,
+    subscription: BillingSubscription,
+    event_type: str,
+    payload_extra: dict[str, str] | None = None,
+) -> None:
+    session.add(
+        OutboxEvent(
+            aggregate_type="billing_subscription",
+            aggregate_id=subscription.id,
+            event_type=event_type,
+            event_version=1,
+            payload={
+                **_subscription_payload(subscription),
+                **(payload_extra or {}),
+            },
+            headers={"compensation": "none"},
+            occurred_at=datetime.now(UTC),
+        )
+    )
+
+
+def _subscription_refill_metadata(
+    subscription: BillingSubscription, *, trigger: str
+) -> dict[str, str]:
+    return {
+        "subscription_id": str(subscription.id),
+        "plan_code": subscription.plan_code,
+        "period_start": subscription.current_period_start.isoformat(),
+        "period_end": subscription.current_period_end.isoformat(),
+        "trigger": trigger,
+    }
+
+
+async def _apply_monthly_refill_once(
+    session: AsyncSession,
+    subscription: BillingSubscription,
+    *,
+    trigger: str,
+) -> bool:
+    """Write the monthly refill row for the current period if not already applied."""
+    if subscription.last_refilled_period_start == subscription.current_period_start:
+        return False
+
+    plan = get_plan(cast(PlanCode, subscription.plan_code))
+    now = datetime.now(UTC)
+    subscription.last_refilled_period_start = subscription.current_period_start
+    subscription.updated_at = now
+    if plan.monthly_credits <= Decimal("0"):
+        await session.flush()
+        return False
+
+    session.add(
+        CreditTransaction(
+            user_id=subscription.user_id,
+            saga_id=None,
+            amount=plan.monthly_credits,
+            kind="monthly_refill",
+            bucket=BUCKET_MONTHLY,
+            currency="CNY",
+            metadata_json=_subscription_refill_metadata(subscription, trigger=trigger),
+            created_at=now,
+        )
+    )
+    await _write_subscription_outbox(
+        session,
+        subscription=subscription,
+        event_type="billing.subscription.refilled",
+        payload_extra={
+            "amount": f"{plan.monthly_credits:.2f}",
+            "bucket": BUCKET_MONTHLY,
+            "trigger": trigger,
+        },
+    )
+    await session.flush()
+    return True
+
+
+async def _subscription_replay_response_if_cached(
+    session: AsyncSession,
+    *,
+    body: SubscriptionCreateRequest,
+    user_id: uuid.UUID,
+    idempotency_key: str,
+) -> Response | SubscriptionResponse | None:
+    row = await _idempotency_row_by_key(session, idempotency_key)
+    if row is None or row.expires_at <= datetime.now(UTC):
+        return None
+
+    if row.user_id != user_id:
+        owner_user_id = row.user_id
+        await session.rollback()
+        return _problem_response(
+            title="Cross-tenant key reuse forbidden",
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                f"Idempotency key {idempotency_key!r} belongs to tenant "
+                f"{owner_user_id}, not {user_id}"
+            ),
+        )
+
+    if row.request_body_hash != _subscription_request_hash(body):
+        await session.rollback()
+        return _problem_response(
+            title="Idempotency Conflict",
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Idempotency-Key was reused with a different request body",
+        )
+
+    if row.response_body is not None:
+        return SubscriptionResponse.model_validate(row.response_body)
+
+    subscription = await _active_subscription_for(session, user_id)
+    if subscription is None:
+        await session.rollback()
+        return _problem_response(
+            title="Subscription Not Found",
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="idempotency row is not linked to an active subscription",
+        )
+    response = _subscription_response(subscription)
+    row.response_body = _subscription_response_json(response)
+    await session.commit()
+    return response
 
 
 async def _legacy_charge_response_from_idempotency_row(
@@ -329,6 +548,196 @@ def _classify_with_settings(estimated: Decimal, balance: Decimal) -> list[Warnin
         )
         for w in warnings
     ]
+
+
+@billing_router.get("/plans", response_model=PlanListResponse)
+async def list_plans(
+    _user_id: uuid.UUID = Depends(require_user),
+) -> PlanListResponse:
+    """Story 5.B.1 — stable five-plan catalog."""
+    return PlanListResponse(items=[_plan_response(plan) for plan in PLANS])
+
+
+@billing_router.get("/subscriptions/current", response_model=SubscriptionResponse)
+async def get_current_subscription(
+    user_id: uuid.UUID = Depends(require_user),
+    session: AsyncSession = Depends(get_session),
+) -> SubscriptionResponse:
+    """Pure read: no implicit row or ledger mutation for Free."""
+    subscription = await _active_subscription_for(session, user_id)
+    if subscription is None:
+        return _implicit_free_subscription_response()
+    return _subscription_response(subscription)
+
+
+@billing_router.post(
+    "/subscriptions",
+    response_model=SubscriptionResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_subscription(
+    body: SubscriptionCreateRequest,
+    user_id: uuid.UUID = Depends(require_user),
+    session: AsyncSession = Depends(get_session),
+    idempotency_key: str = Header(..., alias="Idempotency-Key"),
+) -> Response | SubscriptionResponse:
+    """Story 5.B.1 — create first active subscription and initial monthly refill."""
+    try:
+        validate_idempotency_key(idempotency_key)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+
+    cached_response = await _subscription_replay_response_if_cached(
+        session,
+        body=body,
+        user_id=user_id,
+        idempotency_key=idempotency_key,
+    )
+    if cached_response is not None:
+        return cached_response
+
+    await _lock_user_for_subscription(session, user_id)
+    active = await _active_subscription_for(session, user_id, for_update=True)
+    if active is not None:
+        response = _subscription_response(active)
+        if active.plan_code != body.plan_code:
+            await session.rollback()
+            return _problem_response(
+                title="Plan change deferred",
+                status_code=status.HTTP_409_CONFLICT,
+                detail="plan upgrade/downgrade with proration is handled by Story 5.B.4",
+            )
+
+        await _upsert_subscription_idempotency_row(
+            session,
+            idempotency_key=idempotency_key,
+            user_id=user_id,
+            body=body,
+            response=response,
+        )
+        await session.commit()
+        return response
+
+    plan = get_plan(body.plan_code)
+    now = datetime.now(UTC)
+    subscription = BillingSubscription(
+        user_id=user_id,
+        plan_code=plan.code,
+        status="active",
+        current_period_start=now,
+        current_period_end=add_one_calendar_month(now),
+        last_refilled_period_start=None,
+        metadata_json={
+            "source": "user_subscription",
+            "external_payment_required": str(plan.external_payment_required).lower(),
+        },
+        created_at=now,
+        updated_at=now,
+    )
+    session.add(subscription)
+    await session.flush()
+
+    await _write_subscription_outbox(
+        session,
+        subscription=subscription,
+        event_type="billing.subscription.activated",
+    )
+    await _apply_monthly_refill_once(session, subscription, trigger="activation")
+    response = _subscription_response(subscription)
+    await _upsert_subscription_idempotency_row(
+        session,
+        idempotency_key=idempotency_key,
+        user_id=user_id,
+        body=body,
+        response=response,
+    )
+
+    await session.commit()
+    return response
+
+
+async def _upsert_subscription_idempotency_row(
+    session: AsyncSession,
+    *,
+    idempotency_key: str,
+    user_id: uuid.UUID,
+    body: SubscriptionCreateRequest,
+    response: SubscriptionResponse,
+) -> None:
+    now = datetime.now(UTC)
+    expires_at = now + settings.saga_idempotency_ttl_hours * timedelta(hours=1)
+    existing = await _idempotency_row_by_key(session, idempotency_key)
+    if existing is not None:
+        existing.user_id = user_id
+        existing.request_body_hash = _subscription_request_hash(body)
+        existing.response_body = _subscription_response_json(response)
+        existing.saga_id = None
+        existing.expires_at = expires_at
+        existing.created_at = now
+        await session.flush()
+        return
+
+    session.add(
+        IdempotencyKeyRow(
+            key=idempotency_key,
+            user_id=user_id,
+            request_body_hash=_subscription_request_hash(body),
+            response_body=_subscription_response_json(response),
+            saga_id=None,
+            expires_at=expires_at,
+            created_at=now,
+        )
+    )
+    await session.flush()
+
+
+@billing_router.post(
+    "/subscriptions/refill-due",
+    response_model=RefillDueResponse,
+)
+async def refill_due_subscriptions(
+    body: RefillDueRequest,
+    _internal: None = Depends(require_internal_service),
+    session: AsyncSession = Depends(get_session),
+) -> RefillDueResponse:
+    """Internal scheduler path: refill due active subscriptions once per period."""
+    as_of = body.as_of or datetime.now(UTC)
+    if as_of.tzinfo is None:
+        as_of = as_of.replace(tzinfo=UTC)
+    stmt = (
+        select(BillingSubscription)
+        .where(
+            BillingSubscription.status == "active",
+            BillingSubscription.current_period_end <= as_of,
+        )
+        .with_for_update()
+    )
+    due = list((await session.execute(stmt)).scalars().all())
+    processed = 0
+    refilled = 0
+    skipped_zero_credit = 0
+    for subscription in due:
+        processed += 1
+        while subscription.current_period_end <= as_of:
+            subscription.current_period_start = subscription.current_period_end
+            subscription.current_period_end = add_one_calendar_month(
+                subscription.current_period_start
+            )
+            did_refill = await _apply_monthly_refill_once(
+                session, subscription, trigger="scheduled_refill"
+            )
+            if did_refill:
+                refilled += 1
+            else:
+                skipped_zero_credit += 1
+
+    await session.commit()
+    return RefillDueResponse(
+        processed=processed,
+        refilled=refilled,
+        skipped_zero_credit=skipped_zero_credit,
+        as_of=as_of,
+    )
 
 
 @billing_router.post(

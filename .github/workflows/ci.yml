@@ -78,6 +78,7 @@ jobs:
               - 'apps/billing-service/**'
               - 'infra/local-init/03-billing-schema.sql'
               - 'infra/local-init/10-cost-attribution.sql'
+              - 'infra/local-init/11-billing-subscriptions.sql'
             outbox_relayer:
               - 'apps/outbox-relayer/**'
               - 'infra/local-init/04-outbox-trigger.sql'
@@ -229,7 +230,7 @@ jobs:
   # ===== Mypy strict (Story 0.5) — separate job so it has access to project deps =====
   mypy:
     needs: changes
-    if: needs.changes.outputs.shared_py == 'true' || needs.changes.outputs.python_sdk == 'true' || needs.changes.outputs.auth_service == 'true' || needs.changes.outputs.solver_orchestrator == 'true' || needs.changes.outputs.ci_or_root == 'true'
+    if: needs.changes.outputs.shared_py == 'true' || needs.changes.outputs.python_sdk == 'true' || needs.changes.outputs.auth_service == 'true' || needs.changes.outputs.solver_orchestrator == 'true' || needs.changes.outputs.billing_service == 'true' || needs.changes.outputs.ci_or_root == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -348,6 +349,7 @@ jobs:
           psql -h localhost -U opticloud -d opticloud_dev -f infra/local-init/04-outbox-trigger.sql
           psql -h localhost -U opticloud -d opticloud_dev -f infra/local-init/05-bucket-backfill.sql
           psql -h localhost -U opticloud -d opticloud_dev -f infra/local-init/10-cost-attribution.sql
+          psql -h localhost -U opticloud -d opticloud_dev -f infra/local-init/11-billing-subscriptions.sql
       - name: Run tests
         env:
           DATABASE_URL: postgresql+asyncpg://opticloud:opticloud_dev@localhost:5432/opticloud_dev  # pragma: allowlist secret
@@ -438,6 +440,7 @@ jobs:
           psql -h localhost -U opticloud -d opticloud_dev -f infra/local-init/01-schema.sql
           psql -h localhost -U opticloud -d opticloud_dev -f infra/local-init/03-billing-schema.sql
           psql -h localhost -U opticloud -d opticloud_dev -f infra/local-init/04-outbox-trigger.sql
+          psql -h localhost -U opticloud -d opticloud_dev -f infra/local-init/11-billing-subscriptions.sql
       - name: Run tests
         env:
           DATABASE_URL: postgresql://opticloud:opticloud_dev@localhost:5432/opticloud_dev  # pragma: allowlist secret

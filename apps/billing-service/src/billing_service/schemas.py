@@ -201,6 +201,68 @@ class BalanceResponse(BaseModel):
     buckets: list[BucketBalance] = Field(default_factory=list)
 
 
+class PlanRateLimits(BaseModel):
+    """Plan rate-limit metadata copied from PRD."""
+
+    rps: int | None
+    requests_per_minute: int | None
+    concurrent_solves: int | None
+    t5_t6_p5: str
+    custom: bool = False
+
+
+class PlanResponse(BaseModel):
+    """One subscription plan catalog item."""
+
+    code: Literal["free", "starter", "pro", "team", "enterprise"]
+    label: str
+    label_zh: str
+    monthly_credits: str
+    currency: str = "CNY"
+    rate_limits: PlanRateLimits
+    commercial_review_required: bool
+    external_payment_required: bool
+
+
+class PlanListResponse(BaseModel):
+    """GET /v1/billing/plans response."""
+
+    items: list[PlanResponse]
+
+
+class SubscriptionCreateRequest(BaseModel):
+    """POST /v1/billing/subscriptions body — Story 5.B.1."""
+
+    plan_code: Literal["free", "starter", "pro", "team", "enterprise"]
+
+
+class SubscriptionResponse(BaseModel):
+    """Current or newly-created subscription response."""
+
+    subscription_id: str | None
+    plan_code: Literal["free", "starter", "pro", "team", "enterprise"]
+    status: Literal["implicit_free", "active", "canceled", "expired"]
+    current_period_start: datetime | None
+    current_period_end: datetime | None
+    monthly_credits: str
+    currency: str = "CNY"
+
+
+class RefillDueRequest(BaseModel):
+    """Internal monthly refill scheduler request."""
+
+    as_of: datetime | None = None
+
+
+class RefillDueResponse(BaseModel):
+    """Internal monthly refill scheduler response."""
+
+    processed: int
+    refilled: int
+    skipped_zero_credit: int
+    as_of: datetime
+
+
 __all__ = [
     "BalanceResponse",
     "BucketBalance",
@@ -210,7 +272,14 @@ __all__ = [
     "EstimateResponse",
     "FinalizeChargeRequest",
     "FinalizeChargeResponse",
+    "PlanListResponse",
+    "PlanRateLimits",
+    "PlanResponse",
+    "RefillDueRequest",
+    "RefillDueResponse",
     "ReserveChargeResponse",
+    "SubscriptionCreateRequest",
+    "SubscriptionResponse",
     "TopupConfirmRequest",
     "TopupCreateRequest",
     "TopupResponse",
