@@ -12,6 +12,7 @@ from opticloud_shared.saga.contract_fixtures import (
     SAGA_CONTRACT_VERSION,
     canonical_body_hash,
     validate_contract_fixture_manifest,
+    validate_payload_ref_safety,
 )
 
 
@@ -148,3 +149,42 @@ def test_validation_rejects_budget_stub_side_effect_expectations() -> None:
     manifest = CONTRACT_FIXTURE_MANIFEST.model_copy(update={"fixtures": tuple(fixtures)})
     with pytest.raises(ValueError, match="expected_outbox_count"):
         validate_contract_fixture_manifest(manifest)
+
+
+@pytest.mark.parametrize(
+    "payload_ref",
+    [
+        {"amount": "6.00"},
+        {"max_solve_seconds": "60"},
+        {"rate_per_second": "0.10"},
+        {"prompt_ref": "raw prompt"},
+        {"reference_id": "user@example.com"},
+        {"reference_id": "Bearer sk-test-token"},
+        {"reference_id": "13800138000"},
+    ],
+)
+def test_public_payload_ref_validator_rejects_unsafe_refs(
+    payload_ref: dict[str, object],
+) -> None:
+    """5.A.0 — runtime and fixtures share the same pointer-only safety rule."""
+    with pytest.raises(ValueError):
+        validate_payload_ref_safety(payload_ref, fixture_id="unit")
+
+
+def test_public_payload_ref_validator_rejects_non_string_values() -> None:
+    """JSON payload refs must store pointers as strings, not numbers/bools/raw objects."""
+    with pytest.raises(ValueError, match="must be a string"):
+        validate_payload_ref_safety({"reference_id": 123}, fixture_id="unit")
+
+
+def test_public_payload_ref_validator_allows_empty_and_safe_pointer_refs() -> None:
+    """Legacy empty refs and string pointer refs stay valid."""
+    validate_payload_ref_safety({}, fixture_id="unit")
+    validate_payload_ref_safety(
+        {
+            "reference_id": "4bca6785-92e4-4734-b1f4-451c4d5033da",
+            "purpose": "solve",
+            "confirmation_ref": "precharge-confirmed",
+        },
+        fixture_id="unit",
+    )

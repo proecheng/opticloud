@@ -11,7 +11,7 @@ import json
 import re
 import uuid
 from collections import Counter
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Final, Literal
@@ -57,6 +57,7 @@ _FIXTURE_NAMESPACE: Final[uuid.UUID] = uuid.UUID("286ad313-b57f-4a91-aa8c-82027e
 _FIXTURE_EPOCH: Final[datetime] = datetime(2026, 5, 30, tzinfo=UTC)
 _ALLOWED_PAYLOAD_KEYS: Final[frozenset[str]] = frozenset(
     {
+        "confirmation_ref",
         "reference_id",
         "task_type",
         "purpose",
@@ -67,6 +68,8 @@ _ALLOWED_PAYLOAD_KEYS: Final[frozenset[str]] = frozenset(
 )
 _FORBIDDEN_KEY_FRAGMENTS: Final[tuple[str, ...]] = (
     "amount",
+    "max_solve_seconds",
+    "rate_per_second",
     "price",
     "credit",
     "balance",
@@ -85,9 +88,42 @@ _FORBIDDEN_KEY_FRAGMENTS: Final[tuple[str, ...]] = (
     "id_card",
 )
 _FORBIDDEN_VALUE_PATTERN: Final[re.Pattern[str]] = re.compile(
-    r"(@|sk-[A-Za-z0-9]|bearer\s+|token|secret|api[_-]?key|\+?\d{11,}|身份证|银行卡)",
+    r"(@|sk-[A-Za-z0-9]|bearer\s+|token|secret|api[_-]?key|\+\d{10,}|身份证|银行卡)",
     re.IGNORECASE,
 )
+_BARE_PHONE_PATTERN: Final[re.Pattern[str]] = re.compile(r"(?<!\d)\d{11,}(?!\d)")
+
+
+def _is_uuid_like(value: str) -> bool:
+    try:
+        uuid.UUID(value)
+    except ValueError:
+        return False
+    return True
+
+
+def validate_payload_ref_safety(payload_ref: Mapping[str, object], *, fixture_id: str) -> None:
+    """Validate Saga payload_ref is pointer-only and safe to persist.
+
+    Empty refs are allowed for legacy/internal sagas. Non-empty refs must use
+    string pointer values and avoid monetary, PII, secret, token, prompt, input,
+    and raw-payload material.
+    """
+    errors: list[str] = []
+    for key, value in payload_ref.items():
+        lowered_key = key.lower()
+        for fragment in _FORBIDDEN_KEY_FRAGMENTS:
+            if fragment in lowered_key:
+                errors.append(f"{fixture_id}: forbidden payload key fragment {fragment!r}")
+        if not isinstance(value, str):
+            errors.append(f"{fixture_id}: payload_ref value for {key!r} must be a string")
+            continue
+        if _FORBIDDEN_VALUE_PATTERN.search(value) or (
+            not _is_uuid_like(value) and _BARE_PHONE_PATTERN.search(value)
+        ):
+            errors.append(f"{fixture_id}: forbidden payload value under {key!r}")
+    if errors:
+        raise ValueError("; ".join(errors))
 
 
 class SagaFixtureStep(BaseModel):
@@ -466,18 +502,13 @@ def _validate_fixture(fixture: SagaContractFixture) -> list[str]:
 
 def _validate_payload_ref(fixture: SagaContractFixture) -> list[str]:
     errors: list[str] = []
-    for key, value in fixture.payload_ref.items():
-        lowered_key = key.lower()
+    try:
+        validate_payload_ref_safety(fixture.payload_ref, fixture_id=fixture.fixture_id)
+    except ValueError as exc:
+        errors.append(str(exc))
+    for key in fixture.payload_ref:
         if key not in _ALLOWED_PAYLOAD_KEYS:
             errors.append(f"{fixture.fixture_id}: payload_ref key {key!r} is not pointer-safe")
-        for fragment in _FORBIDDEN_KEY_FRAGMENTS:
-            if fragment in lowered_key:
-                errors.append(f"{fixture.fixture_id}: forbidden payload key fragment {fragment!r}")
-        if not isinstance(value, str):
-            errors.append(f"{fixture.fixture_id}: payload_ref value for {key!r} must be a string")
-            continue
-        if _FORBIDDEN_VALUE_PATTERN.search(value):
-            errors.append(f"{fixture.fixture_id}: forbidden payload value under {key!r}")
     return errors
 
 
@@ -495,5 +526,6 @@ __all__ = [
     "SagaFixtureStep",
     "build_saga_contract_fixtures",
     "canonical_body_hash",
+    "validate_payload_ref_safety",
     "validate_contract_fixture_manifest",
 ]

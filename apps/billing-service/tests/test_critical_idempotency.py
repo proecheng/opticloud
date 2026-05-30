@@ -34,7 +34,7 @@ async def test_same_key_same_body_returns_same_saga(
     orch: SagaOrchestrator, test_user_id: uuid.UUID
 ) -> None:
     key = f"idem-eq-{uuid.uuid4()}"
-    body = {"opt_id": str(uuid.uuid4())}
+    body = {"reference_id": str(uuid.uuid4())}
     s1 = await orch.start("solve_charge", test_user_id, key, body, amount=Decimal("3"))
     s2 = await orch.start("solve_charge", test_user_id, key, body, amount=Decimal("3"))
     assert s1.id == s2.id
@@ -45,16 +45,18 @@ async def test_same_key_different_body_raises(
     orch: SagaOrchestrator, test_user_id: uuid.UUID
 ) -> None:
     key = f"idem-diff-{uuid.uuid4()}"
-    await orch.start("solve_charge", test_user_id, key, {"a": 1}, amount=Decimal("3"))
+    await orch.start("solve_charge", test_user_id, key, {"reference_id": "a"}, amount=Decimal("3"))
     with pytest.raises(IdempotencyConflictError):
-        await orch.start("solve_charge", test_user_id, key, {"a": 2}, amount=Decimal("3"))
+        await orch.start(
+            "solve_charge", test_user_id, key, {"reference_id": "b"}, amount=Decimal("3")
+        )
 
 
 # Scenario 3: different keys, same body → 2 distinct sagas
 async def test_diff_keys_same_body_creates_distinct_sagas(
     orch: SagaOrchestrator, test_user_id: uuid.UUID
 ) -> None:
-    body = {"opt_id": "fixed"}
+    body = {"reference_id": "fixed"}
     s1 = await orch.start(
         "solve_charge", test_user_id, f"k1-{uuid.uuid4()}", body, amount=Decimal("3")
     )
@@ -71,7 +73,7 @@ async def test_ttl_expired_key_creates_new_saga(
     session: AsyncSession,
 ) -> None:
     key = f"ttl-{uuid.uuid4()}"
-    await orch.start("solve_charge", test_user_id, key, {"x": 1}, amount=Decimal("3"))
+    await orch.start("solve_charge", test_user_id, key, {"reference_id": "x"}, amount=Decimal("3"))
 
     # Backdate expires_at to make the row look expired
     await session.execute(
@@ -84,7 +86,9 @@ async def test_ttl_expired_key_creates_new_saga(
     # (Postgres unique constraint still blocks; orchestrator must clean up or use upsert)
     # Current impl: re-uses the same key row; would fail on duplicate PK. Verify behavior:
     with pytest.raises(Exception):  # noqa: BLE001, PT011, B017
-        await orch.start("solve_charge", test_user_id, key, {"x": 1}, amount=Decimal("3"))
+        await orch.start(
+            "solve_charge", test_user_id, key, {"reference_id": "x"}, amount=Decimal("3")
+        )
 
 
 # Scenario 5: concurrent start same key (asyncio.gather) → only 1 saga in DB
@@ -94,7 +98,7 @@ async def test_concurrent_start_same_key_yields_one_saga(
     session: AsyncSession,
 ) -> None:
     key = f"conc-{uuid.uuid4()}"
-    body = {"opt_id": "x"}
+    body = {"reference_id": "x"}
 
     async def _start() -> SagaInstance | None:
         try:
@@ -136,7 +140,7 @@ async def test_idempotency_includes_saga_type(
     orch: SagaOrchestrator, test_user_id: uuid.UUID
 ) -> None:
     key = f"type-{uuid.uuid4()}"
-    body = {"x": 1}
+    body = {"reference_id": "x"}
     await orch.start("solve_charge", test_user_id, key, body, amount=Decimal("3"))
     # Same key + body but different saga_type → hash differs → conflict
     with pytest.raises(IdempotencyConflictError):
@@ -149,8 +153,20 @@ async def test_body_hash_key_order_independence(
 ) -> None:
     """{"a":1, "b":2} and {"b":2, "a":1} → same hash → same saga."""
     key = f"order-{uuid.uuid4()}"
-    s1 = await orch.start("solve_charge", test_user_id, key, {"a": 1, "b": 2}, amount=Decimal("3"))
-    s2 = await orch.start("solve_charge", test_user_id, key, {"b": 2, "a": 1}, amount=Decimal("3"))
+    s1 = await orch.start(
+        "solve_charge",
+        test_user_id,
+        key,
+        {"reference_id": "a", "operation_id": "b"},
+        amount=Decimal("3"),
+    )
+    s2 = await orch.start(
+        "solve_charge",
+        test_user_id,
+        key,
+        {"operation_id": "b", "reference_id": "a"},
+        amount=Decimal("3"),
+    )
     assert s1.id == s2.id
 
 
@@ -160,10 +176,14 @@ async def test_body_hash_decimal_string_form_matters(
 ) -> None:
     """D1 informational: Decimal('6.00') vs Decimal('6.0') yield different str() → different hash → conflict."""
     key = f"dec-{uuid.uuid4()}"
-    await orch.start("solve_charge", test_user_id, key, {"x": 1}, amount=Decimal("6.00"))
+    await orch.start(
+        "solve_charge", test_user_id, key, {"reference_id": "x"}, amount=Decimal("6.00")
+    )
     # Same key, same body dict, but amount different string form → conflict
     with pytest.raises(IdempotencyConflictError):
-        await orch.start("solve_charge", test_user_id, key, {"x": 1}, amount=Decimal("6.0"))
+        await orch.start(
+            "solve_charge", test_user_id, key, {"reference_id": "x"}, amount=Decimal("6.0")
+        )
 
 
 # Scenario 10: S1 security — cross-tenant key reuse blocked
@@ -190,8 +210,8 @@ async def test_cross_tenant_key_reuse_blocked(
     await session.commit()
 
     # User A creates a saga with key
-    await orch.start("solve_charge", test_user_id, key, {"x": 1}, amount=Decimal("3"))
+    await orch.start("solve_charge", test_user_id, key, {"reference_id": "x"}, amount=Decimal("3"))
 
     # User B tries to reuse the same key — must be rejected (not silently shown user A's saga)
     with pytest.raises(CrossTenantKeyError):
-        await orch.start("solve_charge", user_b, key, {"x": 1}, amount=Decimal("3"))
+        await orch.start("solve_charge", user_b, key, {"reference_id": "x"}, amount=Decimal("3"))

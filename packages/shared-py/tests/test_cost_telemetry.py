@@ -70,6 +70,11 @@ def test_rejects_invalid_event_fields(field: str, value: object) -> None:
     [
         "prompt",
         "completion",
+        "input_payload",
+        "raw_payload",
+        "amount",
+        "balance",
+        "credit",
         "api_key",
         "authorization",
         "jwt",
@@ -88,6 +93,30 @@ def test_rejects_blocked_metadata_keys(blocked_key: str) -> None:
             cost_unit=CostUnit.LLM_TOKEN,
             value=10,
             metadata={"safe": {"nested": {blocked_key: "secret"}}},
+        )
+
+
+def test_rejects_deeply_nested_sensitive_cost_metadata() -> None:
+    """5.A.0 — cost metadata guard catches raw payload and monetary leakage."""
+    with pytest.raises(ValidationError, match="metadata contains blocked key"):
+        CostTelemetryEvent(
+            tenant_id=uuid.uuid4(),
+            service="solver-orchestrator",
+            cost_unit=CostUnit.SOLVER_SECOND,
+            value=Decimal("0.25"),
+            metadata={"safe": {"nested": {"raw_payload": {"amount": "6.00"}}}},
+        )
+
+
+def test_rejects_sensitive_metadata_key_fragments() -> None:
+    """5.A.0 — monetary/auth fields are rejected even when embedded in longer keys."""
+    with pytest.raises(ValidationError, match="metadata contains blocked key"):
+        CostTelemetryEvent(
+            tenant_id=uuid.uuid4(),
+            service="solver-orchestrator",
+            cost_unit=CostUnit.SOLVER_SECOND,
+            value=Decimal("0.25"),
+            metadata={"billing_amount_cny": "6.00"},
         )
 
 

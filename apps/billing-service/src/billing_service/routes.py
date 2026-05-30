@@ -264,9 +264,9 @@ async def create_charge(
 
     # 5.A.5 — audit trail: deterministic flag (boolean, not timestamp, so idempotent replays
     # produce the same body hash). The "when" is saga.created_at; the user_id is saga.user_id.
-    confirm_payload: dict[str, bool] = {}
+    confirm_payload: dict[str, str] = {}
     if warnings and body.confirmed:
-        confirm_payload["user_explicitly_confirmed"] = True
+        confirm_payload["confirmation_ref"] = "precharge-confirmed"
 
     orch = SagaOrchestrator(session)
     try:
@@ -277,9 +277,6 @@ async def create_charge(
             payload={
                 "reference_id": body.reference_id,
                 "purpose": body.purpose,
-                # Story 5.A.4 (AC6) — finalize reads max from here to compute capped amount
-                "max_solve_seconds": body.max_solve_seconds,
-                "rate_per_second": str(settings.lp_rate_per_second),
                 # Story 5.A.5 — audit trail for pre-charge guard explicit confirm
                 **confirm_payload,
             },
@@ -373,9 +370,16 @@ async def _ledger_rows_for_saga(
 
 
 def _max_solve_seconds_from(saga: SagaInstance) -> float:
-    """DR1: payload_ref may omit max_solve_seconds for legacy 5.A.1 sagas."""
+    """Return finalization cap seconds.
+
+    Legacy 5.A.4 rows may still contain `payload_ref.max_solve_seconds`. New
+    5.A.0 rows keep payload_ref pointer-only, so derive cap from reserved amount
+    and configured LP rate.
+    """
     raw = saga.payload_ref.get("max_solve_seconds") if saga.payload_ref else None
     if raw is None:
+        if saga.amount is not None and settings.lp_rate_per_second > 0:
+            return float(saga.amount / settings.lp_rate_per_second)
         return settings.charge_max_solve_seconds_default
     return float(raw)
 

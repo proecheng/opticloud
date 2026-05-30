@@ -78,7 +78,7 @@ async def test_reconcile_clean_completed_saga_reports_ok(
         "solve_charge",
         test_user_id,
         f"reco-clean-{uuid.uuid4()}",
-        {"x": 1},
+        {"reference_id": str(uuid.uuid4())},
         amount=Decimal("6"),
     )
     await orch.apply(saga.id, "reserve")
@@ -116,7 +116,7 @@ async def test_reconcile_clean_refunded_saga_reports_ok(
         "solve_charge",
         test_user_id,
         f"reco-refunded-{uuid.uuid4()}",
-        {"x": 1},
+        {"reference_id": str(uuid.uuid4())},
         amount=amount,
     )
     await orch.apply(saga.id, "reserve")
@@ -154,7 +154,7 @@ async def test_reconcile_detects_major_overcredit_drift(
         "solve_charge",
         test_user_id,
         f"reco-major-{uuid.uuid4()}",
-        {"x": 1},
+        {"reference_id": str(uuid.uuid4())},
         amount=amount,
     )
     await orch.apply(saga.id, "reserve")
@@ -202,7 +202,7 @@ async def test_reconcile_partial_finalize_within_bounds(
         "solve_charge",
         test_user_id,
         f"reco-partial-{uuid.uuid4()}",
-        {"x": 1},
+        {"reference_id": str(uuid.uuid4())},
         amount=amount,
     )
     await orch.apply(saga.id, "reserve")
