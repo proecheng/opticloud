@@ -17,7 +17,7 @@ import logging
 import uuid
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
-from typing import Any, cast
+from typing import Any, Literal, cast
 
 from fastapi import APIRouter, Depends, Header, HTTPException, status
 from opticloud_shared.cost_telemetry import CostTelemetryEvent, CostUnit, record_cost_event
@@ -32,7 +32,6 @@ from billing_service.buckets import (
     ALL_BUCKETS,
     BUCKET_EXPIRES_HINT_ZH,
     BUCKET_LABELS_ZH,
-    BUCKET_MONTHLY,
     BUCKET_SIGNUP,
     BUCKET_TOPUP,
 )
@@ -61,6 +60,7 @@ from billing_service.schemas import (
     BucketBalance,
     ChargeCreateRequest,
     ChargeResponse,
+    EduStarterSyncRequest,
     EstimateRequest,
     EstimateResponse,
     FinalizeChargeRequest,
@@ -200,6 +200,9 @@ def _plan_response(plan: Plan) -> PlanResponse:
 
 def _subscription_response(subscription: BillingSubscription) -> SubscriptionResponse:
     plan = get_plan(cast(PlanCode, subscription.plan_code))
+    entitlement_source = _subscription_entitlement_source(subscription)
+    refill_bucket = _subscription_refill_bucket(subscription)
+    external_payment_required = _subscription_external_payment_required(subscription, plan)
     return SubscriptionResponse(
         subscription_id=str(subscription.id),
         plan_code=plan.code,
@@ -207,6 +210,9 @@ def _subscription_response(subscription: BillingSubscription) -> SubscriptionRes
         current_period_start=subscription.current_period_start,
         current_period_end=subscription.current_period_end,
         monthly_credits=f"{plan.monthly_credits:.2f}",
+        entitlement_source=entitlement_source,
+        refill_bucket=refill_bucket,
+        external_payment_required=external_payment_required,
     )
 
 
@@ -219,6 +225,8 @@ def _implicit_free_subscription_response() -> SubscriptionResponse:
         current_period_start=None,
         current_period_end=None,
         monthly_credits=f"{plan.monthly_credits:.2f}",
+        refill_bucket="monthly",
+        external_payment_required=plan.external_payment_required,
     )
 
 
@@ -268,6 +276,36 @@ def _subscription_request_hash(body: SubscriptionCreateRequest) -> str:
     return hash_body({"operation": "subscription_create", "plan_code": body.plan_code})
 
 
+def _subscription_entitlement_source(subscription: BillingSubscription) -> str | None:
+    raw = subscription.metadata_json.get("source")
+    return raw if isinstance(raw, str) and raw == "edu_tier" else None
+
+
+def _subscription_is_edu_starter(subscription: BillingSubscription) -> bool:
+    return (
+        subscription.plan_code == "starter"
+        and subscription.metadata_json.get("source") == "edu_tier"
+        and subscription.metadata_json.get("education_entitlement") == "starter_free"
+    )
+
+
+def _subscription_refill_bucket(
+    subscription: BillingSubscription,
+) -> Literal["monthly", "edu"]:
+    return "edu" if _subscription_is_edu_starter(subscription) else "monthly"
+
+
+def _subscription_external_payment_required(subscription: BillingSubscription, plan: Plan) -> bool:
+    raw = subscription.metadata_json.get("external_payment_required")
+    if isinstance(raw, bool):
+        return raw
+    if isinstance(raw, str):
+        return raw.lower() == "true"
+    if _subscription_is_edu_starter(subscription):
+        return False
+    return plan.external_payment_required
+
+
 async def _idempotency_row_by_key(
     session: AsyncSession, idempotency_key: str
 ) -> IdempotencyKeyRow | None:
@@ -308,6 +346,38 @@ async def _lock_user_for_subscription(session: AsyncSession, user_id: uuid.UUID)
     )
 
 
+async def _user_is_edu_tier(session: AsyncSession, user_id: uuid.UUID) -> bool:
+    result = await session.execute(
+        text("SELECT edu_tier FROM users WHERE id = :user_id"), {"user_id": user_id}
+    )
+    return bool(result.scalar_one_or_none())
+
+
+async def _has_edu_signup_seed(session: AsyncSession, user_id: uuid.UUID) -> bool:
+    result = await session.execute(
+        text(
+            """
+            SELECT COUNT(*)
+              FROM credit_transactions
+             WHERE user_id = :user_id
+               AND bucket = 'edu'
+               AND metadata ->> 'source' = 'edu_tier_signup'
+            """
+        ),
+        {"user_id": user_id},
+    )
+    return bool(result.scalar_one())
+
+
+def _edu_starter_metadata(existing: dict[str, Any] | None = None) -> dict[str, Any]:
+    return {
+        **(existing or {}),
+        "source": "edu_tier",
+        "education_entitlement": "starter_free",
+        "external_payment_required": False,
+    }
+
+
 def _subscription_payload(subscription: BillingSubscription) -> dict[str, str]:
     return {
         "subscription_id": str(subscription.id),
@@ -315,6 +385,10 @@ def _subscription_payload(subscription: BillingSubscription) -> dict[str, str]:
         "status": subscription.status,
         "period_start": subscription.current_period_start.isoformat(),
         "period_end": subscription.current_period_end.isoformat(),
+        "refill_bucket": _subscription_refill_bucket(subscription),
+        **(
+            {"entitlement_source": "edu_tier"} if _subscription_is_edu_starter(subscription) else {}
+        ),
     }
 
 
@@ -350,6 +424,10 @@ def _subscription_refill_metadata(
         "period_start": subscription.current_period_start.isoformat(),
         "period_end": subscription.current_period_end.isoformat(),
         "trigger": trigger,
+        "bucket": _subscription_refill_bucket(subscription),
+        **(
+            {"entitlement_source": "edu_tier"} if _subscription_is_edu_starter(subscription) else {}
+        ),
     }
 
 
@@ -370,6 +448,7 @@ async def _apply_monthly_refill_once(
     if plan.monthly_credits <= Decimal("0"):
         await session.flush()
         return False
+    refill_bucket = _subscription_refill_bucket(subscription)
 
     session.add(
         CreditTransaction(
@@ -377,7 +456,7 @@ async def _apply_monthly_refill_once(
             saga_id=None,
             amount=plan.monthly_credits,
             kind="monthly_refill",
-            bucket=BUCKET_MONTHLY,
+            bucket=refill_bucket,
             currency="CNY",
             metadata_json=_subscription_refill_metadata(subscription, trigger=trigger),
             created_at=now,
@@ -389,7 +468,7 @@ async def _apply_monthly_refill_once(
         event_type="billing.subscription.refilled",
         payload_extra={
             "amount": f"{plan.monthly_credits:.2f}",
-            "bucket": BUCKET_MONTHLY,
+            "bucket": refill_bucket,
             "trigger": trigger,
         },
     )
@@ -443,6 +522,89 @@ async def _subscription_replay_response_if_cached(
     row.response_body = _subscription_response_json(response)
     await session.commit()
     return response
+
+
+async def _activate_or_return_edu_starter(
+    session: AsyncSession,
+    *,
+    user_id: uuid.UUID,
+    passthrough_non_starter: bool = True,
+) -> Response | SubscriptionResponse:
+    await _lock_user_for_subscription(session, user_id)
+    if not await _user_is_edu_tier(session, user_id):
+        await session.rollback()
+        return _problem_response(
+            title="Education entitlement not available",
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="user is not eligible for education Starter",
+        )
+
+    active = await _active_subscription_for(session, user_id, for_update=True)
+    now = datetime.now(UTC)
+    has_signup_seed = await _has_edu_signup_seed(session, user_id)
+    activation_needed = False
+    should_apply_initial_refill = False
+
+    if active is not None:
+        if _subscription_is_edu_starter(active):
+            return _subscription_response(active)
+
+        if active.plan_code == "starter":
+            active.metadata_json = _edu_starter_metadata(active.metadata_json)
+            active.updated_at = now
+            await _write_subscription_outbox(
+                session,
+                subscription=active,
+                event_type="billing.subscription.edu_starter.activated",
+            )
+            await session.flush()
+            return _subscription_response(active)
+
+        if active.plan_code == "free":
+            active.plan_code = "starter"
+            active.current_period_start = now
+            active.current_period_end = add_one_calendar_month(now)
+            active.last_refilled_period_start = now if has_signup_seed else None
+            active.metadata_json = _edu_starter_metadata(active.metadata_json)
+            active.updated_at = now
+            activation_needed = True
+            should_apply_initial_refill = not has_signup_seed
+            subscription = active
+        elif passthrough_non_starter:
+            return _subscription_response(active)
+        else:
+            await session.rollback()
+            return _problem_response(
+                title="Plan change deferred",
+                status_code=status.HTTP_409_CONFLICT,
+                detail="plan upgrade/downgrade with proration is handled by Story 5.B.4",
+            )
+    else:
+        subscription = BillingSubscription(
+            user_id=user_id,
+            plan_code="starter",
+            status="active",
+            current_period_start=now,
+            current_period_end=add_one_calendar_month(now),
+            last_refilled_period_start=now if has_signup_seed else None,
+            metadata_json=_edu_starter_metadata(),
+            created_at=now,
+            updated_at=now,
+        )
+        session.add(subscription)
+        activation_needed = True
+        should_apply_initial_refill = not has_signup_seed
+
+    await session.flush()
+    if activation_needed:
+        await _write_subscription_outbox(
+            session,
+            subscription=subscription,
+            event_type="billing.subscription.edu_starter.activated",
+        )
+    if should_apply_initial_refill:
+        await _apply_monthly_refill_once(session, subscription, trigger="activation")
+    return _subscription_response(subscription)
 
 
 async def _legacy_charge_response_from_idempotency_row(
@@ -571,6 +733,31 @@ async def get_current_subscription(
 
 
 @billing_router.post(
+    "/subscriptions/edu-starter/sync",
+    response_model=SubscriptionResponse,
+)
+async def sync_edu_starter_subscription(
+    body: EduStarterSyncRequest,
+    _internal: None = Depends(require_internal_service),
+    session: AsyncSession = Depends(get_session),
+) -> Response | SubscriptionResponse:
+    """Story 5.B.2 — materialize education Starter entitlement from users.edu_tier."""
+    try:
+        user_id = uuid.UUID(body.user_id)
+    except ValueError:
+        return _problem_response(
+            title="Invalid user id",
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="user_id must be a UUID",
+        )
+    response = await _activate_or_return_edu_starter(session, user_id=user_id)
+    if isinstance(response, Response):
+        return response
+    await session.commit()
+    return response
+
+
+@billing_router.post(
     "/subscriptions",
     response_model=SubscriptionResponse,
     status_code=status.HTTP_201_CREATED,
@@ -595,6 +782,22 @@ async def create_subscription(
     )
     if cached_response is not None:
         return cached_response
+
+    if body.plan_code == "starter" and await _user_is_edu_tier(session, user_id):
+        edu_response = await _activate_or_return_edu_starter(
+            session, user_id=user_id, passthrough_non_starter=False
+        )
+        if isinstance(edu_response, Response):
+            return edu_response
+        await _upsert_subscription_idempotency_row(
+            session,
+            idempotency_key=idempotency_key,
+            user_id=user_id,
+            body=body,
+            response=edu_response,
+        )
+        await session.commit()
+        return edu_response
 
     await _lock_user_for_subscription(session, user_id)
     active = await _active_subscription_for(session, user_id, for_update=True)

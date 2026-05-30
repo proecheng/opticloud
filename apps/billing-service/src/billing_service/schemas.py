@@ -246,6 +246,15 @@ class SubscriptionResponse(BaseModel):
     current_period_end: datetime | None
     monthly_credits: str
     currency: str = "CNY"
+    entitlement_source: str | None = None
+    refill_bucket: Literal["monthly", "signup", "edu", "topup"] = "monthly"
+    external_payment_required: bool | None = None
+
+
+class EduStarterSyncRequest(BaseModel):
+    """Internal education Starter entitlement sync request."""
+
+    user_id: str = Field(..., description="UUID pointer to a users.id row")
 
 
 class RefillDueRequest(BaseModel):
@@ -268,6 +277,7 @@ __all__ = [
     "BucketBalance",
     "ChargeCreateRequest",
     "ChargeResponse",
+    "EduStarterSyncRequest",
     "EstimateRequest",
     "EstimateResponse",
     "FinalizeChargeRequest",

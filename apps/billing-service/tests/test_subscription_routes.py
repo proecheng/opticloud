@@ -1,4 +1,4 @@
-"""Story 5.B.1 — five-plan subscription and monthly refill route tests."""
+"""Story 5.B.1/5.B.2 — subscription and education Starter route tests."""
 
 from __future__ import annotations
 
@@ -91,19 +91,43 @@ def _internal_headers(secret: str = _INTERNAL_SECRET) -> dict[str, str]:
     return {"X-Internal-Service-Auth": secret}
 
 
-async def _create_user_row(session: AsyncSession, user_id: uuid.UUID) -> None:
+async def _create_user_row(
+    session: AsyncSession,
+    user_id: uuid.UUID,
+    *,
+    edu_tier: bool = False,
+    with_edu_signup_seed: bool = False,
+) -> None:
     await session.execute(
         text(
-            "INSERT INTO users (id, phone, email, created_at, updated_at) "
-            "VALUES (:id, :phone, :email, NOW(), NOW()) "
+            "INSERT INTO users (id, phone, email, edu_tier, created_at, updated_at) "
+            "VALUES (:id, :phone, :email, :edu_tier, NOW(), NOW()) "
             "ON CONFLICT (id) DO NOTHING"
         ),
         {
             "id": user_id,
             "phone": f"+86sub{user_id.hex[:10]}",
-            "email": f"sub-{user_id.hex[:10]}@opticloud.test",
+            "email": (
+                f"sub-{user_id.hex[:10]}@stanford.edu"
+                if edu_tier
+                else f"sub-{user_id.hex[:10]}@opticloud.test"
+            ),
+            "edu_tier": edu_tier,
         },
     )
+    if with_edu_signup_seed:
+        await session.execute(
+            text(
+                """
+                INSERT INTO credit_transactions
+                    (user_id, saga_id, amount, kind, bucket, currency, metadata, created_at)
+                VALUES
+                    (:user_id, NULL, 2000.00, 'topup', 'edu', 'CNY',
+                     '{"source":"edu_tier_signup"}'::jsonb, NOW())
+                """
+            ),
+            {"user_id": user_id},
+        )
     await session.commit()
 
 
@@ -172,6 +196,15 @@ async def _monthly_balance(http_client: AsyncClient, headers: dict[str, str]) ->
     return str(buckets["monthly"]["balance"])
 
 
+async def _bucket_balance(
+    http_client: AsyncClient, headers: dict[str, str], bucket_name: str
+) -> str:
+    balance = await http_client.get("/v1/billing/balance", headers=headers)
+    assert balance.status_code == 200, balance.text
+    buckets = {bucket["name"]: bucket for bucket in balance.json()["buckets"]}
+    return str(buckets[bucket_name]["balance"])
+
+
 async def _stored_response_body(session: AsyncSession, idem_key: str) -> dict | None:
     return (
         await session.execute(
@@ -179,6 +212,60 @@ async def _stored_response_body(session: AsyncSession, idem_key: str) -> dict | 
             {"key": idem_key},
         )
     ).scalar_one_or_none()
+
+
+async def _edu_refill_rows(session: AsyncSession, user_id: uuid.UUID) -> list[dict]:
+    rows = (
+        (
+            await session.execute(
+                text(
+                    """
+                    SELECT amount, bucket, kind, metadata
+                      FROM credit_transactions
+                     WHERE user_id = :user_id
+                       AND kind = 'monthly_refill'
+                       AND bucket = 'edu'
+                     ORDER BY created_at ASC
+                    """
+                ),
+                {"user_id": user_id},
+            )
+        )
+        .mappings()
+        .all()
+    )
+    return [dict(row) for row in rows]
+
+
+async def _subscription_metadata(session: AsyncSession, subscription_id: str) -> dict:
+    return (
+        await session.execute(
+            text("SELECT metadata FROM billing_subscriptions WHERE id = :subscription_id"),
+            {"subscription_id": uuid.UUID(subscription_id)},
+        )
+    ).scalar_one()
+
+
+async def _subscription_outbox_payloads(session: AsyncSession, subscription_id: str) -> list[dict]:
+    rows = (
+        (
+            await session.execute(
+                text(
+                    """
+                    SELECT event_type, payload
+                      FROM outbox
+                     WHERE aggregate_type = 'billing_subscription'
+                       AND aggregate_id = :subscription_id
+                     ORDER BY occurred_at ASC
+                    """
+                ),
+                {"subscription_id": uuid.UUID(subscription_id)},
+            )
+        )
+        .mappings()
+        .all()
+    )
+    return [dict(row) for row in rows]
 
 
 async def test_plan_catalog_returns_five_stable_plans(
@@ -376,6 +463,274 @@ async def test_existing_same_plan_is_noop_and_different_plan_is_deferred(
     assert counts["subscriptions"] == 1
     assert counts["refills"] == 1
     assert await _monthly_balance(http_client, headers) == "2000.00"
+
+
+async def test_edu_sync_reuses_signup_seed_without_duplicate_initial_refill(
+    http_client: AsyncClient,
+    session: AsyncSession,
+    token_factory: tuple[Ed25519PrivateKey, callable[[uuid.UUID], str]],
+) -> None:
+    _, token_for = token_factory
+    user_id = uuid.uuid4()
+    await _create_user_row(session, user_id, edu_tier=True, with_edu_signup_seed=True)
+    headers = {"Authorization": f"Bearer {token_for(user_id)}"}
+
+    first = await http_client.post(
+        "/v1/billing/subscriptions/edu-starter/sync",
+        json={"user_id": str(user_id)},
+        headers=_internal_headers(),
+    )
+    replay = await http_client.post(
+        "/v1/billing/subscriptions/edu-starter/sync",
+        json={"user_id": str(user_id)},
+        headers=_internal_headers(),
+    )
+
+    assert first.status_code == 200, first.text
+    assert replay.status_code == 200, replay.text
+    assert replay.json() == first.json()
+    body = first.json()
+    assert body["plan_code"] == "starter"
+    assert body["monthly_credits"] == "2000.00"
+    assert body["entitlement_source"] == "edu_tier"
+    assert body["refill_bucket"] == "edu"
+    assert body["external_payment_required"] is False
+    assert await _bucket_balance(http_client, headers, "edu") == "2000.00"
+    assert await _edu_refill_rows(session, user_id) == []
+    counts = await _counts(session, user_id)
+    assert counts["subscriptions"] == 1
+    assert counts["outbox_events"] == 1
+
+
+async def test_edu_sync_imported_user_without_seed_gets_initial_edu_refill(
+    http_client: AsyncClient,
+    session: AsyncSession,
+    token_factory: tuple[Ed25519PrivateKey, callable[[uuid.UUID], str]],
+) -> None:
+    _, token_for = token_factory
+    user_id = uuid.uuid4()
+    await _create_user_row(session, user_id, edu_tier=True)
+    headers = {"Authorization": f"Bearer {token_for(user_id)}"}
+
+    response = await http_client.post(
+        "/v1/billing/subscriptions/edu-starter/sync",
+        json={"user_id": str(user_id)},
+        headers=_internal_headers(),
+    )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["plan_code"] == "starter"
+    assert body["entitlement_source"] == "edu_tier"
+    assert body["refill_bucket"] == "edu"
+    assert body["external_payment_required"] is False
+    assert await _bucket_balance(http_client, headers, "edu") == "2000.00"
+    rows = await _edu_refill_rows(session, user_id)
+    assert len(rows) == 1
+    assert str(rows[0]["amount"]) == "2000.0000"
+    assert rows[0]["metadata"]["entitlement_source"] == "edu_tier"
+    assert rows[0]["metadata"]["trigger"] == "activation"
+
+
+async def test_edu_user_starter_subscribe_uses_edu_bucket_and_payment_free(
+    http_client: AsyncClient,
+    session: AsyncSession,
+    token_factory: tuple[Ed25519PrivateKey, callable[[uuid.UUID], str]],
+) -> None:
+    _, token_for = token_factory
+    user_id = uuid.uuid4()
+    await _create_user_row(session, user_id, edu_tier=True)
+    headers = {"Authorization": f"Bearer {token_for(user_id)}"}
+
+    body = await _subscribe(http_client, headers, plan_code="starter")
+
+    assert body["plan_code"] == "starter"
+    assert body["entitlement_source"] == "edu_tier"
+    assert body["refill_bucket"] == "edu"
+    assert body["external_payment_required"] is False
+    assert await _bucket_balance(http_client, headers, "edu") == "2000.00"
+    assert await _bucket_balance(http_client, headers, "monthly") == "0.00"
+    metadata = await _subscription_metadata(session, body["subscription_id"])
+    assert metadata["education_entitlement"] == "starter_free"
+
+
+async def test_edu_sync_upgrades_active_free_in_place_and_resets_zero_refill_state(
+    http_client: AsyncClient,
+    session: AsyncSession,
+    token_factory: tuple[Ed25519PrivateKey, callable[[uuid.UUID], str]],
+) -> None:
+    _, token_for = token_factory
+    user_id = uuid.uuid4()
+    await _create_user_row(session, user_id, edu_tier=True)
+    headers = {"Authorization": f"Bearer {token_for(user_id)}"}
+    free = await _subscribe(http_client, headers, plan_code="free")
+    subscription_id = free["subscription_id"]
+
+    response = await http_client.post(
+        "/v1/billing/subscriptions/edu-starter/sync",
+        json={"user_id": str(user_id)},
+        headers=_internal_headers(),
+    )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["subscription_id"] == subscription_id
+    assert body["plan_code"] == "starter"
+    assert body["entitlement_source"] == "edu_tier"
+    assert body["refill_bucket"] == "edu"
+    assert await _bucket_balance(http_client, headers, "edu") == "2000.00"
+    rows = await _edu_refill_rows(session, user_id)
+    assert len(rows) == 1
+    counts = await _counts(session, user_id)
+    assert counts["subscriptions"] == 1
+
+
+async def test_edu_sync_marks_existing_starter_and_emits_activation_event(
+    http_client: AsyncClient,
+    session: AsyncSession,
+    token_factory: tuple[Ed25519PrivateKey, callable[[uuid.UUID], str]],
+) -> None:
+    _, token_for = token_factory
+    user_id = uuid.uuid4()
+    await _create_user_row(session, user_id, edu_tier=False)
+    headers = {"Authorization": f"Bearer {token_for(user_id)}"}
+    starter = await _subscribe(http_client, headers, plan_code="starter")
+    await session.execute(
+        text("UPDATE users SET edu_tier = TRUE WHERE id = :user_id"),
+        {"user_id": user_id},
+    )
+    await session.commit()
+
+    response = await http_client.post(
+        "/v1/billing/subscriptions/edu-starter/sync",
+        json={"user_id": str(user_id)},
+        headers=_internal_headers(),
+    )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["subscription_id"] == starter["subscription_id"]
+    assert body["entitlement_source"] == "edu_tier"
+    assert body["refill_bucket"] == "edu"
+    outbox = await _subscription_outbox_payloads(session, starter["subscription_id"])
+    assert [row["event_type"] for row in outbox].count(
+        "billing.subscription.edu_starter.activated"
+    ) == 1
+    assert outbox[-1]["payload"]["entitlement_source"] == "edu_tier"
+    forbidden = {"token", "jwt", "email", "phone", "payment_ref", "provider", "raw_body"}
+    for row in outbox:
+        payload_text = str(row["payload"]).lower()
+        assert forbidden.isdisjoint(payload_text.split())
+
+
+async def test_edu_starter_subscribe_does_not_cache_non_starter_active_plan(
+    http_client: AsyncClient,
+    session: AsyncSession,
+    token_factory: tuple[Ed25519PrivateKey, callable[[uuid.UUID], str]],
+) -> None:
+    _, token_for = token_factory
+    user_id = uuid.uuid4()
+    await _create_user_row(session, user_id, edu_tier=True)
+    headers = {"Authorization": f"Bearer {token_for(user_id)}"}
+    pro = await _subscribe(http_client, headers, plan_code="pro")
+    key = str(uuid.uuid4())
+
+    response = await http_client.post(
+        "/v1/billing/subscriptions",
+        json=_subscribe_body("starter"),
+        headers={**headers, "Idempotency-Key": key},
+    )
+
+    assert response.status_code == 409, response.text
+    assert response.json()["title"] == "Plan change deferred"
+    assert await _stored_response_body(session, key) is None
+    current = await http_client.get("/v1/billing/subscriptions/current", headers=headers)
+    assert current.status_code == 200, current.text
+    assert current.json()["subscription_id"] == pro["subscription_id"]
+    assert current.json()["plan_code"] == "pro"
+
+
+async def test_non_edu_sync_rejected_without_mutation(
+    http_client: AsyncClient,
+    fresh_headers: tuple[uuid.UUID, dict[str, str]],
+    session: AsyncSession,
+) -> None:
+    user_id, _headers = fresh_headers
+
+    response = await http_client.post(
+        "/v1/billing/subscriptions/edu-starter/sync",
+        json={"user_id": str(user_id)},
+        headers=_internal_headers(),
+    )
+
+    assert response.status_code == 403, response.text
+    assert response.json()["title"] == "Education entitlement not available"
+    assert await _counts(session, user_id) == {
+        "subscriptions": 0,
+        "refills": 0,
+        "outbox_events": 0,
+    }
+
+
+async def test_edu_refill_due_uses_edu_bucket_and_replay_is_idempotent(
+    http_client: AsyncClient,
+    session: AsyncSession,
+    token_factory: tuple[Ed25519PrivateKey, callable[[uuid.UUID], str]],
+) -> None:
+    _, token_for = token_factory
+    user_id = uuid.uuid4()
+    await _create_user_row(session, user_id, edu_tier=True, with_edu_signup_seed=True)
+    headers = {"Authorization": f"Bearer {token_for(user_id)}"}
+    created = await http_client.post(
+        "/v1/billing/subscriptions/edu-starter/sync",
+        json={"user_id": str(user_id)},
+        headers=_internal_headers(),
+    )
+    assert created.status_code == 200, created.text
+    subscription_id = uuid.UUID(created.json()["subscription_id"])
+    due_end = datetime.now(UTC) - timedelta(days=1)
+    due_start = due_end - timedelta(days=31)
+    await session.execute(
+        text(
+            """
+            UPDATE billing_subscriptions
+               SET current_period_start = :period_start,
+                   current_period_end = :period_end,
+                   last_refilled_period_start = :period_start
+             WHERE id = :subscription_id
+            """
+        ),
+        {
+            "period_start": due_start,
+            "period_end": due_end,
+            "subscription_id": subscription_id,
+        },
+    )
+    await session.commit()
+
+    as_of = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+    first = await http_client.post(
+        "/v1/billing/subscriptions/refill-due",
+        json={"as_of": as_of},
+        headers=_internal_headers(),
+    )
+    replay = await http_client.post(
+        "/v1/billing/subscriptions/refill-due",
+        json={"as_of": as_of},
+        headers=_internal_headers(),
+    )
+
+    assert first.status_code == 200, first.text
+    assert replay.status_code == 200, replay.text
+    assert first.json()["processed"] == 1
+    assert first.json()["refilled"] == 1
+    assert replay.json()["processed"] == 0
+    assert replay.json()["refilled"] == 0
+    assert await _bucket_balance(http_client, headers, "edu") == "4000.00"
+    assert await _bucket_balance(http_client, headers, "monthly") == "0.00"
+    rows = await _edu_refill_rows(session, user_id)
+    assert len(rows) == 1
+    assert rows[0]["metadata"]["trigger"] == "scheduled_refill"
 
 
 async def test_refill_due_requires_internal_auth(
