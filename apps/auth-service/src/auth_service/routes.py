@@ -17,7 +17,14 @@ from sqlalchemy import and_, select, text, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from auth_service import account_deletion, account_merge, frozen_appeals, risk, security
+from auth_service import (
+    account_deletion,
+    account_merge,
+    data_export,
+    frozen_appeals,
+    risk,
+    security,
+)
 from auth_service.config import settings
 from auth_service.db import get_session
 from auth_service.models import APIKey, AuditLog, GuardianConsentRequest, User, UserOTP
@@ -29,6 +36,7 @@ from auth_service.schemas import (
     APIKeyCreateResponse,
     APIKeyGeoAnomalyWarning,
     APIKeyListItem,
+    DataExportStatusResponse,
     GuardianConsentPendingResponse,
     LoginRequest,
     LoginResponse,
@@ -770,6 +778,75 @@ async def request_account_deletion(
         hard_delete_at=request.hard_delete_at,
         completed_at=request.completed_at,
     )
+
+
+@router.post(
+    "/data-exports",
+    response_model=DataExportStatusResponse,
+    summary="请求 PIPL JSON 数据导出",
+    status_code=status.HTTP_200_OK,
+)
+async def request_data_export(
+    authorization: str | None = Header(default=None),
+    session: AsyncSession = Depends(get_session),
+) -> DataExportStatusResponse:
+    user_id = await _resolve_user_from_jwt(authorization)
+    export = await data_export.request_data_export(session, user_id=user_id)
+    await session.commit()
+    return DataExportStatusResponse.model_validate(data_export.status_response(export))
+
+
+@router.get(
+    "/data-exports/{export_id}",
+    response_model=DataExportStatusResponse,
+    summary="查看 PIPL JSON 数据导出状态",
+)
+async def get_data_export_status(
+    export_id: uuid.UUID,
+    authorization: str | None = Header(default=None),
+    session: AsyncSession = Depends(get_session),
+) -> DataExportStatusResponse:
+    user_id = await _resolve_user_from_jwt(authorization)
+    export = await data_export.get_export_request_for_user(
+        session,
+        export_id=export_id,
+        user_id=user_id,
+    )
+    if export is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="data export not found")
+    return DataExportStatusResponse.model_validate(data_export.status_response(export))
+
+
+@router.get(
+    "/data-exports/{export_id}/download",
+    summary="下载已完成的 PIPL JSON 数据导出包",
+)
+async def download_data_export(
+    export_id: uuid.UUID,
+    authorization: str | None = Header(default=None),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, object]:
+    user_id = await _resolve_user_from_jwt(authorization)
+    export = await data_export.get_export_request_for_user(
+        session,
+        export_id=export_id,
+        user_id=user_id,
+    )
+    if export is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="data export not found")
+    if export.status != "completed":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="data export is not completed",
+        )
+    if export.expires_at is not None and export.expires_at <= datetime.now(UTC):
+        raise HTTPException(status_code=status.HTTP_410_GONE, detail="data export expired")
+    if export.package_json is None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="data export package unavailable",
+        )
+    return export.package_json
 
 
 @router.post(
