@@ -79,26 +79,34 @@ async def retry_pending_finalizes(
         retry_count = int(error_blob.get("billing_retry_count", 0))
         attempt_number = retry_count + 1
 
-        discount_multiplier = error_blob.get("billing_discount_multiplier")
-        if isinstance(discount_multiplier, int | float) and not isinstance(
-            discount_multiplier, bool
-        ):
-            outcome = await billing_client.finalize(
+        if error_blob.get("billing_operation") == "user_cancel_refund":
+            outcome = await billing_client.refund_user_cancel(
                 charge_id,
                 user_id,
+                source_ref=str(error_blob.get("billing_source_ref") or opt_id),
                 elapsed_seconds=float(error_blob.get("billing_elapsed_seconds", 0.0)),
-                status=error_blob.get("billing_status", "failure"),
-                failure_reason=error_blob.get("billing_failure_reason"),
-                discount_multiplier=float(discount_multiplier),
             )
         else:
-            outcome = await billing_client.finalize(
-                charge_id,
-                user_id,
-                elapsed_seconds=float(error_blob.get("billing_elapsed_seconds", 0.0)),
-                status=error_blob.get("billing_status", "failure"),
-                failure_reason=error_blob.get("billing_failure_reason"),
-            )
+            discount_multiplier = error_blob.get("billing_discount_multiplier")
+            if isinstance(discount_multiplier, int | float) and not isinstance(
+                discount_multiplier, bool
+            ):
+                outcome = await billing_client.finalize(
+                    charge_id,
+                    user_id,
+                    elapsed_seconds=float(error_blob.get("billing_elapsed_seconds", 0.0)),
+                    status=error_blob.get("billing_status", "failure"),
+                    failure_reason=error_blob.get("billing_failure_reason"),
+                    discount_multiplier=float(discount_multiplier),
+                )
+            else:
+                outcome = await billing_client.finalize(
+                    charge_id,
+                    user_id,
+                    elapsed_seconds=float(error_blob.get("billing_elapsed_seconds", 0.0)),
+                    status=error_blob.get("billing_status", "failure"),
+                    failure_reason=error_blob.get("billing_failure_reason"),
+                )
 
         if outcome.ok:
             current_state = (
@@ -109,7 +117,10 @@ async def retry_pending_finalizes(
                 opt_id,
                 current_state=current_state,
                 status_code=outcome.status_code,
-                is_cancel_finalize=error_blob.get("billing_cancel_finalize_failed") is True,
+                is_cancel_finalize=(
+                    error_blob.get("billing_cancel_finalize_failed") is True
+                    or error_blob.get("billing_operation") == "user_cancel_refund"
+                ),
             )
             succeeded += 1
             results.append(
@@ -218,7 +229,7 @@ async def _mark_cancel_succeeded(
     status_code: int,
 ) -> None:
     """Clear cancel retry flags and advance persisted refund status."""
-    refund_status = "refunded" if current_state == "refunded" else "finalized"
+    refund_status = "refunded" if current_state in {"refunded", "rolled_back"} else "finalized"
     stmt = text(
         """
         UPDATE optimizations
@@ -227,9 +238,12 @@ async def _mark_cancel_succeeded(
                 error
                 - 'billing_finalize_failed'
                 - 'billing_cancel_finalize_failed'
+                - 'billing_user_cancel_refund_failed'
                 - 'billing_finalize_error'
                 - 'billing_finalize_last_error'
                 - 'billing_retry_count'
+                - 'billing_operation'
+                - 'billing_source_ref'
             ) || jsonb_build_object(
                 'billing_finalize_succeeded_at', CAST(:now AS text),
                 'refund_status', CAST(:refund_status AS text)

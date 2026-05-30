@@ -27,7 +27,7 @@ from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import Response
 
-from billing_service.auth_dep import require_internal_service, require_user
+from billing_service.auth_dep import require_internal_service, require_internal_user, require_user
 from billing_service.buckets import (
     ALL_BUCKETS,
     BUCKET_EXPIRES_HINT_ZH,
@@ -79,6 +79,8 @@ from billing_service.schemas import (
     TopupConfirmRequest,
     TopupCreateRequest,
     TopupResponse,
+    UserCancelRefundRequest,
+    UserCancelRefundResponse,
     WarningResponse,
     validate_idempotency_key,
 )
@@ -2044,6 +2046,263 @@ def _write_refund_auto_outbox(
             headers={"compensation": "refund_auto"},
             occurred_at=datetime.now(UTC),
         )
+    )
+
+
+def _rebuild_user_cancel_refund_response(
+    saga: SagaInstance,
+    ledger_rows: list[CreditTransaction],
+    balance_after: Decimal,
+) -> UserCancelRefundResponse:
+    reserved = saga.amount or Decimal("0")
+    mode: Literal["reserved_net_zero", "charged_rollback"] = (
+        "reserved_net_zero" if saga.current_state == "refunded" else "charged_rollback"
+    )
+    refunded = Decimal("0")
+    if mode == "charged_rollback":
+        refunded = _charged_actual_paid(ledger_rows)
+    balance_before = balance_after - refunded
+    return UserCancelRefundResponse(
+        charge_id=str(saga.id),
+        current_state=saga.current_state,
+        refund_mode=mode,
+        reserved_amount=f"{reserved:.2f}",
+        refunded_amount=f"{refunded:.2f}",
+        balance_before=f"{balance_before:.2f}",
+        balance_after=f"{balance_after:.2f}",
+    )
+
+
+def _user_cancel_refund_context(
+    body: UserCancelRefundRequest,
+    *,
+    refunded_amount: Decimal,
+    reversed_partial_amount: Decimal | None = None,
+) -> dict[str, str | float]:
+    context: dict[str, str | float] = {
+        "refund_kind": "user_cancel_refund",
+        "source": body.source,
+        "source_ref": body.source_ref,
+        "refunded_amount": f"{refunded_amount:.4f}",
+    }
+    if body.elapsed_seconds is not None:
+        context["elapsed_seconds"] = body.elapsed_seconds
+    if reversed_partial_amount is not None and reversed_partial_amount != Decimal("0"):
+        context["reversed_partial_amount"] = f"{reversed_partial_amount:.4f}"
+    return context
+
+
+def _write_refund_user_cancel_outbox(
+    session: AsyncSession,
+    saga: SagaInstance,
+    *,
+    from_state: str,
+    body: UserCancelRefundRequest,
+    refunded_amount: Decimal,
+) -> None:
+    payload: dict[str, str | float] = {
+        "saga_id": str(saga.id),
+        "charge_id": str(saga.id),
+        "saga_type": saga.saga_type,
+        "from_state": from_state,
+        "to_state": saga.current_state,
+        "source": body.source,
+        "source_ref": body.source_ref,
+        "refunded_amount": f"{refunded_amount:.4f}",
+    }
+    if body.elapsed_seconds is not None:
+        payload["elapsed_seconds"] = body.elapsed_seconds
+    session.add(
+        OutboxEvent(
+            aggregate_type="saga_instance",
+            aggregate_id=saga.id,
+            event_type="billing.refund_user_cancel.accepted",
+            event_version=1,
+            payload=payload,
+            headers={"compensation": "user_cancel_refund"},
+            occurred_at=datetime.now(UTC),
+        )
+    )
+
+
+@billing_router.post(
+    "/charges/{charge_id}/refund-user-cancel",
+    response_model=UserCancelRefundResponse,
+)
+async def refund_user_cancel_charge(
+    charge_id: uuid.UUID,
+    body: UserCancelRefundRequest,
+    user_id: uuid.UUID = Depends(require_internal_user),
+    session: AsyncSession = Depends(get_session),
+) -> Response | UserCancelRefundResponse:
+    """Story 5.C.2 — trusted user-initiated cancel refund for async tasks."""
+    orch = SagaOrchestrator(session)
+    stmt = select(SagaInstance).where(SagaInstance.id == charge_id).with_for_update()
+    saga = (await session.execute(stmt)).scalar_one_or_none()
+    if saga is None:
+        await session.rollback()
+        return _problem_response(
+            title="Charge Not Found",
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Saga {charge_id} not found",
+        )
+
+    if saga.user_id != user_id:
+        await session.rollback()
+        return _problem_response(
+            title="Forbidden",
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="charge belongs to another user",
+        )
+
+    if not saga.saga_type.endswith("_charge"):
+        await session.rollback()
+        return _problem_response(
+            title="Refund Not Applicable",
+            status_code=status.HTTP_409_CONFLICT,
+            detail="user-cancel refunds apply only to charge sagas",
+        )
+
+    if saga.current_state in ("refunded", "rolled_back"):
+        ledger_rows = await _ledger_rows_for_saga(session, saga.id)
+        balance_after = await _balance_for(session, saga.user_id)
+        return _rebuild_user_cancel_refund_response(saga, ledger_rows, balance_after)
+
+    if saga.current_state in ("pending", "failed", "completed"):
+        current_state = saga.current_state
+        await session.rollback()
+        return _problem_response(
+            title="Refund Not Applicable",
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"user-cancel refund is not applicable from state {current_state!r}",
+        )
+
+    reserved_amount = saga.amount or Decimal("0")
+    balance_before = await _balance_for(session, saga.user_id)
+    from_state = saga.current_state
+
+    if saga.current_state == "reserved":
+        refunded_amount = Decimal("0")
+        try:
+            saga = await orch.apply(
+                charge_id,
+                "user_cancel",
+                context={
+                    "reserved_amount": f"{reserved_amount:.4f}",
+                    **_user_cancel_refund_context(body, refunded_amount=refunded_amount),
+                },
+            )
+        except (InvalidSagaTransitionError, SagaTerminalError) as e:
+            await session.rollback()
+            return _problem_response(
+                title="Refund Not Applicable",
+                status_code=status.HTTP_409_CONFLICT,
+                detail=str(e),
+            )
+
+        session.add(
+            CreditTransaction(
+                user_id=saga.user_id,
+                saga_id=saga.id,
+                amount=-reserved_amount,
+                kind="refund_reversal",
+                currency="CNY",
+                metadata_json={
+                    "reason": "reservation never debited; user-cancel refund net-zero",
+                    "refund_kind": "user_cancel_refund",
+                    "source": body.source,
+                    "source_ref": body.source_ref,
+                },
+                created_at=datetime.now(UTC),
+            )
+        )
+        _write_refund_user_cancel_outbox(
+            session,
+            saga,
+            from_state=from_state,
+            body=body,
+            refunded_amount=refunded_amount,
+        )
+        await session.commit()
+        balance_after = await _balance_for(session, saga.user_id)
+        return UserCancelRefundResponse(
+            charge_id=str(saga.id),
+            current_state=saga.current_state,
+            refund_mode="reserved_net_zero",
+            reserved_amount=f"{reserved_amount:.2f}",
+            refunded_amount=f"{refunded_amount:.2f}",
+            balance_before=f"{balance_before:.2f}",
+            balance_after=f"{balance_after:.2f}",
+        )
+
+    if saga.current_state == "charged":
+        ledger_rows = await _ledger_rows_for_saga(session, saga.id)
+        refunded_amount = _charged_actual_paid(ledger_rows)
+        refund_partial = _refund_partial_total(ledger_rows)
+        try:
+            saga = await orch.apply(
+                charge_id,
+                "downstream_reject_late",
+                context={
+                    "reserved_amount": f"{reserved_amount:.4f}",
+                    **_user_cancel_refund_context(
+                        body,
+                        refunded_amount=refunded_amount,
+                        reversed_partial_amount=refund_partial,
+                    ),
+                },
+            )
+        except (InvalidSagaTransitionError, SagaTerminalError) as e:
+            await session.rollback()
+            return _problem_response(
+                title="Refund Not Applicable",
+                status_code=status.HTTP_409_CONFLICT,
+                detail=str(e),
+            )
+
+        if refund_partial != Decimal("0"):
+            session.add(
+                CreditTransaction(
+                    user_id=saga.user_id,
+                    saga_id=saga.id,
+                    amount=-refund_partial,
+                    kind="refund_reversal",
+                    currency="CNY",
+                    metadata_json={
+                        "reason": "prior partial refund already returned; user-cancel rollback refunds actual paid only",
+                        "refund_kind": "user_cancel_refund",
+                        "source": body.source,
+                        "source_ref": body.source_ref,
+                        "reversed_partial_amount": f"{refund_partial:.4f}",
+                    },
+                    created_at=datetime.now(UTC),
+                )
+            )
+        _write_refund_user_cancel_outbox(
+            session,
+            saga,
+            from_state=from_state,
+            body=body,
+            refunded_amount=refunded_amount,
+        )
+        await session.commit()
+        balance_after = await _balance_for(session, saga.user_id)
+        return UserCancelRefundResponse(
+            charge_id=str(saga.id),
+            current_state=saga.current_state,
+            refund_mode="charged_rollback",
+            reserved_amount=f"{reserved_amount:.2f}",
+            refunded_amount=f"{refunded_amount:.2f}",
+            balance_before=f"{balance_before:.2f}",
+            balance_after=f"{balance_after:.2f}",
+        )
+
+    current_state = saga.current_state
+    await session.rollback()
+    return _problem_response(
+        title="Refund Not Applicable",
+        status_code=status.HTTP_409_CONFLICT,
+        detail=f"user-cancel refund is not applicable from state {current_state!r}",
     )
 
 

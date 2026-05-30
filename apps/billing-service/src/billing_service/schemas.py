@@ -216,6 +216,39 @@ class AutoRefundResponse(BaseModel):
     currency: str = "CNY"
 
 
+class UserCancelRefundRequest(BaseModel):
+    """POST /v1/billing/charges/{id}/refund-user-cancel body — Story 5.C.2."""
+
+    source: str = Field(
+        default="solver_orchestrator",
+        min_length=1,
+        max_length=64,
+        pattern=_POINTER_REF_RE.pattern,
+        description="Trusted cancellation source label; pointer only",
+    )
+    source_ref: str = Field(
+        ...,
+        min_length=1,
+        max_length=128,
+        pattern=_POINTER_REF_RE.pattern,
+        description="Optimization/task pointer; never a raw payload",
+    )
+    elapsed_seconds: float | None = Field(default=None, ge=0)
+
+
+class UserCancelRefundResponse(BaseModel):
+    """User-initiated cancel refund result — Story 5.C.2."""
+
+    charge_id: str
+    current_state: str
+    refund_mode: Literal["reserved_net_zero", "charged_rollback"]
+    reserved_amount: str
+    refunded_amount: str
+    balance_before: str
+    balance_after: str
+    currency: str = "CNY"
+
+
 class BucketBalance(BaseModel):
     """One per-bucket entry in BalanceResponse.buckets[] (Story 5.A.2 FR B1)."""
 
@@ -346,6 +379,8 @@ __all__ = [
     "TopupConfirmRequest",
     "TopupCreateRequest",
     "TopupResponse",
+    "UserCancelRefundRequest",
+    "UserCancelRefundResponse",
     "WarningResponse",
     "validate_idempotency_key",
 ]
