@@ -159,7 +159,7 @@ development_status:
 
   5-a-0a-saga-implementation: done             # N5 unlock — 2026-05-18 (16 tests; 4 invariants; 7-state machine wired to DB; outbox emit; idempotent)
   5-a-0b-saga-contract-fixtures: done          # 2026-05-30 — shared Saga contract fixture catalog: 52 deterministic fixtures (50 executable + 2 paused_by_budget stubs), billing DB execution tests, offline contract stub; post-review validator hardening applied
-  5-a-0c-saga-cross-epic-dryrun: backlog
+  5-a-0c-saga-cross-epic-dryrun: done
   5-a-0-saga-implementation: backlog
   5-a-1-j1-credits-charge-modal: done          # J1 第 4 段 — 2026-05-18 (3 billing routes + ChargeModal Tier 1 + demo page; 25 backend + 7 UI tests)
   5-a-2-credits-balance-buckets: done             # 2026-05-19 — 4-bucket balance API + CreditsBalanceBucket wired in /demo/charge; +7 tests; FR B1 v1 ship
