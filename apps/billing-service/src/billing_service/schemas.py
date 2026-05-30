@@ -249,6 +249,9 @@ class SubscriptionResponse(BaseModel):
     entitlement_source: str | None = None
     refill_bucket: Literal["monthly", "signup", "edu", "topup"] = "monthly"
     external_payment_required: bool | None = None
+    education_entitlement: str | None = None
+    trial_ends_at: datetime | None = None
+    fallback_plan_code: Literal["starter"] | None = None
 
 
 class EduStarterSyncRequest(BaseModel):
