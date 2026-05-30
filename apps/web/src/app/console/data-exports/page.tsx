@@ -229,6 +229,12 @@ export default function DataExportsConsolePage(): JSX.Element {
             >
               数据导出
             </Link>
+            <Link
+              href="/console/billing/invoices"
+              className="text-muted-foreground hover:text-foreground"
+            >
+              账单
+            </Link>
           </nav>
         </div>
       </header>

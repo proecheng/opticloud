@@ -845,6 +845,134 @@ export async function confirmCharge(
   );
 }
 
+// ===== Billing invoices (Story 5.D.1) =====
+
+export interface BilingualText {
+  zh: string;
+  en: string;
+}
+
+export interface BillingInvoiceSubscription {
+  plan_code: string;
+  plan_label: string;
+  plan_label_zh: string;
+  status: string;
+  current_period_start: string | null;
+  current_period_end: string | null;
+}
+
+export interface BillingInvoiceLineItem {
+  id: string;
+  created_at: string;
+  kind: string;
+  bucket: string;
+  label: BilingualText;
+  direction: "credit" | "debit";
+  direction_label: BilingualText;
+  amount: string;
+  source_amount: string;
+  currency: string;
+  details: Record<string, string>;
+}
+
+export interface BillingInvoiceUsageSummary {
+  window_days: 7 | 30;
+  actual_spend: string;
+  currency: string;
+  label: BilingualText;
+}
+
+export interface BillingInvoiceSummary {
+  period: string;
+  period_start: string;
+  period_end: string;
+  status: "final" | "provisional";
+  status_label: BilingualText;
+  net_credit_movement: string;
+  actual_spend: string;
+  currency: string;
+  line_item_count: number;
+}
+
+export interface BillingInvoiceListResponse {
+  items: BillingInvoiceSummary[];
+}
+
+export interface BillingInvoiceResponse extends BillingInvoiceSummary {
+  title: BilingualText;
+  tax_disclaimer: BilingualText;
+  owner_user_id_suffix: string;
+  subscription: BillingInvoiceSubscription;
+  credit_subtotal: string;
+  debit_subtotal: string;
+  trend_contract: "invoice_summary";
+  usage_summary: BillingInvoiceUsageSummary[];
+  line_items: BillingInvoiceLineItem[];
+}
+
+export interface BillingInvoiceDownload {
+  blob: Blob;
+  filename: string;
+  mediaType: string;
+}
+
+export async function listBillingInvoices(jwtAccess: string): Promise<BillingInvoiceListResponse> {
+  return request<BillingInvoiceListResponse>(
+    "/v1/billing/invoices",
+    { headers: { Authorization: `Bearer ${jwtAccess}` } },
+    BILLING_SERVICE_URL,
+  );
+}
+
+export async function getBillingInvoice(
+  jwtAccess: string,
+  period: string,
+): Promise<BillingInvoiceResponse> {
+  return request<BillingInvoiceResponse>(
+    `/v1/billing/invoices/${encodeURIComponent(period)}`,
+    { headers: { Authorization: `Bearer ${jwtAccess}` } },
+    BILLING_SERVICE_URL,
+  );
+}
+
+export async function downloadBillingInvoicePdf(
+  jwtAccess: string,
+  period: string,
+): Promise<BillingInvoiceDownload> {
+  const response = await fetch(
+    `${BILLING_SERVICE_URL}/v1/billing/invoices/${encodeURIComponent(period)}/download`,
+    {
+      headers: {
+        Authorization: `Bearer ${jwtAccess}`,
+        "Accept-Language": getClientLocale(),
+      },
+    },
+  );
+
+  if (!response.ok) {
+    let payload: ApiError;
+    try {
+      payload = normalizeErrorPayload(response.status, (await response.json()) as unknown);
+    } catch {
+      payload = {
+        status: response.status,
+        title: "Invoice download unavailable",
+        detail:
+          response.status === 404
+            ? "invoice is not available"
+            : "billing invoice PDF unavailable",
+      };
+    }
+    throw new OptiCloudClientError(payload);
+  }
+
+  return {
+    blob: await response.blob(),
+    filename: `opticloud-invoice-${period}.pdf`,
+    mediaType: response.headers.get("Content-Type") ?? "application/pdf",
+  };
+}
+
 // ===== Optimizations demo (Story 3.E.3 — no auth) =====
 
 export interface DemoOptimizationResponse {

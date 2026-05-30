@@ -2,6 +2,9 @@
 
 Endpoints (all require Bearer JWT or X-Internal-Service-Auth):
 - GET  /v1/billing/balance               — read current credits balance (pure)
+- GET  /v1/billing/invoices              — list user-scoped monthly billing statements
+- GET  /v1/billing/invoices/{period}     — read one user-scoped monthly billing statement
+- GET  /v1/billing/invoices/{period}/download — download billing statement PDF
 - POST /v1/billing/topups                — create pending topup request
 - POST /v1/billing/topups/{id}/confirm   — internal payment-confirmation credit
 - POST /v1/billing/charges/estimate      — 5.A.5: pre-charge guard preview
@@ -44,6 +47,13 @@ from billing_service.exceptions import (
     SagaNotFoundError,
     SagaTerminalError,
 )
+from billing_service.invoices import (
+    InvalidInvoicePeriodError,
+    InvoiceNotFoundError,
+    build_invoice,
+    list_invoices,
+    render_invoice_pdf,
+)
 from billing_service.models import (
     BillingSubscription,
     CostAttribution,
@@ -67,6 +77,8 @@ from billing_service.schemas import (
     EstimateResponse,
     FinalizeChargeRequest,
     FinalizeChargeResponse,
+    InvoiceListResponse,
+    InvoiceResponse,
     PlanListResponse,
     PlanRateLimits,
     PlanResponse,
@@ -1541,6 +1553,68 @@ async def get_balance(
         currency="CNY",
         last_transaction_at=last,
         buckets=buckets_resp,
+    )
+
+
+@billing_router.get("/invoices", response_model=InvoiceListResponse)
+async def get_invoices(
+    user_id: uuid.UUID = Depends(require_user),
+    session: AsyncSession = Depends(get_session),
+) -> InvoiceListResponse:
+    """Story 5.D.1 — list user-scoped monthly billing statements."""
+    return await list_invoices(session, user_id)
+
+
+@billing_router.get("/invoices/{period}", response_model=InvoiceResponse)
+async def get_invoice(
+    period: str,
+    user_id: uuid.UUID = Depends(require_user),
+    session: AsyncSession = Depends(get_session),
+) -> Response | InvoiceResponse:
+    """Story 5.D.1 — read one user-scoped monthly billing statement."""
+    try:
+        return await build_invoice(session, user_id, period)
+    except InvalidInvoicePeriodError as e:
+        return _problem_response(
+            title="Invalid Invoice Period",
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+    except InvoiceNotFoundError:
+        return _problem_response(
+            title="Invoice Not Found",
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"invoice {period!r} is not available for this user",
+        )
+
+
+@billing_router.get("/invoices/{period}/download")
+async def download_invoice(
+    period: str,
+    user_id: uuid.UUID = Depends(require_user),
+    session: AsyncSession = Depends(get_session),
+) -> Response:
+    """Story 5.D.1 — download a real PDF generated from the invoice view model."""
+    try:
+        invoice = await build_invoice(session, user_id, period)
+    except InvalidInvoicePeriodError as e:
+        return _problem_response(
+            title="Invalid Invoice Period",
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+    except InvoiceNotFoundError:
+        return _problem_response(
+            title="Invoice Not Found",
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"invoice {period!r} is not available for this user",
+        )
+
+    filename = f"opticloud-invoice-{invoice.period}.pdf"
+    return Response(
+        content=render_invoice_pdf(invoice),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 
 

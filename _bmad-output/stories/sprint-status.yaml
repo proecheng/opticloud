@@ -182,7 +182,7 @@ development_status:
   5-c-4-pipl-data-export-csv: done             # 2026-05-30 — PIPL CSV export request/download zip package; post-review numeric CSV escaping fix applied
   5-c-5-pipl-self-service-portal: done             # 2026-05-30 — PIPL Console self-service data export portal; post-review mobile header wrap fix applied
 
-  5-d-1-bilingual-invoices: backlog
+  5-d-1-bilingual-invoices: done              # 2026-05-31 — bilingual billing statement API/PDF/Console; post-review PDF completeness and UI state fixes applied
   5-d-2-7d-30d-sparkline-trends: backlog
   5-d-3-job-templates-save: backlog
   5-d-4-job-templates-version: backlog
