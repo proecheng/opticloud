@@ -13,12 +13,14 @@ Endpoints (all require Bearer JWT or X-Internal-Service-Auth):
 
 from __future__ import annotations
 
+import logging
 import uuid
 from datetime import UTC, datetime
 from decimal import Decimal
 from typing import cast
 
 from fastapi import APIRouter, Depends, Header, HTTPException, status
+from opticloud_shared.cost_telemetry import CostTelemetryEvent, CostUnit, record_cost_event
 from opticloud_shared.errors import ErrorDetail, rfc7807_error
 from prometheus_client import Counter
 from sqlalchemy import func, select
@@ -42,7 +44,7 @@ from billing_service.exceptions import (
     SagaNotFoundError,
     SagaTerminalError,
 )
-from billing_service.models import CreditTransaction, OutboxEvent, SagaInstance
+from billing_service.models import CostAttribution, CreditTransaction, OutboxEvent, SagaInstance
 from billing_service.pricing import classify_warnings, compute_charge_amount
 from billing_service.saga_orchestrator import SagaOrchestrator
 from billing_service.schemas import (
@@ -63,6 +65,7 @@ from billing_service.schemas import (
 )
 
 billing_router = APIRouter(prefix="/v1/billing", tags=["billing"])
+logger = logging.getLogger(__name__)
 
 # SRE1 — Story 5.A.5: pre-charge guard observability
 ESTIMATE_TOTAL: Counter = Counter(
@@ -574,6 +577,61 @@ def _discount_context(discount_multiplier: Decimal) -> dict[str, str]:
     return {"discount_multiplier": f"{discount_multiplier:.4f}"}
 
 
+async def _billing_cost_attribution_exists(session: AsyncSession, charge_id: uuid.UUID) -> bool:
+    stmt = (
+        select(func.count())
+        .select_from(CostAttribution)
+        .where(
+            CostAttribution.source_id == charge_id,
+            CostAttribution.service == "billing-service",
+            CostAttribution.cost_unit == CostUnit.SOLVER_SECOND.value,
+        )
+    )
+    return bool((await session.execute(stmt)).scalar_one())
+
+
+async def _record_billing_cost_attribution(
+    session: AsyncSession,
+    saga: SagaInstance,
+    *,
+    elapsed_seconds: float,
+    finalize_status: str,
+) -> None:
+    """Best-effort Billing Saga cost hook; never blocks finalization."""
+    try:
+        async with session.begin_nested():
+            if await _billing_cost_attribution_exists(session, saga.id):
+                return
+
+            metadata: dict[str, str] = {
+                "saga_type": saga.saga_type,
+                "charge_state": saga.current_state,
+                "finalize_status": finalize_status,
+            }
+            purpose = saga.payload_ref.get("purpose") if saga.payload_ref else None
+            if isinstance(purpose, str):
+                metadata["purpose"] = purpose
+
+            await record_cost_event(
+                session,
+                CostAttribution,
+                CostTelemetryEvent(
+                    tenant_id=saga.user_id,
+                    service="billing-service",
+                    cost_unit=CostUnit.SOLVER_SECOND,
+                    value=Decimal(str(elapsed_seconds)),
+                    source_id=saga.id,
+                    metadata=metadata,
+                ),
+            )
+    except Exception:
+        logger.warning(
+            "billing.cost_attribution.record_failed",
+            extra={"charge_id": str(saga.id), "saga_type": saga.saga_type},
+            exc_info=True,
+        )
+
+
 def _rebuild_finalize_response(
     saga: SagaInstance,
     ledger_rows: list[CreditTransaction],
@@ -707,6 +765,13 @@ async def finalize_charge(
                 )
             )
 
+        await session.flush()
+        await _record_billing_cost_attribution(
+            session,
+            saga,
+            elapsed_seconds=body.elapsed_seconds,
+            finalize_status=body.status,
+        )
         await session.commit()
         balance_after = await _balance_for(session, user_id)
         return FinalizeChargeResponse(
