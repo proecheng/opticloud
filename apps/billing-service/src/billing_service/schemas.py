@@ -14,6 +14,7 @@ from billing_service.topups import normalize_topup_amount
 _IDEMPOTENCY_KEY_RE = re.compile(
     r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
 )
+_POINTER_REF_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$")
 
 
 def validate_idempotency_key(key: str) -> str:
@@ -181,6 +182,40 @@ class FinalizeChargeResponse(BaseModel):
     currency: str = "CNY"
 
 
+class AutoRefundRequest(BaseModel):
+    """POST /v1/billing/charges/{id}/refund-auto body — Story 5.C.1."""
+
+    reason: Literal["failed", "cancelled", "infeasible"]
+    source: str = Field(
+        default="solver_orchestrator",
+        min_length=1,
+        max_length=64,
+        pattern=_POINTER_REF_RE.pattern,
+        description="Trusted detector label; pointer only, never a raw payload",
+    )
+    source_ref: str = Field(
+        ...,
+        min_length=1,
+        max_length=128,
+        pattern=_POINTER_REF_RE.pattern,
+        description="Downstream task/status pointer; never a raw payload",
+    )
+    elapsed_seconds: float | None = Field(default=None, ge=0)
+
+
+class AutoRefundResponse(BaseModel):
+    """Automatic refund result — Story 5.C.1."""
+
+    charge_id: str
+    current_state: str
+    refund_mode: Literal["reserved_net_zero", "charged_rollback"]
+    reserved_amount: str
+    refunded_amount: str
+    balance_before: str
+    balance_after: str
+    currency: str = "CNY"
+
+
 class BucketBalance(BaseModel):
     """One per-bucket entry in BalanceResponse.buckets[] (Story 5.A.2 FR B1)."""
 
@@ -288,6 +323,8 @@ class RefillDueResponse(BaseModel):
 
 
 __all__ = [
+    "AutoRefundRequest",
+    "AutoRefundResponse",
     "BalanceResponse",
     "BucketBalance",
     "ChargeCreateRequest",

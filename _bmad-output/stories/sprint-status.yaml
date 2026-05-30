@@ -154,7 +154,7 @@ development_status:
   # ===== Epic 5.A/B/C/D: Billing (27 stories) =====
   epic-5-a: in-progress
   epic-5-b: in-progress
-  epic-5-c: backlog
+  epic-5-c: in-progress
   epic-5-d: backlog
 
   5-a-0a-saga-implementation: done             # N5 unlock — 2026-05-18 (16 tests; 4 invariants; 7-state machine wired to DB; outbox emit; idempotent)
@@ -176,7 +176,7 @@ development_status:
   5-b-3-edu-pro-30d-trial: done               # 2026-05-30 — education Pro 30d trial + edu-bucket Pro grant + automatic Starter fallback; post-review event/history coverage applied
   5-b-4-plan-upgrade-prorated: done           # 2026-05-30 — Starter->Pro prorated credit adjustment; post-review education metadata drift guard applied
 
-  5-c-1-refund-failed-cancelled: backlog
+  5-c-1-refund-failed-cancelled: done           # 2026-05-30 — internal auto-refund for failed/cancelled/infeasible; partial-refund rollback correction; post-review clean
   5-c-2-user-cancel-refund: backlog
   5-c-3-pipl-data-export-json: backlog
   5-c-4-pipl-data-export-csv: backlog

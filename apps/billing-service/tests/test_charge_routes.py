@@ -8,20 +8,25 @@ from __future__ import annotations
 import time
 import uuid
 from collections.abc import AsyncIterator
+from decimal import Decimal
 from pathlib import Path
 
 import jwt
+import pytest
 import pytest_asyncio
 from billing_service.auth_dep import _loader as _jwt_loader  # noqa: PLC2701
+from billing_service.config import settings
 from billing_service.db import get_session
 from billing_service.main import app
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from httpx import ASGITransport, AsyncClient
+from pydantic import SecretStr
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 _TEST_KEY_DIR = Path("tests/_keys")
+_INTERNAL_SECRET = "test-refund-auto-secret"  # noqa: S105
 
 
 @pytest_asyncio.fixture(scope="session", loop_scope="session")
@@ -82,6 +87,15 @@ async def http_client(engine, token_factory) -> AsyncIterator[AsyncClient]:
 async def auth_headers(test_user_id: uuid.UUID, token_factory) -> dict[str, str]:
     _, token_for = token_factory
     return {"Authorization": f"Bearer {token_for(test_user_id)}"}
+
+
+@pytest.fixture(autouse=True)
+def _refund_auto_internal_secret(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(settings, "internal_service_secret", SecretStr(_INTERNAL_SECRET))
+
+
+def _internal_headers(secret: str = _INTERNAL_SECRET) -> dict[str, str]:
+    return {"X-Internal-Service-Auth": secret}
 
 
 # ===== AC7 tests =====
@@ -449,6 +463,284 @@ async def test_finalize_idempotent_replay_returns_same_response(
     bal_after_second = float(body2["balance_after"])
     # No duplicate ledger rows means balance unchanged across replays
     assert abs(bal_after_second - bal_after_first) < 1e-6
+
+
+# ===== Story 5.C.1 — automatic refunds for failed/cancelled/infeasible =====
+
+
+def _auto_refund_body(
+    *,
+    reason: str = "failed",
+    source: str = "solver_orchestrator",
+    source_ref: str | None = None,
+) -> dict[str, str | float]:
+    return {
+        "reason": reason,
+        "source": source,
+        "source_ref": source_ref or f"opt_{uuid.uuid4().hex}",
+        "elapsed_seconds": 5.0,
+    }
+
+
+async def _saga_ledger_sum(session: AsyncSession, charge_id: str) -> Decimal:
+    value = (
+        await session.execute(
+            text("SELECT COALESCE(SUM(amount), 0) FROM credit_transactions WHERE saga_id = :id"),
+            {"id": uuid.UUID(charge_id)},
+        )
+    ).scalar_one()
+    return Decimal(str(value))
+
+
+async def _ledger_kind_amounts(session: AsyncSession, charge_id: str) -> list[tuple[str, Decimal]]:
+    rows = (
+        await session.execute(
+            text(
+                "SELECT kind, amount FROM credit_transactions "
+                "WHERE saga_id = :id ORDER BY created_at, kind"
+            ),
+            {"id": uuid.UUID(charge_id)},
+        )
+    ).all()
+    return [(str(row[0]), Decimal(str(row[1]))) for row in rows]
+
+
+async def _outbox_count(session: AsyncSession, charge_id: str) -> int:
+    return int(
+        (
+            await session.execute(
+                text("SELECT COUNT(*) FROM outbox WHERE aggregate_id = :id"),
+                {"id": uuid.UUID(charge_id)},
+            )
+        ).scalar_one()
+    )
+
+
+async def test_refund_auto_requires_internal_auth(
+    http_client: AsyncClient, auth_headers: dict[str, str]
+) -> None:
+    """5.C.1 AC1 — user JWT alone is not enough for automatic refunds."""
+    charge_id = await _create_charge(http_client, auth_headers)
+
+    no_internal = await http_client.post(
+        f"/v1/billing/charges/{charge_id}/refund-auto",
+        headers=auth_headers,
+        json=_auto_refund_body(),
+    )
+    wrong_internal = await http_client.post(
+        f"/v1/billing/charges/{charge_id}/refund-auto",
+        headers=_internal_headers("wrong-secret"),
+        json=_auto_refund_body(),
+    )
+
+    assert no_internal.status_code == 401
+    assert wrong_internal.status_code == 401
+
+
+async def test_refund_auto_reserved_infeasible_writes_net_zero_audit(
+    http_client: AsyncClient,
+    auth_headers: dict[str, str],
+    session: AsyncSession,
+) -> None:
+    """5.C.1 AC5 + AC10 — reserved infeasible auto-refund is net-zero and audited."""
+    charge_id = await _create_charge(http_client, auth_headers)
+    await http_client.post(f"/v1/billing/charges/{charge_id}/reserve", headers=auth_headers)
+    balance_before = float(
+        (await http_client.get("/v1/billing/balance", headers=auth_headers)).json()["balance"]
+    )
+
+    response = await http_client.post(
+        f"/v1/billing/charges/{charge_id}/refund-auto",
+        headers=_internal_headers(),
+        json=_auto_refund_body(reason="infeasible", source_ref="opt_infeasible_001"),
+    )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["current_state"] == "refunded"
+    assert body["refund_mode"] == "reserved_net_zero"
+    assert body["refunded_amount"] == "0.00"
+    assert await _saga_ledger_sum(session, charge_id) == Decimal("0.0000")
+    assert ("refund", Decimal("6.0000")) in await _ledger_kind_amounts(session, charge_id)
+    assert ("refund_reversal", Decimal("-6.0000")) in await _ledger_kind_amounts(session, charge_id)
+    balance_after = float(
+        (await http_client.get("/v1/billing/balance", headers=auth_headers)).json()["balance"]
+    )
+    assert abs(balance_after - balance_before) < 1e-6
+
+    audit_payload = (
+        await session.execute(
+            text(
+                "SELECT payload FROM outbox "
+                "WHERE aggregate_id = :id AND event_type = 'billing.refund_auto.detected'"
+            ),
+            {"id": uuid.UUID(charge_id)},
+        )
+    ).scalar_one()
+    assert audit_payload["reason"] == "infeasible"
+    assert audit_payload["source"] == "solver_orchestrator"
+    assert audit_payload["source_ref"] == "opt_infeasible_001"
+    forbidden = {"email", "phone", "jwt", "api_key", "payment_ref", "raw_payload"}
+    assert forbidden.isdisjoint(audit_payload)
+
+
+async def test_refund_auto_charged_full_amount_rolls_back_to_zero(
+    http_client: AsyncClient,
+    auth_headers: dict[str, str],
+    session: AsyncSession,
+) -> None:
+    """5.C.1 AC6 — full charged Saga rolls back with one refund row and net-zero sum."""
+    charge_id = await _create_charge(http_client, auth_headers)
+    await http_client.post(f"/v1/billing/charges/{charge_id}/reserve", headers=auth_headers)
+    finalized = await http_client.post(
+        f"/v1/billing/charges/{charge_id}/finalize",
+        headers=auth_headers,
+        json={"elapsed_seconds": 60.0, "status": "success", "failure_reason": None},
+    )
+    assert finalized.status_code == 200, finalized.text
+    balance_after_charge = float(finalized.json()["balance_after"])
+
+    response = await http_client.post(
+        f"/v1/billing/charges/{charge_id}/refund-auto",
+        headers=_internal_headers(),
+        json=_auto_refund_body(reason="failed"),
+    )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["current_state"] == "rolled_back"
+    assert body["refund_mode"] == "charged_rollback"
+    assert body["refunded_amount"] == "6.00"
+    assert await _saga_ledger_sum(session, charge_id) == Decimal("0.0000")
+    balance_after_refund = float(body["balance_after"])
+    assert abs(balance_after_refund - (balance_after_charge + 6.0)) < 1e-6
+
+
+async def test_refund_auto_charged_partial_reverses_prior_partial_refund(
+    http_client: AsyncClient,
+    auth_headers: dict[str, str],
+    session: AsyncSession,
+) -> None:
+    """5.C.1 AC7 — after partial finalize, automatic refund restores only actual paid amount."""
+    charge_id = await _create_charge(http_client, auth_headers)
+    await http_client.post(f"/v1/billing/charges/{charge_id}/reserve", headers=auth_headers)
+    finalized = await http_client.post(
+        f"/v1/billing/charges/{charge_id}/finalize",
+        headers=auth_headers,
+        json={"elapsed_seconds": 5.0, "status": "success", "failure_reason": None},
+    )
+    assert finalized.status_code == 200, finalized.text
+    assert finalized.json()["actual_amount"] == "0.50"
+    balance_after_charge = float(finalized.json()["balance_after"])
+
+    response = await http_client.post(
+        f"/v1/billing/charges/{charge_id}/refund-auto",
+        headers=_internal_headers(),
+        json=_auto_refund_body(reason="cancelled", source_ref="task_cancelled_001"),
+    )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["current_state"] == "rolled_back"
+    assert body["refunded_amount"] == "0.50"
+    assert await _saga_ledger_sum(session, charge_id) == Decimal("0.0000")
+    ledger_rows = await _ledger_kind_amounts(session, charge_id)
+    assert ("charge", Decimal("-6.0000")) in ledger_rows
+    assert ("refund_partial", Decimal("5.5000")) in ledger_rows
+    assert ("refund", Decimal("6.0000")) in ledger_rows
+    assert ("refund_reversal", Decimal("-5.5000")) in ledger_rows
+    assert abs(float(body["balance_after"]) - (balance_after_charge + 0.5)) < 1e-6
+
+
+async def test_refund_auto_replay_on_terminal_does_not_duplicate_rows_or_outbox(
+    http_client: AsyncClient,
+    auth_headers: dict[str, str],
+    session: AsyncSession,
+) -> None:
+    """5.C.1 AC8 — retry after rolled_back rebuilds response without writing again."""
+    charge_id = await _create_charge(http_client, auth_headers)
+    await http_client.post(f"/v1/billing/charges/{charge_id}/reserve", headers=auth_headers)
+    await http_client.post(
+        f"/v1/billing/charges/{charge_id}/finalize",
+        headers=auth_headers,
+        json={"elapsed_seconds": 60.0, "status": "success", "failure_reason": None},
+    )
+    request_body = _auto_refund_body(reason="failed", source_ref="task_failed_replay")
+    first = await http_client.post(
+        f"/v1/billing/charges/{charge_id}/refund-auto",
+        headers=_internal_headers(),
+        json=request_body,
+    )
+    rows_after_first = len(await _ledger_kind_amounts(session, charge_id))
+    outbox_after_first = await _outbox_count(session, charge_id)
+
+    replay = await http_client.post(
+        f"/v1/billing/charges/{charge_id}/refund-auto",
+        headers=_internal_headers(),
+        json=request_body,
+    )
+
+    assert replay.status_code == 200, replay.text
+    assert replay.json() == first.json()
+    assert len(await _ledger_kind_amounts(session, charge_id)) == rows_after_first
+    assert await _outbox_count(session, charge_id) == outbox_after_first
+
+
+async def test_refund_auto_rejects_pending_completed_and_topup_without_mutation(
+    http_client: AsyncClient,
+    auth_headers: dict[str, str],
+    session: AsyncSession,
+    test_user_id: uuid.UUID,
+) -> None:
+    """5.C.1 AC3/4/9 — non-refundable states and non-charge sagas are rejected cleanly."""
+    pending_id = await _create_charge(http_client, auth_headers)
+    pending = await http_client.post(
+        f"/v1/billing/charges/{pending_id}/refund-auto",
+        headers=_internal_headers(),
+        json=_auto_refund_body(),
+    )
+    assert pending.status_code == 409
+    assert await _saga_ledger_sum(session, pending_id) == Decimal("0")
+
+    completed_id = await _create_charge(http_client, auth_headers)
+    await http_client.post(f"/v1/billing/charges/{completed_id}/reserve", headers=auth_headers)
+    await http_client.post(
+        f"/v1/billing/charges/{completed_id}/finalize",
+        headers=auth_headers,
+        json={"elapsed_seconds": 60.0, "status": "success", "failure_reason": None},
+    )
+    await session.execute(
+        text("UPDATE saga_instances SET current_state = 'completed' WHERE id = :id"),
+        {"id": uuid.UUID(completed_id)},
+    )
+    await session.commit()
+    completed_rows_before = len(await _ledger_kind_amounts(session, completed_id))
+    completed = await http_client.post(
+        f"/v1/billing/charges/{completed_id}/refund-auto",
+        headers=_internal_headers(),
+        json=_auto_refund_body(),
+    )
+    assert completed.status_code == 409
+    assert len(await _ledger_kind_amounts(session, completed_id)) == completed_rows_before
+
+    topup_id = uuid.uuid4()
+    await session.execute(
+        text(
+            "INSERT INTO saga_instances "
+            "(id, saga_type, current_state, user_id, idempotency_key, amount, retries, "
+            "payload_ref, created_at, updated_at) "
+            "VALUES (:id, 'topup', 'pending', :user_id, :idem, 10.00, 0, '{}', NOW(), NOW())"
+        ),
+        {"id": topup_id, "user_id": test_user_id, "idem": f"topup-{uuid.uuid4()}"},
+    )
+    await session.commit()
+    topup = await http_client.post(
+        f"/v1/billing/charges/{topup_id}/refund-auto",
+        headers=_internal_headers(),
+        json=_auto_refund_body(),
+    )
+    assert topup.status_code == 409
+    assert await _saga_ledger_sum(session, str(topup_id)) == Decimal("0")
 
 
 # ===== Story 5.A.5 — pre-charge guard (AC8 rows 7-10) =====
