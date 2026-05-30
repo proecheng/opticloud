@@ -36,8 +36,8 @@ dependencies:
 
 ## User Story
 
-**As** Billing Architect + Solver Lead + Foundation Test Owner  
-**I want** a shared, deterministic Saga contract fixture catalog covering Epic 0/3/5.A boundaries  
+**As** Billing Architect + Solver Lead + Foundation Test Owner
+**I want** a shared, deterministic Saga contract fixture catalog covering Epic 0/3/5.A boundaries
 **so that** downstream Saga implementation and cross-epic dry-runs cannot split ownership, drift state semantics, or silently create billing ledger inconsistencies.
 
 ## Why This Story
