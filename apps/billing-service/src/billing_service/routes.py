@@ -17,7 +17,7 @@ import logging
 import uuid
 from datetime import UTC, datetime
 from decimal import Decimal
-from typing import cast
+from typing import Any, cast
 
 from fastapi import APIRouter, Depends, Header, HTTPException, status
 from opticloud_shared.cost_telemetry import CostTelemetryEvent, CostUnit, record_cost_event
@@ -44,9 +44,15 @@ from billing_service.exceptions import (
     SagaNotFoundError,
     SagaTerminalError,
 )
-from billing_service.models import CostAttribution, CreditTransaction, OutboxEvent, SagaInstance
+from billing_service.models import (
+    CostAttribution,
+    CreditTransaction,
+    IdempotencyKeyRow,
+    OutboxEvent,
+    SagaInstance,
+)
 from billing_service.pricing import classify_warnings, compute_charge_amount
-from billing_service.saga_orchestrator import SagaOrchestrator
+from billing_service.saga_orchestrator import SagaOrchestrator, hash_body
 from billing_service.schemas import (
     BalanceResponse,
     BucketBalance,
@@ -162,6 +168,135 @@ def _topup_response(saga: SagaInstance, *, balance_after: Decimal | None = None)
         expires_hint=BUCKET_EXPIRES_HINT_ZH[BUCKET_TOPUP] or "永不过期",
         balance_after=f"{balance_after:.2f}" if balance_after is not None else None,
     )
+
+
+def _charge_saga_type(body: ChargeCreateRequest) -> str:
+    return f"{body.purpose}_charge"
+
+
+def _charge_payload(body: ChargeCreateRequest, *, include_confirmation_ref: bool) -> dict[str, str]:
+    payload = {
+        "reference_id": body.reference_id,
+        "purpose": body.purpose,
+    }
+    if include_confirmation_ref:
+        payload["confirmation_ref"] = "precharge-confirmed"
+    return payload
+
+
+def _charge_request_hash(body: ChargeCreateRequest, *, include_confirmation_ref: bool) -> str:
+    return hash_body(
+        {
+            "saga_type": _charge_saga_type(body),
+            "payload": _charge_payload(
+                body,
+                include_confirmation_ref=include_confirmation_ref,
+            ),
+            "amount": str(body.amount) if body.amount else None,
+        }
+    )
+
+
+def _charge_request_hash_candidates(body: ChargeCreateRequest) -> set[str]:
+    candidates = {_charge_request_hash(body, include_confirmation_ref=False)}
+    if body.confirmed:
+        candidates.add(_charge_request_hash(body, include_confirmation_ref=True))
+    return candidates
+
+
+def _charge_response_json(response: ChargeResponse) -> dict[str, Any]:
+    return response.model_dump(mode="json")
+
+
+async def _idempotency_row_by_key(
+    session: AsyncSession, idempotency_key: str
+) -> IdempotencyKeyRow | None:
+    return await session.get(IdempotencyKeyRow, idempotency_key)
+
+
+async def _persist_charge_response_body(
+    session: AsyncSession,
+    idempotency_key: str,
+    response: ChargeResponse,
+) -> None:
+    row = await _idempotency_row_by_key(session, idempotency_key)
+    if row is None:
+        raise RuntimeError(f"idempotency row {idempotency_key!r} missing after Saga start")
+    row.response_body = _charge_response_json(response)
+    await session.flush()
+
+
+async def _legacy_charge_response_from_idempotency_row(
+    session: AsyncSession,
+    row: IdempotencyKeyRow,
+) -> Response | ChargeResponse:
+    if row.saga_id is None:
+        await session.rollback()
+        return _problem_response(
+            title="Idempotency Conflict",
+            status_code=status.HTTP_409_CONFLICT,
+            detail="idempotency key is not linked to a charge Saga",
+        )
+
+    saga_id = row.saga_id
+    saga = await session.get(SagaInstance, saga_id)
+    if saga is None:
+        await session.rollback()
+        return _problem_response(
+            title="Charge Not Found",
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"charge {saga_id} not found",
+        )
+
+    balance = await _balance_for(session, row.user_id)
+    response = ChargeResponse(
+        charge_id=str(saga.id),
+        current_state=saga.current_state,
+        amount=f"{saga.amount:.2f}" if saga.amount is not None else "0.00",
+        currency="CNY",
+        balance_before=f"{balance:.2f}",
+        balance_after=f"{balance:.2f}",
+    )
+    row.response_body = _charge_response_json(response)
+    await session.commit()
+    return response
+
+
+async def _charge_replay_response_if_cached(
+    session: AsyncSession,
+    *,
+    body: ChargeCreateRequest,
+    user_id: uuid.UUID,
+    idempotency_key: str,
+) -> Response | ChargeResponse | None:
+    row = await _idempotency_row_by_key(session, idempotency_key)
+    if row is None or row.expires_at <= datetime.now(UTC):
+        return None
+
+    if row.user_id != user_id:
+        owner_user_id = row.user_id
+        await session.rollback()
+        return _problem_response(
+            title="Cross-tenant key reuse forbidden",
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                f"Idempotency key {idempotency_key!r} belongs to tenant "
+                f"{owner_user_id}, not {user_id}"
+            ),
+        )
+
+    if row.request_body_hash not in _charge_request_hash_candidates(body):
+        await session.rollback()
+        return _problem_response(
+            title="Idempotency Conflict",
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Idempotency-Key was reused with a different request body",
+        )
+
+    if row.response_body is not None:
+        return ChargeResponse.model_validate(row.response_body)
+
+    return await _legacy_charge_response_from_idempotency_row(session, row)
 
 
 async def _topup_ledger_rows(session: AsyncSession, topup_id: uuid.UUID) -> list[CreditTransaction]:
@@ -411,6 +546,15 @@ async def create_charge(
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
 
+    cached_response = await _charge_replay_response_if_cached(
+        session,
+        body=body,
+        user_id=user_id,
+        idempotency_key=idempotency_key,
+    )
+    if cached_response is not None:
+        return cached_response
+
     if not await _has_any_transactions(session, user_id):
         await _seed_demo_balance(session, user_id)
 
@@ -451,22 +595,15 @@ async def create_charge(
 
     # 5.A.5 — audit trail: deterministic flag (boolean, not timestamp, so idempotent replays
     # produce the same body hash). The "when" is saga.created_at; the user_id is saga.user_id.
-    confirm_payload: dict[str, str] = {}
-    if warnings and body.confirmed:
-        confirm_payload["confirmation_ref"] = "precharge-confirmed"
+    include_confirmation_ref = bool(warnings and body.confirmed)
 
     orch = SagaOrchestrator(session)
     try:
         saga = await orch.start(
-            saga_type=f"{body.purpose}_charge",
+            saga_type=_charge_saga_type(body),
             user_id=user_id,
             idempotency_key=idempotency_key,
-            payload={
-                "reference_id": body.reference_id,
-                "purpose": body.purpose,
-                # Story 5.A.5 — audit trail for pre-charge guard explicit confirm
-                **confirm_payload,
-            },
+            payload=_charge_payload(body, include_confirmation_ref=include_confirmation_ref),
             amount=body.amount,
         )
     except CrossTenantKeyError as e:
@@ -484,10 +621,8 @@ async def create_charge(
             detail=str(e),
         )
 
-    await session.commit()
     balance_after = await _balance_for(session, user_id)
-
-    return ChargeResponse(
+    response = ChargeResponse(
         charge_id=str(saga.id),
         current_state=saga.current_state,
         amount=f"{body.amount:.2f}",
@@ -495,6 +630,9 @@ async def create_charge(
         balance_before=f"{balance_before:.2f}",
         balance_after=f"{balance_after:.2f}",  # unchanged until /confirm
     )
+    await _persist_charge_response_body(session, idempotency_key, response)
+    await session.commit()
+    return response
 
 
 @billing_router.post(
