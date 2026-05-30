@@ -16,7 +16,7 @@ from __future__ import annotations
 import logging
 import uuid
 from datetime import UTC, datetime, timedelta
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 from typing import Any, Literal, cast
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
@@ -72,6 +72,7 @@ from billing_service.schemas import (
     RefillDueResponse,
     ReserveChargeResponse,
     SubscriptionCreateRequest,
+    SubscriptionProrationResponse,
     SubscriptionResponse,
     TopupConfirmRequest,
     TopupCreateRequest,
@@ -198,7 +199,11 @@ def _plan_response(plan: Plan) -> PlanResponse:
     )
 
 
-def _subscription_response(subscription: BillingSubscription) -> SubscriptionResponse:
+def _subscription_response(
+    subscription: BillingSubscription,
+    *,
+    proration: SubscriptionProrationResponse | None = None,
+) -> SubscriptionResponse:
     plan = get_plan(cast(PlanCode, subscription.plan_code))
     entitlement_source = _subscription_entitlement_source(subscription)
     refill_bucket = _subscription_refill_bucket(subscription)
@@ -219,6 +224,7 @@ def _subscription_response(subscription: BillingSubscription) -> SubscriptionRes
         education_entitlement=education_entitlement,
         trial_ends_at=trial_ends_at,
         fallback_plan_code=fallback_plan_code,
+        proration=proration,
     )
 
 
@@ -319,6 +325,14 @@ def _subscription_has_edu_entitlement(subscription: BillingSubscription) -> bool
         "starter_free",
         "pro_30d_trial",
     }
+
+
+def _subscription_has_education_metadata(subscription: BillingSubscription) -> bool:
+    return (
+        subscription.metadata_json.get("source") == "edu_tier"
+        or isinstance(subscription.metadata_json.get("education_entitlement"), str)
+        or subscription.metadata_json.get("education_pro_trial_used") is True
+    )
 
 
 def _parse_metadata_datetime(raw: object) -> datetime | None:
@@ -474,6 +488,61 @@ def _edu_starter_fallback_metadata(existing: dict[str, Any] | None = None) -> di
     return metadata
 
 
+def _ceil_days(delta: timedelta) -> int:
+    total_microseconds = (
+        delta.days * 24 * 60 * 60 + delta.seconds
+    ) * 1_000_000 + delta.microseconds
+    if total_microseconds <= 0:
+        return 0
+    day_microseconds = 24 * 60 * 60 * 1_000_000
+    return (total_microseconds + day_microseconds - 1) // day_microseconds
+
+
+def _subscription_proration_response(
+    *,
+    from_plan_code: PlanCode,
+    to_plan_code: PlanCode,
+    amount: Decimal,
+    remaining_days: int,
+    total_days: int,
+) -> SubscriptionProrationResponse:
+    return SubscriptionProrationResponse(
+        from_plan_code=from_plan_code,
+        to_plan_code=to_plan_code,
+        amount=f"{amount:.2f}",
+        currency="CNY",
+        remaining_days=remaining_days,
+        total_days=total_days,
+    )
+
+
+def _subscription_proration_metadata(
+    subscription: BillingSubscription,
+    *,
+    from_plan_code: PlanCode,
+    to_plan_code: PlanCode,
+    amount: Decimal,
+    prorated_at: datetime,
+    remaining_days: int,
+    total_days: int,
+    monthly_credit_delta: Decimal,
+) -> dict[str, str]:
+    return {
+        "subscription_id": str(subscription.id),
+        "from_plan_code": from_plan_code,
+        "to_plan_code": to_plan_code,
+        "period_start": subscription.current_period_start.isoformat(),
+        "period_end": subscription.current_period_end.isoformat(),
+        "prorated_at": prorated_at.isoformat(),
+        "remaining_days": str(remaining_days),
+        "total_days": str(total_days),
+        "monthly_credit_delta": f"{monthly_credit_delta:.2f}",
+        "amount": f"{amount:.2f}",
+        "trigger": "plan_upgrade_proration",
+        "bucket": "monthly",
+    }
+
+
 def _subscription_payload(subscription: BillingSubscription) -> dict[str, str]:
     education_entitlement = _subscription_education_entitlement(subscription)
     return {
@@ -570,6 +639,109 @@ async def _apply_monthly_refill_once(
     )
     await session.flush()
     return True
+
+
+async def _upgrade_starter_to_pro_with_proration(
+    session: AsyncSession,
+    subscription: BillingSubscription,
+    *,
+    now: datetime,
+) -> Response | SubscriptionResponse:
+    if _subscription_has_education_metadata(subscription):
+        await session.rollback()
+        return _problem_response(
+            title="Plan change deferred",
+            status_code=status.HTTP_409_CONFLICT,
+            detail="education plan changes are handled by dedicated education subscription flows",
+        )
+    if await _user_is_edu_tier(session, subscription.user_id):
+        await session.rollback()
+        return _problem_response(
+            title="Plan change deferred",
+            status_code=status.HTTP_409_CONFLICT,
+            detail="education users must use education subscription flows",
+        )
+    if subscription.current_period_end <= now:
+        await session.rollback()
+        return _problem_response(
+            title="Subscription period already due",
+            status_code=status.HTTP_409_CONFLICT,
+            detail="run subscription refill-due before prorating an upgrade",
+        )
+
+    from_plan_code: PlanCode = "starter"
+    to_plan_code: PlanCode = "pro"
+    from_plan = get_plan(from_plan_code)
+    to_plan = get_plan(to_plan_code)
+    total_days = _ceil_days(subscription.current_period_end - subscription.current_period_start)
+    remaining_days = _ceil_days(subscription.current_period_end - now)
+    if total_days <= 0 or remaining_days <= 0:
+        await session.rollback()
+        return _problem_response(
+            title="Invalid subscription period",
+            status_code=status.HTTP_409_CONFLICT,
+            detail="subscription period cannot be prorated",
+        )
+
+    monthly_credit_delta = to_plan.monthly_credits - from_plan.monthly_credits
+    amount = (monthly_credit_delta * Decimal(remaining_days) / Decimal(total_days)).quantize(
+        Decimal("0.01"), rounding=ROUND_HALF_UP
+    )
+    if amount <= Decimal("0.00"):
+        await session.rollback()
+        return _problem_response(
+            title="Invalid proration amount",
+            status_code=status.HTTP_409_CONFLICT,
+            detail="subscription upgrade produced no positive prorated adjustment",
+        )
+
+    subscription.plan_code = to_plan_code
+    subscription.updated_at = now
+    metadata = _subscription_proration_metadata(
+        subscription,
+        from_plan_code=from_plan_code,
+        to_plan_code=to_plan_code,
+        amount=amount,
+        prorated_at=now,
+        remaining_days=remaining_days,
+        total_days=total_days,
+        monthly_credit_delta=monthly_credit_delta,
+    )
+    session.add(
+        CreditTransaction(
+            user_id=subscription.user_id,
+            saga_id=None,
+            amount=amount,
+            kind="subscription_proration",
+            bucket="monthly",
+            currency="CNY",
+            metadata_json=metadata,
+            created_at=now,
+        )
+    )
+    await _write_subscription_outbox(
+        session,
+        subscription=subscription,
+        event_type="billing.subscription.plan_changed",
+        payload_extra={
+            "from_plan_code": from_plan_code,
+            "to_plan_code": to_plan_code,
+            "proration_amount": f"{amount:.2f}",
+            "currency": "CNY",
+            "remaining_days": str(remaining_days),
+            "total_days": str(total_days),
+            "trigger": "plan_upgrade_proration",
+        },
+    )
+    await session.flush()
+    proration = _subscription_proration_response(
+        from_plan_code=from_plan_code,
+        to_plan_code=to_plan_code,
+        amount=amount,
+        remaining_days=remaining_days,
+        total_days=total_days,
+    )
+    return _subscription_response(subscription, proration=proration)
 
 
 async def _subscription_replay_response_if_cached(
@@ -1137,6 +1309,24 @@ async def create_subscription(
     if active is not None:
         response = _subscription_response(active)
         if active.plan_code != body.plan_code:
+            if active.plan_code == "starter" and body.plan_code == "pro":
+                upgrade_response = await _upgrade_starter_to_pro_with_proration(
+                    session,
+                    active,
+                    now=datetime.now(UTC),
+                )
+                if isinstance(upgrade_response, Response):
+                    return upgrade_response
+                await _upsert_subscription_idempotency_row(
+                    session,
+                    idempotency_key=idempotency_key,
+                    user_id=user_id,
+                    body=body,
+                    response=upgrade_response,
+                )
+                await session.commit()
+                return upgrade_response
+
             await session.rollback()
             return _problem_response(
                 title="Plan change deferred",
