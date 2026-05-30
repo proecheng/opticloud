@@ -180,7 +180,7 @@ development_status:
   5-c-2-user-cancel-refund: done              # 2026-05-30 — user async cancel now refunds reserved/charged Credits through internal billing rollback; post-review Saga locking fix applied
   5-c-3-pipl-data-export-json: done             # 2026-05-30 — PIPL JSON export request/status/download + auth-service actor; post-review concurrency idempotency fix applied
   5-c-4-pipl-data-export-csv: done             # 2026-05-30 — PIPL CSV export request/download zip package; post-review numeric CSV escaping fix applied
-  5-c-5-pipl-self-service-portal: backlog      # E7
+  5-c-5-pipl-self-service-portal: done             # 2026-05-30 — PIPL Console self-service data export portal; post-review mobile header wrap fix applied
 
   5-d-1-bilingual-invoices: backlog
   5-d-2-7d-30d-sparkline-trends: backlog
