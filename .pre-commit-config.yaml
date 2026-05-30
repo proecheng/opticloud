@@ -107,5 +107,8 @@ repos:
           # Public M3.9 image archival pipeline plan SHA-256, not a secret.
           - "--exclude-secrets"
           - "22cdba80e918acf54a08057790d49f929a21f8fdced2b72b4437ae3bbcb355c9"
+          # Public 5.A.0c Saga cross-epic fixture manifest SHA-256, not a secret.
+          - "--exclude-secrets"
+          - "6741adad1791c8f0108144a23af80e628b91ef5d80a88e99efb4b1bc928e2986"
         # pnpm-lock.yaml contains generated integrity hashes that trigger high-entropy false positives.
         exclude: ^(\.env\.example|infra/local-init/.*\.sql|.*\.stories\.tsx|pnpm-lock\.yaml)$

@@ -177,6 +177,7 @@ No DB-backed billing-service tests, solver-orchestrator integration tests, Docke
 - Do not alter production behavior to make the dry-run pass.
 - Any future real sign-off/evidence must be committed under a separate explicit story or operator process. The example in this story remains synthetic.
 - CI wiring is optional and not required for this story unless existing CI cannot cover the new test.
+- Public SHA-256 values committed in JSON artifacts must be allowlisted in `.pre-commit-config.yaml` under `detect-secrets --exclude-secrets`, following the existing M3.6/M3.7/M3.9 static contract pattern.
 
 ### Sprint tracking
 
@@ -264,6 +265,7 @@ Revisions applied:
 - 2026-05-30: AC7 focused tests, validator CLI, ruff check, and ruff format check passed.
 - 2026-05-30: Post-implementation code review found validator coverage gaps; hardened owner review focus, sign-off open risks, runbook sensitive-value checks, and fake completion claim checks.
 - 2026-05-30: Final post-review validation passed; story marked done.
+- 2026-05-30: CI lint failed on `detect-secrets` false positive for the public fixture manifest SHA-256; added the hash to `.pre-commit-config.yaml` allowlist using existing static-contract pattern.
 
 ### Completion Notes
 
@@ -280,6 +282,7 @@ Revisions applied:
 
 - `_bmad-output/stories/5-a-0c-saga-cross-epic-dryrun.md`
 - `_bmad-output/stories/sprint-status.yaml`
+- `.pre-commit-config.yaml`
 - `docs/runbooks/saga-cross-epic-dryrun.md`
 - `scripts/validate_saga_cross_epic_dryrun.py`
 - `tests/test_saga_cross_epic_dryrun.py`
