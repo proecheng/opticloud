@@ -81,4 +81,27 @@ export type { LoadingShimmerProps } from "./components/LoadingShimmer";
 export { EmptyState } from "./components/EmptyState";
 export type { EmptyStateProps } from "./components/EmptyState";
 
+export { ChatInterface } from "./components/ChatInterface";
+export type {
+  ChatInterfaceFileContext,
+  ChatInterfaceFileContextPreview,
+  ChatInterfaceFileSheetContext,
+  ChatInterfaceFileSelectionResult,
+  ChatInterfaceLocale,
+  ChatInterfaceMessage,
+  ChatInterfaceMessageStatus,
+  ChatInterfaceModelAction,
+  ChatInterfaceModelPreview,
+  ChatInterfaceProps,
+  ChatInterfaceRecoveryAction,
+  ChatInterfaceRecoveryInvalidRow,
+  ChatInterfaceRecoveryState,
+  ChatInterfaceResponse,
+  ChatInterfaceSendRequest,
+  ChatInterfaceSendResult,
+  ChatInterfaceStreamEvent,
+  ChatInterfaceWhatIfContext,
+  ChatInterfaceWhatIfPreview,
+} from "./components/ChatInterface";
+
 export const UI_VERSION = "0.0.1";

@@ -127,7 +127,7 @@ development_status:
   # ===== Epic 4.A/B/C: Chat & NL (19 stories) — M3 AIGC gated =====
   epic-4-a: in-progress
   epic-4-b: in-progress
-  epic-4-c: backlog
+  epic-4-c: in-progress
 
   4-a-1-nl-chat-input-internal-beta: done
   4-a-2-router-llm-intent: done
@@ -149,7 +149,7 @@ development_status:
   4-c-3-file-upload-csv-excel-json: done
   4-c-4-what-if-followup: done
   4-c-5-partial-upload-recovery: done
-  4-c-6-chat-interface-tier2: backlog
+  4-c-6-chat-interface-tier2: done
 
   # ===== Epic 5.A/B/C/D: Billing (27 stories) =====
   epic-5-a: backlog
