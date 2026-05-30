@@ -168,7 +168,7 @@ development_status:
   5-a-5-p5-warning-modal: done             # 2026-05-19 — /estimate endpoint + pre-charge guard on /charges + ConfirmationModal wiring in /demo/charge; +10 tests; FR B6 v1 ship
   5-a-6-topup-never-expire: done              # 2026-05-30 — FR B9 topup never-expire ledger contract; internal payment confirmation; post-review precision/ref hardening applied
   5-a-7-reconciliation-cron: done             # 2026-05-19 — reconciler module + CLI runner + 8 tests + RECONCILER.md; NFR-R4 continuous-observation evidence
-  5-a-8-cost-telemetry-hook: backlog
+  5-a-8-cost-telemetry-hook: done             # 2026-05-30 — Billing Saga cost telemetry hook; post-review savepoint isolation fix applied
   5-a-9-charge-idempotency: backlog
 
   5-b-1-five-plans-subscription: backlog
