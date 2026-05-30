@@ -19,7 +19,7 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any, Literal, cast
 
-from fastapi import APIRouter, Depends, Header, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from opticloud_shared.cost_telemetry import CostTelemetryEvent, CostUnit, record_cost_event
 from opticloud_shared.errors import ErrorDetail, rfc7807_error
 from prometheus_client import Counter
@@ -203,6 +203,9 @@ def _subscription_response(subscription: BillingSubscription) -> SubscriptionRes
     entitlement_source = _subscription_entitlement_source(subscription)
     refill_bucket = _subscription_refill_bucket(subscription)
     external_payment_required = _subscription_external_payment_required(subscription, plan)
+    education_entitlement = _subscription_education_entitlement(subscription)
+    trial_ends_at = _subscription_trial_ends_at(subscription)
+    fallback_plan_code = _subscription_fallback_plan_code(subscription)
     return SubscriptionResponse(
         subscription_id=str(subscription.id),
         plan_code=plan.code,
@@ -213,6 +216,9 @@ def _subscription_response(subscription: BillingSubscription) -> SubscriptionRes
         entitlement_source=entitlement_source,
         refill_bucket=refill_bucket,
         external_payment_required=external_payment_required,
+        education_entitlement=education_entitlement,
+        trial_ends_at=trial_ends_at,
+        fallback_plan_code=fallback_plan_code,
     )
 
 
@@ -276,9 +282,20 @@ def _subscription_request_hash(body: SubscriptionCreateRequest) -> str:
     return hash_body({"operation": "subscription_create", "plan_code": body.plan_code})
 
 
+def _edu_pro_trial_request_hash() -> str:
+    return hash_body({"operation": "edu_pro_trial_activate"})
+
+
 def _subscription_entitlement_source(subscription: BillingSubscription) -> str | None:
     raw = subscription.metadata_json.get("source")
     return raw if isinstance(raw, str) and raw == "edu_tier" else None
+
+
+def _subscription_education_entitlement(subscription: BillingSubscription) -> str | None:
+    if _subscription_entitlement_source(subscription) != "edu_tier":
+        return None
+    raw = subscription.metadata_json.get("education_entitlement")
+    return raw if isinstance(raw, str) else None
 
 
 def _subscription_is_edu_starter(subscription: BillingSubscription) -> bool:
@@ -289,10 +306,56 @@ def _subscription_is_edu_starter(subscription: BillingSubscription) -> bool:
     )
 
 
+def _subscription_is_edu_pro_trial(subscription: BillingSubscription) -> bool:
+    return (
+        subscription.plan_code == "pro"
+        and subscription.metadata_json.get("source") == "edu_tier"
+        and subscription.metadata_json.get("education_entitlement") == "pro_30d_trial"
+    )
+
+
+def _subscription_has_edu_entitlement(subscription: BillingSubscription) -> bool:
+    return _subscription_education_entitlement(subscription) in {
+        "starter_free",
+        "pro_30d_trial",
+    }
+
+
+def _parse_metadata_datetime(raw: object) -> datetime | None:
+    if not isinstance(raw, str):
+        return None
+    try:
+        value = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if value.tzinfo is None:
+        return value.replace(tzinfo=UTC)
+    return value
+
+
+def _subscription_trial_ends_at(subscription: BillingSubscription) -> datetime | None:
+    if not _subscription_is_edu_pro_trial(subscription):
+        return None
+    return _parse_metadata_datetime(subscription.metadata_json.get("trial_ends_at"))
+
+
+def _subscription_fallback_plan_code(
+    subscription: BillingSubscription,
+) -> Literal["starter"] | None:
+    if not _subscription_is_edu_pro_trial(subscription):
+        return None
+    raw = subscription.metadata_json.get("fallback_plan_code")
+    return "starter" if raw == "starter" else None
+
+
+def _subscription_trial_used(subscription: BillingSubscription) -> bool:
+    return bool(subscription.metadata_json.get("education_pro_trial_used") is True)
+
+
 def _subscription_refill_bucket(
     subscription: BillingSubscription,
 ) -> Literal["monthly", "edu"]:
-    return "edu" if _subscription_is_edu_starter(subscription) else "monthly"
+    return "edu" if _subscription_has_edu_entitlement(subscription) else "monthly"
 
 
 def _subscription_external_payment_required(subscription: BillingSubscription, plan: Plan) -> bool:
@@ -301,7 +364,7 @@ def _subscription_external_payment_required(subscription: BillingSubscription, p
         return raw
     if isinstance(raw, str):
         return raw.lower() == "true"
-    if _subscription_is_edu_starter(subscription):
+    if _subscription_has_edu_entitlement(subscription):
         return False
     return plan.external_payment_required
 
@@ -378,7 +441,41 @@ def _edu_starter_metadata(existing: dict[str, Any] | None = None) -> dict[str, A
     }
 
 
+def _edu_pro_trial_metadata(
+    existing: dict[str, Any] | None,
+    *,
+    trial_start: datetime,
+    trial_end: datetime,
+) -> dict[str, Any]:
+    trial_start_text = trial_start.isoformat()
+    trial_end_text = trial_end.isoformat()
+    metadata = {
+        **(existing or {}),
+        "source": "edu_tier",
+        "education_entitlement": "pro_30d_trial",
+        "education_pro_trial_used": True,
+        "trial_started_at": trial_start_text,
+        "trial_ends_at": trial_end_text,
+        "education_pro_trial_started_at": trial_start_text,
+        "education_pro_trial_ends_at": trial_end_text,
+        "fallback_plan_code": "starter",
+        "fallback_entitlement": "starter_free",
+        "external_payment_required": False,
+    }
+    return metadata
+
+
+def _edu_starter_fallback_metadata(existing: dict[str, Any] | None = None) -> dict[str, Any]:
+    metadata = _edu_starter_metadata(existing)
+    metadata.pop("trial_started_at", None)
+    metadata.pop("trial_ends_at", None)
+    metadata.pop("fallback_plan_code", None)
+    metadata.pop("fallback_entitlement", None)
+    return metadata
+
+
 def _subscription_payload(subscription: BillingSubscription) -> dict[str, str]:
+    education_entitlement = _subscription_education_entitlement(subscription)
     return {
         "subscription_id": str(subscription.id),
         "plan_code": subscription.plan_code,
@@ -386,9 +483,8 @@ def _subscription_payload(subscription: BillingSubscription) -> dict[str, str]:
         "period_start": subscription.current_period_start.isoformat(),
         "period_end": subscription.current_period_end.isoformat(),
         "refill_bucket": _subscription_refill_bucket(subscription),
-        **(
-            {"entitlement_source": "edu_tier"} if _subscription_is_edu_starter(subscription) else {}
-        ),
+        **({"entitlement_source": "edu_tier"} if education_entitlement is not None else {}),
+        **({"education_entitlement": education_entitlement} if education_entitlement else {}),
     }
 
 
@@ -418,6 +514,7 @@ async def _write_subscription_outbox(
 def _subscription_refill_metadata(
     subscription: BillingSubscription, *, trigger: str
 ) -> dict[str, str]:
+    education_entitlement = _subscription_education_entitlement(subscription)
     return {
         "subscription_id": str(subscription.id),
         "plan_code": subscription.plan_code,
@@ -425,9 +522,8 @@ def _subscription_refill_metadata(
         "period_end": subscription.current_period_end.isoformat(),
         "trigger": trigger,
         "bucket": _subscription_refill_bucket(subscription),
-        **(
-            {"entitlement_source": "edu_tier"} if _subscription_is_edu_starter(subscription) else {}
-        ),
+        **({"entitlement_source": "edu_tier"} if education_entitlement is not None else {}),
+        **({"education_entitlement": education_entitlement} if education_entitlement else {}),
     }
 
 
@@ -524,6 +620,53 @@ async def _subscription_replay_response_if_cached(
     return response
 
 
+async def _edu_pro_trial_replay_response_if_cached(
+    session: AsyncSession,
+    *,
+    user_id: uuid.UUID,
+    idempotency_key: str,
+) -> Response | SubscriptionResponse | None:
+    row = await _idempotency_row_by_key(session, idempotency_key)
+    if row is None or row.expires_at <= datetime.now(UTC):
+        return None
+
+    if row.user_id != user_id:
+        owner_user_id = row.user_id
+        await session.rollback()
+        return _problem_response(
+            title="Cross-tenant key reuse forbidden",
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                f"Idempotency key {idempotency_key!r} belongs to tenant "
+                f"{owner_user_id}, not {user_id}"
+            ),
+        )
+
+    if row.request_body_hash != _edu_pro_trial_request_hash():
+        await session.rollback()
+        return _problem_response(
+            title="Idempotency Conflict",
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Idempotency-Key was reused with a different request body",
+        )
+
+    if row.response_body is not None:
+        return SubscriptionResponse.model_validate(row.response_body)
+
+    subscription = await _active_subscription_for(session, user_id)
+    if subscription is None or not _subscription_is_edu_pro_trial(subscription):
+        await session.rollback()
+        return _problem_response(
+            title="Subscription Not Found",
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="idempotency row is not linked to an active education Pro trial",
+        )
+    response = _subscription_response(subscription)
+    row.response_body = _subscription_response_json(response)
+    await session.commit()
+    return response
+
+
 async def _activate_or_return_edu_starter(
     session: AsyncSession,
     *,
@@ -605,6 +748,151 @@ async def _activate_or_return_edu_starter(
     if should_apply_initial_refill:
         await _apply_monthly_refill_once(session, subscription, trigger="activation")
     return _subscription_response(subscription)
+
+
+async def _upsert_edu_pro_trial_idempotency_row(
+    session: AsyncSession,
+    *,
+    idempotency_key: str,
+    user_id: uuid.UUID,
+    response: SubscriptionResponse,
+) -> None:
+    now = datetime.now(UTC)
+    expires_at = now + settings.saga_idempotency_ttl_hours * timedelta(hours=1)
+    existing = await _idempotency_row_by_key(session, idempotency_key)
+    if existing is not None:
+        existing.user_id = user_id
+        existing.request_body_hash = _edu_pro_trial_request_hash()
+        existing.response_body = _subscription_response_json(response)
+        existing.saga_id = None
+        existing.expires_at = expires_at
+        existing.created_at = now
+        await session.flush()
+        return
+
+    session.add(
+        IdempotencyKeyRow(
+            key=idempotency_key,
+            user_id=user_id,
+            request_body_hash=_edu_pro_trial_request_hash(),
+            response_body=_subscription_response_json(response),
+            saga_id=None,
+            expires_at=expires_at,
+            created_at=now,
+        )
+    )
+    await session.flush()
+
+
+async def _activate_or_return_edu_pro_trial(
+    session: AsyncSession,
+    *,
+    user_id: uuid.UUID,
+) -> Response | SubscriptionResponse:
+    await _lock_user_for_subscription(session, user_id)
+    if not await _user_is_edu_tier(session, user_id):
+        await session.rollback()
+        return _problem_response(
+            title="Education entitlement not available",
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="user is not eligible for education Pro trial",
+        )
+
+    active = await _active_subscription_for(session, user_id, for_update=True)
+    if active is not None:
+        if _subscription_is_edu_pro_trial(active):
+            return _subscription_response(active)
+        if _subscription_trial_used(active):
+            await session.rollback()
+            return _problem_response(
+                title="Education Pro trial already used",
+                status_code=status.HTTP_409_CONFLICT,
+                detail="education Pro trial can only be activated once",
+            )
+        if active.plan_code in {"pro", "team", "enterprise"}:
+            await session.rollback()
+            return _problem_response(
+                title="Plan change deferred",
+                status_code=status.HTTP_409_CONFLICT,
+                detail="plan upgrade/downgrade with proration is handled by Story 5.B.4",
+            )
+
+    now = datetime.now(UTC)
+    trial_end = now + timedelta(days=30)
+    if active is None:
+        subscription = BillingSubscription(
+            user_id=user_id,
+            plan_code="pro",
+            status="active",
+            current_period_start=now,
+            current_period_end=trial_end,
+            last_refilled_period_start=None,
+            metadata_json=_edu_pro_trial_metadata(None, trial_start=now, trial_end=trial_end),
+            created_at=now,
+            updated_at=now,
+        )
+        session.add(subscription)
+    else:
+        active.plan_code = "pro"
+        active.current_period_start = now
+        active.current_period_end = trial_end
+        active.last_refilled_period_start = None
+        active.metadata_json = _edu_pro_trial_metadata(
+            active.metadata_json, trial_start=now, trial_end=trial_end
+        )
+        active.updated_at = now
+        subscription = active
+
+    await session.flush()
+    await _write_subscription_outbox(
+        session,
+        subscription=subscription,
+        event_type="billing.subscription.edu_pro_trial.activated",
+        payload_extra={
+            "trial_started_at": now.isoformat(),
+            "trial_ends_at": trial_end.isoformat(),
+            "fallback_plan_code": "starter",
+        },
+    )
+    await _apply_monthly_refill_once(session, subscription, trigger="edu_pro_trial_activation")
+    return _subscription_response(subscription)
+
+
+async def _fallback_edu_pro_trial_to_starter(
+    session: AsyncSession,
+    subscription: BillingSubscription,
+) -> bool:
+    if not _subscription_is_edu_pro_trial(subscription):
+        return False
+
+    fallback_start = subscription.current_period_end
+    fallback_end = add_one_calendar_month(fallback_start)
+    subscription.plan_code = "starter"
+    subscription.current_period_start = fallback_start
+    subscription.current_period_end = fallback_end
+    subscription.last_refilled_period_start = None
+    subscription.metadata_json = _edu_starter_fallback_metadata(subscription.metadata_json)
+    subscription.updated_at = datetime.now(UTC)
+    await session.flush()
+    await _write_subscription_outbox(
+        session,
+        subscription=subscription,
+        event_type="billing.subscription.edu_pro_trial.ended",
+        payload_extra={
+            "ended_plan_code": "pro",
+            "ended_education_entitlement": "pro_30d_trial",
+            "trial_ended_at": fallback_start.isoformat(),
+            "fallback_plan_code": "starter",
+        },
+    )
+    await _write_subscription_outbox(
+        session,
+        subscription=subscription,
+        event_type="billing.subscription.edu_starter.activated",
+        payload_extra={"trigger": "edu_pro_trial_fallback"},
+    )
+    await _apply_monthly_refill_once(session, subscription, trigger="edu_pro_trial_fallback")
+    return True
 
 
 async def _legacy_charge_response_from_idempotency_row(
@@ -753,6 +1041,51 @@ async def sync_edu_starter_subscription(
     response = await _activate_or_return_edu_starter(session, user_id=user_id)
     if isinstance(response, Response):
         return response
+    await session.commit()
+    return response
+
+
+@billing_router.post(
+    "/subscriptions/edu-pro-trial",
+    response_model=SubscriptionResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def activate_edu_pro_trial_subscription(
+    request: Request,
+    user_id: uuid.UUID = Depends(require_user),
+    session: AsyncSession = Depends(get_session),
+    idempotency_key: str = Header(..., alias="Idempotency-Key"),
+) -> Response | SubscriptionResponse:
+    """Story 5.B.3 — activate one education Pro 30-day trial for current user."""
+    try:
+        validate_idempotency_key(idempotency_key)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+
+    if (await request.body()).strip():
+        return _problem_response(
+            title="Request body not allowed",
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="education Pro trial activation uses the authenticated user only",
+        )
+
+    cached_response = await _edu_pro_trial_replay_response_if_cached(
+        session,
+        user_id=user_id,
+        idempotency_key=idempotency_key,
+    )
+    if cached_response is not None:
+        return cached_response
+
+    response = await _activate_or_return_edu_pro_trial(session, user_id=user_id)
+    if isinstance(response, Response):
+        return response
+    await _upsert_edu_pro_trial_idempotency_row(
+        session,
+        idempotency_key=idempotency_key,
+        user_id=user_id,
+        response=response,
+    )
     await session.commit()
     return response
 
@@ -921,6 +1254,9 @@ async def refill_due_subscriptions(
     skipped_zero_credit = 0
     for subscription in due:
         processed += 1
+        if _subscription_is_edu_pro_trial(subscription):
+            await _fallback_edu_pro_trial_to_starter(session, subscription)
+            refilled += 1
         while subscription.current_period_end <= as_of:
             subscription.current_period_start = subscription.current_period_end
             subscription.current_period_end = add_one_calendar_month(

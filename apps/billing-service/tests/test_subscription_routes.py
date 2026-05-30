@@ -237,6 +237,28 @@ async def _edu_refill_rows(session: AsyncSession, user_id: uuid.UUID) -> list[di
     return [dict(row) for row in rows]
 
 
+async def _refill_rows(session: AsyncSession, user_id: uuid.UUID) -> list[dict]:
+    rows = (
+        (
+            await session.execute(
+                text(
+                    """
+                    SELECT amount, bucket, kind, metadata
+                      FROM credit_transactions
+                     WHERE user_id = :user_id
+                       AND kind = 'monthly_refill'
+                     ORDER BY created_at ASC
+                    """
+                ),
+                {"user_id": user_id},
+            )
+        )
+        .mappings()
+        .all()
+    )
+    return [dict(row) for row in rows]
+
+
 async def _subscription_metadata(session: AsyncSession, subscription_id: str) -> dict:
     return (
         await session.execute(
@@ -266,6 +288,28 @@ async def _subscription_outbox_payloads(session: AsyncSession, subscription_id: 
         .all()
     )
     return [dict(row) for row in rows]
+
+
+async def _activate_edu_pro_trial(
+    http_client: AsyncClient,
+    headers: dict[str, str],
+    *,
+    key: str | None = None,
+    json_body: dict | None = None,
+) -> tuple[int, dict]:
+    kwargs = {}
+    if json_body is not None:
+        kwargs["json"] = json_body
+    response = await http_client.post(
+        "/v1/billing/subscriptions/edu-pro-trial",
+        headers={**headers, "Idempotency-Key": key or str(uuid.uuid4())},
+        **kwargs,
+    )
+    try:
+        body = response.json()
+    except ValueError:
+        body = {"raw": response.text}
+    return response.status_code, body
 
 
 async def test_plan_catalog_returns_five_stable_plans(
@@ -648,6 +692,402 @@ async def test_edu_starter_subscribe_does_not_cache_non_starter_active_plan(
     assert current.status_code == 200, current.text
     assert current.json()["subscription_id"] == pro["subscription_id"]
     assert current.json()["plan_code"] == "pro"
+
+
+async def test_edu_pro_trial_no_active_user_gets_30d_pro_and_edu_refill(
+    http_client: AsyncClient,
+    session: AsyncSession,
+    token_factory: tuple[Ed25519PrivateKey, callable[[uuid.UUID], str]],
+) -> None:
+    _, token_for = token_factory
+    user_id = uuid.uuid4()
+    await _create_user_row(session, user_id, edu_tier=True, with_edu_signup_seed=True)
+    headers = {"Authorization": f"Bearer {token_for(user_id)}"}
+
+    status_code, body = await _activate_edu_pro_trial(http_client, headers)
+
+    assert status_code == 201, body
+    assert body["plan_code"] == "pro"
+    assert body["monthly_credits"] == "10000.00"
+    assert body["entitlement_source"] == "edu_tier"
+    assert body["education_entitlement"] == "pro_30d_trial"
+    assert body["refill_bucket"] == "edu"
+    assert body["external_payment_required"] is False
+    assert body["trial_ends_at"] == body["current_period_end"]
+    assert body["fallback_plan_code"] == "starter"
+    start = datetime.fromisoformat(body["current_period_start"].replace("Z", "+00:00"))
+    end = datetime.fromisoformat(body["current_period_end"].replace("Z", "+00:00"))
+    assert end - start == timedelta(days=30)
+    assert await _bucket_balance(http_client, headers, "edu") == "12000.00"
+    rows = await _refill_rows(session, user_id)
+    assert len(rows) == 1
+    assert str(rows[0]["amount"]) == "10000.0000"
+    assert rows[0]["bucket"] == "edu"
+    assert rows[0]["metadata"]["trigger"] == "edu_pro_trial_activation"
+    metadata = await _subscription_metadata(session, body["subscription_id"])
+    assert metadata["education_pro_trial_used"] is True
+    assert metadata["education_entitlement"] == "pro_30d_trial"
+    outbox = await _subscription_outbox_payloads(session, body["subscription_id"])
+    assert "billing.subscription.edu_pro_trial.activated" in [row["event_type"] for row in outbox]
+    forbidden = {"token", "jwt", "email", "phone", "payment_ref", "provider", "raw_body"}
+    for row in outbox:
+        payload_text = str(row["payload"]).lower()
+        for field in forbidden:
+            assert field not in payload_text
+
+
+async def test_edu_pro_trial_mutates_edu_starter_row_and_current_exposes_trial_fields(
+    http_client: AsyncClient,
+    session: AsyncSession,
+    token_factory: tuple[Ed25519PrivateKey, callable[[uuid.UUID], str]],
+) -> None:
+    _, token_for = token_factory
+    user_id = uuid.uuid4()
+    await _create_user_row(session, user_id, edu_tier=True)
+    headers = {"Authorization": f"Bearer {token_for(user_id)}"}
+    starter = await _subscribe(http_client, headers, plan_code="starter")
+
+    status_code, body = await _activate_edu_pro_trial(http_client, headers)
+    current = await http_client.get("/v1/billing/subscriptions/current", headers=headers)
+
+    assert status_code == 201, body
+    assert body["subscription_id"] == starter["subscription_id"]
+    assert body["plan_code"] == "pro"
+    assert current.status_code == 200, current.text
+    assert current.json()["education_entitlement"] == "pro_30d_trial"
+    assert current.json()["trial_ends_at"] == body["trial_ends_at"]
+    counts = await _counts(session, user_id)
+    assert counts["subscriptions"] == 1
+    assert await _bucket_balance(http_client, headers, "edu") == "12000.00"
+
+
+async def test_edu_pro_trial_mutates_active_free_in_place(
+    http_client: AsyncClient,
+    session: AsyncSession,
+    token_factory: tuple[Ed25519PrivateKey, callable[[uuid.UUID], str]],
+) -> None:
+    _, token_for = token_factory
+    user_id = uuid.uuid4()
+    await _create_user_row(session, user_id, edu_tier=True)
+    headers = {"Authorization": f"Bearer {token_for(user_id)}"}
+    free = await _subscribe(http_client, headers, plan_code="free")
+
+    status_code, body = await _activate_edu_pro_trial(http_client, headers)
+
+    assert status_code == 201, body
+    assert body["subscription_id"] == free["subscription_id"]
+    assert body["plan_code"] == "pro"
+    assert body["education_entitlement"] == "pro_30d_trial"
+    counts = await _counts(session, user_id)
+    assert counts["subscriptions"] == 1
+    assert await _bucket_balance(http_client, headers, "edu") == "10000.00"
+
+
+async def test_edu_pro_trial_mutates_existing_non_edu_starter_after_edu_flag_granted(
+    http_client: AsyncClient,
+    session: AsyncSession,
+    token_factory: tuple[Ed25519PrivateKey, callable[[uuid.UUID], str]],
+) -> None:
+    _, token_for = token_factory
+    user_id = uuid.uuid4()
+    await _create_user_row(session, user_id, edu_tier=False)
+    headers = {"Authorization": f"Bearer {token_for(user_id)}"}
+    starter = await _subscribe(http_client, headers, plan_code="starter")
+    await session.execute(
+        text("UPDATE users SET edu_tier = TRUE WHERE id = :user_id"),
+        {"user_id": user_id},
+    )
+    await session.commit()
+
+    status_code, body = await _activate_edu_pro_trial(http_client, headers)
+
+    assert status_code == 201, body
+    assert body["subscription_id"] == starter["subscription_id"]
+    assert body["plan_code"] == "pro"
+    assert body["education_entitlement"] == "pro_30d_trial"
+    counts = await _counts(session, user_id)
+    assert counts["subscriptions"] == 1
+    assert await _bucket_balance(http_client, headers, "monthly") == "2000.00"
+    assert await _bucket_balance(http_client, headers, "edu") == "10000.00"
+
+
+async def test_edu_pro_trial_replay_and_active_trial_repeat_do_not_duplicate_refill(
+    http_client: AsyncClient,
+    session: AsyncSession,
+    token_factory: tuple[Ed25519PrivateKey, callable[[uuid.UUID], str]],
+) -> None:
+    _, token_for = token_factory
+    user_id = uuid.uuid4()
+    await _create_user_row(session, user_id, edu_tier=True)
+    headers = {"Authorization": f"Bearer {token_for(user_id)}"}
+    key = str(uuid.uuid4())
+
+    first_status, first_body = await _activate_edu_pro_trial(http_client, headers, key=key)
+    replay_status, replay_body = await _activate_edu_pro_trial(http_client, headers, key=key)
+    repeat_status, repeat_body = await _activate_edu_pro_trial(http_client, headers)
+
+    assert first_status == 201, first_body
+    assert replay_status == 201, replay_body
+    assert repeat_status == 201, repeat_body
+    assert replay_body == first_body
+    assert repeat_body["subscription_id"] == first_body["subscription_id"]
+    rows = await _refill_rows(session, user_id)
+    assert len(rows) == 1
+    assert await _bucket_balance(http_client, headers, "edu") == "10000.00"
+
+
+async def test_edu_pro_trial_rejects_body_non_edu_and_paid_non_trial_without_cache(
+    http_client: AsyncClient,
+    session: AsyncSession,
+    fresh_headers: tuple[uuid.UUID, dict[str, str]],
+    token_factory: tuple[Ed25519PrivateKey, callable[[uuid.UUID], str]],
+) -> None:
+    non_edu_user_id, non_edu_headers = fresh_headers
+    non_edu_key = str(uuid.uuid4())
+    non_edu_status, non_edu_body = await _activate_edu_pro_trial(
+        http_client, non_edu_headers, key=non_edu_key
+    )
+
+    _, token_for = token_factory
+    edu_user_id = uuid.uuid4()
+    await _create_user_row(session, edu_user_id, edu_tier=True)
+    paid_headers = {"Authorization": f"Bearer {token_for(edu_user_id)}"}
+    paid_pro = await _subscribe(http_client, paid_headers, plan_code="pro")
+    paid_key = str(uuid.uuid4())
+    paid_status, paid_body = await _activate_edu_pro_trial(http_client, paid_headers, key=paid_key)
+    body_status, body = await _activate_edu_pro_trial(
+        http_client, paid_headers, json_body={"fallback_plan_code": "enterprise"}
+    )
+
+    assert non_edu_status == 403, non_edu_body
+    assert non_edu_body["title"] == "Education entitlement not available"
+    assert await _stored_response_body(session, non_edu_key) is None
+    assert await _counts(session, non_edu_user_id) == {
+        "subscriptions": 0,
+        "refills": 0,
+        "outbox_events": 0,
+    }
+    assert paid_status == 409, paid_body
+    assert paid_body["title"] == "Plan change deferred"
+    assert await _stored_response_body(session, paid_key) is None
+    assert body_status == 422, body
+    current = await http_client.get("/v1/billing/subscriptions/current", headers=paid_headers)
+    assert current.status_code == 200, current.text
+    assert current.json()["subscription_id"] == paid_pro["subscription_id"]
+    assert current.json()["plan_code"] == "pro"
+    assert current.json()["education_entitlement"] is None
+
+
+@pytest.mark.parametrize("plan_code", ["pro", "team", "enterprise"])
+async def test_edu_pro_trial_rejects_active_non_trial_higher_plans_without_cache(
+    http_client: AsyncClient,
+    session: AsyncSession,
+    token_factory: tuple[Ed25519PrivateKey, callable[[uuid.UUID], str]],
+    plan_code: str,
+) -> None:
+    _, token_for = token_factory
+    user_id = uuid.uuid4()
+    await _create_user_row(session, user_id, edu_tier=True)
+    headers = {"Authorization": f"Bearer {token_for(user_id)}"}
+    active = await _subscribe(http_client, headers, plan_code=plan_code)
+    key = str(uuid.uuid4())
+
+    status_code, body = await _activate_edu_pro_trial(http_client, headers, key=key)
+
+    assert status_code == 409, body
+    assert body["title"] == "Plan change deferred"
+    assert await _stored_response_body(session, key) is None
+    current = await http_client.get("/v1/billing/subscriptions/current", headers=headers)
+    assert current.status_code == 200, current.text
+    assert current.json()["subscription_id"] == active["subscription_id"]
+    assert current.json()["plan_code"] == plan_code
+    assert current.json()["education_entitlement"] is None
+
+
+async def test_edu_pro_trial_idempotency_key_conflicts_with_subscription_operation(
+    http_client: AsyncClient,
+    session: AsyncSession,
+    token_factory: tuple[Ed25519PrivateKey, callable[[uuid.UUID], str]],
+) -> None:
+    _, token_for = token_factory
+    user_id = uuid.uuid4()
+    await _create_user_row(session, user_id, edu_tier=True)
+    headers = {"Authorization": f"Bearer {token_for(user_id)}"}
+    key = str(uuid.uuid4())
+    starter = await http_client.post(
+        "/v1/billing/subscriptions",
+        json=_subscribe_body("starter"),
+        headers={**headers, "Idempotency-Key": key},
+    )
+    assert starter.status_code == 201, starter.text
+
+    trial_status, trial_body = await _activate_edu_pro_trial(http_client, headers, key=key)
+
+    assert trial_status == 409, trial_body
+    assert trial_body["title"] == "Idempotency Conflict"
+    current = await http_client.get("/v1/billing/subscriptions/current", headers=headers)
+    assert current.status_code == 200, current.text
+    assert current.json()["plan_code"] == "starter"
+
+
+async def test_edu_pro_trial_fallback_to_starter_and_replay_is_idempotent(
+    http_client: AsyncClient,
+    session: AsyncSession,
+    token_factory: tuple[Ed25519PrivateKey, callable[[uuid.UUID], str]],
+) -> None:
+    _, token_for = token_factory
+    user_id = uuid.uuid4()
+    await _create_user_row(session, user_id, edu_tier=True)
+    headers = {"Authorization": f"Bearer {token_for(user_id)}"}
+    trial_status, trial = await _activate_edu_pro_trial(http_client, headers)
+    assert trial_status == 201, trial
+    subscription_id = uuid.UUID(trial["subscription_id"])
+    trial_end = datetime.now(UTC) - timedelta(days=1)
+    trial_start = trial_end - timedelta(days=30)
+    await session.execute(
+        text(
+            """
+            UPDATE billing_subscriptions
+               SET current_period_start = :trial_start,
+                   current_period_end = :trial_end,
+                   last_refilled_period_start = :trial_start,
+                   metadata = jsonb_set(
+                       jsonb_set(
+                           metadata,
+                           '{trial_started_at}',
+                           to_jsonb(CAST(:trial_start_text AS text))
+                       ),
+                       '{trial_ends_at}',
+                       to_jsonb(CAST(:trial_end_text AS text))
+                   ) || jsonb_build_object(
+                       'education_pro_trial_started_at', :trial_start_text,
+                       'education_pro_trial_ends_at', :trial_end_text
+                   )
+             WHERE id = :subscription_id
+            """
+        ),
+        {
+            "trial_start": trial_start,
+            "trial_end": trial_end,
+            "trial_start_text": trial_start.isoformat(),
+            "trial_end_text": trial_end.isoformat(),
+            "subscription_id": subscription_id,
+        },
+    )
+    await session.commit()
+
+    as_of = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+    first = await http_client.post(
+        "/v1/billing/subscriptions/refill-due",
+        json={"as_of": as_of},
+        headers=_internal_headers(),
+    )
+    replay = await http_client.post(
+        "/v1/billing/subscriptions/refill-due",
+        json={"as_of": as_of},
+        headers=_internal_headers(),
+    )
+    current = await http_client.get("/v1/billing/subscriptions/current", headers=headers)
+    retry_status, retry_body = await _activate_edu_pro_trial(http_client, headers)
+
+    assert first.status_code == 200, first.text
+    assert replay.status_code == 200, replay.text
+    assert first.json()["processed"] == 1
+    assert first.json()["refilled"] == 1
+    assert replay.json()["processed"] == 0
+    assert replay.json()["refilled"] == 0
+    assert current.status_code == 200, current.text
+    assert current.json()["subscription_id"] == str(subscription_id)
+    assert current.json()["plan_code"] == "starter"
+    assert current.json()["education_entitlement"] == "starter_free"
+    assert current.json()["trial_ends_at"] is None
+    assert current.json()["fallback_plan_code"] is None
+    assert retry_status == 409, retry_body
+    assert retry_body["title"] == "Education Pro trial already used"
+    rows = await _refill_rows(session, user_id)
+    assert [str(row["amount"]) for row in rows] == ["10000.0000", "2000.0000"]
+    assert [row["bucket"] for row in rows] == ["edu", "edu"]
+    assert rows[-1]["metadata"]["trigger"] == "edu_pro_trial_fallback"
+    metadata = await _subscription_metadata(session, str(subscription_id))
+    assert metadata["education_pro_trial_used"] is True
+    assert metadata["education_entitlement"] == "starter_free"
+    assert "trial_ends_at" not in metadata
+    assert metadata["education_pro_trial_started_at"]
+    assert metadata["education_pro_trial_ends_at"]
+    outbox = await _subscription_outbox_payloads(session, str(subscription_id))
+    event_types = [row["event_type"] for row in outbox]
+    assert "billing.subscription.edu_pro_trial.ended" in event_types
+    assert event_types.count("billing.subscription.edu_starter.activated") == 1
+    ended_payload = next(
+        row["payload"]
+        for row in outbox
+        if row["event_type"] == "billing.subscription.edu_pro_trial.ended"
+    )
+    assert ended_payload["ended_plan_code"] == "pro"
+    assert ended_payload["ended_education_entitlement"] == "pro_30d_trial"
+    assert ended_payload["fallback_plan_code"] == "starter"
+    forbidden = {"token", "jwt", "email", "phone", "payment_ref", "provider", "raw_body"}
+    for row in outbox:
+        payload_text = str(row["payload"]).lower()
+        for field in forbidden:
+            assert field not in payload_text
+    sync = await http_client.post(
+        "/v1/billing/subscriptions/edu-starter/sync",
+        json={"user_id": str(user_id)},
+        headers=_internal_headers(),
+    )
+    assert sync.status_code == 200, sync.text
+    metadata_after_sync = await _subscription_metadata(session, str(subscription_id))
+    assert metadata_after_sync["education_pro_trial_used"] is True
+    assert metadata_after_sync["education_pro_trial_started_at"]
+    assert metadata_after_sync["education_pro_trial_ends_at"]
+
+
+async def test_edu_pro_trial_overdue_fallback_catches_up_starter_periods(
+    http_client: AsyncClient,
+    session: AsyncSession,
+    token_factory: tuple[Ed25519PrivateKey, callable[[uuid.UUID], str]],
+) -> None:
+    _, token_for = token_factory
+    user_id = uuid.uuid4()
+    await _create_user_row(session, user_id, edu_tier=True)
+    headers = {"Authorization": f"Bearer {token_for(user_id)}"}
+    trial_status, trial = await _activate_edu_pro_trial(http_client, headers)
+    assert trial_status == 201, trial
+    subscription_id = uuid.UUID(trial["subscription_id"])
+    trial_end = datetime.now(UTC) - timedelta(days=65)
+    trial_start = trial_end - timedelta(days=30)
+    await session.execute(
+        text(
+            """
+            UPDATE billing_subscriptions
+               SET current_period_start = :trial_start,
+                   current_period_end = :trial_end,
+                   last_refilled_period_start = :trial_start
+             WHERE id = :subscription_id
+            """
+        ),
+        {
+            "trial_start": trial_start,
+            "trial_end": trial_end,
+            "subscription_id": subscription_id,
+        },
+    )
+    await session.commit()
+
+    response = await http_client.post(
+        "/v1/billing/subscriptions/refill-due",
+        json={"as_of": datetime.now(UTC).isoformat().replace("+00:00", "Z")},
+        headers=_internal_headers(),
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["processed"] == 1
+    assert response.json()["refilled"] >= 3
+    rows = await _refill_rows(session, user_id)
+    assert str(rows[0]["amount"]) == "10000.0000"
+    assert all(row["bucket"] == "edu" for row in rows)
+    assert await _bucket_balance(http_client, headers, "monthly") == "0.00"
 
 
 async def test_non_edu_sync_rejected_without_mutation(
