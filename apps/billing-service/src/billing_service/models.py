@@ -158,3 +158,52 @@ class CostAttribution(Base):
             postgresql_where=text("source_id IS NOT NULL"),
         ),
     )
+
+
+class BillingSubscription(Base):
+    """Story 5.B.1 — one active plan subscription per user."""
+
+    __tablename__ = "billing_subscriptions"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    plan_code: Mapped[str] = mapped_column(String(32), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="active")
+    current_period_start: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    current_period_end: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    last_refilled_period_start: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    metadata_json: Mapped[dict[str, Any]] = mapped_column(
+        "metadata", JSONB, nullable=False, default=dict
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "plan_code IN ('free', 'starter', 'pro', 'team', 'enterprise')",
+            name="ck_billing_subscriptions_plan_code",
+        ),
+        CheckConstraint(
+            "status IN ('active', 'canceled', 'expired')",
+            name="ck_billing_subscriptions_status",
+        ),
+        CheckConstraint(
+            "current_period_end > current_period_start",
+            name="ck_billing_subscriptions_period_order",
+        ),
+        Index(
+            "idx_billing_subscriptions_one_active_per_user",
+            "user_id",
+            unique=True,
+            postgresql_where=text("status = 'active'"),
+        ),
+        Index("idx_billing_subscriptions_due", "status", "current_period_end"),
+    )

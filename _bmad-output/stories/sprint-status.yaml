@@ -153,7 +153,7 @@ development_status:
 
   # ===== Epic 5.A/B/C/D: Billing (27 stories) =====
   epic-5-a: in-progress
-  epic-5-b: backlog
+  epic-5-b: in-progress
   epic-5-c: backlog
   epic-5-d: backlog
 
@@ -171,7 +171,7 @@ development_status:
   5-a-8-cost-telemetry-hook: done             # 2026-05-30 — Billing Saga cost telemetry hook; post-review savepoint isolation fix applied
   5-a-9-charge-idempotency: done
 
-  5-b-1-five-plans-subscription: backlog
+  5-b-1-five-plans-subscription: done
   5-b-2-edu-tier-starter-free: backlog
   5-b-3-edu-pro-30d-trial: backlog
   5-b-4-plan-upgrade-prorated: backlog

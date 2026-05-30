@@ -110,6 +110,7 @@ jobs:
           psql -h localhost -U opticloud -d opticloud_dev -f infra/local-init/03-billing-schema.sql
           psql -h localhost -U opticloud -d opticloud_dev -f infra/local-init/04-outbox-trigger.sql
           psql -h localhost -U opticloud -d opticloud_dev -f infra/local-init/05-bucket-backfill.sql
+          psql -h localhost -U opticloud -d opticloud_dev -f infra/local-init/11-billing-subscriptions.sql
           psql -h localhost -U opticloud -d opticloud_dev -f infra/local-init/06-user-otps.sql
           psql -h localhost -U opticloud -d opticloud_dev -f infra/local-init/07-risk-control.sql
 
