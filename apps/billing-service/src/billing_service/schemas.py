@@ -269,6 +269,83 @@ class BalanceResponse(BaseModel):
     buckets: list[BucketBalance] = Field(default_factory=list)
 
 
+class BilingualText(BaseModel):
+    """Small bilingual label used by invoice responses."""
+
+    zh: str
+    en: str
+
+
+class InvoiceSubscriptionResponse(BaseModel):
+    """Subscription snapshot shown on a billing statement."""
+
+    plan_code: str
+    plan_label: str
+    plan_label_zh: str
+    status: str
+    current_period_start: datetime | None
+    current_period_end: datetime | None
+
+
+class InvoiceLineItemResponse(BaseModel):
+    """One safe ledger-derived billing statement row."""
+
+    id: str
+    created_at: datetime
+    kind: str
+    bucket: str
+    label: BilingualText
+    direction: Literal["credit", "debit"]
+    direction_label: BilingualText
+    amount: str
+    source_amount: str
+    currency: str = "CNY"
+    details: dict[str, str] = Field(default_factory=dict)
+
+
+class InvoiceUsageSummaryResponse(BaseModel):
+    """Invoice-scoped usage summary; not the full Story 5.D.2 dashboard contract."""
+
+    window_days: Literal[7, 30]
+    actual_spend: str
+    currency: str = "CNY"
+    label: BilingualText
+
+
+class InvoiceSummaryResponse(BaseModel):
+    """One row returned by GET /v1/billing/invoices."""
+
+    period: str
+    period_start: datetime
+    period_end: datetime
+    status: Literal["final", "provisional"]
+    status_label: BilingualText
+    net_credit_movement: str
+    actual_spend: str
+    currency: str = "CNY"
+    line_item_count: int
+
+
+class InvoiceListResponse(BaseModel):
+    """GET /v1/billing/invoices response."""
+
+    items: list[InvoiceSummaryResponse]
+
+
+class InvoiceResponse(InvoiceSummaryResponse):
+    """GET /v1/billing/invoices/{period} response."""
+
+    title: BilingualText
+    tax_disclaimer: BilingualText
+    owner_user_id_suffix: str
+    subscription: InvoiceSubscriptionResponse
+    credit_subtotal: str
+    debit_subtotal: str
+    trend_contract: Literal["invoice_summary"]
+    usage_summary: list[InvoiceUsageSummaryResponse]
+    line_items: list[InvoiceLineItemResponse]
+
+
 class PlanRateLimits(BaseModel):
     """Plan rate-limit metadata copied from PRD."""
 
@@ -367,6 +444,12 @@ __all__ = [
     "EstimateResponse",
     "FinalizeChargeRequest",
     "FinalizeChargeResponse",
+    "InvoiceLineItemResponse",
+    "InvoiceListResponse",
+    "InvoiceResponse",
+    "InvoiceSubscriptionResponse",
+    "InvoiceSummaryResponse",
+    "InvoiceUsageSummaryResponse",
     "PlanListResponse",
     "PlanRateLimits",
     "PlanResponse",
