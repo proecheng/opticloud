@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Literal
 
@@ -346,6 +346,35 @@ class InvoiceResponse(InvoiceSummaryResponse):
     line_items: list[InvoiceLineItemResponse]
 
 
+class UsageTrendPointResponse(BaseModel):
+    """One UTC daily point in the reusable billing usage trend contract."""
+
+    date: date
+    actual_spend: str
+    currency: str = "CNY"
+
+
+class UsageTrendWindowResponse(BaseModel):
+    """One 7d or 30d usage-spend trend window."""
+
+    window_days: Literal[7, 30]
+    window_start: datetime
+    window_end: datetime
+    label: BilingualText
+    currency: str = "CNY"
+    total_actual_spend: str
+    average_daily_spend: str
+    points: list[UsageTrendPointResponse]
+
+
+class UsageTrendsResponse(BaseModel):
+    """GET /v1/billing/usage-trends response."""
+
+    trend_contract: Literal["billing_usage_trends_v1"]
+    generated_at: datetime
+    windows: list[UsageTrendWindowResponse]
+
+
 class PlanRateLimits(BaseModel):
     """Plan rate-limit metadata copied from PRD."""
 
@@ -462,6 +491,9 @@ __all__ = [
     "TopupConfirmRequest",
     "TopupCreateRequest",
     "TopupResponse",
+    "UsageTrendPointResponse",
+    "UsageTrendWindowResponse",
+    "UsageTrendsResponse",
     "UserCancelRefundRequest",
     "UserCancelRefundResponse",
     "WarningResponse",

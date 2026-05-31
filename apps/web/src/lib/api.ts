@@ -973,6 +973,41 @@ export async function downloadBillingInvoicePdf(
   };
 }
 
+// ===== Billing usage trends (Story 5.D.2) =====
+
+export interface BillingUsageTrendPoint {
+  date: string;
+  actual_spend: string;
+  currency: string;
+}
+
+export interface BillingUsageTrendWindow {
+  window_days: 7 | 30;
+  window_start: string;
+  window_end: string;
+  label: BilingualText;
+  currency: string;
+  total_actual_spend: string;
+  average_daily_spend: string;
+  points: BillingUsageTrendPoint[];
+}
+
+export interface BillingUsageTrendsResponse {
+  trend_contract: "billing_usage_trends_v1";
+  generated_at: string;
+  windows: BillingUsageTrendWindow[];
+}
+
+export async function getBillingUsageTrends(
+  jwtAccess: string,
+): Promise<BillingUsageTrendsResponse> {
+  return request<BillingUsageTrendsResponse>(
+    "/v1/billing/usage-trends",
+    { headers: { Authorization: `Bearer ${jwtAccess}` } },
+    BILLING_SERVICE_URL,
+  );
+}
+
 // ===== Optimizations demo (Story 3.E.3 — no auth) =====
 
 export interface DemoOptimizationResponse {

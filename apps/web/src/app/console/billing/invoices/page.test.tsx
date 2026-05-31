@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   listBillingInvoices: vi.fn(),
   getBillingInvoice: vi.fn(),
   downloadBillingInvoicePdf: vi.fn(),
+  getBillingUsageTrends: vi.fn(),
 }));
 
 vi.mock("next/navigation", () => ({
@@ -45,6 +46,7 @@ vi.mock("@/lib/api", () => ({
   listBillingInvoices: mocks.listBillingInvoices,
   getBillingInvoice: mocks.getBillingInvoice,
   downloadBillingInvoicePdf: mocks.downloadBillingInvoicePdf,
+  getBillingUsageTrends: mocks.getBillingUsageTrends,
 }));
 
 import BillingInvoicesPage from "./page";
@@ -117,12 +119,53 @@ const invoice = {
   ],
 };
 
+const trends = {
+  trend_contract: "billing_usage_trends_v1",
+  generated_at: "2026-05-31T12:00:00Z",
+  windows: [
+    {
+      window_days: 7,
+      window_start: "2026-05-25T00:00:00Z",
+      window_end: "2026-06-01T00:00:00Z",
+      label: { zh: "近 7 天实际用量支出趋势", en: "Last 7 days actual usage spend trend" },
+      currency: "CNY",
+      total_actual_spend: "7.00",
+      average_daily_spend: "1.00",
+      points: [
+        { date: "2026-05-25", actual_spend: "0.00", currency: "CNY" },
+        { date: "2026-05-26", actual_spend: "1.00", currency: "CNY" },
+        { date: "2026-05-27", actual_spend: "2.00", currency: "CNY" },
+        { date: "2026-05-28", actual_spend: "0.00", currency: "CNY" },
+        { date: "2026-05-29", actual_spend: "0.00", currency: "CNY" },
+        { date: "2026-05-30", actual_spend: "3.00", currency: "CNY" },
+        { date: "2026-05-31", actual_spend: "1.00", currency: "CNY" },
+      ],
+    },
+    {
+      window_days: 30,
+      window_start: "2026-05-02T00:00:00Z",
+      window_end: "2026-06-01T00:00:00Z",
+      label: { zh: "近 30 天实际用量支出趋势", en: "Last 30 days actual usage spend trend" },
+      currency: "CNY",
+      total_actual_spend: "15.00",
+      average_daily_spend: "0.50",
+      points: Array.from({ length: 30 }, (_, index) => ({
+        date: `2026-05-${String(index + 2).padStart(2, "0")}`,
+        actual_spend: index === 29 ? "15.00" : "0.00",
+        currency: "CNY",
+      })),
+    },
+  ],
+};
+
 describe("BillingInvoicesPage", () => {
   beforeEach(() => {
     mocks.push.mockReset();
     mocks.listBillingInvoices.mockReset();
     mocks.getBillingInvoice.mockReset();
     mocks.downloadBillingInvoicePdf.mockReset();
+    mocks.getBillingUsageTrends.mockReset();
+    mocks.getBillingUsageTrends.mockResolvedValue(trends);
     sessionStorage.clear();
     localStorage.clear();
   });
@@ -150,8 +193,29 @@ describe("BillingInvoicesPage", () => {
     expect(screen.getByText("¥1999.50")).toBeTruthy();
     expect(screen.getByText("-¥0.50")).toBeTruthy();
     expect(screen.getByText("月度额度发放 / Monthly credit grant")).toBeTruthy();
+    expect(await screen.findByText("用量趋势")).toBeTruthy();
+    expect(screen.getByText("近 7 天实际用量支出趋势 / Last 7 days actual usage spend trend")).toBeTruthy();
+    expect(screen.getByText("近 30 天实际用量支出趋势 / Last 30 days actual usage spend trend")).toBeTruthy();
+    expect(mocks.getBillingUsageTrends).toHaveBeenCalledWith("jwt-test");
     expect(mocks.listBillingInvoices).toHaveBeenCalledWith("jwt-test");
     expect(mocks.getBillingInvoice).toHaveBeenCalledWith("jwt-test", "2026-05");
+  });
+
+  it("keeps invoice data visible when usage trends fail", async () => {
+    sessionStorage.setItem("jwt_access", "jwt-test");
+    mocks.listBillingInvoices.mockResolvedValue({
+      items: [{ period: "2026-05", actual_spend: "0.50", net_credit_movement: "1999.50" }],
+    });
+    mocks.getBillingInvoice.mockResolvedValue(invoice);
+    mocks.getBillingUsageTrends.mockRejectedValue(
+      new Error("trend service unavailable"),
+    );
+
+    render(<BillingInvoicesPage />);
+
+    expect(await screen.findByText("OptiCloud 账单明细")).toBeTruthy();
+    expect(screen.getByText(/用量趋势加载失败/)).toBeTruthy();
+    expect(screen.getByText("¥1999.50")).toBeTruthy();
   });
 
   it("loads a selected period independently", async () => {

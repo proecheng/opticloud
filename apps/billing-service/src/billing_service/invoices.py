@@ -27,6 +27,7 @@ from billing_service.schemas import (
     InvoiceSummaryResponse,
     InvoiceUsageSummaryResponse,
 )
+from billing_service.spend import actual_spend
 
 
 class InvalidInvoicePeriodError(ValueError):
@@ -66,7 +67,6 @@ _SAFE_DETAIL_KEYS = {
     "reason",
     "refund_kind",
 }
-_SPEND_KINDS = {"charge", "refund", "refund_partial", "refund_reversal"}
 _USAGE_WINDOWS: tuple[Literal[7, 30], ...] = (7, 30)
 
 
@@ -138,11 +138,6 @@ def _safe_details(metadata: dict[str, Any]) -> dict[str, str]:
         if isinstance(value, str) and value:
             details[key] = value
     return details
-
-
-def _actual_spend(rows: list[CreditTransaction]) -> Decimal:
-    total = sum((row.amount for row in rows if row.kind in _SPEND_KINDS), start=Decimal("0"))
-    return max(Decimal("0"), -total)
 
 
 def _summary_status(
@@ -258,7 +253,7 @@ async def _usage_summary(
         summaries.append(
             InvoiceUsageSummaryResponse(
                 window_days=days,
-                actual_spend=_money(_actual_spend(rows)),
+                actual_spend=_money(actual_spend(rows)),
                 label=_SPEND_LABELS[days],
             )
         )
@@ -280,7 +275,7 @@ def _summary_from_rows(
         status=status,
         status_label=status_label,
         net_credit_movement=_money(net),
-        actual_spend=_money(_actual_spend(rows)),
+        actual_spend=_money(actual_spend(rows)),
         line_item_count=len(rows),
     )
 
