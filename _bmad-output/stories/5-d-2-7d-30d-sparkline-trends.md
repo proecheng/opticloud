@@ -144,7 +144,7 @@ Billing data remains ledger-derived from `credit_transactions`; no analytics tab
   - [x] Run backend regression and static checks for touched Python.
   - [x] Run web/ui typecheck and relevant test suites.
   - [x] Run post-implementation code review and fix findings.
-  - [ ] Commit, push, create PR, wait for CI, merge, delete remote branch, and sync local `main`.
+  - [x] Commit, push, create PR, wait for CI, merge, delete remote branch, and sync local `main`.
 
 ## Dev Notes
 
@@ -222,6 +222,7 @@ GPT-5 Codex
 - Web regression passed: `pnpm test` in `apps/web` (28 files, 137 tests).
 - UI regression passed: `pnpm test` in `packages/ui` (12 files, 83 tests).
 - Static gates passed: `uv run ruff check ...`, `uv run ruff format --check ...`, `uv run mypy apps/billing-service/src/billing_service`, `pnpm typecheck` in `apps/web`, `pnpm typecheck` in `packages/ui`, and `git diff --check`.
+- GitHub PR #128 checks passed before merge: changes, billing-service-test, lint, mypy, ts-typecheck, e2e, chromatic, matrix-detect, gtm-toolkit-validation, and build-and-sbom.
 
 ### Completion Notes List
 
