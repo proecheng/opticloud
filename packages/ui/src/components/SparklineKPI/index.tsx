@@ -21,15 +21,21 @@ export function SparklineKPI({
   width = 120,
   height = 40,
 }: SparklineKPIProps): JSX.Element {
+  const normalizedValues = values
+    .map((value) => (Number.isFinite(value) ? value : 0))
+    .slice(0, Math.max(values.length, 1));
+  const chartValues = normalizedValues.length > 0 ? normalizedValues : [0];
+  const latestValue = chartValues[chartValues.length - 1] ?? 0;
+  const description = `${label} trend: ${chartValues.length} data points, last value ${latestValue}${unit ? ` ${unit}` : ""}`;
   const a11y = useA11y({
     ariaLabel,
-    ariaDescription: `${label} trend: ${values.length} data points, last value ${values[values.length - 1] ?? 0}${unit ? ` ${unit}` : ""}`,
+    ariaDescription: description,
   });
-  const min = Math.min(...values, 0);
-  const max = Math.max(...values, 1);
+  const min = Math.min(...chartValues, 0);
+  const max = Math.max(...chartValues, 1);
   const range = max - min || 1;
-  const step = values.length > 1 ? width / (values.length - 1) : 0;
-  const points = values
+  const step = chartValues.length > 1 ? width / (chartValues.length - 1) : 0;
+  const points = chartValues
     .map((v, i) => `${i * step},${height - ((v - min) / range) * height}`)
     .join(" ");
 
@@ -39,10 +45,13 @@ export function SparklineKPI({
       className="inline-flex flex-col items-start"
       data-testid="sparkline-kpi"
     >
+      <span id={`${a11y.id}-desc`} className="sr-only">
+        {description}
+      </span>
       <span className="text-xs text-muted-foreground">{label}</span>
       <div className="flex items-baseline gap-2">
         <span className="font-mono text-lg font-semibold text-primary">
-          {values[values.length - 1] ?? 0}
+          {latestValue}
           {unit && <span className="ml-1 text-xs text-muted-foreground">{unit}</span>}
         </span>
         <svg

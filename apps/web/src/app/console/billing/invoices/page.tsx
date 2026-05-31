@@ -5,13 +5,16 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { StatusCard } from "@opticloud/ui";
+import { SparklineKPI, StatusCard } from "@opticloud/ui";
 
 import {
   type BillingInvoiceListResponse,
   type BillingInvoiceResponse,
+  type BillingUsageTrendWindow,
+  type BillingUsageTrendsResponse,
   downloadBillingInvoicePdf,
   getBillingInvoice,
+  getBillingUsageTrends,
   listBillingInvoices,
   OptiCloudClientError,
 } from "@/lib/api";
@@ -19,17 +22,23 @@ import {
 type PageState = {
   list: BillingInvoiceListResponse | null;
   invoice: BillingInvoiceResponse | null;
+  trends: BillingUsageTrendsResponse | null;
   loading: boolean;
+  trendsLoading: boolean;
   downloading: boolean;
   error: string | null;
+  trendsError: string | null;
 };
 
 const initialState: PageState = {
   list: null,
   invoice: null,
+  trends: null,
   loading: false,
+  trendsLoading: false,
   downloading: false,
   error: null,
+  trendsError: null,
 };
 
 function formatDate(value: string | null | undefined): string {
@@ -44,10 +53,26 @@ function money(value: string | null | undefined): string {
   return amount.startsWith("-") ? `-¥${amount.slice(1)}` : `¥${amount}`;
 }
 
+function toSparklineValues(window: BillingUsageTrendWindow): number[] {
+  return window.points.map((point) => {
+    const value = Number.parseFloat(point.actual_spend);
+    return Number.isFinite(value) ? value : 0;
+  });
+}
+
 function normalizeError(err: unknown): string {
   if (err instanceof OptiCloudClientError) {
     if (err.status === 404) return "该月份账单不可用。";
     if (err.status === 400) return "账单月份格式无效。";
+    return `${err.title}: ${err.detail}`;
+  }
+  if (err instanceof Error) return err.message;
+  return "请求失败";
+}
+
+function normalizeTrendError(err: unknown): string {
+  if (err instanceof OptiCloudClientError) {
+    if (err.status === 401) return "登录状态已失效，请重新登录。";
     return `${err.title}: ${err.detail}`;
   }
   if (err instanceof Error) return err.message;
@@ -125,7 +150,32 @@ export default function BillingInvoicesPage(): JSX.Element {
     };
   }, [jwt, loadInvoice]);
 
+  useEffect(() => {
+    if (!jwt) return;
+    let cancelled = false;
+    setState((current) => ({ ...current, trendsLoading: true, trendsError: null }));
+
+    void getBillingUsageTrends(jwt)
+      .then((trends) => {
+        if (cancelled) return;
+        setState((current) => ({ ...current, trends, trendsLoading: false }));
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setState((current) => ({
+          ...current,
+          trendsLoading: false,
+          trendsError: normalizeTrendError(err),
+        }));
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [jwt]);
+
   const periods = useMemo(() => state.list?.items.map((item) => item.period) ?? [], [state.list]);
+  const trendWindows = useMemo(() => state.trends?.windows ?? [], [state.trends]);
 
   const handlePeriodChange = (period: string): void => {
     setSelectedPeriod(period);
@@ -264,6 +314,58 @@ export default function BillingInvoicesPage(): JSX.Element {
               ariaLabel="billing.invoice.empty"
             />
           )}
+
+          <section className="space-y-4">
+            <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+              <div>
+                <h2 className="text-xl font-semibold">用量趋势</h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Credits actual usage spend
+                </p>
+              </div>
+              <div className="text-sm text-muted-foreground">
+                {state.trendsLoading ? "加载中..." : state.trends ? "已更新" : "等待数据"}
+              </div>
+            </div>
+
+            {state.trendsError && (
+              <div
+                className="mt-4 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive"
+                role="status"
+                aria-label="billing.usage_trends.error"
+              >
+                用量趋势加载失败：{state.trendsError}
+              </div>
+            )}
+
+            {!state.trendsError && trendWindows.length === 0 && !state.trendsLoading && (
+              <div className="mt-4 text-sm text-muted-foreground">暂无趋势数据</div>
+            )}
+
+            {trendWindows.length > 0 && (
+              <div className="mt-5 grid gap-4 md:grid-cols-2">
+                {trendWindows.map((window) => (
+                  <div
+                    key={window.window_days}
+                    className="min-w-0 rounded-md border border-border bg-background p-4"
+                  >
+                    <SparklineKPI
+                      label={`${window.label.zh} / ${window.label.en}`}
+                      ariaLabel={`billing.usage_trends.${window.window_days}d.actual_spend`}
+                      values={toSparklineValues(window)}
+                      unit="CNY"
+                      width={160}
+                      height={48}
+                    />
+                    <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                      <Metric label="累计" value={money(window.total_actual_spend)} />
+                      <Metric label="日均" value={money(window.average_daily_spend)} />
+                    </dl>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
 
           {invoice && (
             <>

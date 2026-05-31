@@ -91,11 +91,13 @@ from billing_service.schemas import (
     TopupConfirmRequest,
     TopupCreateRequest,
     TopupResponse,
+    UsageTrendsResponse,
     UserCancelRefundRequest,
     UserCancelRefundResponse,
     WarningResponse,
     validate_idempotency_key,
 )
+from billing_service.usage_trends import build_usage_trends
 
 billing_router = APIRouter(prefix="/v1/billing", tags=["billing"])
 logger = logging.getLogger(__name__)
@@ -1563,6 +1565,15 @@ async def get_invoices(
 ) -> InvoiceListResponse:
     """Story 5.D.1 — list user-scoped monthly billing statements."""
     return await list_invoices(session, user_id)
+
+
+@billing_router.get("/usage-trends", response_model=UsageTrendsResponse)
+async def get_usage_trends(
+    user_id: uuid.UUID = Depends(require_user),
+    session: AsyncSession = Depends(get_session),
+) -> UsageTrendsResponse:
+    """Story 5.D.2 — read-only 7d/30d billing usage-spend trends."""
+    return await build_usage_trends(session, user_id)
 
 
 @billing_router.get("/invoices/{period}", response_model=InvoiceResponse)
