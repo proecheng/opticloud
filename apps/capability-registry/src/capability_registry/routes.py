@@ -22,6 +22,8 @@ from capability_registry.models import (
     Capability,
     CapabilityProvider,
     CapabilityTag,
+    ProviderApplication,
+    ProviderApplicationEvaluationRequest,
     ProviderOAuthFlow,
     RevenueShareHook,
     RevenueSharePolicy,
@@ -32,6 +34,12 @@ from capability_registry.schemas import (
     ModelVersion,
     OAuthFlowResponse,
     OAuthFlowUpsertRequest,
+    ProviderApplicationResponse,
+    ProviderApplicationStatus,
+    ProviderApplicationUpsertRequest,
+    ProviderEvaluationResponse,
+    ProviderEvaluationStatus,
+    ProviderEvaluationUpsertRequest,
     ProviderResponse,
     ProviderUpsertRequest,
     RevenueShareHookCreateRequest,
@@ -881,6 +889,199 @@ async def _load_revenue_hook_by_source_event(
     ).scalar_one_or_none()
 
 
+async def _load_provider_application_row(
+    session: AsyncSession,
+    *,
+    application_id: str,
+    tenant_id: uuid.UUID | None,
+    allow_global_fallback: bool,
+) -> ProviderApplication | None:
+    if tenant_id is not None:
+        row = (
+            await session.execute(
+                select(ProviderApplication).where(
+                    ProviderApplication.application_id == application_id,
+                    ProviderApplication.tenant_id == tenant_id,
+                )
+            )
+        ).scalar_one_or_none()
+        if row is not None or not allow_global_fallback:
+            return row
+    return (
+        await session.execute(
+            select(ProviderApplication).where(
+                ProviderApplication.application_id == application_id,
+                ProviderApplication.tenant_id.is_(None),
+            )
+        )
+    ).scalar_one_or_none()
+
+
+async def _load_provider_application_by_requested_provider(
+    session: AsyncSession,
+    *,
+    requested_provider_id: str,
+    tenant_id: uuid.UUID | None,
+) -> ProviderApplication | None:
+    return (
+        await session.execute(
+            select(ProviderApplication).where(
+                ProviderApplication.requested_provider_id == requested_provider_id,
+                (
+                    ProviderApplication.tenant_id.is_(None)
+                    if tenant_id is None
+                    else ProviderApplication.tenant_id == tenant_id
+                ),
+            )
+        )
+    ).scalar_one_or_none()
+
+
+async def _provider_application_response(
+    row: ProviderApplication,
+    *,
+    requested_tenant_id: uuid.UUID | None,
+) -> ProviderApplicationResponse:
+    return ProviderApplicationResponse(
+        id=row.id,
+        tenant_id=row.tenant_id,
+        application_id=row.application_id,
+        requested_provider_id=row.requested_provider_id,
+        provider_kind=cast(Any, row.provider_kind),
+        display_name=row.display_name,
+        organization_name=row.organization_name,
+        contact_email=row.contact_email,
+        homepage_url=row.homepage_url,
+        openapi_url=row.openapi_url,
+        openapi_sha256=row.openapi_sha256,
+        image_digest=row.image_digest,
+        cosign_bundle=dict(row.cosign_bundle),
+        evaluation_profile=dict(row.evaluation_profile),
+        status=cast(Any, row.status),
+        submitted_at=row.submitted_at,
+        metadata=dict(row.application_metadata),
+        scope_source=_scope_source(row.tenant_id, requested_tenant_id),
+        created_at=row.created_at,
+        updated_at=row.updated_at,
+    )
+
+
+def _material_application_values(body: ProviderApplicationUpsertRequest) -> dict[str, Any]:
+    return {
+        "requested_provider_id": body.requested_provider_id,
+        "provider_kind": body.provider_kind,
+        "openapi_url": body.openapi_url,
+        "openapi_sha256": body.openapi_sha256,
+        "image_digest": body.image_digest,
+        "cosign_bundle": body.cosign_bundle,
+        "evaluation_profile": body.evaluation_profile,
+    }
+
+
+def _assert_submitted_application_immutable(
+    row: ProviderApplication,
+    body: ProviderApplicationUpsertRequest,
+) -> None:
+    existing = {
+        "requested_provider_id": row.requested_provider_id,
+        "provider_kind": row.provider_kind,
+        "openapi_url": row.openapi_url,
+        "openapi_sha256": row.openapi_sha256,
+        "image_digest": row.image_digest,
+        "cosign_bundle": dict(row.cosign_bundle),
+        "evaluation_profile": dict(row.evaluation_profile),
+    }
+    incoming = _material_application_values(body)
+    changed = sorted(key for key, value in incoming.items() if existing[key] != value)
+    if changed:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"submitted application fields are immutable: {', '.join(changed)}",
+        )
+
+
+async def _load_provider_evaluation_row(
+    session: AsyncSession,
+    *,
+    application_row_id: uuid.UUID,
+    evaluation_id: str,
+    tenant_id: uuid.UUID | None,
+) -> ProviderApplicationEvaluationRequest | None:
+    return (
+        await session.execute(
+            select(ProviderApplicationEvaluationRequest).where(
+                ProviderApplicationEvaluationRequest.application_row_id == application_row_id,
+                ProviderApplicationEvaluationRequest.evaluation_id == evaluation_id,
+                (
+                    ProviderApplicationEvaluationRequest.tenant_id.is_(None)
+                    if tenant_id is None
+                    else ProviderApplicationEvaluationRequest.tenant_id == tenant_id
+                ),
+            )
+        )
+    ).scalar_one_or_none()
+
+
+async def _provider_evaluation_response(
+    row: ProviderApplicationEvaluationRequest,
+    *,
+    requested_tenant_id: uuid.UUID | None,
+) -> ProviderEvaluationResponse:
+    return ProviderEvaluationResponse(
+        id=row.id,
+        tenant_id=row.tenant_id,
+        application_id=row.application_id,
+        evaluation_id=row.evaluation_id,
+        requested_provider_id=row.requested_provider_id,
+        benchmark_suite=row.benchmark_suite,
+        sample_count=row.sample_count,
+        timeout_seconds=row.timeout_seconds,
+        status=cast(Any, row.status),
+        dataset_refs=list(row.dataset_refs),
+        report_ref=row.report_ref,
+        metadata=dict(row.evaluation_metadata),
+        scope_source=_scope_source(row.tenant_id, requested_tenant_id),
+        created_at=row.created_at,
+        updated_at=row.updated_at,
+    )
+
+
+def _material_evaluation_values(body: ProviderEvaluationUpsertRequest) -> dict[str, Any]:
+    return {
+        "benchmark_suite": body.benchmark_suite,
+        "sample_count": body.sample_count,
+        "timeout_seconds": body.timeout_seconds,
+        "status": body.status,
+        "dataset_refs": body.dataset_refs,
+        "report_ref": body.report_ref,
+        "metadata": body.metadata,
+    }
+
+
+def _assert_locked_evaluation_unchanged(
+    row: ProviderApplicationEvaluationRequest,
+    body: ProviderEvaluationUpsertRequest,
+) -> None:
+    if row.status == "requested":
+        return
+    existing = {
+        "benchmark_suite": row.benchmark_suite,
+        "sample_count": row.sample_count,
+        "timeout_seconds": row.timeout_seconds,
+        "status": row.status,
+        "dataset_refs": list(row.dataset_refs),
+        "report_ref": row.report_ref,
+        "metadata": dict(row.evaluation_metadata),
+    }
+    incoming = _material_evaluation_values(body)
+    changed = sorted(key for key, value in incoming.items() if existing[key] != value)
+    if changed:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"{row.status} evaluation request fields are immutable: {', '.join(changed)}",
+        )
+
+
 @router.post(
     "/revenue-share/hooks",
     response_model=RevenueShareHookResponse,
@@ -981,3 +1182,344 @@ async def list_revenue_share_hooks(
         )
     ).scalars()
     return [await _revenue_hook_response(row, requested_tenant_id=tenant_id) for row in rows]
+
+
+@router.put(
+    "/provider-applications/{application_id}",
+    response_model=ProviderApplicationResponse,
+    tags=["provider-applications"],
+)
+async def upsert_provider_application(
+    application_id: Annotated[str, Path(pattern=_PATH_ID_PATTERN)],
+    body: ProviderApplicationUpsertRequest,
+    x_internal_service_auth: str | None = Header(default=None, alias="X-Internal-Service-Auth"),
+    session: AsyncSession = Depends(get_session),
+) -> ProviderApplicationResponse:
+    _require_write_auth(x_internal_service_auth)
+    _assert_path_id(body.application_id, application_id, "application_id")
+    row = await _load_provider_application_row(
+        session,
+        application_id=application_id,
+        tenant_id=body.tenant_id,
+        allow_global_fallback=False,
+    )
+    provider_conflict = await _load_provider_application_by_requested_provider(
+        session,
+        requested_provider_id=body.requested_provider_id,
+        tenant_id=body.tenant_id,
+    )
+    if provider_conflict is not None and (row is None or provider_conflict.id != row.id):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="requested_provider_id already has an application",
+        )
+    now = datetime.now(UTC)
+    submitted_at = body.submitted_at
+    if body.status == "submitted" and submitted_at is None:
+        submitted_at = now
+    if row is None:
+        row = ProviderApplication(
+            tenant_id=body.tenant_id,
+            application_id=application_id,
+            requested_provider_id=body.requested_provider_id,
+            provider_kind=body.provider_kind,
+            display_name=body.display_name,
+            organization_name=body.organization_name,
+            contact_email=body.contact_email,
+            homepage_url=body.homepage_url,
+            openapi_url=body.openapi_url,
+            openapi_sha256=body.openapi_sha256,
+            image_digest=body.image_digest,
+            cosign_bundle=body.cosign_bundle,
+            evaluation_profile=body.evaluation_profile,
+            status=body.status,
+            submitted_at=submitted_at,
+            application_metadata=body.metadata,
+            created_at=now,
+            updated_at=now,
+        )
+        session.add(row)
+    else:
+        if body.tenant_id != row.tenant_id:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="tenant_id is immutable",
+            )
+        if row.status == "submitted":
+            if body.status == "draft":
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail="submitted application cannot return to draft",
+                )
+            _assert_submitted_application_immutable(row, body)
+            submitted_at = row.submitted_at or submitted_at or now
+        row.requested_provider_id = body.requested_provider_id
+        row.provider_kind = body.provider_kind
+        row.display_name = body.display_name
+        row.organization_name = body.organization_name
+        row.contact_email = body.contact_email
+        row.homepage_url = body.homepage_url
+        row.openapi_url = body.openapi_url
+        row.openapi_sha256 = body.openapi_sha256
+        row.image_digest = body.image_digest
+        row.cosign_bundle = body.cosign_bundle
+        row.evaluation_profile = body.evaluation_profile
+        row.status = body.status
+        row.submitted_at = submitted_at
+        row.application_metadata = body.metadata
+        row.updated_at = now
+    try:
+        await session.flush()
+    except IntegrityError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="provider application identity already exists",
+        ) from exc
+    return await _provider_application_response(row, requested_tenant_id=body.tenant_id)
+
+
+@router.get(
+    "/provider-applications/{application_id}",
+    response_model=ProviderApplicationResponse,
+    tags=["provider-applications"],
+)
+async def get_provider_application(
+    application_id: Annotated[str, Path(pattern=_PATH_ID_PATTERN)],
+    tenant_id: uuid.UUID | None = Query(default=None),
+    session: AsyncSession = Depends(get_session),
+) -> ProviderApplicationResponse:
+    row = await _load_provider_application_row(
+        session,
+        application_id=application_id,
+        tenant_id=tenant_id,
+        allow_global_fallback=tenant_id is not None,
+    )
+    if row is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="provider application not found",
+        )
+    return await _provider_application_response(row, requested_tenant_id=tenant_id)
+
+
+@router.get(
+    "/provider-applications",
+    response_model=list[ProviderApplicationResponse],
+    tags=["provider-applications"],
+)
+async def list_provider_applications(
+    tenant_id: uuid.UUID | None = Query(default=None),
+    requested_provider_id: Annotated[str | None, Query(pattern=_PATH_ID_PATTERN)] = None,
+    status_filter: ProviderApplicationStatus | None = Query(default=None, alias="status"),
+    session: AsyncSession = Depends(get_session),
+) -> list[ProviderApplicationResponse]:
+    conditions: list[ColumnElement[bool]] = [ProviderApplication.tenant_id.is_(None)]
+    if requested_provider_id is not None:
+        conditions.append(ProviderApplication.requested_provider_id == requested_provider_id)
+    if status_filter is not None:
+        conditions.append(ProviderApplication.status == status_filter)
+    global_rows = (await session.execute(select(ProviderApplication).where(*conditions))).scalars()
+    rows_by_application = {row.application_id: row for row in global_rows}
+    if tenant_id is not None:
+        tenant_conditions: list[ColumnElement[bool]] = [ProviderApplication.tenant_id == tenant_id]
+        if requested_provider_id is not None:
+            tenant_conditions.append(
+                ProviderApplication.requested_provider_id == requested_provider_id
+            )
+        if status_filter is not None:
+            tenant_conditions.append(ProviderApplication.status == status_filter)
+        tenant_rows = (
+            await session.execute(select(ProviderApplication).where(*tenant_conditions))
+        ).scalars()
+        for row in tenant_rows:
+            rows_by_application[row.application_id] = row
+    rows = sorted(rows_by_application.values(), key=lambda item: item.application_id)
+    return [
+        await _provider_application_response(row, requested_tenant_id=tenant_id) for row in rows
+    ]
+
+
+@router.post(
+    "/provider-applications/{application_id}/submit",
+    response_model=ProviderApplicationResponse,
+    tags=["provider-applications"],
+)
+async def submit_provider_application(
+    application_id: Annotated[str, Path(pattern=_PATH_ID_PATTERN)],
+    tenant_id: uuid.UUID | None = Query(default=None),
+    x_internal_service_auth: str | None = Header(default=None, alias="X-Internal-Service-Auth"),
+    session: AsyncSession = Depends(get_session),
+) -> ProviderApplicationResponse:
+    _require_write_auth(x_internal_service_auth)
+    row = await _load_provider_application_row(
+        session,
+        application_id=application_id,
+        tenant_id=tenant_id,
+        allow_global_fallback=False,
+    )
+    if row is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="provider application not found",
+        )
+    if row.status != "submitted":
+        now = datetime.now(UTC)
+        row.status = "submitted"
+        row.submitted_at = row.submitted_at or now
+        row.updated_at = now
+        await session.flush()
+    return await _provider_application_response(row, requested_tenant_id=tenant_id)
+
+
+@router.put(
+    "/provider-applications/{application_id}/evaluation-requests/{evaluation_id}",
+    response_model=ProviderEvaluationResponse,
+    tags=["provider-applications"],
+)
+async def upsert_provider_application_evaluation(
+    application_id: Annotated[str, Path(pattern=_PATH_ID_PATTERN)],
+    evaluation_id: Annotated[str, Path(pattern=_PATH_ID_PATTERN)],
+    body: ProviderEvaluationUpsertRequest,
+    x_internal_service_auth: str | None = Header(default=None, alias="X-Internal-Service-Auth"),
+    session: AsyncSession = Depends(get_session),
+) -> ProviderEvaluationResponse:
+    _require_write_auth(x_internal_service_auth)
+    _assert_path_id(body.application_id, application_id, "application_id")
+    _assert_path_id(body.evaluation_id, evaluation_id, "evaluation_id")
+    application = await _load_provider_application_row(
+        session,
+        application_id=application_id,
+        tenant_id=body.tenant_id,
+        allow_global_fallback=body.tenant_id is not None,
+    )
+    if application is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="provider application not found",
+        )
+    if application.status != "submitted":
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="provider application must be submitted before evaluation",
+        )
+    row = await _load_provider_evaluation_row(
+        session,
+        application_row_id=application.id,
+        evaluation_id=evaluation_id,
+        tenant_id=body.tenant_id,
+    )
+    now = datetime.now(UTC)
+    if row is None:
+        row = ProviderApplicationEvaluationRequest(
+            tenant_id=body.tenant_id,
+            application_row_id=application.id,
+            application_id=application.application_id,
+            evaluation_id=evaluation_id,
+            requested_provider_id=application.requested_provider_id,
+            benchmark_suite=body.benchmark_suite,
+            sample_count=body.sample_count,
+            timeout_seconds=body.timeout_seconds,
+            status=body.status,
+            dataset_refs=body.dataset_refs,
+            report_ref=body.report_ref,
+            evaluation_metadata=body.metadata,
+            created_at=now,
+            updated_at=now,
+        )
+        session.add(row)
+    else:
+        _assert_locked_evaluation_unchanged(row, body)
+        row.benchmark_suite = body.benchmark_suite
+        row.sample_count = body.sample_count
+        row.timeout_seconds = body.timeout_seconds
+        row.status = body.status
+        row.dataset_refs = body.dataset_refs
+        row.report_ref = body.report_ref
+        row.evaluation_metadata = body.metadata
+        row.updated_at = now
+    try:
+        await session.flush()
+    except IntegrityError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="provider evaluation identity already exists",
+        ) from exc
+    return await _provider_evaluation_response(row, requested_tenant_id=body.tenant_id)
+
+
+@router.get(
+    "/provider-applications/{application_id}/evaluation-requests/{evaluation_id}",
+    response_model=ProviderEvaluationResponse,
+    tags=["provider-applications"],
+)
+async def get_provider_application_evaluation(
+    application_id: Annotated[str, Path(pattern=_PATH_ID_PATTERN)],
+    evaluation_id: Annotated[str, Path(pattern=_PATH_ID_PATTERN)],
+    tenant_id: uuid.UUID | None = Query(default=None),
+    session: AsyncSession = Depends(get_session),
+) -> ProviderEvaluationResponse:
+    application = await _load_provider_application_row(
+        session,
+        application_id=application_id,
+        tenant_id=tenant_id,
+        allow_global_fallback=tenant_id is not None,
+    )
+    if application is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="provider application not found",
+        )
+    row = await _load_provider_evaluation_row(
+        session,
+        application_row_id=application.id,
+        evaluation_id=evaluation_id,
+        tenant_id=tenant_id,
+    )
+    if row is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="provider evaluation request not found",
+        )
+    return await _provider_evaluation_response(row, requested_tenant_id=tenant_id)
+
+
+@router.get(
+    "/provider-applications/{application_id}/evaluation-requests",
+    response_model=list[ProviderEvaluationResponse],
+    tags=["provider-applications"],
+)
+async def list_provider_application_evaluations(
+    application_id: Annotated[str, Path(pattern=_PATH_ID_PATTERN)],
+    tenant_id: uuid.UUID | None = Query(default=None),
+    status_filter: ProviderEvaluationStatus | None = Query(default=None, alias="status"),
+    session: AsyncSession = Depends(get_session),
+) -> list[ProviderEvaluationResponse]:
+    application = await _load_provider_application_row(
+        session,
+        application_id=application_id,
+        tenant_id=tenant_id,
+        allow_global_fallback=tenant_id is not None,
+    )
+    if application is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="provider application not found",
+        )
+    conditions: list[ColumnElement[bool]] = [
+        ProviderApplicationEvaluationRequest.application_row_id == application.id,
+        (
+            ProviderApplicationEvaluationRequest.tenant_id.is_(None)
+            if tenant_id is None
+            else ProviderApplicationEvaluationRequest.tenant_id == tenant_id
+        ),
+    ]
+    if status_filter is not None:
+        conditions.append(ProviderApplicationEvaluationRequest.status == status_filter)
+    rows = (
+        await session.execute(
+            select(ProviderApplicationEvaluationRequest)
+            .where(*conditions)
+            .order_by(ProviderApplicationEvaluationRequest.evaluation_id)
+        )
+    ).scalars()
+    return [await _provider_evaluation_response(row, requested_tenant_id=tenant_id) for row in rows]

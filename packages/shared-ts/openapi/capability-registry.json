@@ -509,6 +509,518 @@
         "title": "OAuthFlowUpsertRequest",
         "type": "object"
       },
+      "ProviderApplicationResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "application_id": {
+            "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+            "title": "Application Id",
+            "type": "string"
+          },
+          "contact_email": {
+            "maxLength": 254,
+            "minLength": 3,
+            "title": "Contact Email",
+            "type": "string"
+          },
+          "cosign_bundle": {
+            "additionalProperties": true,
+            "title": "Cosign Bundle",
+            "type": "object"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "display_name": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Display Name",
+            "type": "string"
+          },
+          "evaluation_profile": {
+            "additionalProperties": true,
+            "title": "Evaluation Profile",
+            "type": "object"
+          },
+          "homepage_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Homepage Url"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "image_digest": {
+            "minLength": 1,
+            "title": "Image Digest",
+            "type": "string"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "openapi_sha256": {
+            "pattern": "^[0-9a-fA-F]{64}$",
+            "title": "Openapi Sha256",
+            "type": "string"
+          },
+          "openapi_url": {
+            "minLength": 1,
+            "title": "Openapi Url",
+            "type": "string"
+          },
+          "organization_name": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Organization Name",
+            "type": "string"
+          },
+          "provider_kind": {
+            "enum": [
+              "external",
+              "commercial"
+            ],
+            "title": "Provider Kind",
+            "type": "string"
+          },
+          "requested_provider_id": {
+            "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+            "title": "Requested Provider Id",
+            "type": "string"
+          },
+          "scope_source": {
+            "enum": [
+              "global",
+              "tenant",
+              "global_fallback"
+            ],
+            "title": "Scope Source",
+            "type": "string"
+          },
+          "status": {
+            "default": "draft",
+            "enum": [
+              "draft",
+              "submitted"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "submitted_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Submitted At"
+          },
+          "tenant_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tenant Id"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "application_id",
+          "requested_provider_id",
+          "provider_kind",
+          "display_name",
+          "organization_name",
+          "contact_email",
+          "openapi_url",
+          "openapi_sha256",
+          "image_digest",
+          "id",
+          "scope_source",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ProviderApplicationResponse",
+        "type": "object"
+      },
+      "ProviderApplicationUpsertRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "application_id": {
+            "anyOf": [
+              {
+                "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Application Id"
+          },
+          "contact_email": {
+            "maxLength": 254,
+            "minLength": 3,
+            "title": "Contact Email",
+            "type": "string"
+          },
+          "cosign_bundle": {
+            "additionalProperties": true,
+            "title": "Cosign Bundle",
+            "type": "object"
+          },
+          "display_name": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Display Name",
+            "type": "string"
+          },
+          "evaluation_profile": {
+            "additionalProperties": true,
+            "title": "Evaluation Profile",
+            "type": "object"
+          },
+          "homepage_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Homepage Url"
+          },
+          "image_digest": {
+            "minLength": 1,
+            "title": "Image Digest",
+            "type": "string"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "openapi_sha256": {
+            "pattern": "^[0-9a-fA-F]{64}$",
+            "title": "Openapi Sha256",
+            "type": "string"
+          },
+          "openapi_url": {
+            "minLength": 1,
+            "title": "Openapi Url",
+            "type": "string"
+          },
+          "organization_name": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Organization Name",
+            "type": "string"
+          },
+          "provider_kind": {
+            "enum": [
+              "external",
+              "commercial"
+            ],
+            "title": "Provider Kind",
+            "type": "string"
+          },
+          "requested_provider_id": {
+            "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+            "title": "Requested Provider Id",
+            "type": "string"
+          },
+          "status": {
+            "default": "draft",
+            "enum": [
+              "draft",
+              "submitted"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "submitted_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Submitted At"
+          },
+          "tenant_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tenant Id"
+          }
+        },
+        "required": [
+          "requested_provider_id",
+          "provider_kind",
+          "display_name",
+          "organization_name",
+          "contact_email",
+          "openapi_url",
+          "openapi_sha256",
+          "image_digest"
+        ],
+        "title": "ProviderApplicationUpsertRequest",
+        "type": "object"
+      },
+      "ProviderEvaluationResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "application_id": {
+            "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+            "title": "Application Id",
+            "type": "string"
+          },
+          "benchmark_suite": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$",
+            "title": "Benchmark Suite",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "dataset_refs": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Dataset Refs",
+            "type": "array"
+          },
+          "evaluation_id": {
+            "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+            "title": "Evaluation Id",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "report_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Report Ref"
+          },
+          "requested_provider_id": {
+            "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+            "title": "Requested Provider Id",
+            "type": "string"
+          },
+          "sample_count": {
+            "maximum": 500.0,
+            "minimum": 1.0,
+            "title": "Sample Count",
+            "type": "integer"
+          },
+          "scope_source": {
+            "enum": [
+              "global",
+              "tenant",
+              "global_fallback"
+            ],
+            "title": "Scope Source",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "requested",
+              "queued",
+              "cancelled"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "tenant_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tenant Id"
+          },
+          "timeout_seconds": {
+            "maximum": 60.0,
+            "minimum": 1.0,
+            "title": "Timeout Seconds",
+            "type": "integer"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "application_id",
+          "evaluation_id",
+          "requested_provider_id",
+          "benchmark_suite",
+          "sample_count",
+          "timeout_seconds",
+          "status",
+          "dataset_refs",
+          "metadata",
+          "scope_source",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ProviderEvaluationResponse",
+        "type": "object"
+      },
+      "ProviderEvaluationUpsertRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "application_id": {
+            "anyOf": [
+              {
+                "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Application Id"
+          },
+          "benchmark_suite": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$",
+            "title": "Benchmark Suite",
+            "type": "string"
+          },
+          "dataset_refs": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Dataset Refs",
+            "type": "array"
+          },
+          "evaluation_id": {
+            "anyOf": [
+              {
+                "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evaluation Id"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "report_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Report Ref"
+          },
+          "sample_count": {
+            "maximum": 500.0,
+            "minimum": 1.0,
+            "title": "Sample Count",
+            "type": "integer"
+          },
+          "status": {
+            "default": "requested",
+            "enum": [
+              "requested",
+              "queued",
+              "cancelled"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "tenant_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tenant Id"
+          },
+          "timeout_seconds": {
+            "maximum": 60.0,
+            "minimum": 1.0,
+            "title": "Timeout Seconds",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "benchmark_suite",
+          "sample_count",
+          "timeout_seconds",
+          "dataset_refs"
+        ],
+        "title": "ProviderEvaluationUpsertRequest",
+        "type": "object"
+      },
       "ProviderResponse": {
         "additionalProperties": false,
         "properties": {
@@ -1490,6 +2002,532 @@
         "summary": "Upsert Capability",
         "tags": [
           "capabilities"
+        ]
+      }
+    },
+    "/v1/provider-applications": {
+      "get": {
+        "operationId": "list_provider_applications_v1_provider_applications_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "tenant_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tenant Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "requested_provider_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Requested Provider Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "draft",
+                    "submitted"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ProviderApplicationResponse"
+                  },
+                  "title": "Response List Provider Applications V1 Provider Applications Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Provider Applications",
+        "tags": [
+          "provider-applications"
+        ]
+      }
+    },
+    "/v1/provider-applications/{application_id}": {
+      "get": {
+        "operationId": "get_provider_application_v1_provider_applications__application_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "application_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+              "title": "Application Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "tenant_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tenant Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderApplicationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Provider Application",
+        "tags": [
+          "provider-applications"
+        ]
+      },
+      "put": {
+        "operationId": "upsert_provider_application_v1_provider_applications__application_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "application_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+              "title": "Application Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Internal-Service-Auth",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Internal-Service-Auth"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProviderApplicationUpsertRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderApplicationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Upsert Provider Application",
+        "tags": [
+          "provider-applications"
+        ]
+      }
+    },
+    "/v1/provider-applications/{application_id}/evaluation-requests": {
+      "get": {
+        "operationId": "list_provider_application_evaluations_v1_provider_applications__application_id__evaluation_requests_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "application_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+              "title": "Application Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "tenant_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tenant Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "requested",
+                    "queued",
+                    "cancelled"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ProviderEvaluationResponse"
+                  },
+                  "title": "Response List Provider Application Evaluations V1 Provider Applications  Application Id  Evaluation Requests Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Provider Application Evaluations",
+        "tags": [
+          "provider-applications"
+        ]
+      }
+    },
+    "/v1/provider-applications/{application_id}/evaluation-requests/{evaluation_id}": {
+      "get": {
+        "operationId": "get_provider_application_evaluation_v1_provider_applications__application_id__evaluation_requests__evaluation_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "application_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+              "title": "Application Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "evaluation_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+              "title": "Evaluation Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "tenant_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tenant Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderEvaluationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Provider Application Evaluation",
+        "tags": [
+          "provider-applications"
+        ]
+      },
+      "put": {
+        "operationId": "upsert_provider_application_evaluation_v1_provider_applications__application_id__evaluation_requests__evaluation_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "application_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+              "title": "Application Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "evaluation_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+              "title": "Evaluation Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Internal-Service-Auth",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Internal-Service-Auth"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProviderEvaluationUpsertRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderEvaluationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Upsert Provider Application Evaluation",
+        "tags": [
+          "provider-applications"
+        ]
+      }
+    },
+    "/v1/provider-applications/{application_id}/submit": {
+      "post": {
+        "operationId": "submit_provider_application_v1_provider_applications__application_id__submit_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "application_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+              "title": "Application Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "tenant_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tenant Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Internal-Service-Auth",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Internal-Service-Auth"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderApplicationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Submit Provider Application",
+        "tags": [
+          "provider-applications"
         ]
       }
     },

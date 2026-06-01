@@ -18,43 +18,57 @@ from pydantic import (
 )
 
 ProviderKind = Literal["self", "open_source", "external", "commercial"]
+ProviderApplicationKind = Literal["external", "commercial"]
 ProviderStatus = Literal["active", "inactive", "deprecated"]
 CapabilityStatus = Literal["v1", "v1_late", "v2", "audited", "shadow"]
 OAuthFlowStatus = Literal["draft", "configured", "disabled"]
 RevenueSharePolicyStatus = Literal["reserved", "active", "deprecated"]
 RevenueShareHookStatus = Literal["reserved", "captured", "voided"]
+ProviderApplicationStatus = Literal["draft", "submitted"]
+ProviderEvaluationStatus = Literal["requested", "queued", "cancelled"]
 ScopeSource = Literal["global", "tenant", "global_fallback"]
 
 _ID_PATTERN = r"^[a-z0-9][a-z0-9-]{0,63}$"
+_BENCHMARK_SUITE_PATTERN = r"^[a-z0-9][a-z0-9_-]{0,63}$"
 _SOURCE_SERVICE_PATTERN = r"^[a-z0-9][a-z0-9-]{0,63}$"
 _TIER_PATTERN = r"^(T[1-6]|P[1-5])$"
 _PERIOD_MONTH_PATTERN = r"^[0-9]{4}-(0[1-9]|1[0-2])$"
+_HTTP_URL_PATTERN = re.compile(r"^https?://")
+_EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+_REF_PATTERN = re.compile(r"^(s3|oss|fixture|benchmark|repro)://")
 _SHA256_PATTERN = re.compile(r"^[0-9a-fA-F]{64}$")
 _DIGEST_PATTERN = re.compile(r"sha256:[0-9a-fA-F]{64}")
 _TAG_PATTERN = re.compile(r"^[a-z0-9][a-z0-9_-]{0,63}$")
 _RATIO_QUANT = Decimal("0.000001")
-_FORBIDDEN_REVENUE_SHARE_FIELDS = {
+_FORBIDDEN_REFERENCE_FIELDS = {
     "api_key",
+    "bank_account",
+    "access_token",
+    "client_secret",
+    "docker_password",
+    "email",
+    "email_body",
+    "jwt",
+    "password",
+    "phone",
+    "provider_secret",
+    "raw_body",
+    "raw_dataset",
+    "refresh_token",
+    "registry_password",
+    "secret",
+    "tax_id",
+    "token",
+}
+_FORBIDDEN_REVENUE_SHARE_FIELDS = _FORBIDDEN_REFERENCE_FIELDS | {
     "provider_amount",
     "platform_amount",
     "payout_status",
     "paid_at",
     "settlement_id",
-    "bank_account",
-    "tax_id",
-    "email",
-    "phone",
     "payment_account",
     "payment_ref",
     "raw_billing_payload",
-    "raw_body",
-    "access_token",
-    "refresh_token",
-    "client_secret",
-    "jwt",
-    "provider_secret",
-    "secret",
-    "token",
 }
 
 
@@ -233,6 +247,63 @@ def _reject_forbidden_revenue_share_fields(data: Any) -> None:
             _reject_forbidden_revenue_share_fields(item)
 
 
+def _reject_forbidden_reference_fields(data: Any) -> None:
+    if isinstance(data, dict):
+        present = sorted(key for key in data if _is_forbidden_reference_key(str(key)))
+        if present:
+            raise ValueError(f"credential or raw payload fields are not allowed: {present}")
+        for value in data.values():
+            _reject_forbidden_reference_fields(value)
+    elif isinstance(data, list):
+        for item in data:
+            _reject_forbidden_reference_fields(item)
+
+
+def _is_forbidden_reference_key(key: str) -> bool:
+    normalized = re.sub(r"[^a-z0-9]+", "_", key.strip().lower()).strip("_")
+    compact = normalized.replace("_", "")
+    if normalized in _FORBIDDEN_REFERENCE_FIELDS:
+        return True
+    return any(
+        marker in compact
+        for marker in (
+            "apikey",
+            "password",
+            "clientsecret",
+            "accesstoken",
+            "refreshtoken",
+            "registrypassword",
+            "dockerpassword",
+            "bankaccount",
+            "taxid",
+            "email",
+            "phone",
+            "rawdataset",
+            "rawbody",
+            "jwt",
+            "secret",
+            "token",
+        )
+    )
+
+
+def _validate_http_url(value: str | None, *, field_name: str) -> str | None:
+    if value is not None and not _HTTP_URL_PATTERN.match(value):
+        raise ValueError(f"{field_name} must start with http:// or https://")
+    return value
+
+
+def _validate_reference(value: str, *, field_name: str) -> str:
+    stripped = value.strip()
+    if not stripped:
+        raise ValueError(f"{field_name} cannot be blank")
+    if len(stripped) > 256:
+        raise ValueError(f"{field_name} must be at most 256 characters")
+    if not _REF_PATTERN.match(stripped):
+        raise ValueError(f"{field_name} must start with an allowed reference prefix")
+    return stripped
+
+
 def _normalize_ratio(value: Decimal) -> Decimal:
     if value < 0 or value > 1:
         raise ValueError("ratio must be between 0 and 1")
@@ -316,3 +387,127 @@ class RevenueShareHookResponse(RevenueShareHookCreateRequest):
     id: uuid.UUID
     scope_source: ScopeSource
     created_at: datetime
+
+
+class ProviderApplicationUpsertRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    tenant_id: uuid.UUID | None = None
+    application_id: str | None = Field(default=None, pattern=_ID_PATTERN)
+    requested_provider_id: str = Field(..., pattern=_ID_PATTERN)
+    provider_kind: ProviderApplicationKind
+    display_name: str = Field(..., min_length=1, max_length=120)
+    organization_name: str = Field(..., min_length=1, max_length=160)
+    contact_email: str = Field(..., min_length=3, max_length=254)
+    homepage_url: str | None = None
+    openapi_url: str = Field(..., min_length=1)
+    openapi_sha256: str = Field(..., pattern=r"^[0-9a-fA-F]{64}$")
+    image_digest: str = Field(..., min_length=1)
+    cosign_bundle: dict[str, Any] = Field(default_factory=dict)
+    evaluation_profile: dict[str, Any] = Field(default_factory=dict)
+    status: ProviderApplicationStatus = "draft"
+    submitted_at: datetime | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("contact_email")
+    @classmethod
+    def validate_contact_email(cls, value: str) -> str:
+        if not _EMAIL_PATTERN.match(value):
+            raise ValueError("contact_email must be a valid email-like address")
+        return value
+
+    @field_validator("homepage_url")
+    @classmethod
+    def validate_homepage_url(cls, value: str | None) -> str | None:
+        return _validate_http_url(value, field_name="homepage_url")
+
+    @field_validator("openapi_url")
+    @classmethod
+    def validate_openapi_url(cls, value: str) -> str:
+        return str(_validate_http_url(value, field_name="openapi_url"))
+
+    @field_validator("image_digest")
+    @classmethod
+    def validate_application_image_digest(cls, value: str) -> str:
+        if not _DIGEST_PATTERN.search(value):
+            raise ValueError("image_digest must include sha256:<64 hex>")
+        return value
+
+    @field_validator("cosign_bundle", "evaluation_profile", "metadata")
+    @classmethod
+    def validate_reference_metadata(cls, value: dict[str, Any]) -> dict[str, Any]:
+        _reject_forbidden_reference_fields(value)
+        return value
+
+
+class ProviderApplicationResponse(ProviderApplicationUpsertRequest):
+    id: uuid.UUID
+    application_id: str = Field(..., pattern=_ID_PATTERN)
+    scope_source: ScopeSource
+    created_at: datetime
+    updated_at: datetime
+
+
+class ProviderEvaluationUpsertRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    tenant_id: uuid.UUID | None = None
+    application_id: str | None = Field(default=None, pattern=_ID_PATTERN)
+    evaluation_id: str | None = Field(default=None, pattern=_ID_PATTERN)
+    benchmark_suite: str = Field(..., pattern=_BENCHMARK_SUITE_PATTERN)
+    sample_count: int = Field(..., ge=1, le=500)
+    timeout_seconds: int = Field(..., ge=1, le=60)
+    status: ProviderEvaluationStatus = "requested"
+    dataset_refs: list[str] = Field(..., min_length=1)
+    report_ref: str | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="before")
+    @classmethod
+    def reject_requested_provider_id(cls, data: Any) -> Any:
+        if isinstance(data, dict) and "requested_provider_id" in data:
+            raise ValueError("requested_provider_id is derived from the application")
+        return data
+
+    @field_validator("dataset_refs")
+    @classmethod
+    def validate_dataset_refs(cls, value: list[str]) -> list[str]:
+        refs: list[str] = []
+        for item in value:
+            ref = _validate_reference(item, field_name="dataset_refs")
+            if ref not in refs:
+                refs.append(ref)
+        return refs
+
+    @field_validator("report_ref")
+    @classmethod
+    def validate_report_ref(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return _validate_reference(value, field_name="report_ref")
+
+    @field_validator("metadata")
+    @classmethod
+    def validate_evaluation_metadata(cls, value: dict[str, Any]) -> dict[str, Any]:
+        _reject_forbidden_reference_fields(value)
+        return value
+
+
+class ProviderEvaluationResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: uuid.UUID
+    tenant_id: uuid.UUID | None = None
+    application_id: str = Field(..., pattern=_ID_PATTERN)
+    evaluation_id: str = Field(..., pattern=_ID_PATTERN)
+    requested_provider_id: str = Field(..., pattern=_ID_PATTERN)
+    benchmark_suite: str = Field(..., pattern=_BENCHMARK_SUITE_PATTERN)
+    sample_count: int = Field(..., ge=1, le=500)
+    timeout_seconds: int = Field(..., ge=1, le=60)
+    status: ProviderEvaluationStatus
+    dataset_refs: list[str]
+    report_ref: str | None = None
+    metadata: dict[str, Any]
+    scope_source: ScopeSource
+    created_at: datetime
+    updated_at: datetime

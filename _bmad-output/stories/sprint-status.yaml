@@ -216,12 +216,12 @@ development_status:
 
   # ===== Epic 7.A/B: Provider (15 stories) =====
   epic-7-a: in-progress
-  epic-7-b: backlog
+  epic-7-b: in-progress
 
   7-a-1-capability-registry-v1-schema: done
   7-a-2-revenue-share-hook-v2-reservation: done
 
-  7-b-1-provider-apply-v2: backlog
+  7-b-1-provider-apply-v2: code-review
   7-b-2-shadow-validation: backlog
   7-b-3-gradient-rollout: backlog
   7-b-4-route-share-dashboard: backlog
