@@ -4,7 +4,7 @@ baseline_commit: 2d682bcabb3156839f0a4700de5873891d0e5252
 epic_num: 5
 story_num: D.6
 epic_name: Billing - Invoices + Templates + Budget + Notifications
-status: ready-for-dev
+status: in-progress
 priority: High
 type: notification preferences for billable events
 created_by: bmad-create-story
@@ -28,7 +28,7 @@ sources:
 
 # Story 5.D.6 - Notification preferences
 
-Status: ready-for-dev
+Status: in-progress
 
 ## Story
 
@@ -114,39 +114,39 @@ Default behavior for users without explicit preference rows:
 
 ## Tasks / Subtasks
 
-- [ ] T1: Add notification preference persistence (AC: 1-4, 27-29)
-  - [ ] Add idempotent local init SQL for `notification_preferences`.
-  - [ ] Update CI/e2e schema setup and path filters for auth-service/billing-service.
-  - [ ] Add auth-service ORM model with matching indexes and constraints.
-  - [ ] Add auth-service `OutboxEvent` ORM model for the existing `outbox` table.
-  - [ ] Ensure local test fixtures can run against databases missing the new table.
+- [x] T1: Add notification preference persistence (AC: 1-4, 27-29)
+  - [x] Add idempotent local init SQL for `notification_preferences`.
+  - [x] Update CI/e2e schema setup and path filters for auth-service/billing-service.
+  - [x] Add auth-service ORM model with matching indexes and constraints.
+  - [x] Add auth-service `OutboxEvent` ORM model for the existing `outbox` table.
+  - [x] Ensure local test fixtures can run against databases missing the new table.
 
-- [ ] T2: Add auth-service preference API (AC: 5-14)
-  - [ ] Add request/response schemas and strict event/channel validation.
-  - [ ] Add GET and PUT routes under `/v1/auth/notification-preferences`.
-  - [ ] Add PUT to auth-service CORS allowed methods.
-  - [ ] Add pointer-safe audit log and outbox event for updates.
-  - [ ] Add tests for defaults, validation, upsert, inactive users, and cross-user isolation.
+- [x] T2: Add auth-service preference API (AC: 5-14)
+  - [x] Add request/response schemas and strict event/channel validation.
+  - [x] Add GET and PUT routes under `/v1/auth/notification-preferences`.
+  - [x] Add PUT to auth-service CORS allowed methods.
+  - [x] Add pointer-safe audit log and outbox event for updates.
+  - [x] Add tests for defaults, validation, upsert, inactive users, and cross-user isolation.
 
-- [ ] T3: Apply preferences to billing budget notification payloads (AC: 15-19)
-  - [ ] Add billing-service helper to read notification preferences by user/event via raw SQL.
-  - [ ] Filter budget alert/pause `channels` using current preferences.
-  - [ ] Include only a boolean webhook configured flag in billing outbox payloads.
-  - [ ] Preserve 5.D.5 budget event idempotency and existing charge behavior.
+- [x] T3: Apply preferences to billing budget notification payloads (AC: 15-19)
+  - [x] Add billing-service helper to read notification preferences by user/event via raw SQL.
+  - [x] Filter budget alert/pause `channels` using current preferences.
+  - [x] Include only a boolean webhook configured flag in billing outbox payloads.
+  - [x] Preserve 5.D.5 budget event idempotency and existing charge behavior.
 
-- [ ] T4: Add web API helpers and tests (AC: 21, 26)
-  - [ ] Add TypeScript request/response types and helpers.
-  - [ ] Cover URL, Authorization, body shape, and RFC 7807/default error preservation.
+- [x] T4: Add web API helpers and tests (AC: 21, 26)
+  - [x] Add TypeScript request/response types and helpers.
+  - [x] Cover URL, Authorization, body shape, and RFC 7807/default error preservation.
 
-- [ ] T5: Add account settings notification panel (AC: 22-26)
-  - [ ] Load notification preferences independently of deletion/merge data.
-  - [ ] Add per-event channel controls and webhook URL inputs.
-  - [ ] Keep existing account settings visible on preference failures.
-  - [ ] Add focused page tests for success, validation/error isolation, and storage hygiene.
+- [x] T5: Add account settings notification panel (AC: 22-26)
+  - [x] Load notification preferences independently of deletion/merge data.
+  - [x] Add per-event channel controls and webhook URL inputs.
+  - [x] Keep existing account settings visible on preference failures.
+  - [x] Add focused page tests for success, validation/error isolation, and storage hygiene.
 
 - [ ] T6: Review, gates, and GitHub sync (AC: 30)
-  - [ ] Run focused backend/web tests and static gates.
-  - [ ] Run post-implementation code review and fix findings.
+  - [x] Run focused backend/web tests and static gates.
+  - [x] Run post-implementation code review and fix findings.
   - [ ] Commit, push, create PR, wait for CI, merge, delete remote branch, and sync local `main`.
 
 ## Dev Notes
@@ -217,17 +217,45 @@ GPT-5 Codex
 
 - Baseline branch: `codex/5-d-6-notification-preferences`.
 - Baseline commit: `2d682bcabb3156839f0a4700de5873891d0e5252`.
+- Red phase: `uv run pytest apps/auth-service/tests/test_notification_preferences.py -q` initially failed 11/11 with 404 because `/v1/auth/notification-preferences` did not exist.
+- Focused backend gates: `uv run pytest apps/auth-service/tests/test_notification_preferences.py -q; uv run pytest apps/billing-service/tests/test_budget_routes.py -q` passed 11 auth tests and 6 billing tests.
+- Focused web gates: `pnpm vitest run src/lib/notification-preferences.test.ts src/app/auth/account/page.test.tsx` passed 8 tests.
+- Service regression gates: `uv run pytest apps/auth-service/tests/ -q` passed 94 tests, `uv run pytest apps/billing-service/tests/ -q` passed 286 tests, and `pnpm test` in `apps/web` passed 163 tests.
+- Static gates: `uv run ruff check ...`, `uv run ruff format --check ...`, `uv run mypy apps/auth-service/src/auth_service apps/billing-service/src/billing_service`, `pnpm typecheck`, and `git diff --check` passed.
+- Note: running auth and billing DB tests concurrently against the same local database can race because auth notification tests clear `notification_preferences`; final backend verification was run serially.
 
 ### Completion Notes List
 
+- Implemented auth-owned notification preferences with strict full-replacement validation, active-user auth, CORS `PUT`, audit log, and pointer-safe auth outbox events.
+- Applied notification preferences in billing budget alert/pause payloads via raw SQL across the service boundary, preserving 5.D.5 idempotency and omitting raw webhook URLs from billing outbox payloads.
+- Added typed web API helpers and a compact account settings notification panel whose loading, error, and save state are independent of account deletion/merge state.
+- Post-implementation review findings fixed: billing tests now create the preference table in local fixtures, the account page avoids flashing editable defaults before load, and webhook host validation rejects non-standard numeric IP notation while allowing public IPv6.
+
 ### File List
 
+- `.github/workflows/ci.yml`
+- `.github/workflows/e2e.yml`
 - `_bmad-output/stories/5-d-6-notification-preferences.md`
 - `_bmad-output/stories/sprint-status.yaml`
+- `apps/auth-service/src/auth_service/main.py`
+- `apps/auth-service/src/auth_service/models.py`
+- `apps/auth-service/src/auth_service/routes.py`
+- `apps/auth-service/src/auth_service/schemas.py`
+- `apps/auth-service/tests/test_notification_preferences.py`
+- `apps/billing-service/src/billing_service/budget.py`
+- `apps/billing-service/src/billing_service/schemas.py`
+- `apps/billing-service/tests/conftest.py`
+- `apps/billing-service/tests/test_budget_routes.py`
+- `apps/web/src/app/auth/account/page.tsx`
+- `apps/web/src/app/auth/account/page.test.tsx`
+- `apps/web/src/lib/api.ts`
+- `apps/web/src/lib/notification-preferences.test.ts`
+- `infra/local-init/13-notification-preferences.sql`
 
 ## Change Log
 
 - 2026-06-01 - Story created for user notification preferences, budget notification channel filtering, and account settings UI.
+- 2026-06-01 - Implemented notification preference schema/API, billing channel filtering, account settings UI, focused tests, and post-implementation review fixes; GitHub sync remains pending.
 
 ## Pre-Implementation Adversarial Review
 

@@ -9,13 +9,34 @@ import { ConfirmationModal, StatusCard } from "@opticloud/ui";
 import {
   type AccountMergeProposalResponse,
   type AccountDeletionStatusResponse,
+  type NotificationPreferenceEventType,
+  type NotificationPreferenceItem,
+  type NotificationPreferencesResponse,
   acceptAccountMergeProposal,
   createAccountMergeProposal,
+  getNotificationPreferences,
   OptiCloudClientError,
   getAccountDeletionStatus,
   listAccountMergeProposals,
+  putNotificationPreferences,
   requestAccountDeletion,
 } from "@/lib/api";
+
+const NOTIFICATION_EVENTS: Array<{
+  event_type: NotificationPreferenceEventType;
+  label: string;
+}> = [
+  { event_type: "billing.budget.alerted", label: "预算达到提醒阈值" },
+  { event_type: "billing.budget.paused", label: "预算自动暂停扣费" },
+];
+
+type NotificationPreferenceFormItem = {
+  event_type: NotificationPreferenceEventType;
+  email: boolean;
+  webhook: boolean;
+  in_app: boolean;
+  webhook_url: string;
+};
 
 function formatDate(value: string | null): string {
   if (!value) return "-";
@@ -23,6 +44,49 @@ function formatDate(value: string | null): string {
     dateStyle: "medium",
     timeStyle: "short",
   });
+}
+
+function defaultNotificationPreferenceForm(): NotificationPreferenceFormItem[] {
+  return NOTIFICATION_EVENTS.map(({ event_type }) => ({
+    event_type,
+    email: true,
+    webhook: false,
+    in_app: true,
+    webhook_url: "",
+  }));
+}
+
+function preferencesToForm(
+  response: NotificationPreferencesResponse,
+): NotificationPreferenceFormItem[] {
+  const byEvent = new Map(response.items.map((item) => [item.event_type, item]));
+  return NOTIFICATION_EVENTS.map(({ event_type }) => {
+    const item = byEvent.get(event_type);
+    return {
+      event_type,
+      email: item?.email ?? true,
+      webhook: item?.webhook ?? false,
+      in_app: item?.in_app ?? true,
+      webhook_url: item?.webhook_url ?? "",
+    };
+  });
+}
+
+function preferenceErrorMessage(error: unknown): string {
+  return error instanceof OptiCloudClientError ? `${error.title}: ${error.detail}` : String(error);
+}
+
+function eventLabel(eventType: NotificationPreferenceEventType): string {
+  return NOTIFICATION_EVENTS.find((event) => event.event_type === eventType)?.label ?? eventType;
+}
+
+function enabledChannelsLabel(item: NotificationPreferenceItem): string {
+  if (item.channels.length === 0) return "无通知渠道";
+  return item.channels
+    .map((channel) =>
+      channel === "email" ? "邮件" : channel === "webhook" ? "Webhook" : "站内",
+    )
+    .join("、");
 }
 
 export default function AccountPage(): JSX.Element {
@@ -39,6 +103,14 @@ export default function AccountPage(): JSX.Element {
   const [mergeReason, setMergeReason] = useState("");
   const [contactEmail, setContactEmail] = useState("");
   const [teamSize, setTeamSize] = useState("2");
+  const [notificationPreferences, setNotificationPreferences] =
+    useState<NotificationPreferencesResponse | null>(null);
+  const [notificationForm, setNotificationForm] = useState<NotificationPreferenceFormItem[]>(
+    defaultNotificationPreferenceForm,
+  );
+  const [notificationLoading, setNotificationLoading] = useState(true);
+  const [notificationSaving, setNotificationSaving] = useState(false);
+  const [notificationError, setNotificationError] = useState<string | null>(null);
 
   useEffect(() => {
     const stored = typeof window !== "undefined" ? sessionStorage.getItem("jwt_access") : null;
@@ -72,6 +144,25 @@ export default function AccountPage(): JSX.Element {
   useEffect(() => {
     if (jwt) void refresh();
   }, [jwt, refresh]);
+
+  const refreshNotificationPreferences = useCallback(async () => {
+    if (!jwt) return;
+    setNotificationLoading(true);
+    setNotificationError(null);
+    try {
+      const result = await getNotificationPreferences(jwt);
+      setNotificationPreferences(result);
+      setNotificationForm(preferencesToForm(result));
+    } catch (e) {
+      setNotificationError(preferenceErrorMessage(e));
+    } finally {
+      setNotificationLoading(false);
+    }
+  }, [jwt]);
+
+  useEffect(() => {
+    if (jwt) void refreshNotificationPreferences();
+  }, [jwt, refreshNotificationPreferences]);
 
   const handleDelete = async (): Promise<void> => {
     if (!jwt) return;
@@ -139,6 +230,41 @@ export default function AccountPage(): JSX.Element {
       setError(e instanceof OptiCloudClientError ? `${e.title}: ${e.detail}` : String(e));
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const updateNotificationForm = (
+    eventType: NotificationPreferenceEventType,
+    patch: Partial<NotificationPreferenceFormItem>,
+  ): void => {
+    setNotificationForm((current) =>
+      current.map((item) => (item.event_type === eventType ? { ...item, ...patch } : item)),
+    );
+  };
+
+  const handleNotificationSubmit = async (
+    event: FormEvent<HTMLFormElement>,
+  ): Promise<void> => {
+    event.preventDefault();
+    if (!jwt) return;
+    setNotificationSaving(true);
+    setNotificationError(null);
+    try {
+      const result = await putNotificationPreferences(jwt, {
+        items: notificationForm.map((item) => ({
+          event_type: item.event_type,
+          email: item.email,
+          webhook: item.webhook,
+          in_app: item.in_app,
+          webhook_url: item.webhook_url.trim() || null,
+        })),
+      });
+      setNotificationPreferences(result);
+      setNotificationForm(preferencesToForm(result));
+    } catch (e) {
+      setNotificationError(preferenceErrorMessage(e));
+    } finally {
+      setNotificationSaving(false);
     }
   };
 
@@ -342,6 +468,117 @@ export default function AccountPage(): JSX.Element {
                 ))
               )}
             </div>
+          </section>
+        )}
+
+        {jwt && !loading && (
+          <section className="mt-6 rounded-md border border-border bg-background p-6">
+            <div className="mb-5 border-b border-border pb-5">
+              <h2 className="text-lg font-semibold">通知偏好</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                按预算事件选择邮件、Webhook 或站内通知渠道。
+              </p>
+            </div>
+
+            {notificationError && (
+              <div className="mb-4">
+                <StatusCard
+                  variant="error"
+                  title="通知偏好保存失败"
+                  description={notificationError}
+                  ariaLabel="notification-preferences.error"
+                />
+              </div>
+            )}
+
+            {notificationLoading ? (
+              <div className="rounded-md border border-border bg-muted/40 p-4 text-sm text-muted-foreground">
+                正在读取通知偏好...
+              </div>
+            ) : (
+              <form onSubmit={(event) => void handleNotificationSubmit(event)} className="grid gap-5">
+                {notificationForm.map((item) => (
+                  <fieldset
+                    key={item.event_type}
+                    className="rounded-md border border-border bg-muted/30 p-4"
+                  >
+                    <legend className="px-1 text-sm font-semibold">
+                      {eventLabel(item.event_type)}
+                    </legend>
+                    <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                      <label className="flex min-h-touch items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={item.email}
+                          onChange={(event) =>
+                            updateNotificationForm(item.event_type, {
+                              email: event.target.checked,
+                            })
+                          }
+                        />
+                        邮件
+                      </label>
+                      <label className="flex min-h-touch items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={item.in_app}
+                          onChange={(event) =>
+                            updateNotificationForm(item.event_type, {
+                              in_app: event.target.checked,
+                            })
+                          }
+                        />
+                        站内
+                      </label>
+                      <label className="flex min-h-touch items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={item.webhook}
+                          onChange={(event) =>
+                            updateNotificationForm(item.event_type, {
+                              webhook: event.target.checked,
+                            })
+                          }
+                        />
+                        Webhook
+                      </label>
+                    </div>
+                    <label className="mt-3 block text-sm">
+                      <span className="mb-1 block font-medium">Webhook URL</span>
+                      <input
+                        type="url"
+                        value={item.webhook_url}
+                        onChange={(event) =>
+                          updateNotificationForm(item.event_type, {
+                            webhook_url: event.target.value,
+                          })
+                        }
+                        placeholder="https://hooks.example.com/opticloud"
+                        className="min-h-touch w-full rounded-md border border-border bg-background px-3 py-2 font-mono text-xs"
+                      />
+                    </label>
+                  </fieldset>
+                ))}
+
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <button
+                    type="submit"
+                    disabled={notificationSaving}
+                    className="min-h-touch w-fit rounded-md bg-primary px-4 py-2 font-semibold text-primary-foreground hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {notificationSaving ? "保存中..." : "保存通知偏好"}
+                  </button>
+                  {notificationPreferences && (
+                    <p className="text-xs text-muted-foreground">
+                      当前：{" "}
+                      {notificationPreferences.items
+                        .map((item) => `${eventLabel(item.event_type)}=${enabledChannelsLabel(item)}`)
+                        .join("；")}
+                    </p>
+                  )}
+                </div>
+              </form>
+            )}
           </section>
         )}
       </div>

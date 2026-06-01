@@ -422,7 +422,7 @@ class BudgetEventSummaryResponse(BaseModel):
     budget_amount: str
     actual_spend: str
     percent_used: str
-    channels: list[Literal["email", "in_app"]] = Field(default_factory=list)
+    channels: list[Literal["email", "webhook", "in_app"]] = Field(default_factory=list)
 
 
 class BudgetStatusResponse(BaseModel):

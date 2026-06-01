@@ -14,6 +14,7 @@ import structlog
 from fastapi import APIRouter, Body, Depends, Header, HTTPException, Request, Response, status
 from fastapi.responses import JSONResponse
 from sqlalchemy import and_, select, text, update
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -27,8 +28,17 @@ from auth_service import (
 )
 from auth_service.config import settings
 from auth_service.db import get_session
-from auth_service.models import APIKey, AuditLog, GuardianConsentRequest, User, UserOTP
+from auth_service.models import (
+    APIKey,
+    AuditLog,
+    GuardianConsentRequest,
+    NotificationPreference,
+    OutboxEvent,
+    User,
+    UserOTP,
+)
 from auth_service.schemas import (
+    SUPPORTED_NOTIFICATION_EVENTS,
     AccountDeletionStatusResponse,
     AccountMergeProposalCreateRequest,
     AccountMergeProposalResponse,
@@ -41,10 +51,15 @@ from auth_service.schemas import (
     GuardianConsentPendingResponse,
     LoginRequest,
     LoginResponse,
+    NotificationPreferenceItem,
+    NotificationPreferenceResponseItem,
+    NotificationPreferencesResponse,
+    NotificationPreferencesUpdateRequest,
     OTPRequestBody,
     OTPRequestResponse,
     SignupRequest,
     SignupResponse,
+    notification_channels,
 )
 
 _log = structlog.get_logger("auth_service.routes")
@@ -698,6 +713,151 @@ async def list_api_keys(
         )
         for k in keys
     ]
+
+
+def _notification_preference_response_item(
+    event_type: str,
+    preference: NotificationPreference | None,
+) -> NotificationPreferenceResponseItem:
+    email = preference.email_enabled if preference is not None else True
+    webhook = preference.webhook_enabled if preference is not None else False
+    in_app = preference.in_app_enabled if preference is not None else True
+    webhook_url = preference.webhook_url if preference is not None else None
+    return NotificationPreferenceResponseItem(
+        event_type=event_type,  # type: ignore[arg-type]
+        email=email,
+        webhook=webhook,
+        in_app=in_app,
+        webhook_url=webhook_url,
+        webhook_url_configured=bool(webhook and webhook_url),
+        channels=notification_channels(email=email, webhook=webhook, in_app=in_app),
+    )
+
+
+async def _load_notification_preferences_response(
+    session: AsyncSession,
+    user_id: uuid.UUID,
+) -> NotificationPreferencesResponse:
+    rows = (
+        (
+            await session.execute(
+                select(NotificationPreference).where(NotificationPreference.user_id == user_id)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    by_event = {row.event_type: row for row in rows}
+    return NotificationPreferencesResponse(
+        items=[
+            _notification_preference_response_item(event_type, by_event.get(event_type))
+            for event_type in SUPPORTED_NOTIFICATION_EVENTS
+        ]
+    )
+
+
+def _notification_outbox_payload(
+    user_id: uuid.UUID,
+    items: list[NotificationPreferenceItem],
+) -> dict[str, object]:
+    ordered_items = sorted(
+        items,
+        key=lambda item: SUPPORTED_NOTIFICATION_EVENTS.index(item.event_type),
+    )
+    return {
+        "user_id": str(user_id),
+        "preferences": [
+            {
+                "event_type": item.event_type,
+                "channels": notification_channels(
+                    email=item.email,
+                    webhook=item.webhook,
+                    in_app=item.in_app,
+                ),
+                "webhook_url_configured": bool(item.webhook and item.webhook_url),
+            }
+            for item in ordered_items
+        ],
+    }
+
+
+@router.get(
+    "/notification-preferences",
+    response_model=NotificationPreferencesResponse,
+    summary="查看当前用户通知偏好",
+)
+async def get_notification_preferences(
+    authorization: str | None = Header(default=None),
+    session: AsyncSession = Depends(get_session),
+) -> NotificationPreferencesResponse:
+    user_id = await _resolve_active_user_from_jwt(authorization, session)
+    return await _load_notification_preferences_response(session, user_id)
+
+
+@router.put(
+    "/notification-preferences",
+    response_model=NotificationPreferencesResponse,
+    summary="全量更新当前用户通知偏好",
+)
+async def update_notification_preferences(
+    body: NotificationPreferencesUpdateRequest,
+    authorization: str | None = Header(default=None),
+    session: AsyncSession = Depends(get_session),
+) -> NotificationPreferencesResponse:
+    user_id = await _resolve_active_user_from_jwt(authorization, session)
+    ordered_items = sorted(
+        body.items,
+        key=lambda item: SUPPORTED_NOTIFICATION_EVENTS.index(item.event_type),
+    )
+    for item in ordered_items:
+        stmt = (
+            pg_insert(NotificationPreference)
+            .values(
+                user_id=user_id,
+                event_type=item.event_type,
+                email_enabled=item.email,
+                webhook_enabled=item.webhook,
+                in_app_enabled=item.in_app,
+                webhook_url=item.webhook_url,
+                updated_at=datetime.now(UTC),
+            )
+            .on_conflict_do_update(
+                index_elements=["user_id", "event_type"],
+                set_={
+                    "email_enabled": item.email,
+                    "webhook_enabled": item.webhook,
+                    "in_app_enabled": item.in_app,
+                    "webhook_url": item.webhook_url,
+                    "updated_at": datetime.now(UTC),
+                },
+            )
+        )
+        await session.execute(stmt)
+
+    payload = _notification_outbox_payload(user_id, ordered_items)
+    session.add(
+        AuditLog(
+            user_id=user_id,
+            actor="user",
+            action="auth.notification_preferences.updated",
+            resource_type="user",
+            resource_id=user_id,
+            audit_metadata=payload,
+        )
+    )
+    session.add(
+        OutboxEvent(
+            aggregate_type="user",
+            aggregate_id=user_id,
+            event_type="auth.notification_preferences.updated",
+            event_version=1,
+            payload=payload,
+            headers={},
+            occurred_at=datetime.now(UTC),
+        )
+    )
+    await session.flush()
+    return await _load_notification_preferences_response(session, user_id)
 
 
 @router.delete(

@@ -641,6 +641,65 @@ export async function requestAccountDeletion(
   );
 }
 
+// ===== Notification preferences (Story 5.D.6) =====
+
+export type NotificationPreferenceEventType =
+  | "billing.budget.alerted"
+  | "billing.budget.paused";
+
+export type NotificationPreferenceChannel = "email" | "webhook" | "in_app";
+
+export interface NotificationPreferenceItem {
+  event_type: NotificationPreferenceEventType;
+  email: boolean;
+  webhook: boolean;
+  in_app: boolean;
+  webhook_url: string | null;
+  webhook_url_configured: boolean;
+  channels: NotificationPreferenceChannel[];
+}
+
+export interface NotificationPreferencesResponse {
+  items: NotificationPreferenceItem[];
+}
+
+export interface NotificationPreferenceUpdateItem {
+  event_type: NotificationPreferenceEventType;
+  email: boolean;
+  webhook: boolean;
+  in_app: boolean;
+  webhook_url?: string | null;
+}
+
+export interface NotificationPreferencesUpdateRequest {
+  items: NotificationPreferenceUpdateItem[];
+}
+
+export async function getNotificationPreferences(
+  jwtAccess: string,
+): Promise<NotificationPreferencesResponse> {
+  return request<NotificationPreferencesResponse>(
+    "/v1/auth/notification-preferences",
+    { headers: { Authorization: `Bearer ${jwtAccess}` } },
+    AUTH_SERVICE_URL,
+  );
+}
+
+export async function putNotificationPreferences(
+  jwtAccess: string,
+  body: NotificationPreferencesUpdateRequest,
+): Promise<NotificationPreferencesResponse> {
+  return request<NotificationPreferencesResponse>(
+    "/v1/auth/notification-preferences",
+    {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${jwtAccess}` },
+      body: JSON.stringify(body),
+    },
+    AUTH_SERVICE_URL,
+  );
+}
+
 // ===== Data exports (Story 5.C.5 — PIPL self-service portal) =====
 
 export type DataExportFormat = "json" | "csv";
@@ -980,7 +1039,7 @@ export interface BillingBudgetEventSummary {
   budget_amount: string;
   actual_spend: string;
   percent_used: string;
-  channels: Array<"email" | "in_app">;
+  channels: Array<"email" | "webhook" | "in_app">;
 }
 
 export interface BillingBudgetStatusResponse {

@@ -6,6 +6,8 @@ on:
     paths:
       - 'apps/web/**'
       - 'apps/auth-service/**'
+      - 'apps/billing-service/**'
+      - 'infra/local-init/13-notification-preferences.sql'
       - 'apps/solver-orchestrator/**'
       - 'packages/**'
       - 'e2e/**'
@@ -14,6 +16,8 @@ on:
     paths:
       - 'apps/web/**'
       - 'apps/auth-service/**'
+      - 'apps/billing-service/**'
+      - 'infra/local-init/13-notification-preferences.sql'
       - 'apps/solver-orchestrator/**'
       - 'packages/**'
       - 'e2e/**'
@@ -106,6 +110,7 @@ jobs:
         run: |
           sudo apt-get install -y postgresql-client
           psql -h localhost -U opticloud -d opticloud_dev -f infra/local-init/01-schema.sql
+          psql -h localhost -U opticloud -d opticloud_dev -f infra/local-init/13-notification-preferences.sql
           psql -h localhost -U opticloud -d opticloud_dev -f infra/local-init/02-solver-schema.sql
           psql -h localhost -U opticloud -d opticloud_dev -f infra/local-init/03-billing-schema.sql
           psql -h localhost -U opticloud -d opticloud_dev -f infra/local-init/04-outbox-trigger.sql

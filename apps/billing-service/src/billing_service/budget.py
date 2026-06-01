@@ -29,7 +29,13 @@ BUDGET_EVENT_CONFIGURED = "billing.budget.configured"
 BUDGET_EVENT_DISABLED = "billing.budget.disabled"
 BUDGET_EVENT_ALERTED = "billing.budget.alerted"
 BUDGET_EVENT_PAUSED = "billing.budget.paused"
-BUDGET_CHANNELS: list[Literal["email", "in_app"]] = ["email", "in_app"]
+BudgetNotificationChannel = Literal["email", "webhook", "in_app"]
+BUDGET_CHANNELS: list[BudgetNotificationChannel] = ["email", "in_app"]
+BUDGET_NOTIFICATION_CHANNEL_ORDER: tuple[BudgetNotificationChannel, ...] = (
+    "email",
+    "webhook",
+    "in_app",
+)
 
 
 @dataclass(frozen=True)
@@ -38,6 +44,14 @@ class BudgetPeriod:
 
     start: datetime
     end: datetime
+
+
+@dataclass(frozen=True)
+class BudgetNotificationPreference:
+    """Delivery channel selection read from auth-owned notification preferences."""
+
+    channels: list[BudgetNotificationChannel]
+    webhook_url_configured: bool
 
 
 def as_utc(value: datetime) -> datetime:
@@ -104,15 +118,56 @@ async def get_budget_control(
     return (await session.execute(stmt)).scalar_one_or_none()
 
 
+async def budget_notification_preference(
+    session: AsyncSession,
+    user_id: uuid.UUID,
+    event_type: str,
+) -> BudgetNotificationPreference:
+    """Read auth-owned notification preferences with raw SQL across the service boundary."""
+    row = (
+        (
+            await session.execute(
+                text(
+                    """
+                    SELECT email_enabled, webhook_enabled, in_app_enabled, webhook_url
+                      FROM notification_preferences
+                     WHERE user_id = :user_id
+                       AND event_type = :event_type
+                    """
+                ),
+                {"user_id": user_id, "event_type": event_type},
+            )
+        )
+        .mappings()
+        .one_or_none()
+    )
+    if row is None:
+        return BudgetNotificationPreference(
+            channels=list(BUDGET_CHANNELS),
+            webhook_url_configured=False,
+        )
+
+    enabled = {
+        "email": bool(row["email_enabled"]),
+        "webhook": bool(row["webhook_enabled"]),
+        "in_app": bool(row["in_app_enabled"]),
+    }
+    return BudgetNotificationPreference(
+        channels=[channel for channel in BUDGET_NOTIFICATION_CHANNEL_ORDER if enabled[channel]],
+        webhook_url_configured=bool(row["webhook_enabled"] and row["webhook_url"]),
+    )
+
+
 def _event_payload(
     control: BillingBudgetControl,
     *,
     event_type: str,
     period: BudgetPeriod,
     actual_spend: Decimal,
-) -> dict[str, str | list[str]]:
+    notification_preference: BudgetNotificationPreference | None = None,
+) -> dict[str, str | list[str] | bool]:
     used = percent_used(actual_spend, control.monthly_budget_amount)
-    payload: dict[str, str | list[str]] = {
+    payload: dict[str, str | list[str] | bool] = {
         "budget_control_id": str(control.id),
         "user_id": str(control.user_id),
         "period_start": period.start.isoformat(),
@@ -125,7 +180,13 @@ def _event_payload(
         "currency": "CNY",
     }
     if event_type in {BUDGET_EVENT_ALERTED, BUDGET_EVENT_PAUSED}:
-        payload["channels"] = list(BUDGET_CHANNELS)
+        preference = notification_preference or BudgetNotificationPreference(
+            channels=list(BUDGET_CHANNELS),
+            webhook_url_configured=False,
+        )
+        payload["channels"] = list(preference.channels)
+        if preference.webhook_url_configured:
+            payload["webhook_url_configured"] = True
     return payload
 
 
@@ -139,11 +200,19 @@ async def _write_budget_event_once(
 ) -> bool:
     """Insert a budget event and matching outbox row once per user/month/type."""
     now = datetime.now(UTC)
+    notification_preference = None
+    if event_type in {BUDGET_EVENT_ALERTED, BUDGET_EVENT_PAUSED}:
+        notification_preference = await budget_notification_preference(
+            session,
+            control.user_id,
+            event_type,
+        )
     payload = _event_payload(
         control,
         event_type=event_type,
         period=period,
         actual_spend=actual_spend,
+        notification_preference=notification_preference,
     )
     statement = """
         INSERT INTO billing_budget_events
@@ -334,10 +403,10 @@ async def recent_budget_events(
 def event_summary(event: BillingBudgetEvent) -> BudgetEventSummaryResponse:
     payload = event.payload
     raw_channels = payload.get("channels", [])
-    channels: list[Literal["email", "in_app"]] = [
-        cast(Literal["email", "in_app"], channel)
+    channels: list[BudgetNotificationChannel] = [
+        cast(BudgetNotificationChannel, channel)
         for channel in raw_channels
-        if channel in {"email", "in_app"}
+        if channel in {"email", "webhook", "in_app"}
     ]
     return BudgetEventSummaryResponse(
         id=str(event.id),
