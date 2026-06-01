@@ -218,7 +218,7 @@ development_status:
   epic-7-a: in-progress
   epic-7-b: backlog
 
-  7-a-1-capability-registry-v1-schema: code-review
+  7-a-1-capability-registry-v1-schema: done
   7-a-2-revenue-share-hook-v2-reservation: backlog
 
   7-b-1-provider-apply-v2: backlog

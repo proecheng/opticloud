@@ -4,7 +4,7 @@ baseline_commit: a9c0d4c
 epic_num: 7
 story_num: A.1
 epic_name: Provider Interface Reservation + capability-registry v1
-status: code-review
+status: done
 priority: High
 type: capability registry schema and contract foundation
 created_by: bmad-create-story
@@ -25,7 +25,7 @@ sources:
 
 # Story 7.A.1 - capability-registry v1 schema
 
-Status: code-review
+Status: done
 
 ## Story
 
@@ -128,11 +128,11 @@ TT2 adds three required reservations to 7.A.1: multi-tenant schema, OpenAPI/cosi
   - [x] Add CI job and schema path trigger for capability-registry tests.
   - [x] Run focused tests/static gates.
 
-- [ ] T5: Review, gates, and GitHub sync (AC: 23-24)
+- [x] T5: Review, gates, and GitHub sync (AC: 23-24)
   - [x] Run post-implementation code review and fix findings.
   - [x] Run local gates after fixes.
-  - [ ] Commit, push, create PR, wait for CI, merge, delete remote branch, and sync local `main`.
-  - [ ] Mark story and sprint status `done` only after merge/sync.
+  - [x] Commit, push, create PR, wait for CI, merge, delete remote branch, and sync local `main`.
+  - [x] Mark story and sprint status `done` only after merge/sync.
 
 ## Dev Notes
 
@@ -209,6 +209,7 @@ GPT-5 Codex
 - OpenAPI gates: `uv run python scripts/generate_openapi.py` and `uv run python scripts/check_openapi_drift.py` -> passed.
 - Safety scans: capability-registry OpenAPI has no raw `client_secret`, `access_token`, `refresh_token`, `authorization_code`, or `provider_kind` properties.
 - Whitespace gate: `git diff --check` -> passed.
+- GitHub sync: PR #134 passed CI, squash-merged to `main` at `a7a70c6`, remote branch `codex/7-a-1-capability-registry-v1-schema` was deleted, and local `main` synced with `origin/main`.
 
 ### Completion Notes List
 
@@ -218,6 +219,7 @@ GPT-5 Codex
 - Added OpenAPI generation/drift coverage for capability-registry and checked in generated auth-service/capability-registry OpenAPI specs.
 - Added capability-registry CI job with Postgres, Redis, repeated schema application, and focused pytest execution.
 - Post-implementation review found and fixed path parameter validation drift: invalid `provider_id`/`k_algo` path values now return 422 before database constraints, with regression coverage.
+- PR #134 passed GitHub CI, merged to `main`, branch cleanup completed, local `main` synced, and this story is now marked done.
 
 ### File List
 
@@ -248,6 +250,7 @@ GPT-5 Codex
 - 2026-06-01 - Story created for capability-registry v1 schema and provider contract reservation.
 - 2026-06-01 - Implemented service skeleton, schema, APIs, cache behavior, tests, and CI/OpenAPI integration draft.
 - 2026-06-01 - Completed OpenAPI/CI integration, post-implementation review, path validation fix, and local gates; story moved to `code-review` pending GitHub CI/merge/sync.
+- 2026-06-01 - PR #134 passed CI, merged to `main`, branch cleanup and local sync completed; story status moved to `done`.
 
 ## Post-Implementation Code Review
 
@@ -259,7 +262,7 @@ GPT-5 Codex
 
 ### Outcome
 
-Changes requested internally; all findings fixed and local gates rerun successfully. GitHub sync remains pending, so story status is `code-review`, not `done`.
+Changes requested internally; all findings fixed and local/GitHub gates passed.
 
 ## Pre-Implementation Adversarial Review
 
