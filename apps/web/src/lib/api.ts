@@ -965,6 +965,72 @@ export async function confirmCharge(
   );
 }
 
+// ===== Billing budget (Story 5.D.5) =====
+
+export interface BillingBudgetEventSummary {
+  id: string;
+  event_type:
+    | "billing.budget.configured"
+    | "billing.budget.disabled"
+    | "billing.budget.alerted"
+    | "billing.budget.paused";
+  period_start: string;
+  period_end: string;
+  occurred_at: string;
+  budget_amount: string;
+  actual_spend: string;
+  percent_used: string;
+  channels: Array<"email" | "in_app">;
+}
+
+export interface BillingBudgetStatusResponse {
+  budget_control_id: string | null;
+  enabled: boolean;
+  status: "not_configured" | "disabled" | "active" | "paused";
+  monthly_budget_amount: string | null;
+  alert_threshold_ratio: string;
+  period_start: string;
+  period_end: string;
+  actual_spend: string;
+  percent_used: string;
+  currency: "CNY";
+  alert_threshold_reached: boolean;
+  paused: boolean;
+  paused_at: string | null;
+  pause_period_start: string | null;
+  recent_events: BillingBudgetEventSummary[];
+}
+
+export interface BillingBudgetUpdateRequest {
+  monthly_budget_amount?: string;
+  enabled?: boolean;
+}
+
+export async function getBillingBudget(
+  jwtAccess: string,
+): Promise<BillingBudgetStatusResponse> {
+  return request<BillingBudgetStatusResponse>(
+    "/v1/billing/budget",
+    { headers: { Authorization: `Bearer ${jwtAccess}` } },
+    BILLING_SERVICE_URL,
+  );
+}
+
+export async function putBillingBudget(
+  jwtAccess: string,
+  body: BillingBudgetUpdateRequest,
+): Promise<BillingBudgetStatusResponse> {
+  return request<BillingBudgetStatusResponse>(
+    "/v1/billing/budget",
+    {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${jwtAccess}` },
+      body: JSON.stringify(body),
+    },
+    BILLING_SERVICE_URL,
+  );
+}
+
 // ===== Billing invoices (Story 5.D.1) =====
 
 export interface BilingualText {

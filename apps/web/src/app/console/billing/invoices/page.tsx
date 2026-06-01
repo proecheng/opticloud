@@ -8,37 +8,50 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { SparklineKPI, StatusCard } from "@opticloud/ui";
 
 import {
+  type BillingBudgetStatusResponse,
   type BillingInvoiceListResponse,
   type BillingInvoiceResponse,
   type BillingUsageTrendWindow,
   type BillingUsageTrendsResponse,
   downloadBillingInvoicePdf,
+  getBillingBudget,
   getBillingInvoice,
   getBillingUsageTrends,
   listBillingInvoices,
   OptiCloudClientError,
+  putBillingBudget,
 } from "@/lib/api";
 
 type PageState = {
   list: BillingInvoiceListResponse | null;
   invoice: BillingInvoiceResponse | null;
   trends: BillingUsageTrendsResponse | null;
+  budget: BillingBudgetStatusResponse | null;
   loading: boolean;
   trendsLoading: boolean;
+  budgetLoading: boolean;
+  budgetSaving: boolean;
   downloading: boolean;
   error: string | null;
   trendsError: string | null;
+  budgetError: string | null;
+  budgetMessage: string | null;
 };
 
 const initialState: PageState = {
   list: null,
   invoice: null,
   trends: null,
+  budget: null,
   loading: false,
   trendsLoading: false,
+  budgetLoading: false,
+  budgetSaving: false,
   downloading: false,
   error: null,
   trendsError: null,
+  budgetError: null,
+  budgetMessage: null,
 };
 
 function formatDate(value: string | null | undefined): string {
@@ -79,6 +92,16 @@ function normalizeTrendError(err: unknown): string {
   return "请求失败";
 }
 
+function normalizeBudgetError(err: unknown): string {
+  if (err instanceof OptiCloudClientError) {
+    if (err.status === 409) return "预算已触发暂停，请提高或停用预算后继续。";
+    if (err.status === 422) return "预算金额需要在 ¥1.00 到 ¥9999999.99 之间。";
+    return `${err.title}: ${err.detail}`;
+  }
+  if (err instanceof Error) return err.message;
+  return "请求失败";
+}
+
 function saveBlob(download: { blob: Blob; filename: string }): void {
   const href = URL.createObjectURL(download.blob);
   try {
@@ -98,6 +121,7 @@ export default function BillingInvoicesPage(): JSX.Element {
   const router = useRouter();
   const [jwt, setJwt] = useState<string | null>(null);
   const [selectedPeriod, setSelectedPeriod] = useState("");
+  const [budgetAmount, setBudgetAmount] = useState("");
   const [state, setState] = useState<PageState>(initialState);
 
   useEffect(() => {
@@ -174,6 +198,36 @@ export default function BillingInvoicesPage(): JSX.Element {
     };
   }, [jwt]);
 
+  useEffect(() => {
+    if (!jwt) return;
+    let cancelled = false;
+    setState((current) => ({
+      ...current,
+      budgetLoading: true,
+      budgetError: null,
+      budgetMessage: null,
+    }));
+
+    void getBillingBudget(jwt)
+      .then((budget) => {
+        if (cancelled) return;
+        setBudgetAmount(budget.monthly_budget_amount ?? "");
+        setState((current) => ({ ...current, budget, budgetLoading: false }));
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setState((current) => ({
+          ...current,
+          budgetLoading: false,
+          budgetError: normalizeBudgetError(err),
+        }));
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [jwt]);
+
   const periods = useMemo(() => state.list?.items.map((item) => item.period) ?? [], [state.list]);
   const trendWindows = useMemo(() => state.trends?.windows ?? [], [state.trends]);
 
@@ -198,7 +252,63 @@ export default function BillingInvoicesPage(): JSX.Element {
     }
   };
 
+  const handleBudgetSave = async (): Promise<void> => {
+    if (!jwt) return;
+    setState((current) => ({
+      ...current,
+      budgetSaving: true,
+      budgetError: null,
+      budgetMessage: null,
+    }));
+    try {
+      const budget = await putBillingBudget(jwt, {
+        monthly_budget_amount: budgetAmount.trim(),
+        enabled: true,
+      });
+      setBudgetAmount(budget.monthly_budget_amount ?? "");
+      setState((current) => ({
+        ...current,
+        budget,
+        budgetSaving: false,
+        budgetMessage: budget.paused ? "预算已达到上限，新的扣费已暂停。" : "预算已更新。",
+      }));
+    } catch (err) {
+      setState((current) => ({
+        ...current,
+        budgetSaving: false,
+        budgetError: normalizeBudgetError(err),
+      }));
+    }
+  };
+
+  const handleBudgetDisable = async (): Promise<void> => {
+    if (!jwt) return;
+    setState((current) => ({
+      ...current,
+      budgetSaving: true,
+      budgetError: null,
+      budgetMessage: null,
+    }));
+    try {
+      const budget = await putBillingBudget(jwt, { enabled: false });
+      setBudgetAmount(budget.monthly_budget_amount ?? "");
+      setState((current) => ({
+        ...current,
+        budget,
+        budgetSaving: false,
+        budgetMessage: "预算控制已停用。",
+      }));
+    } catch (err) {
+      setState((current) => ({
+        ...current,
+        budgetSaving: false,
+        budgetError: normalizeBudgetError(err),
+      }));
+    }
+  };
+
   const invoice = state.invoice;
+  const budget = state.budget;
 
   return (
     <main className="min-h-screen bg-background">
@@ -269,6 +379,98 @@ export default function BillingInvoicesPage(): JSX.Element {
             description="该文件是 OptiCloud billing statement，不是税务发票或发票报销凭证。"
             ariaLabel="billing.invoice.scope"
           />
+
+          <div className="rounded-md border border-border bg-background p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="text-sm text-muted-foreground">月度预算</div>
+                <div className="mt-1 text-xl font-semibold">
+                  {budget?.monthly_budget_amount ? money(budget.monthly_budget_amount) : "未设置"}
+                </div>
+              </div>
+              <span
+                className={[
+                  "rounded px-2 py-1 text-xs font-medium",
+                  budget?.paused
+                    ? "bg-destructive/10 text-destructive"
+                    : budget?.enabled
+                      ? "bg-success/10 text-success"
+                      : "bg-muted text-muted-foreground",
+                ].join(" ")}
+              >
+                {budget?.paused ? "已暂停" : budget?.enabled ? "启用中" : "未启用"}
+              </span>
+            </div>
+
+            <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
+              <Metric label="本月支出" value={money(budget?.actual_spend)} />
+              <Metric
+                label="使用比例"
+                value={`${Math.round(Number.parseFloat(budget?.percent_used ?? "0") * 100)}%`}
+              />
+            </dl>
+
+            <div className="mt-4 flex flex-col gap-2">
+              <label className="text-sm font-medium" htmlFor="monthly-budget-amount">
+                预算金额
+              </label>
+              <div className="flex gap-2">
+                <input
+                  id="monthly-budget-amount"
+                  aria-label="预算金额"
+                  inputMode="decimal"
+                  value={budgetAmount}
+                  onChange={(event) => setBudgetAmount(event.target.value)}
+                  placeholder="100.00"
+                  className="min-h-touch min-w-0 flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm"
+                />
+                <button
+                  type="button"
+                  disabled={state.budgetSaving || !budgetAmount.trim()}
+                  onClick={() => void handleBudgetSave()}
+                  className="min-h-touch rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  保存
+                </button>
+              </div>
+              <button
+                type="button"
+                disabled={state.budgetSaving || !budget?.budget_control_id}
+                onClick={() => void handleBudgetDisable()}
+                className="min-h-touch rounded-md border border-border px-3 py-2 text-sm font-medium hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                停用预算
+              </button>
+            </div>
+
+            {state.budgetLoading && (
+              <div className="mt-3 text-sm text-muted-foreground">预算加载中...</div>
+            )}
+            {state.budgetMessage && (
+              <div className="mt-3 text-sm text-success" role="status">
+                {state.budgetMessage}
+              </div>
+            )}
+            {state.budgetError && (
+              <div className="mt-3 text-sm text-destructive" role="status">
+                预算加载失败：{state.budgetError}
+              </div>
+            )}
+
+            {budget?.recent_events && budget.recent_events.length > 0 && (
+              <div className="mt-4 border-t border-border pt-3">
+                <div className="text-sm font-medium">最近事件</div>
+                <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
+                  {budget.recent_events.slice(0, 3).map((event) => (
+                    <li key={event.id}>
+                      {event.event_type.replace("billing.budget.", "")} ·{" "}
+                      {money(event.actual_spend)}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
 
           <div className="rounded-md border border-border bg-background p-4">
             <div className="text-sm text-muted-foreground">当前月份</div>

@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import re
 from datetime import date, datetime
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from billing_service.topups import normalize_topup_amount
 
@@ -375,6 +375,76 @@ class UsageTrendsResponse(BaseModel):
     windows: list[UsageTrendWindowResponse]
 
 
+class BudgetUpdateRequest(BaseModel):
+    """PUT /v1/billing/budget body — Story 5.D.5."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    monthly_budget_amount: Decimal | None = Field(
+        default=None,
+        description='Monthly CNY budget as a string, e.g. "100.00"',
+    )
+    enabled: bool = True
+
+    @field_validator("monthly_budget_amount", mode="before")
+    @classmethod
+    def _coerce_amount(cls, v: object) -> Decimal | None:
+        if v is None:
+            return None
+        try:
+            amount = Decimal(str(v)).quantize(Decimal("0.01"))
+        except (InvalidOperation, ValueError) as exc:
+            raise ValueError("monthly_budget_amount must be a decimal CNY amount") from exc
+        if amount < Decimal("1.00") or amount > Decimal("9999999.99"):
+            raise ValueError("monthly_budget_amount must be between 1.00 and 9999999.99")
+        return amount
+
+    @model_validator(mode="after")
+    def _require_amount_when_enabled(self) -> BudgetUpdateRequest:
+        if self.enabled and self.monthly_budget_amount is None:
+            raise ValueError("monthly_budget_amount is required when enabled=true")
+        return self
+
+
+class BudgetEventSummaryResponse(BaseModel):
+    """Safe, compact monthly budget event summary."""
+
+    id: str
+    event_type: Literal[
+        "billing.budget.configured",
+        "billing.budget.disabled",
+        "billing.budget.alerted",
+        "billing.budget.paused",
+    ]
+    period_start: datetime
+    period_end: datetime
+    occurred_at: datetime
+    budget_amount: str
+    actual_spend: str
+    percent_used: str
+    channels: list[Literal["email", "in_app"]] = Field(default_factory=list)
+
+
+class BudgetStatusResponse(BaseModel):
+    """GET/PUT /v1/billing/budget response."""
+
+    budget_control_id: str | None
+    enabled: bool
+    status: Literal["not_configured", "disabled", "active", "paused"]
+    monthly_budget_amount: str | None
+    alert_threshold_ratio: str
+    period_start: datetime
+    period_end: datetime
+    actual_spend: str
+    percent_used: str
+    currency: str = "CNY"
+    alert_threshold_reached: bool
+    paused: bool
+    paused_at: datetime | None = None
+    pause_period_start: datetime | None = None
+    recent_events: list[BudgetEventSummaryResponse] = Field(default_factory=list)
+
+
 class PlanRateLimits(BaseModel):
     """Plan rate-limit metadata copied from PRD."""
 
@@ -465,6 +535,9 @@ __all__ = [
     "AutoRefundRequest",
     "AutoRefundResponse",
     "BalanceResponse",
+    "BudgetEventSummaryResponse",
+    "BudgetStatusResponse",
+    "BudgetUpdateRequest",
     "BucketBalance",
     "ChargeCreateRequest",
     "ChargeResponse",

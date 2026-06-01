@@ -10,6 +10,8 @@ const mocks = vi.hoisted(() => ({
   getBillingInvoice: vi.fn(),
   downloadBillingInvoicePdf: vi.fn(),
   getBillingUsageTrends: vi.fn(),
+  getBillingBudget: vi.fn(),
+  putBillingBudget: vi.fn(),
 }));
 
 vi.mock("next/navigation", () => ({
@@ -47,6 +49,8 @@ vi.mock("@/lib/api", () => ({
   getBillingInvoice: mocks.getBillingInvoice,
   downloadBillingInvoicePdf: mocks.downloadBillingInvoicePdf,
   getBillingUsageTrends: mocks.getBillingUsageTrends,
+  getBillingBudget: mocks.getBillingBudget,
+  putBillingBudget: mocks.putBillingBudget,
 }));
 
 import BillingInvoicesPage from "./page";
@@ -158,6 +162,36 @@ const trends = {
   ],
 };
 
+const budget = {
+  budget_control_id: "budget-1",
+  enabled: true,
+  status: "active",
+  monthly_budget_amount: "100.00",
+  alert_threshold_ratio: "0.8000",
+  period_start: "2026-06-01T00:00:00Z",
+  period_end: "2026-07-01T00:00:00Z",
+  actual_spend: "70.00",
+  percent_used: "0.7000",
+  currency: "CNY",
+  alert_threshold_reached: false,
+  paused: false,
+  paused_at: null,
+  pause_period_start: null,
+  recent_events: [
+    {
+      id: "event-1",
+      event_type: "billing.budget.alerted",
+      period_start: "2026-06-01T00:00:00Z",
+      period_end: "2026-07-01T00:00:00Z",
+      occurred_at: "2026-06-03T00:00:00Z",
+      budget_amount: "100.00",
+      actual_spend: "80.00",
+      percent_used: "0.8000",
+      channels: ["email", "in_app"],
+    },
+  ],
+};
+
 describe("BillingInvoicesPage", () => {
   beforeEach(() => {
     mocks.push.mockReset();
@@ -165,7 +199,10 @@ describe("BillingInvoicesPage", () => {
     mocks.getBillingInvoice.mockReset();
     mocks.downloadBillingInvoicePdf.mockReset();
     mocks.getBillingUsageTrends.mockReset();
+    mocks.getBillingBudget.mockReset();
+    mocks.putBillingBudget.mockReset();
     mocks.getBillingUsageTrends.mockResolvedValue(trends);
+    mocks.getBillingBudget.mockResolvedValue(budget);
     sessionStorage.clear();
     localStorage.clear();
   });
@@ -196,7 +233,12 @@ describe("BillingInvoicesPage", () => {
     expect(await screen.findByText("用量趋势")).toBeTruthy();
     expect(screen.getByText("近 7 天实际用量支出趋势 / Last 7 days actual usage spend trend")).toBeTruthy();
     expect(screen.getByText("近 30 天实际用量支出趋势 / Last 30 days actual usage spend trend")).toBeTruthy();
+    expect(await screen.findByText("月度预算")).toBeTruthy();
+    expect(screen.getByText("¥100.00")).toBeTruthy();
+    expect(screen.getByText("70%")).toBeTruthy();
+    expect(screen.getByText(/alerted/)).toBeTruthy();
     expect(mocks.getBillingUsageTrends).toHaveBeenCalledWith("jwt-test");
+    expect(mocks.getBillingBudget).toHaveBeenCalledWith("jwt-test");
     expect(mocks.listBillingInvoices).toHaveBeenCalledWith("jwt-test");
     expect(mocks.getBillingInvoice).toHaveBeenCalledWith("jwt-test", "2026-05");
   });
@@ -218,6 +260,62 @@ describe("BillingInvoicesPage", () => {
     expect(screen.getByText("¥1999.50")).toBeTruthy();
   });
 
+  it("keeps invoices and trends visible when budget loading fails", async () => {
+    sessionStorage.setItem("jwt_access", "jwt-test");
+    mocks.listBillingInvoices.mockResolvedValue({
+      items: [{ period: "2026-05", actual_spend: "0.50", net_credit_movement: "1999.50" }],
+    });
+    mocks.getBillingInvoice.mockResolvedValue(invoice);
+    mocks.getBillingBudget.mockRejectedValue(new Error("budget service unavailable"));
+
+    render(<BillingInvoicesPage />);
+
+    expect(await screen.findByText("OptiCloud 账单明细")).toBeTruthy();
+    expect(await screen.findByText("预算加载失败：budget service unavailable")).toBeTruthy();
+    expect(screen.getByText("近 7 天实际用量支出趋势 / Last 7 days actual usage spend trend")).toBeTruthy();
+  });
+
+  it("updates and disables monthly budget without hiding invoice content", async () => {
+    sessionStorage.setItem("jwt_access", "jwt-test");
+    mocks.listBillingInvoices.mockResolvedValue({
+      items: [{ period: "2026-05", actual_spend: "0.50", net_credit_movement: "1999.50" }],
+    });
+    mocks.getBillingInvoice.mockResolvedValue(invoice);
+    mocks.putBillingBudget
+      .mockResolvedValueOnce({
+        ...budget,
+        monthly_budget_amount: "80.00",
+        actual_spend: "80.00",
+        percent_used: "1.0000",
+        status: "paused",
+        paused: true,
+      })
+      .mockResolvedValueOnce({
+        ...budget,
+        enabled: false,
+        status: "disabled",
+        paused: false,
+      });
+
+    render(<BillingInvoicesPage />);
+    await screen.findByText("OptiCloud 账单明细");
+
+    fireEvent.change(screen.getByLabelText("预算金额"), { target: { value: "80.00" } });
+    fireEvent.click(screen.getByRole("button", { name: "保存" }));
+
+    expect(await screen.findByText("预算已达到上限，新的扣费已暂停。")).toBeTruthy();
+    expect(mocks.putBillingBudget).toHaveBeenCalledWith("jwt-test", {
+      monthly_budget_amount: "80.00",
+      enabled: true,
+    });
+    expect(screen.getByText("OptiCloud Billing Statement")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "停用预算" }));
+
+    expect(await screen.findByText("预算控制已停用。")).toBeTruthy();
+    expect(mocks.putBillingBudget).toHaveBeenLastCalledWith("jwt-test", { enabled: false });
+  });
+
   it("loads a selected period independently", async () => {
     sessionStorage.setItem("jwt_access", "jwt-test");
     mocks.listBillingInvoices.mockResolvedValue({
@@ -229,7 +327,7 @@ describe("BillingInvoicesPage", () => {
     mocks.getBillingInvoice.mockResolvedValueOnce(invoice).mockResolvedValueOnce({
       ...invoice,
       period: "2026-04",
-      net_credit_movement: "100.00",
+      net_credit_movement: "123.45",
     });
 
     render(<BillingInvoicesPage />);
@@ -240,7 +338,7 @@ describe("BillingInvoicesPage", () => {
     await waitFor(() => {
       expect(mocks.getBillingInvoice).toHaveBeenLastCalledWith("jwt-test", "2026-04");
     });
-    expect(screen.getByText("¥100.00")).toBeTruthy();
+    expect(screen.getByText("¥123.45")).toBeTruthy();
   });
 
   it("downloads invoice PDFs through object URLs and avoids storage writes", async () => {
@@ -279,7 +377,7 @@ describe("BillingInvoicesPage", () => {
     expect(anchorClick).toHaveBeenCalled();
     expect(revokeObjectURL).toHaveBeenCalledWith("blob:invoice");
     expect(storageSet).not.toHaveBeenCalledWith(
-      expect.stringMatching(/invoice|pdf|token/i),
+      expect.stringMatching(/invoice|pdf|token|budget/i),
       expect.any(String),
     );
   });
