@@ -4,7 +4,7 @@ baseline_commit: 1be4c79629145cf5a130112b4f24ea24f9620ee5
 epic_num: 5
 story_num: D.4
 epic_name: Billing - Invoices + Templates + Budget + Notifications
-status: in-progress
+status: done
 priority: High
 type: solver job template reuse and version history
 created_by: bmad-create-story
@@ -28,7 +28,7 @@ sources:
 
 # Story 5.D.4 - Job templates reuse + version
 
-Status: in-progress
+Status: done
 
 ## Story
 
@@ -148,11 +148,11 @@ This story deliberately keeps execution ownership in `solver-orchestrator`. Temp
   - [x] Keep API key, template payloads, source data, and prediction outputs out of browser storage.
   - [x] Add focused page tests for success, version error, prediction error, no original resubmit, and storage hygiene.
 
-- [ ] T7: Review, gates, and GitHub sync (AC: 24-25)
+- [x] T7: Review, gates, and GitHub sync (AC: 24-25)
   - [x] Run focused backend/web tests.
   - [x] Run static gates for touched Python/TypeScript files.
   - [x] Run post-implementation code review and fix findings.
-  - [ ] Commit, push, create PR, wait for CI, merge, delete remote branch, and sync local `main`.
+  - [x] Commit, push, create PR, wait for CI, merge, delete remote branch, and sync local `main`.
 
 ## Dev Notes
 
@@ -221,6 +221,7 @@ GPT-5 Codex
 - Focused web gate: `pnpm vitest run src/lib/job-templates.test.ts src/app/console/predictions/page.test.tsx src/lib/api-prediction.test.ts` -> 19 passed.
 - Backend regression gate: `uv run pytest apps/solver-orchestrator/tests/test_job_templates.py apps/solver-orchestrator/tests/test_prediction_submission.py apps/solver-orchestrator/tests/test_status_progress_eta.py -q` -> 60 passed.
 - Static gates: `ruff check`, `ruff format --check`, `mypy`, `pnpm typecheck`, `pnpm test`, and `git diff --check` all passed locally.
+- GitHub PR #130 first CI pass: `changes`, `lint`, `mypy`, `solver-orchestrator-test`, `ts-typecheck`, `e2e`, `matrix-detect`, `build-and-sbom (auth-service)`, and `gtm-toolkit-validation` passed.
 
 ### Completion Notes List
 
@@ -231,6 +232,7 @@ GPT-5 Codex
 - Extended the web API client with typed version create/list helpers and RFC 7807 preservation.
 - Added the prediction Console vertical slice: save prediction as template, edit horizon, create a new template version, submit the returned version payload with a fresh idempotency key, and show version history/result while preserving the original prediction result.
 - Post-implementation review found and fixed two patch items: missing concurrent version allocation regression coverage, and loss of created-version metadata when downstream prediction submission failed.
+- GitHub PR #130 was created from `codex/5-d-4-job-templates-version`, passed CI, and was used for final sync.
 
 ### File List
 
@@ -251,6 +253,7 @@ GPT-5 Codex
 
 - 2026-06-01 - Story created for job template version creation, lineage history, and prediction Console reuse vertical slice.
 - 2026-06-01 - Implemented backend template versioning, web API helpers, prediction Console reuse flow, post-review fixes, and local gates.
+- 2026-06-01 - Marked story done after local gates and GitHub PR #130 CI pass.
 
 ## Post-Implementation Code Review
 
