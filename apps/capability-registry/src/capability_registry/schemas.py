@@ -36,7 +36,9 @@ ProviderShadowCoverageClass = Literal[
 ]
 ProviderRolloutStatus = Literal["draft", "active", "paused", "completed", "cancelled"]
 ProviderRolloutStage = Literal[0, 5, 50, 100]
+ProviderRouteShareAction = Literal["created", "advance", "pause", "cancel"]
 ScopeSource = Literal["global", "tenant", "global_fallback"]
+ProviderRouteShareScopeSource = Literal["global", "tenant"]
 
 _ID_PATTERN = r"^[a-z0-9][a-z0-9-]{0,63}$"
 _BENCHMARK_SUITE_PATTERN = r"^[a-z0-9][a-z0-9_-]{0,63}$"
@@ -787,3 +789,62 @@ class ProviderRolloutResponse(BaseModel):
     scope_source: ScopeSource
     created_at: datetime
     updated_at: datetime
+
+
+class ProviderRouteShareStatusCounts(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    draft: int = Field(default=0, ge=0)
+    active: int = Field(default=0, ge=0)
+    paused: int = Field(default=0, ge=0)
+    completed: int = Field(default=0, ge=0)
+    cancelled: int = Field(default=0, ge=0)
+
+
+class ProviderRouteShareTimelinePoint(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    application_id: str = Field(..., pattern=_ID_PATTERN)
+    evaluation_id: str = Field(..., pattern=_ID_PATTERN)
+    run_id: str = Field(..., pattern=_ID_PATTERN)
+    rollout_id: str = Field(..., pattern=_ID_PATTERN)
+    provider_id: str = Field(..., pattern=_ID_PATTERN)
+    baseline_provider_id: str = Field(..., pattern=_ID_PATTERN)
+    benchmark_suite: str = Field(..., pattern=_BENCHMARK_SUITE_PATTERN)
+    action: ProviderRouteShareAction
+    stage_percent: ProviderRolloutStage
+    from_status: ProviderRolloutStatus | None = None
+    to_status: ProviderRolloutStatus
+    observed_at: datetime
+    scope_source: ProviderRouteShareScopeSource
+
+
+class ProviderRouteShareCurrentRollout(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    application_id: str = Field(..., pattern=_ID_PATTERN)
+    evaluation_id: str = Field(..., pattern=_ID_PATTERN)
+    run_id: str = Field(..., pattern=_ID_PATTERN)
+    rollout_id: str = Field(..., pattern=_ID_PATTERN)
+    status: ProviderRolloutStatus
+    current_stage_percent: ProviderRolloutStage
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+    paused_at: datetime | None = None
+    cancelled_at: datetime | None = None
+    updated_at: datetime
+    scope_source: ProviderRouteShareScopeSource
+
+
+class ProviderRouteShareDashboardResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    provider_id: str = Field(..., pattern=_ID_PATTERN)
+    tenant_id: uuid.UUID | None = None
+    from_at: datetime | None = None
+    to_at: datetime | None = None
+    status_counts: ProviderRouteShareStatusCounts
+    total_rollouts: int = Field(..., ge=0)
+    highest_current_stage_percent: ProviderRolloutStage
+    current_rollouts: list[ProviderRouteShareCurrentRollout]
+    timeline: list[ProviderRouteShareTimelinePoint]

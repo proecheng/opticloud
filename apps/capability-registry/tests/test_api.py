@@ -1981,6 +1981,292 @@ async def test_provider_rollout_tenant_scope_and_write_auth(
     assert missing_advance_auth.status_code == 401
 
 
+async def test_provider_route_share_dashboard_projection_filters_and_no_side_effects(
+    client: AsyncClient,
+    engine: AsyncEngine,
+) -> None:
+    await _create_passed_shadow_run(
+        client,
+        application_id="app-route-share",
+        requested_provider_id="professor-lu-route",
+    )
+    create = await client.put(
+        "/v1/provider-applications/app-route-share/evaluation-requests/eval-001"
+        "/shadow-runs/run-001/rollouts/rollout-001",
+        json=rollout_payload(),
+    )
+    assert create.status_code == 200, create.text
+    for target in (5, 50, 100):
+        advance = await client.post(
+            "/v1/provider-applications/app-route-share/evaluation-requests/eval-001"
+            "/shadow-runs/run-001/rollouts/rollout-001/advance",
+            json=rollout_action_payload(target_stage_percent=target),
+        )
+        assert advance.status_code == 200, advance.text
+    draft = await client.put(
+        "/v1/provider-applications/app-route-share/evaluation-requests/eval-001"
+        "/shadow-runs/run-001/rollouts/rollout-002",
+        json=rollout_payload(
+            evidence_refs=["oss://provider-rollouts/app-route-share/run-001/rollout-002.json"]
+        ),
+    )
+    assert draft.status_code == 200, draft.text
+
+    maker = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
+    async with maker() as session:
+        await session.execute(
+            text(
+                """
+                INSERT INTO provider_gradient_rollouts (
+                    application_row_id, evaluation_row_id, shadow_run_row_id,
+                    application_id, evaluation_id, run_id, rollout_id,
+                    requested_provider_id, baseline_provider_id, benchmark_suite,
+                    status, current_stage_percent, stage_history,
+                    shadow_summary_snapshot, evidence_refs, metadata,
+                    created_at, updated_at
+                )
+                SELECT
+                    application_row_id, evaluation_row_id, shadow_run_row_id,
+                    application_id, evaluation_id, run_id, 'rollout-other-provider',
+                    'baseline-only', baseline_provider_id, benchmark_suite,
+                    'completed', 100, '[]'::jsonb,
+                    shadow_summary_snapshot, '[]'::jsonb, '{}'::jsonb,
+                    created_at, updated_at
+                FROM provider_gradient_rollouts
+                WHERE rollout_id = 'rollout-001'
+                """
+            )
+        )
+        before_rows = (
+            (
+                await session.execute(
+                    text(
+                        "SELECT rollout_id, status, current_stage_percent, stage_history "
+                        "FROM provider_gradient_rollouts ORDER BY rollout_id"
+                    )
+                )
+            )
+            .mappings()
+            .all()
+        )
+        await session.commit()
+
+    response = await client.get("/v1/providers/professor-lu-route/route-share-dashboard")
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["provider_id"] == "professor-lu-route"
+    assert body["tenant_id"] is None
+    assert body["total_rollouts"] == 2
+    assert body["highest_current_stage_percent"] == 100
+    assert body["status_counts"] == {
+        "draft": 1,
+        "active": 0,
+        "paused": 0,
+        "completed": 1,
+        "cancelled": 0,
+    }
+    assert [item["rollout_id"] for item in body["current_rollouts"]] == [
+        "rollout-001",
+        "rollout-002",
+    ]
+    assert {item["scope_source"] for item in body["current_rollouts"]} == {"global"}
+    assert "rollout-other-provider" not in json.dumps(body)
+    assert "stage_history" not in json.dumps(body)
+    assert "shadow_summary_snapshot" not in json.dumps(body)
+    assert "reason_ref" not in json.dumps(body)
+
+    timeline_by_rollout: dict[str, list[dict[str, Any]]] = {}
+    for point in body["timeline"]:
+        timeline_by_rollout.setdefault(point["rollout_id"], []).append(point)
+    assert [point["action"] for point in timeline_by_rollout["rollout-001"]] == [
+        "created",
+        "advance",
+        "advance",
+        "advance",
+    ]
+    assert timeline_by_rollout["rollout-001"][0]["from_status"] is None
+    assert timeline_by_rollout["rollout-001"][0]["to_status"] == "draft"
+    assert timeline_by_rollout["rollout-001"][-1]["stage_percent"] == 100
+    assert [point["action"] for point in timeline_by_rollout["rollout-002"]] == ["created"]
+
+    filtered = await client.get(
+        "/v1/providers/professor-lu-route/route-share-dashboard",
+        params={"status": "completed", "stage_percent": "100"},
+    )
+    assert filtered.status_code == 200, filtered.text
+    assert filtered.json()["total_rollouts"] == 1
+    assert filtered.json()["current_rollouts"][0]["rollout_id"] == "rollout-001"
+
+    future = await client.get(
+        "/v1/providers/professor-lu-route/route-share-dashboard",
+        params={"from": "2999-01-01T00:00:00Z"},
+    )
+    assert future.status_code == 200, future.text
+    assert future.json()["total_rollouts"] == 2
+    assert future.json()["current_rollouts"]
+    assert future.json()["timeline"] == []
+
+    empty = await client.get("/v1/providers/provider-with-no-rollouts/route-share-dashboard")
+    assert empty.status_code == 200, empty.text
+    assert empty.json()["status_counts"] == {
+        "draft": 0,
+        "active": 0,
+        "paused": 0,
+        "completed": 0,
+        "cancelled": 0,
+    }
+    assert empty.json()["highest_current_stage_percent"] == 0
+    assert empty.json()["current_rollouts"] == []
+    assert empty.json()["timeline"] == []
+
+    async with maker() as session:
+        after_rows = (
+            (
+                await session.execute(
+                    text(
+                        "SELECT rollout_id, status, current_stage_percent, stage_history "
+                        "FROM provider_gradient_rollouts ORDER BY rollout_id"
+                    )
+                )
+            )
+            .mappings()
+            .all()
+        )
+    assert before_rows == after_rows
+
+
+async def test_provider_route_share_dashboard_tenant_scope_and_query_validation(
+    client: AsyncClient,
+    engine: AsyncEngine,
+) -> None:
+    tenant_id = str(uuid.uuid4())
+    await _create_passed_shadow_run(
+        client,
+        application_id="app-tenant-route-share",
+        requested_provider_id="professor-lu-tenant",
+    )
+    create = await client.put(
+        "/v1/provider-applications/app-tenant-route-share/evaluation-requests/eval-001"
+        "/shadow-runs/run-001/rollouts/rollout-001",
+        json=rollout_payload(),
+    )
+    assert create.status_code == 200, create.text
+
+    maker = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
+    async with maker() as session:
+        await session.execute(
+            text(
+                """
+                INSERT INTO provider_gradient_rollouts (
+                    tenant_id, application_row_id, evaluation_row_id, shadow_run_row_id,
+                    application_id, evaluation_id, run_id, rollout_id,
+                    requested_provider_id, baseline_provider_id, benchmark_suite,
+                    status, current_stage_percent, stage_history,
+                    shadow_summary_snapshot, evidence_refs, metadata,
+                    created_at, updated_at
+                )
+                SELECT
+                    CAST(:tenant_id AS uuid), application_row_id, evaluation_row_id,
+                    shadow_run_row_id, application_id, evaluation_id, run_id,
+                    'rollout-tenant', requested_provider_id, baseline_provider_id,
+                    benchmark_suite, 'active', 5,
+                    jsonb_build_array(
+                        jsonb_build_object(
+                            'action', 'advance',
+                            'stage_percent', 5,
+                            'changed_at', '2026-06-01T00:00:00+00:00',
+                            'from_status', 'draft',
+                            'to_status', 'active'
+                        )
+                    ),
+                    shadow_summary_snapshot, '[]'::jsonb, '{}'::jsonb,
+                    created_at, updated_at
+                FROM provider_gradient_rollouts
+                WHERE rollout_id = 'rollout-001'
+                """
+            ),
+            {"tenant_id": tenant_id},
+        )
+        await session.commit()
+
+    global_dashboard = await client.get("/v1/providers/professor-lu-tenant/route-share-dashboard")
+    assert global_dashboard.status_code == 200, global_dashboard.text
+    assert global_dashboard.json()["total_rollouts"] == 1
+    assert global_dashboard.json()["current_rollouts"][0]["scope_source"] == "global"
+    assert global_dashboard.json()["current_rollouts"][0]["rollout_id"] == "rollout-001"
+
+    tenant_dashboard = await client.get(
+        "/v1/providers/professor-lu-tenant/route-share-dashboard",
+        params={"tenant_id": tenant_id},
+    )
+    assert tenant_dashboard.status_code == 200, tenant_dashboard.text
+    assert tenant_dashboard.json()["tenant_id"] == tenant_id
+    assert tenant_dashboard.json()["total_rollouts"] == 1
+    assert tenant_dashboard.json()["highest_current_stage_percent"] == 5
+    assert tenant_dashboard.json()["current_rollouts"][0]["scope_source"] == "tenant"
+    assert tenant_dashboard.json()["current_rollouts"][0]["rollout_id"] == "rollout-tenant"
+    assert {point["scope_source"] for point in tenant_dashboard.json()["timeline"]} == {"tenant"}
+
+    bad_stage = await client.get(
+        "/v1/providers/professor-lu-tenant/route-share-dashboard",
+        params={"stage_percent": "10"},
+    )
+    assert bad_stage.status_code == 422
+
+    reversed_window = await client.get(
+        "/v1/providers/professor-lu-tenant/route-share-dashboard",
+        params={"from": "2026-06-02T00:00:00Z", "to": "2026-06-01T00:00:00Z"},
+    )
+    assert reversed_window.status_code == 422
+
+    naive_window = await client.get(
+        "/v1/providers/professor-lu-tenant/route-share-dashboard",
+        params={"from": "2026-06-01T00:00:00"},
+    )
+    assert naive_window.status_code == 422
+
+
+async def test_provider_route_share_dashboard_fails_closed_on_stage_history_drift(
+    client: AsyncClient,
+    engine: AsyncEngine,
+) -> None:
+    await _create_passed_shadow_run(
+        client,
+        application_id="app-drift-route-share",
+        requested_provider_id="professor-lu-drift",
+    )
+    create = await client.put(
+        "/v1/provider-applications/app-drift-route-share/evaluation-requests/eval-001"
+        "/shadow-runs/run-001/rollouts/rollout-001",
+        json=rollout_payload(),
+    )
+    assert create.status_code == 200, create.text
+    maker = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
+    async with maker() as session:
+        await session.execute(
+            text(
+                """
+                UPDATE provider_gradient_rollouts
+                SET stage_history = jsonb_build_array(
+                    jsonb_build_object(
+                        'action', 'advance',
+                        'stage_percent', 75,
+                        'changed_at', '2026-06-01T00:00:00+00:00',
+                        'from_status', 'draft',
+                        'to_status', 'active'
+                    )
+                )
+                WHERE rollout_id = 'rollout-001'
+                """
+            )
+        )
+        await session.commit()
+
+    drifted = await client.get("/v1/providers/professor-lu-drift/route-share-dashboard")
+    assert drifted.status_code == 409
+    assert "stage_percent" in drifted.text
+
+
 def test_provider_rollout_openapi_omits_unsafe_fields() -> None:
     spec = json.loads(OPENAPI_PATH.read_text(encoding="utf-8"))
     rollout_schemas = {
@@ -2019,3 +2305,54 @@ def test_provider_rollout_openapi_omits_unsafe_fields() -> None:
     for schema in rollout_schemas.values():
         properties = set(schema.get("properties", {}))
         assert properties.isdisjoint(forbidden_terms)
+
+
+def test_provider_route_share_dashboard_openapi_contract_is_safe() -> None:
+    spec = json.loads(OPENAPI_PATH.read_text(encoding="utf-8"))
+    dashboard_schemas = {
+        name: schema
+        for name, schema in spec["components"]["schemas"].items()
+        if name.startswith("ProviderRouteShare")
+    }
+    assert dashboard_schemas
+    forbidden_terms = {
+        "stage_history",
+        "shadow_summary_snapshot",
+        "evidence_refs",
+        "metadata",
+        "reason_ref",
+        "api_key",
+        "password",
+        "client_secret",
+        "access_token",
+        "refresh_token",
+        "registry_password",
+        "docker_password",
+        "bank_account",
+        "tax_id",
+        "raw_dataset",
+        "raw_request",
+        "raw_response",
+        "provider_request",
+        "provider_response",
+        "routing_payload",
+        "customer_payload",
+    }
+    for schema in dashboard_schemas.values():
+        properties = set(schema.get("properties", {}))
+        assert properties.isdisjoint(forbidden_terms)
+
+    for schema_name in (
+        "ProviderRouteShareCurrentRollout",
+        "ProviderRouteShareTimelinePoint",
+    ):
+        scope_enum = dashboard_schemas[schema_name]["properties"]["scope_source"]["enum"]
+        assert scope_enum == ["global", "tenant"]
+
+    endpoint = spec["paths"]["/v1/providers/{provider_id}/route-share-dashboard"]["get"]
+    parameters = {parameter["name"]: parameter for parameter in endpoint["parameters"]}
+    parameter_names = set(parameters)
+    assert {"provider_id", "tenant_id", "from", "to", "status", "stage_percent"}.issubset(
+        parameter_names
+    )
+    assert parameters["stage_percent"]["schema"]["enum"] == [0, 5, 50, 100]
