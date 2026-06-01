@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { SparklineKPI, StatusCard } from "@opticloud/ui";
+import { BudgetAlertCard, InvoiceCard, SparklineKPI, StatusCard } from "@opticloud/ui";
 
 import {
   type BillingBudgetStatusResponse,
@@ -115,6 +115,25 @@ function saveBlob(download: { blob: Blob; filename: string }): void {
   } finally {
     URL.revokeObjectURL(href);
   }
+}
+
+function Field({
+  label,
+  value,
+  mono = false,
+}: {
+  label: string;
+  value: string;
+  mono?: boolean;
+}): JSX.Element {
+  return (
+    <div className="min-w-0">
+      <dt className="text-muted-foreground">{label}</dt>
+      <dd className={["mt-1 break-words font-medium", mono ? "font-mono text-xs" : ""].join(" ")}>
+        {value}
+      </dd>
+    </div>
+  );
 }
 
 export default function BillingInvoicesPage(): JSX.Element {
@@ -380,97 +399,17 @@ export default function BillingInvoicesPage(): JSX.Element {
             ariaLabel="billing.invoice.scope"
           />
 
-          <div className="rounded-md border border-border bg-background p-4">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <div className="text-sm text-muted-foreground">月度预算</div>
-                <div className="mt-1 text-xl font-semibold">
-                  {budget?.monthly_budget_amount ? money(budget.monthly_budget_amount) : "未设置"}
-                </div>
-              </div>
-              <span
-                className={[
-                  "rounded px-2 py-1 text-xs font-medium",
-                  budget?.paused
-                    ? "bg-destructive/10 text-destructive"
-                    : budget?.enabled
-                      ? "bg-success/10 text-success"
-                      : "bg-muted text-muted-foreground",
-                ].join(" ")}
-              >
-                {budget?.paused ? "已暂停" : budget?.enabled ? "启用中" : "未启用"}
-              </span>
-            </div>
-
-            <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
-              <Metric label="本月支出" value={money(budget?.actual_spend)} />
-              <Metric
-                label="使用比例"
-                value={`${Math.round(Number.parseFloat(budget?.percent_used ?? "0") * 100)}%`}
-              />
-            </dl>
-
-            <div className="mt-4 flex flex-col gap-2">
-              <label className="text-sm font-medium" htmlFor="monthly-budget-amount">
-                预算金额
-              </label>
-              <div className="flex gap-2">
-                <input
-                  id="monthly-budget-amount"
-                  aria-label="预算金额"
-                  inputMode="decimal"
-                  value={budgetAmount}
-                  onChange={(event) => setBudgetAmount(event.target.value)}
-                  placeholder="100.00"
-                  className="min-h-touch min-w-0 flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm"
-                />
-                <button
-                  type="button"
-                  disabled={state.budgetSaving || !budgetAmount.trim()}
-                  onClick={() => void handleBudgetSave()}
-                  className="min-h-touch rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  保存
-                </button>
-              </div>
-              <button
-                type="button"
-                disabled={state.budgetSaving || !budget?.budget_control_id}
-                onClick={() => void handleBudgetDisable()}
-                className="min-h-touch rounded-md border border-border px-3 py-2 text-sm font-medium hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                停用预算
-              </button>
-            </div>
-
-            {state.budgetLoading && (
-              <div className="mt-3 text-sm text-muted-foreground">预算加载中...</div>
-            )}
-            {state.budgetMessage && (
-              <div className="mt-3 text-sm text-success" role="status">
-                {state.budgetMessage}
-              </div>
-            )}
-            {state.budgetError && (
-              <div className="mt-3 text-sm text-destructive" role="status">
-                预算加载失败：{state.budgetError}
-              </div>
-            )}
-
-            {budget?.recent_events && budget.recent_events.length > 0 && (
-              <div className="mt-4 border-t border-border pt-3">
-                <div className="text-sm font-medium">最近事件</div>
-                <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
-                  {budget.recent_events.slice(0, 3).map((event) => (
-                    <li key={event.id}>
-                      {event.event_type.replace("billing.budget.", "")} ·{" "}
-                      {money(event.actual_spend)}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </div>
+          <BudgetAlertCard
+            budget={budget}
+            amountValue={budgetAmount}
+            onAmountChange={setBudgetAmount}
+            onSave={handleBudgetSave}
+            onDisable={handleBudgetDisable}
+            isLoading={state.budgetLoading}
+            isSaving={state.budgetSaving}
+            message={state.budgetMessage}
+            error={state.budgetError}
+          />
 
           <div className="rounded-md border border-border bg-background p-4">
             <div className="text-sm text-muted-foreground">当前月份</div>
@@ -571,109 +510,16 @@ export default function BillingInvoicesPage(): JSX.Element {
 
           {invoice && (
             <>
-              <div className="rounded-md border border-border bg-background p-5">
-                <div className="flex flex-col gap-3 border-b border-border pb-4 md:flex-row md:items-start md:justify-between">
-                  <div>
-                    <h2 className="text-xl font-semibold">{invoice.title.zh}</h2>
-                    <p className="mt-1 text-sm text-muted-foreground">{invoice.title.en}</p>
-                    <p className="mt-2 text-sm font-medium text-warning">
-                      {invoice.tax_disclaimer.zh} / {invoice.tax_disclaimer.en}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    disabled={state.downloading}
-                    onClick={() => void handleDownload()}
-                    className="min-h-touch w-fit rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {state.downloading ? "下载中..." : "下载 PDF"}
-                  </button>
-                </div>
-
-                <dl className="mt-5 grid gap-4 text-sm md:grid-cols-4">
-                  <Metric label="净 Credits 变动" value={money(invoice.net_credit_movement)} />
-                  <Metric label="实际用量支出" value={money(invoice.actual_spend)} />
-                  <Metric label="收入小计" value={money(invoice.credit_subtotal)} />
-                  <Metric label="支出小计" value={money(invoice.debit_subtotal)} />
-                </dl>
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-2">
-                {invoice.usage_summary.map((summary) => (
-                  <div
-                    key={summary.window_days}
-                    className="rounded-md border border-border bg-background p-4"
-                  >
-                    <div className="text-sm font-medium">
-                      {summary.label.zh} / {summary.label.en}
-                    </div>
-                    <div className="mt-2 text-2xl font-semibold">{money(summary.actual_spend)}</div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="overflow-hidden rounded-md border border-border bg-background">
-                <div className="border-b border-border px-4 py-3">
-                  <h3 className="font-semibold">账单明细</h3>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="min-w-full text-left text-sm">
-                    <thead className="bg-muted text-muted-foreground">
-                      <tr>
-                        <th className="px-4 py-3 font-medium">日期</th>
-                        <th className="px-4 py-3 font-medium">项目</th>
-                        <th className="px-4 py-3 font-medium">方向</th>
-                        <th className="px-4 py-3 text-right font-medium">金额</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {invoice.line_items.map((item) => (
-                        <tr key={item.id} className="border-t border-border">
-                          <td className="whitespace-nowrap px-4 py-3">
-                            {formatDate(item.created_at)}
-                          </td>
-                          <td className="min-w-[220px] px-4 py-3">
-                            <div className="font-medium">
-                              {item.label.zh} / {item.label.en}
-                            </div>
-                            <div className="mt-1 text-xs text-muted-foreground">{item.kind}</div>
-                          </td>
-                          <td className="whitespace-nowrap px-4 py-3">
-                            {item.direction_label.zh} / {item.direction_label.en}
-                          </td>
-                          <td className="whitespace-nowrap px-4 py-3 text-right font-mono">
-                            {money(item.amount)}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+              <InvoiceCard
+                invoice={invoice}
+                isDownloading={state.downloading}
+                onDownloadPdf={handleDownload}
+              />
             </>
           )}
         </section>
       </section>
     </main>
-  );
-}
-
-function Field({
-  label,
-  value,
-  mono = false,
-}: {
-  label: string;
-  value: string;
-  mono?: boolean;
-}): JSX.Element {
-  return (
-    <div className="min-w-0">
-      <dt className="text-muted-foreground">{label}</dt>
-      <dd className={["mt-1 break-words font-medium", mono ? "font-mono text-xs" : ""].join(" ")}>
-        {value}
-      </dd>
-    </div>
   );
 }
 
