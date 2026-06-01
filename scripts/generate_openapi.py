@@ -22,6 +22,14 @@ OUTPUT_DIR = Path(os.getenv("OPENAPI_OUTPUT_DIR", REPO_ROOT / "packages" / "shar
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 
+def display_path(path: Path) -> str:
+    """Return a stable display path for repo-local or temp output files."""
+    try:
+        return str(path.relative_to(REPO_ROOT))
+    except ValueError:
+        return str(path)
+
+
 def generate_auth_service() -> Path:
     """Generate openapi.json from auth-service FastAPI app."""
     sys.path.insert(0, str(REPO_ROOT / "apps" / "auth-service" / "src"))
@@ -36,7 +44,7 @@ def generate_auth_service() -> Path:
         encoding="utf-8",
         newline="\n",
     )
-    print(f"  OK {output.relative_to(REPO_ROOT)} ({len(spec.get('paths', {}))} paths)")
+    print(f"  OK {display_path(output)} ({len(spec.get('paths', {}))} paths)")
     return output
 
 
@@ -54,7 +62,7 @@ def generate_capability_registry() -> Path:
         encoding="utf-8",
         newline="\n",
     )
-    print(f"  OK {output.relative_to(REPO_ROOT)} ({len(spec.get('paths', {}))} paths)")
+    print(f"  OK {display_path(output)} ({len(spec.get('paths', {}))} paths)")
     return output
 
 

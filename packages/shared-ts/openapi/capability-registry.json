@@ -741,6 +741,480 @@
         "title": "ProviderUpsertRequest",
         "type": "object"
       },
+      "RevenueShareHookCreateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "billing_ledger_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Billing Ledger Id"
+          },
+          "billing_saga_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Billing Saga Id"
+          },
+          "currency": {
+            "default": "CNY",
+            "pattern": "^[A-Z]{3}$",
+            "title": "Currency",
+            "type": "string"
+          },
+          "gross_amount_ref": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gross Amount Ref"
+          },
+          "k_algo": {
+            "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+            "title": "K Algo",
+            "type": "string"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "period_month": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$",
+            "title": "Period Month",
+            "type": "string"
+          },
+          "policy_id": {
+            "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+            "title": "Policy Id",
+            "type": "string"
+          },
+          "provider_id": {
+            "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+            "title": "Provider Id",
+            "type": "string"
+          },
+          "source_event_id": {
+            "format": "uuid",
+            "title": "Source Event Id",
+            "type": "string"
+          },
+          "source_service": {
+            "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+            "title": "Source Service",
+            "type": "string"
+          },
+          "status": {
+            "default": "reserved",
+            "enum": [
+              "reserved",
+              "captured",
+              "voided"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "tenant_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tenant Id"
+          }
+        },
+        "required": [
+          "provider_id",
+          "k_algo",
+          "policy_id",
+          "source_service",
+          "source_event_id",
+          "period_month"
+        ],
+        "title": "RevenueShareHookCreateRequest",
+        "type": "object"
+      },
+      "RevenueShareHookResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "billing_ledger_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Billing Ledger Id"
+          },
+          "billing_saga_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Billing Saga Id"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "currency": {
+            "default": "CNY",
+            "pattern": "^[A-Z]{3}$",
+            "title": "Currency",
+            "type": "string"
+          },
+          "gross_amount_ref": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gross Amount Ref"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "k_algo": {
+            "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+            "title": "K Algo",
+            "type": "string"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "period_month": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$",
+            "title": "Period Month",
+            "type": "string"
+          },
+          "policy_id": {
+            "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+            "title": "Policy Id",
+            "type": "string"
+          },
+          "provider_id": {
+            "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+            "title": "Provider Id",
+            "type": "string"
+          },
+          "scope_source": {
+            "enum": [
+              "global",
+              "tenant",
+              "global_fallback"
+            ],
+            "title": "Scope Source",
+            "type": "string"
+          },
+          "source_event_id": {
+            "format": "uuid",
+            "title": "Source Event Id",
+            "type": "string"
+          },
+          "source_service": {
+            "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+            "title": "Source Service",
+            "type": "string"
+          },
+          "status": {
+            "default": "reserved",
+            "enum": [
+              "reserved",
+              "captured",
+              "voided"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "tenant_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tenant Id"
+          }
+        },
+        "required": [
+          "provider_id",
+          "k_algo",
+          "policy_id",
+          "source_service",
+          "source_event_id",
+          "period_month",
+          "id",
+          "scope_source",
+          "created_at"
+        ],
+        "title": "RevenueShareHookResponse",
+        "type": "object"
+      },
+      "RevenueSharePolicyResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "effective_from": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective From"
+          },
+          "effective_until": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective Until"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "platform_share_ratio": {
+            "title": "Platform Share Ratio",
+            "type": "string"
+          },
+          "policy_id": {
+            "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+            "title": "Policy Id",
+            "type": "string"
+          },
+          "provider_kind": {
+            "enum": [
+              "self",
+              "open_source",
+              "external",
+              "commercial"
+            ],
+            "title": "Provider Kind",
+            "type": "string"
+          },
+          "provider_share_ratio": {
+            "title": "Provider Share Ratio",
+            "type": "string"
+          },
+          "scope_source": {
+            "enum": [
+              "global",
+              "tenant",
+              "global_fallback"
+            ],
+            "title": "Scope Source",
+            "type": "string"
+          },
+          "status": {
+            "default": "reserved",
+            "enum": [
+              "reserved",
+              "active",
+              "deprecated"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "tenant_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tenant Id"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "policy_id",
+          "provider_kind",
+          "platform_share_ratio",
+          "provider_share_ratio",
+          "id",
+          "scope_source",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "RevenueSharePolicyResponse",
+        "type": "object"
+      },
+      "RevenueSharePolicyUpsertRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "effective_from": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective From"
+          },
+          "effective_until": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective Until"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "platform_share_ratio": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,1}|(?=[\\d.]{1,8}0*$)\\d{0,1}\\.\\d{0,6}0*$)",
+                "type": "string"
+              }
+            ],
+            "title": "Platform Share Ratio"
+          },
+          "policy_id": {
+            "anyOf": [
+              {
+                "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Policy Id"
+          },
+          "provider_kind": {
+            "enum": [
+              "self",
+              "open_source",
+              "external",
+              "commercial"
+            ],
+            "title": "Provider Kind",
+            "type": "string"
+          },
+          "provider_share_ratio": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,1}|(?=[\\d.]{1,8}0*$)\\d{0,1}\\.\\d{0,6}0*$)",
+                "type": "string"
+              }
+            ],
+            "title": "Provider Share Ratio"
+          },
+          "status": {
+            "default": "reserved",
+            "enum": [
+              "reserved",
+              "active",
+              "deprecated"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "tenant_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tenant Id"
+          }
+        },
+        "required": [
+          "provider_kind",
+          "platform_share_ratio",
+          "provider_share_ratio"
+        ],
+        "title": "RevenueSharePolicyUpsertRequest",
+        "type": "object"
+      },
       "ValidationError": {
         "properties": {
           "ctx": {
@@ -1365,6 +1839,408 @@
         "summary": "Execute Oauth Flow",
         "tags": [
           "provider-oauth"
+        ]
+      }
+    },
+    "/v1/revenue-share/hooks": {
+      "get": {
+        "operationId": "list_revenue_share_hooks_v1_revenue_share_hooks_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "tenant_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tenant Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "provider_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Provider Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "k_algo",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "K Algo"
+            }
+          },
+          {
+            "in": "query",
+            "name": "period_month",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Period Month"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RevenueShareHookResponse"
+                  },
+                  "title": "Response List Revenue Share Hooks V1 Revenue Share Hooks Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Revenue Share Hooks",
+        "tags": [
+          "revenue-share"
+        ]
+      },
+      "post": {
+        "operationId": "create_revenue_share_hook_v1_revenue_share_hooks_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-Internal-Service-Auth",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Internal-Service-Auth"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RevenueShareHookCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RevenueShareHookResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Revenue Share Hook",
+        "tags": [
+          "revenue-share"
+        ]
+      }
+    },
+    "/v1/revenue-share/hooks/{hook_id}": {
+      "get": {
+        "operationId": "get_revenue_share_hook_v1_revenue_share_hooks__hook_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "hook_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Hook Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RevenueShareHookResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Revenue Share Hook",
+        "tags": [
+          "revenue-share"
+        ]
+      }
+    },
+    "/v1/revenue-share/policies": {
+      "get": {
+        "operationId": "list_revenue_share_policies_v1_revenue_share_policies_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "tenant_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tenant Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "provider_kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Provider Kind"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RevenueSharePolicyResponse"
+                  },
+                  "title": "Response List Revenue Share Policies V1 Revenue Share Policies Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Revenue Share Policies",
+        "tags": [
+          "revenue-share"
+        ]
+      }
+    },
+    "/v1/revenue-share/policies/{policy_id}": {
+      "get": {
+        "operationId": "get_revenue_share_policy_v1_revenue_share_policies__policy_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "policy_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+              "title": "Policy Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "tenant_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tenant Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RevenueSharePolicyResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Revenue Share Policy",
+        "tags": [
+          "revenue-share"
+        ]
+      },
+      "put": {
+        "operationId": "upsert_revenue_share_policy_v1_revenue_share_policies__policy_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "policy_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+              "title": "Policy Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Internal-Service-Auth",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Internal-Service-Auth"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RevenueSharePolicyUpsertRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RevenueSharePolicyResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Upsert Revenue Share Policy",
+        "tags": [
+          "revenue-share"
         ]
       }
     }

@@ -5,21 +5,57 @@ from __future__ import annotations
 import re
 import uuid
 from datetime import datetime
+from decimal import Decimal
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    field_serializer,
+    field_validator,
+    model_validator,
+)
 
 ProviderKind = Literal["self", "open_source", "external", "commercial"]
 ProviderStatus = Literal["active", "inactive", "deprecated"]
 CapabilityStatus = Literal["v1", "v1_late", "v2", "audited", "shadow"]
 OAuthFlowStatus = Literal["draft", "configured", "disabled"]
+RevenueSharePolicyStatus = Literal["reserved", "active", "deprecated"]
+RevenueShareHookStatus = Literal["reserved", "captured", "voided"]
 ScopeSource = Literal["global", "tenant", "global_fallback"]
 
 _ID_PATTERN = r"^[a-z0-9][a-z0-9-]{0,63}$"
+_SOURCE_SERVICE_PATTERN = r"^[a-z0-9][a-z0-9-]{0,63}$"
 _TIER_PATTERN = r"^(T[1-6]|P[1-5])$"
+_PERIOD_MONTH_PATTERN = r"^[0-9]{4}-(0[1-9]|1[0-2])$"
 _SHA256_PATTERN = re.compile(r"^[0-9a-fA-F]{64}$")
 _DIGEST_PATTERN = re.compile(r"sha256:[0-9a-fA-F]{64}")
 _TAG_PATTERN = re.compile(r"^[a-z0-9][a-z0-9_-]{0,63}$")
+_RATIO_QUANT = Decimal("0.000001")
+_FORBIDDEN_REVENUE_SHARE_FIELDS = {
+    "api_key",
+    "provider_amount",
+    "platform_amount",
+    "payout_status",
+    "paid_at",
+    "settlement_id",
+    "bank_account",
+    "tax_id",
+    "email",
+    "phone",
+    "payment_account",
+    "payment_ref",
+    "raw_billing_payload",
+    "raw_body",
+    "access_token",
+    "refresh_token",
+    "client_secret",
+    "jwt",
+    "provider_secret",
+    "secret",
+    "token",
+}
 
 
 def normalize_tag(value: str) -> str:
@@ -183,3 +219,100 @@ class OAuthFlowResponse(OAuthFlowUpsertRequest):
     scope_source: ScopeSource
     created_at: datetime
     updated_at: datetime
+
+
+def _reject_forbidden_revenue_share_fields(data: Any) -> None:
+    if isinstance(data, dict):
+        present = sorted(key for key in data if str(key).lower() in _FORBIDDEN_REVENUE_SHARE_FIELDS)
+        if present:
+            raise ValueError(f"computed payout or credential fields are not allowed: {present}")
+        for value in data.values():
+            _reject_forbidden_revenue_share_fields(value)
+    elif isinstance(data, list):
+        for item in data:
+            _reject_forbidden_revenue_share_fields(item)
+
+
+def _normalize_ratio(value: Decimal) -> Decimal:
+    if value < 0 or value > 1:
+        raise ValueError("ratio must be between 0 and 1")
+    return value.quantize(_RATIO_QUANT)
+
+
+class RevenueSharePolicyUpsertRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    tenant_id: uuid.UUID | None = None
+    policy_id: str | None = Field(default=None, pattern=_ID_PATTERN)
+    provider_kind: ProviderKind
+    platform_share_ratio: Decimal = Field(..., max_digits=7, decimal_places=6)
+    provider_share_ratio: Decimal = Field(..., max_digits=7, decimal_places=6)
+    status: RevenueSharePolicyStatus = "reserved"
+    effective_from: datetime | None = None
+    effective_until: datetime | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="before")
+    @classmethod
+    def reject_payout_fields(cls, data: Any) -> Any:
+        _reject_forbidden_revenue_share_fields(data)
+        return data
+
+    @field_validator("platform_share_ratio", "provider_share_ratio")
+    @classmethod
+    def validate_ratio(cls, value: Decimal) -> Decimal:
+        return _normalize_ratio(value)
+
+    @model_validator(mode="after")
+    def validate_policy(self) -> RevenueSharePolicyUpsertRequest:
+        if self.platform_share_ratio + self.provider_share_ratio != Decimal("1.000000"):
+            raise ValueError("platform_share_ratio + provider_share_ratio must equal 1.000000")
+        if (
+            self.effective_from is not None
+            and self.effective_until is not None
+            and self.effective_until <= self.effective_from
+        ):
+            raise ValueError("effective_until must be after effective_from")
+        return self
+
+
+class RevenueSharePolicyResponse(RevenueSharePolicyUpsertRequest):
+    id: uuid.UUID
+    policy_id: str = Field(..., pattern=_ID_PATTERN)
+    scope_source: ScopeSource
+    created_at: datetime
+    updated_at: datetime
+
+    @field_serializer("platform_share_ratio", "provider_share_ratio")
+    def serialize_ratio(self, value: Decimal) -> str:
+        return f"{value.quantize(_RATIO_QUANT):.6f}"
+
+
+class RevenueShareHookCreateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    tenant_id: uuid.UUID | None = None
+    provider_id: str = Field(..., pattern=_ID_PATTERN)
+    k_algo: str = Field(..., pattern=_ID_PATTERN)
+    policy_id: str = Field(..., pattern=_ID_PATTERN)
+    source_service: str = Field(..., pattern=_SOURCE_SERVICE_PATTERN)
+    source_event_id: uuid.UUID
+    billing_saga_id: uuid.UUID | None = None
+    billing_ledger_id: uuid.UUID | None = None
+    period_month: str = Field(..., pattern=_PERIOD_MONTH_PATTERN)
+    gross_amount_ref: str | None = Field(default=None, max_length=128)
+    currency: str = Field(default="CNY", pattern=r"^[A-Z]{3}$")
+    status: RevenueShareHookStatus = "reserved"
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="before")
+    @classmethod
+    def reject_payout_fields(cls, data: Any) -> Any:
+        _reject_forbidden_revenue_share_fields(data)
+        return data
+
+
+class RevenueShareHookResponse(RevenueShareHookCreateRequest):
+    id: uuid.UUID
+    scope_source: ScopeSource
+    created_at: datetime

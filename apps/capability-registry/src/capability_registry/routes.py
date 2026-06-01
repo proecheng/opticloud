@@ -10,7 +10,9 @@ from typing import Annotated, Any, Protocol, cast
 from fastapi import APIRouter, Depends, Header, HTTPException, Path, Query, status
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from sqlalchemy import delete, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql.elements import ColumnElement
 from starlette.responses import Response
 
 from capability_registry.cache import CAPABILITY_CACHE_PREFIX, CapabilityCache, cache_key
@@ -21,6 +23,8 @@ from capability_registry.models import (
     CapabilityProvider,
     CapabilityTag,
     ProviderOAuthFlow,
+    RevenueShareHook,
+    RevenueSharePolicy,
 )
 from capability_registry.schemas import (
     CapabilityResponse,
@@ -30,6 +34,10 @@ from capability_registry.schemas import (
     OAuthFlowUpsertRequest,
     ProviderResponse,
     ProviderUpsertRequest,
+    RevenueShareHookCreateRequest,
+    RevenueShareHookResponse,
+    RevenueSharePolicyResponse,
+    RevenueSharePolicyUpsertRequest,
     ScopeSource,
 )
 
@@ -632,3 +640,344 @@ async def execute_oauth_flow(
         status_code=status.HTTP_501_NOT_IMPLEMENTED,
         detail=f"OAuth execution for provider {provider_id} is reserved for v2",
     )
+
+
+async def _load_revenue_policy_row(
+    session: AsyncSession,
+    *,
+    policy_id: str,
+    tenant_id: uuid.UUID | None,
+    allow_global_fallback: bool,
+) -> RevenueSharePolicy | None:
+    if tenant_id is not None:
+        row = (
+            await session.execute(
+                select(RevenueSharePolicy).where(
+                    RevenueSharePolicy.policy_id == policy_id,
+                    RevenueSharePolicy.tenant_id == tenant_id,
+                )
+            )
+        ).scalar_one_or_none()
+        if row is not None or not allow_global_fallback:
+            return row
+    return (
+        await session.execute(
+            select(RevenueSharePolicy).where(
+                RevenueSharePolicy.policy_id == policy_id,
+                RevenueSharePolicy.tenant_id.is_(None),
+            )
+        )
+    ).scalar_one_or_none()
+
+
+async def _revenue_policy_response(
+    row: RevenueSharePolicy,
+    *,
+    requested_tenant_id: uuid.UUID | None,
+) -> RevenueSharePolicyResponse:
+    return RevenueSharePolicyResponse(
+        id=row.id,
+        tenant_id=row.tenant_id,
+        policy_id=row.policy_id,
+        provider_kind=cast(Any, row.provider_kind),
+        platform_share_ratio=row.platform_share_ratio,
+        provider_share_ratio=row.provider_share_ratio,
+        status=cast(Any, row.status),
+        effective_from=row.effective_from,
+        effective_until=row.effective_until,
+        metadata=dict(row.policy_metadata),
+        scope_source=_scope_source(row.tenant_id, requested_tenant_id),
+        created_at=row.created_at,
+        updated_at=row.updated_at,
+    )
+
+
+@router.put(
+    "/revenue-share/policies/{policy_id}",
+    response_model=RevenueSharePolicyResponse,
+    tags=["revenue-share"],
+)
+async def upsert_revenue_share_policy(
+    policy_id: Annotated[str, Path(pattern=_PATH_ID_PATTERN)],
+    body: RevenueSharePolicyUpsertRequest,
+    x_internal_service_auth: str | None = Header(default=None, alias="X-Internal-Service-Auth"),
+    session: AsyncSession = Depends(get_session),
+) -> RevenueSharePolicyResponse:
+    _require_write_auth(x_internal_service_auth)
+    _assert_path_id(body.policy_id, policy_id, "policy_id")
+    row = await _load_revenue_policy_row(
+        session,
+        policy_id=policy_id,
+        tenant_id=body.tenant_id,
+        allow_global_fallback=False,
+    )
+    now = datetime.now(UTC)
+    if row is None:
+        row = RevenueSharePolicy(
+            tenant_id=body.tenant_id,
+            policy_id=policy_id,
+            provider_kind=body.provider_kind,
+            platform_share_ratio=body.platform_share_ratio,
+            provider_share_ratio=body.provider_share_ratio,
+            status=body.status,
+            effective_from=body.effective_from,
+            effective_until=body.effective_until,
+            policy_metadata=body.metadata,
+            created_at=now,
+            updated_at=now,
+        )
+        session.add(row)
+    else:
+        row.provider_kind = body.provider_kind
+        row.platform_share_ratio = body.platform_share_ratio
+        row.provider_share_ratio = body.provider_share_ratio
+        row.status = body.status
+        row.effective_from = body.effective_from
+        row.effective_until = body.effective_until
+        row.policy_metadata = body.metadata
+        row.updated_at = now
+    await session.flush()
+    return await _revenue_policy_response(row, requested_tenant_id=body.tenant_id)
+
+
+@router.get(
+    "/revenue-share/policies/{policy_id}",
+    response_model=RevenueSharePolicyResponse,
+    tags=["revenue-share"],
+)
+async def get_revenue_share_policy(
+    policy_id: Annotated[str, Path(pattern=_PATH_ID_PATTERN)],
+    tenant_id: uuid.UUID | None = Query(default=None),
+    session: AsyncSession = Depends(get_session),
+) -> RevenueSharePolicyResponse:
+    row = await _load_revenue_policy_row(
+        session,
+        policy_id=policy_id,
+        tenant_id=tenant_id,
+        allow_global_fallback=tenant_id is not None,
+    )
+    if row is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="policy not found")
+    return await _revenue_policy_response(row, requested_tenant_id=tenant_id)
+
+
+@router.get(
+    "/revenue-share/policies",
+    response_model=list[RevenueSharePolicyResponse],
+    tags=["revenue-share"],
+)
+async def list_revenue_share_policies(
+    tenant_id: uuid.UUID | None = Query(default=None),
+    provider_kind: str | None = Query(default=None),
+    session: AsyncSession = Depends(get_session),
+) -> list[RevenueSharePolicyResponse]:
+    conditions: list[ColumnElement[bool]] = [RevenueSharePolicy.tenant_id.is_(None)]
+    if tenant_id is not None:
+        tenant_rows = (
+            await session.execute(
+                select(RevenueSharePolicy).where(RevenueSharePolicy.tenant_id == tenant_id)
+            )
+        ).scalars()
+        rows_by_policy = {row.policy_id: row for row in tenant_rows}
+    else:
+        rows_by_policy = {}
+    if provider_kind is not None:
+        conditions.append(RevenueSharePolicy.provider_kind == provider_kind)
+    global_rows = (
+        await session.execute(
+            select(RevenueSharePolicy).where(*conditions).order_by(RevenueSharePolicy.policy_id)
+        )
+    ).scalars()
+    for row in global_rows:
+        rows_by_policy.setdefault(row.policy_id, row)
+    rows = sorted(rows_by_policy.values(), key=lambda item: item.policy_id)
+    if provider_kind is not None:
+        rows = [row for row in rows if row.provider_kind == provider_kind]
+    return [await _revenue_policy_response(row, requested_tenant_id=tenant_id) for row in rows]
+
+
+async def _revenue_hook_response(
+    row: RevenueShareHook,
+    *,
+    requested_tenant_id: uuid.UUID | None,
+) -> RevenueShareHookResponse:
+    return RevenueShareHookResponse(
+        id=row.id,
+        tenant_id=row.tenant_id,
+        provider_id=row.provider_id,
+        k_algo=row.k_algo,
+        policy_id=row.policy_id,
+        source_service=row.source_service,
+        source_event_id=row.source_event_id,
+        billing_saga_id=row.billing_saga_id,
+        billing_ledger_id=row.billing_ledger_id,
+        period_month=row.period_month,
+        gross_amount_ref=row.gross_amount_ref,
+        currency=row.currency,
+        status=cast(Any, row.status),
+        metadata=dict(row.hook_metadata),
+        scope_source=_scope_source(row.tenant_id, requested_tenant_id),
+        created_at=row.created_at,
+    )
+
+
+async def _validate_revenue_share_hook_references(
+    session: AsyncSession,
+    body: RevenueShareHookCreateRequest,
+) -> None:
+    provider = await _load_provider_row(
+        session,
+        provider_id=body.provider_id,
+        tenant_id=body.tenant_id,
+        allow_global_fallback=True,
+    )
+    if provider is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="provider not found",
+        )
+    capability = await _load_capability_row(
+        session,
+        k_algo=body.k_algo,
+        tenant_id=body.tenant_id,
+        allow_global_fallback=True,
+    )
+    if capability is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="capability not found",
+        )
+    if capability.provider_id != body.provider_id:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="capability provider mismatch",
+        )
+    policy = await _load_revenue_policy_row(
+        session,
+        policy_id=body.policy_id,
+        tenant_id=body.tenant_id,
+        allow_global_fallback=True,
+    )
+    if policy is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="policy not found",
+        )
+
+
+async def _load_revenue_hook_by_source_event(
+    session: AsyncSession,
+    *,
+    source_service: str,
+    source_event_id: uuid.UUID,
+) -> RevenueShareHook | None:
+    return (
+        await session.execute(
+            select(RevenueShareHook).where(
+                RevenueShareHook.source_service == source_service,
+                RevenueShareHook.source_event_id == source_event_id,
+            )
+        )
+    ).scalar_one_or_none()
+
+
+@router.post(
+    "/revenue-share/hooks",
+    response_model=RevenueShareHookResponse,
+    tags=["revenue-share"],
+)
+async def create_revenue_share_hook(
+    body: RevenueShareHookCreateRequest,
+    x_internal_service_auth: str | None = Header(default=None, alias="X-Internal-Service-Auth"),
+    session: AsyncSession = Depends(get_session),
+) -> RevenueShareHookResponse:
+    _require_write_auth(x_internal_service_auth)
+    existing = await _load_revenue_hook_by_source_event(
+        session,
+        source_service=body.source_service,
+        source_event_id=body.source_event_id,
+    )
+    if existing is not None:
+        return await _revenue_hook_response(
+            existing,
+            requested_tenant_id=existing.tenant_id,
+        )
+    await _validate_revenue_share_hook_references(session, body)
+    row = RevenueShareHook(
+        tenant_id=body.tenant_id,
+        provider_id=body.provider_id,
+        k_algo=body.k_algo,
+        policy_id=body.policy_id,
+        source_service=body.source_service,
+        source_event_id=body.source_event_id,
+        billing_saga_id=body.billing_saga_id,
+        billing_ledger_id=body.billing_ledger_id,
+        period_month=body.period_month,
+        gross_amount_ref=body.gross_amount_ref,
+        currency=body.currency,
+        status=body.status,
+        hook_metadata=body.metadata,
+        created_at=datetime.now(UTC),
+    )
+    try:
+        async with session.begin_nested():
+            session.add(row)
+            await session.flush()
+    except IntegrityError:
+        existing = await _load_revenue_hook_by_source_event(
+            session,
+            source_service=body.source_service,
+            source_event_id=body.source_event_id,
+        )
+        if existing is not None:
+            return await _revenue_hook_response(existing, requested_tenant_id=existing.tenant_id)
+        raise
+    return await _revenue_hook_response(row, requested_tenant_id=body.tenant_id)
+
+
+@router.get(
+    "/revenue-share/hooks/{hook_id}",
+    response_model=RevenueShareHookResponse,
+    tags=["revenue-share"],
+)
+async def get_revenue_share_hook(
+    hook_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+) -> RevenueShareHookResponse:
+    row = (
+        await session.execute(select(RevenueShareHook).where(RevenueShareHook.id == hook_id))
+    ).scalar_one_or_none()
+    if row is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="hook not found")
+    return await _revenue_hook_response(row, requested_tenant_id=row.tenant_id)
+
+
+@router.get(
+    "/revenue-share/hooks",
+    response_model=list[RevenueShareHookResponse],
+    tags=["revenue-share"],
+)
+async def list_revenue_share_hooks(
+    tenant_id: uuid.UUID | None = Query(default=None),
+    provider_id: Annotated[str | None, Query(pattern=_PATH_ID_PATTERN)] = None,
+    k_algo: Annotated[str | None, Query(pattern=_PATH_ID_PATTERN)] = None,
+    period_month: Annotated[str | None, Query(pattern=r"^[0-9]{4}-(0[1-9]|1[0-2])$")] = None,
+    session: AsyncSession = Depends(get_session),
+) -> list[RevenueShareHookResponse]:
+    conditions: list[ColumnElement[bool]] = []
+    if tenant_id is None:
+        conditions.append(RevenueShareHook.tenant_id.is_(None))
+    else:
+        conditions.append(RevenueShareHook.tenant_id == tenant_id)
+    if provider_id is not None:
+        conditions.append(RevenueShareHook.provider_id == provider_id)
+    if k_algo is not None:
+        conditions.append(RevenueShareHook.k_algo == k_algo)
+    if period_month is not None:
+        conditions.append(RevenueShareHook.period_month == period_month)
+    rows = (
+        await session.execute(
+            select(RevenueShareHook).where(*conditions).order_by(RevenueShareHook.created_at.desc())
+        )
+    ).scalars()
+    return [await _revenue_hook_response(row, requested_tenant_id=tenant_id) for row in rows]

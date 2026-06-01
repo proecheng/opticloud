@@ -12,6 +12,7 @@ Exit codes:
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 import tempfile
@@ -29,36 +30,42 @@ def main() -> int:
     # Generate fresh spec into temp dir
     with tempfile.TemporaryDirectory() as tmp:
         tmp_dir = Path(tmp)
-        env_override = {"OPENAPI_OUTPUT_DIR": str(tmp_dir)}
-
-        # For now, simply regenerate to actual output and diff via git
-        # (Production version would generate to temp + diff)
+        env = {"OPENAPI_OUTPUT_DIR": str(tmp_dir)}
         result = subprocess.run(
             ["uv", "run", "python", "scripts/generate_openapi.py"],
             cwd=REPO_ROOT,
+            env={**dict(os.environ), **env},
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             check=False,
         )
         if result.returncode != 0:
             print(f"  ERROR Generate failed: {result.stderr}")
             return 1
 
-        # Check git status for changes in openapi/
-        git_diff = subprocess.run(
-            ["git", "diff", "--exit-code", "--", str(OPENAPI_DIR)],
-            cwd=REPO_ROOT,
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        if git_diff.returncode != 0:
+        generated = {path.name: path.read_text(encoding="utf-8") for path in tmp_dir.glob("*.json")}
+        checked_in = {
+            path.name: path.read_text(encoding="utf-8") for path in OPENAPI_DIR.glob("*.json")
+        }
+        if generated != checked_in:
             print("  ERROR OpenAPI spec drift detected!")
             print("     The checked-in openapi/ files differ from generated.")
             print("     Run `uv run python scripts/generate_openapi.py` + commit.")
-            print()
-            print("Diff:")
-            print(git_diff.stdout)
+            missing = sorted(generated.keys() - checked_in.keys())
+            stale = sorted(checked_in.keys() - generated.keys())
+            changed = sorted(
+                name
+                for name in generated.keys() & checked_in.keys()
+                if generated[name] != checked_in[name]
+            )
+            if missing:
+                print(f"     Missing checked-in files: {', '.join(missing)}")
+            if stale:
+                print(f"     Stale checked-in files: {', '.join(stale)}")
+            if changed:
+                print(f"     Changed files: {', '.join(changed)}")
             return 1
 
     print("  OK No OpenAPI drift.")

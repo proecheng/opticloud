@@ -190,3 +190,159 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_provider_oauth_flows_global_provider_id
 CREATE UNIQUE INDEX IF NOT EXISTS uq_provider_oauth_flows_tenant_provider_id
     ON provider_oauth_flows(tenant_id, provider_id)
     WHERE tenant_id IS NOT NULL;
+
+-- Story 7.A.2: revenue-share v2 hook reservation.
+-- Strict schema/API hook only; no payout computation or billing-service ownership.
+
+CREATE TABLE IF NOT EXISTS revenue_share_policies (
+    id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id               UUID NULL,
+    policy_id               VARCHAR(64) NOT NULL,
+    provider_kind           VARCHAR(32) NOT NULL,
+    platform_share_ratio    NUMERIC(7, 6) NOT NULL,
+    provider_share_ratio    NUMERIC(7, 6) NOT NULL,
+    status                  VARCHAR(32) NOT NULL DEFAULT 'reserved',
+    effective_from          TIMESTAMPTZ NULL,
+    effective_until         TIMESTAMPTZ NULL,
+    metadata                JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at              TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE revenue_share_policies
+    ADD COLUMN IF NOT EXISTS tenant_id UUID NULL,
+    ADD COLUMN IF NOT EXISTS effective_from TIMESTAMPTZ NULL,
+    ADD COLUMN IF NOT EXISTS effective_until TIMESTAMPTZ NULL,
+    ADD COLUMN IF NOT EXISTS metadata JSONB NOT NULL DEFAULT '{}'::jsonb;
+
+ALTER TABLE revenue_share_policies
+    DROP CONSTRAINT IF EXISTS ck_revenue_share_policies_policy_id;
+ALTER TABLE revenue_share_policies
+    ADD CONSTRAINT ck_revenue_share_policies_policy_id
+    CHECK (policy_id ~ '^[a-z0-9][a-z0-9-]{0,63}$');
+
+ALTER TABLE revenue_share_policies
+    DROP CONSTRAINT IF EXISTS ck_revenue_share_policies_provider_kind;
+ALTER TABLE revenue_share_policies
+    ADD CONSTRAINT ck_revenue_share_policies_provider_kind
+    CHECK (provider_kind IN ('self', 'open_source', 'external', 'commercial'));
+
+ALTER TABLE revenue_share_policies
+    DROP CONSTRAINT IF EXISTS ck_revenue_share_policies_status;
+ALTER TABLE revenue_share_policies
+    ADD CONSTRAINT ck_revenue_share_policies_status
+    CHECK (status IN ('reserved', 'active', 'deprecated'));
+
+ALTER TABLE revenue_share_policies
+    DROP CONSTRAINT IF EXISTS ck_revenue_share_policies_ratio_bounds;
+ALTER TABLE revenue_share_policies
+    ADD CONSTRAINT ck_revenue_share_policies_ratio_bounds
+    CHECK (
+        platform_share_ratio >= 0
+        AND platform_share_ratio <= 1
+        AND provider_share_ratio >= 0
+        AND provider_share_ratio <= 1
+    );
+
+ALTER TABLE revenue_share_policies
+    DROP CONSTRAINT IF EXISTS ck_revenue_share_policies_ratio_sum;
+ALTER TABLE revenue_share_policies
+    ADD CONSTRAINT ck_revenue_share_policies_ratio_sum
+    CHECK (platform_share_ratio + provider_share_ratio = 1.000000);
+
+ALTER TABLE revenue_share_policies
+    DROP CONSTRAINT IF EXISTS ck_revenue_share_policies_effective_order;
+ALTER TABLE revenue_share_policies
+    ADD CONSTRAINT ck_revenue_share_policies_effective_order
+    CHECK (
+        effective_from IS NULL
+        OR effective_until IS NULL
+        OR effective_until > effective_from
+    );
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_revenue_share_policies_global_policy_id
+    ON revenue_share_policies(policy_id)
+    WHERE tenant_id IS NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_revenue_share_policies_tenant_policy_id
+    ON revenue_share_policies(tenant_id, policy_id)
+    WHERE tenant_id IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_revenue_share_policies_provider_kind
+    ON revenue_share_policies(provider_kind, status);
+
+CREATE TABLE IF NOT EXISTS revenue_share_hooks (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id           UUID NULL,
+    provider_id         VARCHAR(64) NOT NULL,
+    k_algo              VARCHAR(64) NOT NULL,
+    policy_id           VARCHAR(64) NOT NULL,
+    source_service      VARCHAR(64) NOT NULL,
+    source_event_id     UUID NOT NULL,
+    billing_saga_id     UUID NULL,
+    billing_ledger_id   UUID NULL,
+    period_month        CHAR(7) NOT NULL,
+    gross_amount_ref    VARCHAR(128) NULL,
+    currency            CHAR(3) NOT NULL DEFAULT 'CNY',
+    status              VARCHAR(32) NOT NULL DEFAULT 'reserved',
+    metadata            JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE revenue_share_hooks
+    ADD COLUMN IF NOT EXISTS tenant_id UUID NULL,
+    ADD COLUMN IF NOT EXISTS billing_saga_id UUID NULL,
+    ADD COLUMN IF NOT EXISTS billing_ledger_id UUID NULL,
+    ADD COLUMN IF NOT EXISTS gross_amount_ref VARCHAR(128) NULL,
+    ADD COLUMN IF NOT EXISTS metadata JSONB NOT NULL DEFAULT '{}'::jsonb;
+
+ALTER TABLE revenue_share_hooks
+    DROP CONSTRAINT IF EXISTS ck_revenue_share_hooks_provider_id;
+ALTER TABLE revenue_share_hooks
+    ADD CONSTRAINT ck_revenue_share_hooks_provider_id
+    CHECK (provider_id ~ '^[a-z0-9][a-z0-9-]{0,63}$');
+
+ALTER TABLE revenue_share_hooks
+    DROP CONSTRAINT IF EXISTS ck_revenue_share_hooks_k_algo;
+ALTER TABLE revenue_share_hooks
+    ADD CONSTRAINT ck_revenue_share_hooks_k_algo
+    CHECK (k_algo ~ '^[a-z0-9][a-z0-9-]{0,63}$');
+
+ALTER TABLE revenue_share_hooks
+    DROP CONSTRAINT IF EXISTS ck_revenue_share_hooks_policy_id;
+ALTER TABLE revenue_share_hooks
+    ADD CONSTRAINT ck_revenue_share_hooks_policy_id
+    CHECK (policy_id ~ '^[a-z0-9][a-z0-9-]{0,63}$');
+
+ALTER TABLE revenue_share_hooks
+    DROP CONSTRAINT IF EXISTS ck_revenue_share_hooks_source_service;
+ALTER TABLE revenue_share_hooks
+    ADD CONSTRAINT ck_revenue_share_hooks_source_service
+    CHECK (source_service ~ '^[a-z0-9][a-z0-9-]{0,63}$');
+
+ALTER TABLE revenue_share_hooks
+    DROP CONSTRAINT IF EXISTS ck_revenue_share_hooks_period_month;
+ALTER TABLE revenue_share_hooks
+    ADD CONSTRAINT ck_revenue_share_hooks_period_month
+    CHECK (period_month ~ '^[0-9]{4}-(0[1-9]|1[0-2])$');
+
+ALTER TABLE revenue_share_hooks
+    DROP CONSTRAINT IF EXISTS ck_revenue_share_hooks_currency;
+ALTER TABLE revenue_share_hooks
+    ADD CONSTRAINT ck_revenue_share_hooks_currency
+    CHECK (currency ~ '^[A-Z]{3}$');
+
+ALTER TABLE revenue_share_hooks
+    DROP CONSTRAINT IF EXISTS ck_revenue_share_hooks_status;
+ALTER TABLE revenue_share_hooks
+    ADD CONSTRAINT ck_revenue_share_hooks_status
+    CHECK (status IN ('reserved', 'captured', 'voided'));
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_revenue_share_hooks_source_event
+    ON revenue_share_hooks(source_service, source_event_id);
+
+CREATE INDEX IF NOT EXISTS idx_revenue_share_hooks_lookup
+    ON revenue_share_hooks(tenant_id, provider_id, k_algo, period_month);
+
+CREATE INDEX IF NOT EXISTS idx_revenue_share_hooks_policy_id
+    ON revenue_share_hooks(policy_id);
