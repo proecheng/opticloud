@@ -1455,6 +1455,368 @@
         "title": "ProviderRolloutUpsertRequest",
         "type": "object"
       },
+      "ProviderRouteShareCurrentRollout": {
+        "additionalProperties": false,
+        "properties": {
+          "application_id": {
+            "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+            "title": "Application Id",
+            "type": "string"
+          },
+          "cancelled_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cancelled At"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "current_stage_percent": {
+            "enum": [
+              0,
+              5,
+              50,
+              100
+            ],
+            "title": "Current Stage Percent",
+            "type": "integer"
+          },
+          "evaluation_id": {
+            "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+            "title": "Evaluation Id",
+            "type": "string"
+          },
+          "paused_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Paused At"
+          },
+          "rollout_id": {
+            "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+            "title": "Rollout Id",
+            "type": "string"
+          },
+          "run_id": {
+            "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+            "title": "Run Id",
+            "type": "string"
+          },
+          "scope_source": {
+            "enum": [
+              "global",
+              "tenant"
+            ],
+            "title": "Scope Source",
+            "type": "string"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "status": {
+            "enum": [
+              "draft",
+              "active",
+              "paused",
+              "completed",
+              "cancelled"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "application_id",
+          "evaluation_id",
+          "run_id",
+          "rollout_id",
+          "status",
+          "current_stage_percent",
+          "updated_at",
+          "scope_source"
+        ],
+        "title": "ProviderRouteShareCurrentRollout",
+        "type": "object"
+      },
+      "ProviderRouteShareDashboardResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "current_rollouts": {
+            "items": {
+              "$ref": "#/components/schemas/ProviderRouteShareCurrentRollout"
+            },
+            "title": "Current Rollouts",
+            "type": "array"
+          },
+          "from_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "From At"
+          },
+          "highest_current_stage_percent": {
+            "enum": [
+              0,
+              5,
+              50,
+              100
+            ],
+            "title": "Highest Current Stage Percent",
+            "type": "integer"
+          },
+          "provider_id": {
+            "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+            "title": "Provider Id",
+            "type": "string"
+          },
+          "status_counts": {
+            "$ref": "#/components/schemas/ProviderRouteShareStatusCounts"
+          },
+          "tenant_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tenant Id"
+          },
+          "timeline": {
+            "items": {
+              "$ref": "#/components/schemas/ProviderRouteShareTimelinePoint"
+            },
+            "title": "Timeline",
+            "type": "array"
+          },
+          "to_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "To At"
+          },
+          "total_rollouts": {
+            "minimum": 0.0,
+            "title": "Total Rollouts",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "provider_id",
+          "status_counts",
+          "total_rollouts",
+          "highest_current_stage_percent",
+          "current_rollouts",
+          "timeline"
+        ],
+        "title": "ProviderRouteShareDashboardResponse",
+        "type": "object"
+      },
+      "ProviderRouteShareStatusCounts": {
+        "additionalProperties": false,
+        "properties": {
+          "active": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Active",
+            "type": "integer"
+          },
+          "cancelled": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Cancelled",
+            "type": "integer"
+          },
+          "completed": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Completed",
+            "type": "integer"
+          },
+          "draft": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Draft",
+            "type": "integer"
+          },
+          "paused": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Paused",
+            "type": "integer"
+          }
+        },
+        "title": "ProviderRouteShareStatusCounts",
+        "type": "object"
+      },
+      "ProviderRouteShareTimelinePoint": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "enum": [
+              "created",
+              "advance",
+              "pause",
+              "cancel"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "application_id": {
+            "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+            "title": "Application Id",
+            "type": "string"
+          },
+          "baseline_provider_id": {
+            "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+            "title": "Baseline Provider Id",
+            "type": "string"
+          },
+          "benchmark_suite": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$",
+            "title": "Benchmark Suite",
+            "type": "string"
+          },
+          "evaluation_id": {
+            "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+            "title": "Evaluation Id",
+            "type": "string"
+          },
+          "from_status": {
+            "anyOf": [
+              {
+                "enum": [
+                  "draft",
+                  "active",
+                  "paused",
+                  "completed",
+                  "cancelled"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "From Status"
+          },
+          "observed_at": {
+            "format": "date-time",
+            "title": "Observed At",
+            "type": "string"
+          },
+          "provider_id": {
+            "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+            "title": "Provider Id",
+            "type": "string"
+          },
+          "rollout_id": {
+            "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+            "title": "Rollout Id",
+            "type": "string"
+          },
+          "run_id": {
+            "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+            "title": "Run Id",
+            "type": "string"
+          },
+          "scope_source": {
+            "enum": [
+              "global",
+              "tenant"
+            ],
+            "title": "Scope Source",
+            "type": "string"
+          },
+          "stage_percent": {
+            "enum": [
+              0,
+              5,
+              50,
+              100
+            ],
+            "title": "Stage Percent",
+            "type": "integer"
+          },
+          "to_status": {
+            "enum": [
+              "draft",
+              "active",
+              "paused",
+              "completed",
+              "cancelled"
+            ],
+            "title": "To Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "application_id",
+          "evaluation_id",
+          "run_id",
+          "rollout_id",
+          "provider_id",
+          "baseline_provider_id",
+          "benchmark_suite",
+          "action",
+          "stage_percent",
+          "to_status",
+          "observed_at",
+          "scope_source"
+        ],
+        "title": "ProviderRouteShareTimelinePoint",
+        "type": "object"
+      },
       "ProviderShadowRunResponse": {
         "additionalProperties": false,
         "properties": {
@@ -5108,6 +5470,145 @@
         "summary": "Execute Oauth Flow",
         "tags": [
           "provider-oauth"
+        ]
+      }
+    },
+    "/v1/providers/{provider_id}/route-share-dashboard": {
+      "get": {
+        "operationId": "get_provider_route_share_dashboard_v1_providers__provider_id__route_share_dashboard_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "provider_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+              "title": "Provider Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "tenant_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tenant Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "To"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "draft",
+                    "active",
+                    "paused",
+                    "completed",
+                    "cancelled"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "stage_percent",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "enum": [
+                0,
+                5,
+                50,
+                100
+              ],
+              "title": "Stage Percent"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderRouteShareDashboardResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Provider Route Share Dashboard",
+        "tags": [
+          "provider-route-share-dashboard"
         ]
       }
     },

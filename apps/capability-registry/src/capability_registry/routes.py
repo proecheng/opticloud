@@ -51,6 +51,12 @@ from capability_registry.schemas import (
     ProviderRolloutStage,
     ProviderRolloutStatus,
     ProviderRolloutUpsertRequest,
+    ProviderRouteShareAction,
+    ProviderRouteShareCurrentRollout,
+    ProviderRouteShareDashboardResponse,
+    ProviderRouteShareScopeSource,
+    ProviderRouteShareStatusCounts,
+    ProviderRouteShareTimelinePoint,
     ProviderShadowCoverageClass,
     ProviderShadowRunResponse,
     ProviderShadowRunStatus,
@@ -1981,6 +1987,175 @@ async def _rollout_response(
     )
 
 
+def _route_share_conflict(detail: str) -> HTTPException:
+    return HTTPException(status_code=status.HTTP_409_CONFLICT, detail=detail)
+
+
+def _require_aware_datetime(value: datetime, *, field_name: str) -> datetime:
+    if value.tzinfo is None or value.utcoffset() is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"{field_name} must be timezone-aware",
+        )
+    return value
+
+
+def _parse_route_share_history_time(value: Any) -> datetime:
+    if not isinstance(value, str):
+        raise _route_share_conflict("rollout stage history changed_at must be a string")
+    normalized = value.replace("Z", "+00:00")
+    try:
+        parsed = datetime.fromisoformat(normalized)
+    except ValueError as exc:
+        raise _route_share_conflict("rollout stage history changed_at is invalid") from exc
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        raise _route_share_conflict("rollout stage history changed_at must be timezone-aware")
+    return parsed
+
+
+def _coerce_route_share_status(value: Any, *, field_name: str) -> ProviderRolloutStatus:
+    allowed: set[str] = {"draft", "active", "paused", "completed", "cancelled"}
+    if not isinstance(value, str) or value not in allowed:
+        raise _route_share_conflict(f"rollout {field_name} is invalid")
+    return cast(ProviderRolloutStatus, value)
+
+
+def _coerce_route_share_stage(value: Any, *, field_name: str) -> ProviderRolloutStage:
+    if not isinstance(value, int) or value not in _ROLLOUT_STAGES:
+        raise _route_share_conflict(f"rollout {field_name} is invalid")
+    return value
+
+
+def _coerce_route_share_action(value: Any) -> ProviderRouteShareAction:
+    allowed: set[str] = {"created", "advance", "pause", "cancel"}
+    if not isinstance(value, str) or value not in allowed:
+        raise _route_share_conflict("rollout stage history action is invalid")
+    return cast(ProviderRouteShareAction, value)
+
+
+def _route_share_scope_source(
+    row: ProviderGradientRollout,
+    *,
+    requested_tenant_id: uuid.UUID | None,
+) -> ProviderRouteShareScopeSource:
+    source = _scope_source(row.tenant_id, requested_tenant_id)
+    if source == "global_fallback":
+        raise _route_share_conflict("route-share dashboard cannot use global fallback scope")
+    return source
+
+
+def _route_share_current_rollout(
+    row: ProviderGradientRollout,
+    *,
+    requested_tenant_id: uuid.UUID | None,
+) -> ProviderRouteShareCurrentRollout:
+    rollout_status = _coerce_route_share_status(row.status, field_name="status")
+    stage = _coerce_route_share_stage(row.current_stage_percent, field_name="current_stage_percent")
+    return ProviderRouteShareCurrentRollout(
+        application_id=row.application_id,
+        evaluation_id=row.evaluation_id,
+        run_id=row.run_id,
+        rollout_id=row.rollout_id,
+        status=rollout_status,
+        current_stage_percent=stage,
+        started_at=row.started_at,
+        completed_at=row.completed_at,
+        paused_at=row.paused_at,
+        cancelled_at=row.cancelled_at,
+        updated_at=row.updated_at,
+        scope_source=_route_share_scope_source(row, requested_tenant_id=requested_tenant_id),
+    )
+
+
+def _route_share_created_point(
+    row: ProviderGradientRollout,
+    *,
+    requested_tenant_id: uuid.UUID | None,
+) -> ProviderRouteShareTimelinePoint:
+    rollout_status = _coerce_route_share_status(row.status, field_name="status")
+    to_status: ProviderRolloutStatus = "draft" if rollout_status != "draft" else rollout_status
+    return ProviderRouteShareTimelinePoint(
+        application_id=row.application_id,
+        evaluation_id=row.evaluation_id,
+        run_id=row.run_id,
+        rollout_id=row.rollout_id,
+        provider_id=row.requested_provider_id,
+        baseline_provider_id=row.baseline_provider_id,
+        benchmark_suite=row.benchmark_suite,
+        action="created",
+        stage_percent=0,
+        from_status=None,
+        to_status=to_status,
+        observed_at=row.created_at,
+        scope_source=_route_share_scope_source(row, requested_tenant_id=requested_tenant_id),
+    )
+
+
+def _route_share_history_point(
+    row: ProviderGradientRollout,
+    entry: Any,
+    *,
+    requested_tenant_id: uuid.UUID | None,
+) -> ProviderRouteShareTimelinePoint:
+    if not isinstance(entry, dict):
+        raise _route_share_conflict("rollout stage history entries must be objects")
+    required = {"action", "stage_percent", "changed_at", "from_status", "to_status"}
+    missing = sorted(required - set(entry))
+    if missing:
+        raise _route_share_conflict(f"rollout stage history entry is missing: {', '.join(missing)}")
+    return ProviderRouteShareTimelinePoint(
+        application_id=row.application_id,
+        evaluation_id=row.evaluation_id,
+        run_id=row.run_id,
+        rollout_id=row.rollout_id,
+        provider_id=row.requested_provider_id,
+        baseline_provider_id=row.baseline_provider_id,
+        benchmark_suite=row.benchmark_suite,
+        action=_coerce_route_share_action(entry["action"]),
+        stage_percent=_coerce_route_share_stage(entry["stage_percent"], field_name="stage_percent"),
+        from_status=_coerce_route_share_status(entry["from_status"], field_name="from_status"),
+        to_status=_coerce_route_share_status(entry["to_status"], field_name="to_status"),
+        observed_at=_parse_route_share_history_time(entry["changed_at"]),
+        scope_source=_route_share_scope_source(row, requested_tenant_id=requested_tenant_id),
+    )
+
+
+def _route_share_timeline_points(
+    row: ProviderGradientRollout,
+    *,
+    requested_tenant_id: uuid.UUID | None,
+) -> list[ProviderRouteShareTimelinePoint]:
+    points = [_route_share_created_point(row, requested_tenant_id=requested_tenant_id)]
+    for entry in row.stage_history:
+        points.append(
+            _route_share_history_point(row, entry, requested_tenant_id=requested_tenant_id)
+        )
+    return points
+
+
+def _route_share_status_counts(
+    rows: list[ProviderGradientRollout],
+) -> ProviderRouteShareStatusCounts:
+    counts = dict.fromkeys(("draft", "active", "paused", "completed", "cancelled"), 0)
+    for row in rows:
+        counts[_coerce_route_share_status(row.status, field_name="status")] += 1
+    return ProviderRouteShareStatusCounts(**counts)
+
+
+def _route_share_timeline_sort_key(
+    point: ProviderRouteShareTimelinePoint,
+) -> tuple[datetime, str, str, str, str, str, int]:
+    return (
+        point.observed_at,
+        point.application_id,
+        point.evaluation_id,
+        point.run_id,
+        point.rollout_id,
+        point.action,
+        point.stage_percent,
+    )
+
+
 def _material_shadow_run_values(body: ProviderShadowRunUpsertRequest) -> dict[str, Any]:
     return {
         "baseline_provider_id": body.baseline_provider_id,
@@ -2626,6 +2801,90 @@ async def list_provider_rollouts(
         )
     ).scalars()
     return [await _rollout_response(row, requested_tenant_id=tenant_id) for row in rows]
+
+
+@router.get(
+    "/providers/{provider_id}/route-share-dashboard",
+    response_model=ProviderRouteShareDashboardResponse,
+    tags=["provider-route-share-dashboard"],
+)
+async def get_provider_route_share_dashboard(
+    provider_id: Annotated[str, Path(pattern=_PATH_ID_PATTERN)],
+    tenant_id: uuid.UUID | None = Query(default=None),
+    from_at: datetime | None = Query(default=None, alias="from"),
+    to_at: datetime | None = Query(default=None, alias="to"),
+    status_filter: ProviderRolloutStatus | None = Query(default=None, alias="status"),
+    stage_percent: int | None = Query(default=None, json_schema_extra={"enum": [0, 5, 50, 100]}),
+    session: AsyncSession = Depends(get_session),
+) -> ProviderRouteShareDashboardResponse:
+    if from_at is not None:
+        _require_aware_datetime(from_at, field_name="from")
+    if to_at is not None:
+        _require_aware_datetime(to_at, field_name="to")
+    if from_at is not None and to_at is not None and from_at > to_at:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="from must be before or equal to to",
+        )
+    if stage_percent is not None and stage_percent not in _ROLLOUT_STAGES:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="stage_percent must be one of 0, 5, 50, or 100",
+        )
+    conditions: list[ColumnElement[bool]] = [
+        ProviderGradientRollout.requested_provider_id == provider_id,
+        (
+            ProviderGradientRollout.tenant_id.is_(None)
+            if tenant_id is None
+            else ProviderGradientRollout.tenant_id == tenant_id
+        ),
+    ]
+    if status_filter is not None:
+        conditions.append(ProviderGradientRollout.status == status_filter)
+    if stage_percent is not None:
+        conditions.append(ProviderGradientRollout.current_stage_percent == stage_percent)
+
+    rows = list(
+        (
+            await session.execute(
+                select(ProviderGradientRollout)
+                .where(*conditions)
+                .order_by(
+                    ProviderGradientRollout.application_id,
+                    ProviderGradientRollout.evaluation_id,
+                    ProviderGradientRollout.run_id,
+                    ProviderGradientRollout.rollout_id,
+                )
+            )
+        ).scalars()
+    )
+    current_rollouts = [
+        _route_share_current_rollout(row, requested_tenant_id=tenant_id) for row in rows
+    ]
+    status_counts = _route_share_status_counts(rows)
+    highest_stage = max(
+        (rollout.current_stage_percent for rollout in current_rollouts),
+        default=0,
+    )
+    timeline = [
+        point
+        for row in rows
+        for point in _route_share_timeline_points(row, requested_tenant_id=tenant_id)
+        if (from_at is None or point.observed_at >= from_at)
+        and (to_at is None or point.observed_at <= to_at)
+    ]
+    timeline.sort(key=_route_share_timeline_sort_key)
+    return ProviderRouteShareDashboardResponse(
+        provider_id=provider_id,
+        tenant_id=tenant_id,
+        from_at=from_at,
+        to_at=to_at,
+        status_counts=status_counts,
+        total_rollouts=len(rows),
+        highest_current_stage_percent=cast(ProviderRolloutStage, highest_stage),
+        current_rollouts=current_rollouts,
+        timeline=timeline,
+    )
 
 
 @router.post(
