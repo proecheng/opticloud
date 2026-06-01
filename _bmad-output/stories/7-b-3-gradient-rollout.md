@@ -4,7 +4,7 @@ baseline_commit: 3b12eab2917fe0ebda924ab906d8fbc1063d6fc9
 epic_num: 7
 story_num: B.3
 epic_name: Provider Marketplace v2
-status: review
+status: done
 priority: High
 type: provider gradient rollout contract and staged promotion gate
 created_by: bmad-create-story
@@ -23,7 +23,7 @@ sources:
 
 # Story 7.B.3 - Gradient Rollout
 
-Status: review
+Status: done
 
 ## Story
 
@@ -120,11 +120,11 @@ FR P3 requires gradual promotion of provider traffic from 5% to 50% to 100%. Thi
   - [x] Add OpenAPI unsafe-field absence assertions.
   - [x] Regenerate checked-in OpenAPI and run drift check.
 
-- [ ] T5: Review, gates, and GitHub sync (AC: 33-34)
+- [x] T5: Review, gates, and GitHub sync (AC: 33-34)
   - [x] Run post-implementation code review and fix findings.
   - [x] Run local gates after fixes.
-  - [ ] Commit, push, create PR, wait for CI, merge, delete remote branch, and sync local `main`.
-  - [ ] Mark story and sprint status `done` only after merge/sync.
+  - [x] Commit, push, create PR, wait for CI, merge, delete remote branch, and sync local `main`.
+  - [x] Mark story and sprint status `done` only after merge/sync.
 
 ## Dev Notes
 
@@ -207,7 +207,7 @@ GPT-5 Codex
 - Implemented passed-shadow prerequisite with immutable shadow summary snapshots.
 - Implemented strict `0 -> 5 -> 50 -> 100` stage advancement, pause/cancel actions, terminal idempotency, row locking, tenant scope, write auth, and no live catalog/routing side effects.
 - Post-implementation review fix applied: rollout creation now validates a clean passed shadow summary and snapshots the normalized summary.
-- Local implementation gates passed; story is ready for post-implementation code review.
+- Local implementation gates passed; GitHub CI passed; PR #138 merged to `main`; remote branch deleted; local `main` synced to merge commit `7d990ba22ff00185136c9e067d797fbce510c47c`.
 
 ### File List
 
@@ -225,6 +225,7 @@ GPT-5 Codex
 - 2026-06-01 - Story created for Provider Gradient Rollout contract and staged promotion gate.
 - 2026-06-01 - Implemented Provider Gradient Rollout schema/API/tests/OpenAPI; story moved to review pending post-implementation code review.
 - 2026-06-01 - Post-implementation code review found shadow-summary drift risk; fix applied and local gates passed.
+- 2026-06-01 - PR #138 passed CI, merged to main, remote branch deleted, local main synced, and story marked done.
 
 ## Pre-Implementation Adversarial Reviews
 
