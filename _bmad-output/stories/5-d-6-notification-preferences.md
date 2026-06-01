@@ -4,7 +4,7 @@ baseline_commit: 2d682bcabb3156839f0a4700de5873891d0e5252
 epic_num: 5
 story_num: D.6
 epic_name: Billing - Invoices + Templates + Budget + Notifications
-status: in-progress
+status: done
 priority: High
 type: notification preferences for billable events
 created_by: bmad-create-story
@@ -28,7 +28,7 @@ sources:
 
 # Story 5.D.6 - Notification preferences
 
-Status: in-progress
+Status: done
 
 ## Story
 
@@ -144,10 +144,10 @@ Default behavior for users without explicit preference rows:
   - [x] Keep existing account settings visible on preference failures.
   - [x] Add focused page tests for success, validation/error isolation, and storage hygiene.
 
-- [ ] T6: Review, gates, and GitHub sync (AC: 30)
+- [x] T6: Review, gates, and GitHub sync (AC: 30)
   - [x] Run focused backend/web tests and static gates.
   - [x] Run post-implementation code review and fix findings.
-  - [ ] Commit, push, create PR, wait for CI, merge, delete remote branch, and sync local `main`.
+  - [x] Commit, push, create PR, wait for CI, merge, delete remote branch, and sync local `main`.
 
 ## Dev Notes
 
@@ -223,6 +223,7 @@ GPT-5 Codex
 - Service regression gates: `uv run pytest apps/auth-service/tests/ -q` passed 94 tests, `uv run pytest apps/billing-service/tests/ -q` passed 286 tests, and `pnpm test` in `apps/web` passed 163 tests.
 - Static gates: `uv run ruff check ...`, `uv run ruff format --check ...`, `uv run mypy apps/auth-service/src/auth_service apps/billing-service/src/billing_service`, `pnpm typecheck`, and `git diff --check` passed.
 - Note: running auth and billing DB tests concurrently against the same local database can race because auth notification tests clear `notification_preferences`; final backend verification was run serially.
+- GitHub sync: PR #132 passed CI, squash-merged to `main` at `2e8a807`, remote branch `codex/5-d-6-notification-preferences` was deleted, and local `main` is synced to `origin/main`.
 
 ### Completion Notes List
 
@@ -230,6 +231,7 @@ GPT-5 Codex
 - Applied notification preferences in billing budget alert/pause payloads via raw SQL across the service boundary, preserving 5.D.5 idempotency and omitting raw webhook URLs from billing outbox payloads.
 - Added typed web API helpers and a compact account settings notification panel whose loading, error, and save state are independent of account deletion/merge state.
 - Post-implementation review findings fixed: billing tests now create the preference table in local fixtures, the account page avoids flashing editable defaults before load, and webhook host validation rejects non-standard numeric IP notation while allowing public IPv6.
+- Story closed only after PR #132 merge, green CI, remote branch deletion, and local `main` sync.
 
 ### File List
 
@@ -255,7 +257,8 @@ GPT-5 Codex
 ## Change Log
 
 - 2026-06-01 - Story created for user notification preferences, budget notification channel filtering, and account settings UI.
-- 2026-06-01 - Implemented notification preference schema/API, billing channel filtering, account settings UI, focused tests, and post-implementation review fixes; GitHub sync remains pending.
+- 2026-06-01 - Implemented notification preference schema/API, billing channel filtering, account settings UI, focused tests, and post-implementation review fixes.
+- 2026-06-01 - PR #132 passed CI, merged to main, remote branch deleted, local main synced; story marked done.
 
 ## Pre-Implementation Adversarial Review
 
