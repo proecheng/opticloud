@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 import sys
 import uuid
@@ -11,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 import asyncpg
+import capability_registry.routes as registry_routes
 import pytest
 import pytest_asyncio
 from capability_registry.config import settings
@@ -34,7 +36,9 @@ if sys.platform == "win32":
 DATABASE_URL = os.getenv("DATABASE_URL", settings.database_url)
 ASYNCPG_URL = DATABASE_URL.replace("postgresql+asyncpg://", "postgresql://")
 ROOT_DIR = Path(__file__).resolve().parents[3]
-SCHEMA_SQL = (ROOT_DIR / "infra" / "local-init" / "14-capability-registry.sql").read_text()
+SCHEMA_PATH = ROOT_DIR / "infra" / "local-init" / "14-capability-registry.sql"
+SCHEMA_SQL = SCHEMA_PATH.read_text()
+OPENAPI_PATH = ROOT_DIR / "packages" / "shared-ts" / "openapi" / "capability-registry.json"
 SHA = "a" * 64
 DIGEST = f"registry.example.com/solver@sha256:{'b' * 64}"
 
@@ -84,7 +88,8 @@ async def clean_tables(engine: AsyncEngine) -> AsyncIterator[None]:
     async with maker() as session:
         await session.execute(
             text(
-                "TRUNCATE provider_oauth_flows, capability_tags, capabilities, "
+                "TRUNCATE revenue_share_hooks, revenue_share_policies, "
+                "provider_oauth_flows, capability_tags, capabilities, "
                 "capability_providers RESTART IDENTITY CASCADE"
             )
         )
@@ -146,6 +151,36 @@ def capability_payload(**overrides: Any) -> dict[str, Any]:
         "examples": [{"name": "hello"}],
         "metadata": {"source": "test"},
         "tags": ["LP", "linear programming"],
+    }
+    payload.update(overrides)
+    return payload
+
+
+def policy_payload(**overrides: Any) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "provider_kind": "external",
+        "platform_share_ratio": "0.600000",
+        "provider_share_ratio": "0.400000",
+        "status": "reserved",
+        "metadata": {"source": "test"},
+    }
+    payload.update(overrides)
+    return payload
+
+
+def hook_payload(**overrides: Any) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "provider_id": "highs",
+        "k_algo": "highs-lp",
+        "policy_id": "external-default",
+        "source_service": "billing-service",
+        "source_event_id": str(uuid.uuid4()),
+        "billing_saga_id": str(uuid.uuid4()),
+        "period_month": "2026-06",
+        "gross_amount_ref": "credit-ledger:gross:v1",
+        "currency": "CNY",
+        "status": "reserved",
+        "metadata": {"source": "test"},
     }
     payload.update(overrides)
     return payload
@@ -353,3 +388,305 @@ async def test_path_body_mismatch_and_missing_resources(client: AsyncClient) -> 
         json=capability_payload(),
     )
     assert invalid_capability_path.status_code == 422
+
+
+async def test_revenue_share_policy_ratios_scope_and_constraints(
+    client: AsyncClient,
+    engine: AsyncEngine,
+) -> None:
+    defaults = {
+        "self-default": ("self", "1.000000", "0.000000"),
+        "open-source-default": ("open_source", "1.000000", "0.000000"),
+        "external-default": ("external", "0.600000", "0.400000"),
+        "commercial-default": ("commercial", "0.500000", "0.500000"),
+    }
+    for policy_id, (provider_kind, platform_ratio, provider_ratio) in defaults.items():
+        response = await client.put(
+            f"/v1/revenue-share/policies/{policy_id}",
+            json=policy_payload(
+                provider_kind=provider_kind,
+                platform_share_ratio=platform_ratio,
+                provider_share_ratio=provider_ratio,
+            ),
+        )
+        assert response.status_code == 200, response.text
+        body = response.json()
+        assert body["policy_id"] == policy_id
+        assert body["provider_kind"] == provider_kind
+        assert str(body["platform_share_ratio"]) == platform_ratio
+        assert str(body["provider_share_ratio"]) == provider_ratio
+        assert body["scope_source"] == "global"
+
+    bad_ratio = await client.put(
+        "/v1/revenue-share/policies/bad-ratio",
+        json=policy_payload(platform_share_ratio="0.700000", provider_share_ratio="0.400000"),
+    )
+    assert bad_ratio.status_code == 422
+
+    tenant_id = str(uuid.uuid4())
+    tenant_policy = await client.put(
+        "/v1/revenue-share/policies/external-default",
+        json=policy_payload(
+            tenant_id=tenant_id,
+            platform_share_ratio="0.550000",
+            provider_share_ratio="0.450000",
+        ),
+    )
+    assert tenant_policy.status_code == 200, tenant_policy.text
+    assert tenant_policy.json()["scope_source"] == "tenant"
+
+    tenant_read = await client.get(
+        f"/v1/revenue-share/policies/external-default?tenant_id={tenant_id}"
+    )
+    assert tenant_read.status_code == 200, tenant_read.text
+    assert str(tenant_read.json()["platform_share_ratio"]) == "0.550000"
+
+    maker = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
+    async with maker() as session:
+        with pytest.raises(IntegrityError):
+            await session.execute(
+                text(
+                    """
+                    INSERT INTO revenue_share_policies(
+                        policy_id,
+                        provider_kind,
+                        platform_share_ratio,
+                        provider_share_ratio
+                    )
+                    VALUES ('external-default', 'external', 0.600000, 0.400000)
+                    """
+                )
+            )
+            await session.commit()
+        await session.rollback()
+        with pytest.raises(IntegrityError):
+            await session.execute(
+                text(
+                    """
+                    INSERT INTO revenue_share_policies(
+                        policy_id,
+                        provider_kind,
+                        platform_share_ratio,
+                        provider_share_ratio
+                    )
+                    VALUES ('broken-sum', 'external', 0.700000, 0.400000)
+                    """
+                )
+            )
+            await session.commit()
+
+
+async def test_revenue_share_hook_creation_idempotency_and_validation(
+    client: AsyncClient,
+) -> None:
+    await client.put("/v1/providers/highs", json=provider_payload(kind="external"))
+    await client.put("/v1/capabilities/highs-lp", json=capability_payload())
+    await client.put("/v1/revenue-share/policies/external-default", json=policy_payload())
+
+    event_id = str(uuid.uuid4())
+    create = await client.post(
+        "/v1/revenue-share/hooks",
+        json=hook_payload(source_event_id=event_id),
+    )
+    assert create.status_code == 200, create.text
+    body = create.json()
+    assert body["provider_id"] == "highs"
+    assert body["k_algo"] == "highs-lp"
+    assert body["source_event_id"] == event_id
+    assert body["period_month"] == "2026-06"
+    assert body["scope_source"] == "global"
+
+    replay = await client.post(
+        "/v1/revenue-share/hooks",
+        json=hook_payload(
+            provider_id="different-provider",
+            k_algo="different-capability",
+            source_event_id=event_id,
+        ),
+    )
+    assert replay.status_code == 200, replay.text
+    assert replay.json()["id"] == body["id"]
+    assert replay.json()["provider_id"] == "highs"
+
+    invalid_month = await client.post(
+        "/v1/revenue-share/hooks",
+        json=hook_payload(source_event_id=str(uuid.uuid4()), period_month="2026-13"),
+    )
+    assert invalid_month.status_code == 422
+
+    forbidden = await client.post(
+        "/v1/revenue-share/hooks",
+        json=hook_payload(source_event_id=str(uuid.uuid4()), provider_amount="12.34"),
+    )
+    assert forbidden.status_code == 422
+
+    forbidden_metadata = await client.post(
+        "/v1/revenue-share/hooks",
+        json=hook_payload(
+            source_event_id=str(uuid.uuid4()),
+            metadata={"safe_ref": "ok", "nested": {"payment_ref": "pay-secret"}},
+        ),
+    )
+    assert forbidden_metadata.status_code == 422
+
+    missing_policy = await client.post(
+        "/v1/revenue-share/hooks",
+        json=hook_payload(source_event_id=str(uuid.uuid4()), policy_id="missing-policy"),
+    )
+    assert missing_policy.status_code == 422
+    assert "policy not found" in missing_policy.text
+
+
+async def test_revenue_share_hook_idempotency_recovers_from_unique_race(
+    client: AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    await client.put("/v1/providers/highs", json=provider_payload(kind="external"))
+    await client.put("/v1/capabilities/highs-lp", json=capability_payload())
+    await client.put("/v1/revenue-share/policies/external-default", json=policy_payload())
+
+    event_id = str(uuid.uuid4())
+    first = await client.post(
+        "/v1/revenue-share/hooks",
+        json=hook_payload(source_event_id=event_id),
+    )
+    assert first.status_code == 200, first.text
+
+    original_loader = registry_routes._load_revenue_hook_by_source_event
+    calls = 0
+
+    async def race_loader(*args: Any, **kwargs: Any) -> Any:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return None
+        return await original_loader(*args, **kwargs)
+
+    monkeypatch.setattr(registry_routes, "_load_revenue_hook_by_source_event", race_loader)
+    replay = await client.post(
+        "/v1/revenue-share/hooks",
+        json=hook_payload(source_event_id=event_id),
+    )
+    assert replay.status_code == 200, replay.text
+    assert replay.json()["id"] == first.json()["id"]
+    assert calls >= 2
+
+
+async def test_revenue_share_hook_tenant_resolution_and_mismatch(
+    client: AsyncClient,
+) -> None:
+    tenant_id = str(uuid.uuid4())
+    await client.put("/v1/providers/highs", json=provider_payload(kind="external"))
+    await client.put(
+        "/v1/providers/or-tools",
+        json=provider_payload(
+            tenant_id=tenant_id,
+            kind="external",
+            display_name="OR-Tools",
+            provider_url="https://developers.google.com/optimization",
+        ),
+    )
+    await client.put("/v1/capabilities/highs-lp", json=capability_payload())
+    await client.put(
+        "/v1/capabilities/routing",
+        json=capability_payload(
+            tenant_id=tenant_id,
+            provider_id="or-tools",
+            task_type="vrptw",
+            model_version="9.10",
+        ),
+    )
+    await client.put("/v1/revenue-share/policies/external-default", json=policy_payload())
+
+    tenant_hook = await client.post(
+        "/v1/revenue-share/hooks",
+        json=hook_payload(
+            tenant_id=tenant_id,
+            provider_id="or-tools",
+            k_algo="routing",
+            source_event_id=str(uuid.uuid4()),
+        ),
+    )
+    assert tenant_hook.status_code == 200, tenant_hook.text
+    assert tenant_hook.json()["scope_source"] == "tenant"
+
+    mismatch = await client.post(
+        "/v1/revenue-share/hooks",
+        json=hook_payload(
+            tenant_id=tenant_id,
+            provider_id="highs",
+            k_algo="routing",
+            source_event_id=str(uuid.uuid4()),
+        ),
+    )
+    assert mismatch.status_code == 422
+    assert "capability provider mismatch" in mismatch.text
+
+
+async def test_revenue_share_write_protection_when_internal_secret_configured(
+    client: AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "capability_registry.routes.settings.internal_secret",
+        SecretStr("internal-test-secret"),
+    )
+
+    missing_policy_auth = await client.put(
+        "/v1/revenue-share/policies/external-default",
+        json=policy_payload(),
+    )
+    assert missing_policy_auth.status_code == 401
+
+    ok_policy = await client.put(
+        "/v1/revenue-share/policies/external-default",
+        json=policy_payload(),
+        headers={"X-Internal-Service-Auth": "internal-test-secret"},
+    )
+    assert ok_policy.status_code == 200, ok_policy.text
+
+    await client.put(
+        "/v1/providers/highs",
+        json=provider_payload(kind="external"),
+        headers={"X-Internal-Service-Auth": "internal-test-secret"},
+    )
+    await client.put(
+        "/v1/capabilities/highs-lp",
+        json=capability_payload(),
+        headers={"X-Internal-Service-Auth": "internal-test-secret"},
+    )
+
+    missing_hook_auth = await client.post("/v1/revenue-share/hooks", json=hook_payload())
+    assert missing_hook_auth.status_code == 401
+
+    ok_hook = await client.post(
+        "/v1/revenue-share/hooks",
+        json=hook_payload(),
+        headers={"X-Internal-Service-Auth": "internal-test-secret"},
+    )
+    assert ok_hook.status_code == 200, ok_hook.text
+
+
+def test_revenue_share_openapi_omits_unsafe_fields() -> None:
+    spec = json.loads(OPENAPI_PATH.read_text(encoding="utf-8"))
+    revenue_schemas = {
+        name: schema
+        for name, schema in spec["components"]["schemas"].items()
+        if name.startswith("RevenueShare")
+    }
+    assert revenue_schemas
+    forbidden_terms = {
+        "provider_amount",
+        "platform_amount",
+        "payout_status",
+        "paid_at",
+        "settlement_id",
+        "bank_account",
+        "tax_id",
+        "access_token",
+        "refresh_token",
+        "client_secret",
+    }
+    for schema in revenue_schemas.values():
+        properties = set(schema.get("properties", {}))
+        assert properties.isdisjoint(forbidden_terms)
