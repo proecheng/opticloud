@@ -4,7 +4,7 @@ baseline_commit: 12b94ea088ac307a87fe7f01acd2d3e9be92fe5d
 epic_num: 7
 story_num: A.2
 epic_name: Provider Interface Reservation + revenue-share v2 hook
-status: code-review
+status: done
 priority: High
 type: revenue-share schema and contract reservation
 created_by: bmad-create-story
@@ -24,7 +24,7 @@ sources:
 
 # Story 7.A.2 - Revenue-Share Service v2 hook reservation
 
-Status: code-review
+Status: done
 
 ## Story
 
@@ -121,8 +121,8 @@ Billing's current ledger is owned by `apps/billing-service`. `saga_instances.pay
 - [ ] T5: Review, gates, and GitHub sync (AC: 24-25)
   - [x] Run post-implementation code review and fix findings.
   - [x] Run local gates after fixes.
-  - [ ] Commit, push, create PR, wait for CI, merge, delete remote branch, and sync local `main`.
-  - [ ] Mark story and sprint status `done` only after merge/sync.
+  - [x] Commit, push, create PR, wait for CI, merge, delete remote branch, and sync local `main`.
+  - [x] Mark story and sprint status `done` only after merge/sync.
 
 ## Dev Notes
 
@@ -204,6 +204,7 @@ GPT-5 Codex
 - Lint/format gates: `uv run ruff check apps/capability-registry` and `uv run ruff format --check apps/capability-registry` -> passed.
 - OpenAPI gates: `uv run python scripts/generate_openapi.py` and `uv run python scripts/check_openapi_drift.py` -> passed.
 - Whitespace gate: `git diff --check` -> passed.
+- GitHub sync: PR #135 passed CI, squash-merged to `main` at `590bad9`, remote branch `codex/7-a-2-revenue-share-hook-v2-reservation` was deleted/pruned, and local `main` synced with `origin/main`.
 
 ### Completion Notes List
 
@@ -212,6 +213,7 @@ GPT-5 Codex
 - Extended capability-registry tests to preserve 7.A.1 behavior and cover 7.A.2 schema/API/security/OpenAPI expectations.
 - Fixed OpenAPI drift tooling so it can compare generated specs from a temporary output directory without mutating checked-in files.
 - Post-implementation review findings fixed: recursive metadata sensitive-key rejection and concurrent source-event idempotency replay after unique-index races.
+- PR #135 passed GitHub CI, merged to `main`, branch cleanup completed, local `main` synced, and this story is now marked done.
 
 ### File List
 
@@ -231,6 +233,7 @@ GPT-5 Codex
 - 2026-06-01 - Story created for revenue-share v2 hook reservation.
 - 2026-06-01 - Implemented revenue-share hook reservation schema/API/tests/OpenAPI draft; story moved to code-review.
 - 2026-06-01 - Completed post-implementation review fixes and local quality gates; awaiting GitHub sync.
+- 2026-06-01 - PR #135 passed CI, merged to `main`, branch cleanup and local sync completed; story status moved to `done`.
 
 ## Post-Implementation Code Review
 

@@ -219,7 +219,7 @@ development_status:
   epic-7-b: backlog
 
   7-a-1-capability-registry-v1-schema: done
-  7-a-2-revenue-share-hook-v2-reservation: code-review
+  7-a-2-revenue-share-hook-v2-reservation: done
 
   7-b-1-provider-apply-v2: backlog
   7-b-2-shadow-validation: backlog
