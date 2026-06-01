@@ -239,3 +239,39 @@ class PredictionResponse(BaseModel):
     predict_seconds: float
     created_at: datetime
     completed_at: datetime
+
+
+# ===== Story 5.D.3: Job templates save =====
+
+
+class JobTemplateCreateRequest(BaseModel):
+    name: str = Field(..., min_length=1, max_length=120)
+    description: str | None = Field(default=None, max_length=500)
+    source_kind: Literal["optimization", "prediction"]
+    source_id: uuid.UUID
+
+    model_config = {"extra": "forbid"}
+
+
+class JobTemplateSummary(BaseModel):
+    id: uuid.UUID
+    name: str
+    description: str | None = None
+    source_kind: Literal["optimization", "prediction"]
+    source_id: uuid.UUID
+    task_type: str
+    payload_schema_version: Literal["optimization_request_v1", "prediction_request_v1"]
+    payload_sha256: str
+    version: int
+    root_template_id: uuid.UUID
+    parent_template_id: uuid.UUID | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class JobTemplateDetail(JobTemplateSummary):
+    payload_json: dict[str, Any]
+
+
+class JobTemplateListResponse(BaseModel):
+    items: list[JobTemplateSummary]

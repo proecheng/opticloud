@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   postPrediction: vi.fn(),
+  createJobTemplate: vi.fn(),
 }));
 
 vi.mock("@/lib/api", async () => {
@@ -13,6 +14,7 @@ vi.mock("@/lib/api", async () => {
   return {
     ...actual,
     postPrediction: mocks.postPrediction,
+    createJobTemplate: mocks.createJobTemplate,
   };
 });
 
@@ -82,6 +84,7 @@ const successResponse = {
 describe("ConsolePredictionsPage", () => {
   beforeEach(() => {
     mocks.postPrediction.mockReset();
+    mocks.createJobTemplate.mockReset();
     sessionStorage.clear();
   });
 
@@ -136,6 +139,111 @@ describe("ConsolePredictionsPage", () => {
     expect(JSON.stringify(body)).not.toContain("BAD_VALUE");
     expect(JSON.stringify(body)).not.toContain("商品编号");
     expect(sessionStorage.getItem("api_key")).toBeNull();
+  });
+
+  it("saves a completed prediction as a job template without resubmitting prediction or storing secrets", async () => {
+    mocks.postPrediction.mockResolvedValue(successResponse);
+    mocks.createJobTemplate.mockResolvedValue({
+      id: "2c4e9e2a-6bdf-49ef-bf03-12d8ee160bef",
+      name: "月度销量模板",
+      description: null,
+      source_kind: "prediction",
+      source_id: successResponse.prediction_id,
+      task_type: "forecast",
+      payload_schema_version: "prediction_request_v1",
+      payload_json: { family: "chronos", data: [1, 2, 3], horizon: 3 },
+      payload_sha256: "abc123",
+      version: 1,
+      root_template_id: "2c4e9e2a-6bdf-49ef-bf03-12d8ee160bef",
+      parent_template_id: null,
+      created_at: "2026-06-01T01:00:00Z",
+      updated_at: "2026-06-01T01:00:00Z",
+    });
+    render(<ConsolePredictionsPage />);
+
+    uploadCsv(buildCsv(12));
+    expect(await screen.findByTestId("csv-ready-card")).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("API key"), { target: { value: "sk-test" } });
+    fireEvent.click(screen.getByTestId("prediction-submit"));
+    expect(await screen.findByTestId("prediction-result")).toBeTruthy();
+
+    fireEvent.change(screen.getByLabelText("模板名称"), {
+      target: { value: "月度销量模板" },
+    });
+    fireEvent.click(screen.getByTestId("save-template-button"));
+
+    expect((await screen.findByTestId("template-save-success")).textContent).toContain(
+      "月度销量模板",
+    );
+    expect(mocks.createJobTemplate).toHaveBeenCalledWith("sk-test", {
+      name: "月度销量模板",
+      description: undefined,
+      source_kind: "prediction",
+      source_id: successResponse.prediction_id,
+    });
+    expect(mocks.postPrediction).toHaveBeenCalledTimes(1);
+    expect(sessionStorage.getItem("api_key")).toBeNull();
+    expect(JSON.stringify(sessionStorage)).not.toContain("sk-test");
+  });
+
+  it("shows template save errors without hiding the prediction result", async () => {
+    mocks.postPrediction.mockResolvedValue(successResponse);
+    mocks.createJobTemplate.mockRejectedValue(
+      new OptiCloudClientError({
+        status: 422,
+        title: "Source Task Not Completed",
+        detail: "source task status is queued, expected completed",
+        errors: [
+          {
+            field_path: "source_id",
+            value: successResponse.prediction_id,
+            constraint: "source task status must be completed",
+            remediation_hint_key: "errors.422.source_task_not_completed",
+          },
+        ],
+      }),
+    );
+    render(<ConsolePredictionsPage />);
+
+    uploadCsv(buildCsv(12));
+    expect(await screen.findByTestId("csv-ready-card")).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("API key"), { target: { value: "sk-test" } });
+    fireEvent.click(screen.getByTestId("prediction-submit"));
+    expect(await screen.findByTestId("prediction-result")).toBeTruthy();
+
+    fireEvent.change(screen.getByLabelText("模板名称"), {
+      target: { value: "月度销量模板" },
+    });
+    fireEvent.click(screen.getByTestId("save-template-button"));
+
+    expect((await screen.findByTestId("template-save-error")).textContent).toContain(
+      "Source Task Not Completed",
+    );
+    expect(screen.getByTestId("prediction-result")).toBeTruthy();
+    expect(mocks.postPrediction).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows an auth error when saving a template without the API key", async () => {
+    mocks.postPrediction.mockResolvedValue(successResponse);
+    render(<ConsolePredictionsPage />);
+
+    uploadCsv(buildCsv(12));
+    expect(await screen.findByTestId("csv-ready-card")).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("API key"), { target: { value: "sk-test" } });
+    fireEvent.click(screen.getByTestId("prediction-submit"));
+    expect(await screen.findByTestId("prediction-result")).toBeTruthy();
+
+    fireEvent.change(screen.getByLabelText("API key"), { target: { value: "" } });
+    fireEvent.change(screen.getByLabelText("模板名称"), {
+      target: { value: "月度销量模板" },
+    });
+    fireEvent.click(screen.getByTestId("save-template-button"));
+
+    expect((await screen.findByTestId("template-save-error")).textContent).toContain(
+      "Missing API Key",
+    );
+    expect(mocks.createJobTemplate).not.toHaveBeenCalled();
+    expect(mocks.postPrediction).toHaveBeenCalledTimes(1);
   });
 
   it("clears state when the user chooses full retry", async () => {

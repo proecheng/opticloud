@@ -15,7 +15,9 @@ import {
 } from "@opticloud/ui";
 
 import {
+  createJobTemplate,
   OptiCloudClientError,
+  type JobTemplateDetail,
   type PredictionFamily,
   type PredictionResponse,
   postPrediction,
@@ -345,6 +347,115 @@ function PredictionResult({
   );
 }
 
+type TemplateSaveState =
+  | { kind: "idle" }
+  | { kind: "saving" }
+  | { kind: "saved"; template: JobTemplateDetail }
+  | { kind: "error"; error: RFC7807ErrorPayload };
+
+function TemplateSavePanel({
+  response,
+  apiKeyRef,
+}: {
+  response: PredictionResponse;
+  apiKeyRef: React.RefObject<HTMLInputElement>;
+}): JSX.Element {
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [saveState, setSaveState] = useState<TemplateSaveState>({ kind: "idle" });
+
+  const saveTemplate = async (): Promise<void> => {
+    const apiKey = apiKeyRef.current?.value.trim() ?? "";
+    const templateName = name.trim();
+    if (templateName === "") return;
+    if (apiKey === "") {
+      setSaveState({
+        kind: "error",
+        error: {
+          title: "Missing API Key",
+          status: 401,
+          detail: "请输入 API key 后再保存模板",
+        },
+      });
+      return;
+    }
+    setSaveState({ kind: "saving" });
+    try {
+      const template = await createJobTemplate(apiKey, {
+        name: templateName,
+        description: description.trim() || undefined,
+        source_kind: "prediction",
+        source_id: response.prediction_id,
+      });
+      setSaveState({ kind: "saved", template });
+    } catch (err) {
+      setSaveState({ kind: "error", error: toRfc7807(err) });
+    }
+  };
+
+  return (
+    <section
+      aria-label="保存为任务模板"
+      className="space-y-3 rounded-md border border-border bg-background p-4"
+    >
+      <div>
+        <h2 className="text-base font-semibold">保存为任务模板</h2>
+      </div>
+      <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
+        <label className="block">
+          <span className="mb-1 block text-sm font-medium">模板名称</span>
+          <input
+            aria-label="模板名称"
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            maxLength={120}
+            className="min-h-touch w-full rounded-md border border-border bg-background px-3 py-2"
+            placeholder="月度销量模板"
+          />
+        </label>
+        <label className="block">
+          <span className="mb-1 block text-sm font-medium">描述</span>
+          <input
+            aria-label="模板描述"
+            value={description}
+            onChange={(event) => setDescription(event.target.value)}
+            maxLength={500}
+            className="min-h-touch w-full rounded-md border border-border bg-background px-3 py-2"
+            placeholder="可选"
+          />
+        </label>
+        <div className="flex items-end">
+          <button
+            type="button"
+            onClick={() => void saveTemplate()}
+            disabled={saveState.kind === "saving" || name.trim() === ""}
+            data-testid="save-template-button"
+            className="min-h-touch rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-primary-600 disabled:opacity-50"
+          >
+            {saveState.kind === "saving" ? "保存中..." : "保存模板"}
+          </button>
+        </div>
+      </div>
+      {saveState.kind === "saved" && (
+        <div
+          data-testid="template-save-success"
+          className="rounded-md border border-success/30 bg-success/5 p-3 text-sm text-success"
+        >
+          已保存模板：{saveState.template.name} · v{saveState.template.version}
+        </div>
+      )}
+      {saveState.kind === "error" && (
+        <div
+          data-testid="template-save-error"
+          className="rounded-md border border-danger/30 bg-danger/5 p-3 text-sm text-danger"
+        >
+          {saveState.error.title}: {saveState.error.detail}
+        </div>
+      )}
+    </section>
+  );
+}
+
 export default function ConsolePredictionsPage(): JSX.Element {
   const [state, setState] = useState<PredictionPageState>({ kind: "idle" });
   const [replacement, setReplacement] = useState("");
@@ -571,7 +682,12 @@ export default function ConsolePredictionsPage(): JSX.Element {
 
         {state.kind === "submitting" && <LoadingShimmer variant="card" />}
         {state.kind === "api_error" && <RFC7807Panel payload={state.error} />}
-        {state.kind === "solved" && <PredictionResult response={state.response} />}
+        {state.kind === "solved" && (
+          <>
+            <PredictionResult response={state.response} />
+            <TemplateSavePanel response={state.response} apiKeyRef={apiKeyRef} />
+          </>
+        )}
       </section>
     </main>
   );

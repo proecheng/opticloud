@@ -189,3 +189,87 @@ CREATE TABLE IF NOT EXISTS prediction_idempotency_keys (
 
 CREATE INDEX IF NOT EXISTS idx_prediction_idempotency_keys_expires_at
     ON prediction_idempotency_keys(expires_at);
+
+-- Story 5.D.3: owner-scoped saved execution request templates.
+CREATE TABLE IF NOT EXISTS job_templates (
+    id                      UUID PRIMARY KEY,
+    user_id                 UUID NOT NULL,
+    name                    VARCHAR(120) NOT NULL,
+    description             TEXT NULL,
+    source_kind             VARCHAR(32) NOT NULL,
+    source_id               UUID NOT NULL,
+    task_type               VARCHAR(64) NOT NULL,
+    payload_schema_version  VARCHAR(64) NOT NULL,
+    payload_json            JSONB NOT NULL,
+    payload_sha256          TEXT NOT NULL,
+    version                 INTEGER NOT NULL DEFAULT 1,
+    root_template_id        UUID NOT NULL,
+    parent_template_id      UUID NULL,
+    created_at              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    deleted_at              TIMESTAMPTZ NULL
+);
+
+ALTER TABLE job_templates
+    ADD COLUMN IF NOT EXISTS payload_schema_version VARCHAR(64) NOT NULL
+    DEFAULT 'prediction_request_v1';
+ALTER TABLE job_templates
+    ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ NULL;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conname = 'ck_job_templates_source_kind'
+    ) THEN
+        ALTER TABLE job_templates
+            ADD CONSTRAINT ck_job_templates_source_kind
+            CHECK (source_kind IN ('optimization', 'prediction'));
+    END IF;
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conname = 'ck_job_templates_payload_schema_version'
+    ) THEN
+        ALTER TABLE job_templates
+            ADD CONSTRAINT ck_job_templates_payload_schema_version
+            CHECK (
+                payload_schema_version IN (
+                    'optimization_request_v1',
+                    'prediction_request_v1'
+                )
+            );
+    END IF;
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conname = 'ck_job_templates_version_positive'
+    ) THEN
+        ALTER TABLE job_templates
+            ADD CONSTRAINT ck_job_templates_version_positive
+            CHECK (version >= 1);
+    END IF;
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conname = 'fk_job_templates_root_template_id'
+    ) THEN
+        ALTER TABLE job_templates
+            ADD CONSTRAINT fk_job_templates_root_template_id
+            FOREIGN KEY (root_template_id) REFERENCES job_templates(id);
+    END IF;
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conname = 'fk_job_templates_parent_template_id'
+    ) THEN
+        ALTER TABLE job_templates
+            ADD CONSTRAINT fk_job_templates_parent_template_id
+            FOREIGN KEY (parent_template_id) REFERENCES job_templates(id);
+    END IF;
+END
+$$;
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_job_templates_active_source_name
+    ON job_templates(user_id, source_kind, source_id, name)
+    WHERE deleted_at IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_job_templates_user_created_at
+    ON job_templates(user_id, created_at DESC)
+    WHERE deleted_at IS NULL;
