@@ -18,7 +18,18 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import CheckConstraint, DateTime, Index, Integer, Numeric, String, Text, func, text
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    Index,
+    Integer,
+    Numeric,
+    String,
+    Text,
+    func,
+    text,
+)
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -206,4 +217,104 @@ class BillingSubscription(Base):
             postgresql_where=text("status = 'active'"),
         ),
         Index("idx_billing_subscriptions_due", "status", "current_period_end"),
+    )
+
+
+class BillingBudgetControl(Base):
+    """Story 5.D.5 — one current monthly budget control per user."""
+
+    __tablename__ = "billing_budget_controls"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    monthly_budget_amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    alert_threshold_ratio: Mapped[Decimal] = mapped_column(
+        Numeric(5, 4), nullable=False, default=Decimal("0.8000")
+    )
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="active")
+    paused_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    pause_period_start: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "monthly_budget_amount >= 1.00 AND monthly_budget_amount <= 9999999.99",
+            name="ck_billing_budget_controls_amount",
+        ),
+        CheckConstraint(
+            "alert_threshold_ratio > 0 AND alert_threshold_ratio < 1",
+            name="ck_billing_budget_controls_alert_ratio",
+        ),
+        CheckConstraint(
+            "status IN ('active', 'paused')",
+            name="ck_billing_budget_controls_status",
+        ),
+        CheckConstraint(
+            "(status = 'paused' AND paused_at IS NOT NULL AND pause_period_start IS NOT NULL) "
+            "OR (status = 'active')",
+            name="ck_billing_budget_controls_pause_fields",
+        ),
+        Index("idx_billing_budget_controls_one_per_user", "user_id", unique=True),
+        Index(
+            "idx_billing_budget_controls_status",
+            "status",
+            "pause_period_start",
+            postgresql_where=text("enabled = TRUE"),
+        ),
+    )
+
+
+class BillingBudgetEvent(Base):
+    """Story 5.D.5 — period-scoped budget notification/pause events."""
+
+    __tablename__ = "billing_budget_events"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    budget_control_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    period_start: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    period_end: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    event_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    payload: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+    occurred_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "event_type IN ("
+            "'billing.budget.configured',"
+            "'billing.budget.disabled',"
+            "'billing.budget.alerted',"
+            "'billing.budget.paused'"
+            ")",
+            name="ck_billing_budget_events_type",
+        ),
+        CheckConstraint(
+            "period_end > period_start",
+            name="ck_billing_budget_events_period_order",
+        ),
+        Index(
+            "idx_billing_budget_events_unique_threshold_period_type",
+            "user_id",
+            "period_start",
+            "event_type",
+            unique=True,
+            postgresql_where=text(
+                "event_type IN ('billing.budget.alerted', 'billing.budget.paused')"
+            ),
+        ),
+        Index("idx_billing_budget_events_user_occurred", "user_id", "occurred_at"),
     )

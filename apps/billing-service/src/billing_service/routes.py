@@ -26,6 +26,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from opticloud_shared.cost_telemetry import CostTelemetryEvent, CostUnit, record_cost_event
 from opticloud_shared.errors import ErrorDetail, rfc7807_error
 from prometheus_client import Counter
+from pydantic import ValidationError
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import Response
@@ -37,6 +38,13 @@ from billing_service.buckets import (
     BUCKET_LABELS_ZH,
     BUCKET_SIGNUP,
     BUCKET_TOPUP,
+)
+from billing_service.budget import (
+    budget_status_response,
+    configure_budget,
+    current_budget_is_paused,
+    current_budget_period,
+    evaluate_budget_thresholds,
 )
 from billing_service.config import settings
 from billing_service.db import get_session
@@ -70,6 +78,8 @@ from billing_service.schemas import (
     AutoRefundResponse,
     BalanceResponse,
     BucketBalance,
+    BudgetStatusResponse,
+    BudgetUpdateRequest,
     ChargeCreateRequest,
     ChargeResponse,
     EduStarterSyncRequest,
@@ -1190,6 +1200,30 @@ def _classify_with_settings(estimated: Decimal, balance: Decimal) -> list[Warnin
     ]
 
 
+def _budget_validation_response(exc: ValidationError) -> Response:
+    errors: list[ErrorDetail] = []
+    for item in exc.errors():
+        loc = item.get("loc", ())
+        if isinstance(loc, tuple) and loc:
+            field_path = "body." + ".".join(str(part) for part in loc)
+        else:
+            field_path = "body"
+        errors.append(
+            ErrorDetail(
+                field_path=field_path,
+                value=str(item.get("input", "")),
+                constraint=str(item.get("msg", "invalid budget request")),
+                remediation_hint_key="errors.422.invalid_budget_request",
+            )
+        )
+    return _problem_response(
+        title="Invalid Budget Request",
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        detail="monthly budget request is invalid",
+        errors=errors,
+    )
+
+
 @billing_router.get("/plans", response_model=PlanListResponse)
 async def list_plans(
     _user_id: uuid.UUID = Depends(require_user),
@@ -1576,6 +1610,43 @@ async def get_usage_trends(
     return await build_usage_trends(session, user_id)
 
 
+@billing_router.get("/budget", response_model=BudgetStatusResponse)
+async def get_budget(
+    user_id: uuid.UUID = Depends(require_user),
+    session: AsyncSession = Depends(get_session),
+) -> BudgetStatusResponse:
+    """Story 5.D.5 — pure monthly budget status read."""
+    return await budget_status_response(session, user_id)
+
+
+@billing_router.put("/budget", response_model=BudgetStatusResponse)
+async def put_budget(
+    request: Request,
+    user_id: uuid.UUID = Depends(require_user),
+    session: AsyncSession = Depends(get_session),
+) -> Response | BudgetStatusResponse:
+    """Story 5.D.5 — configure, disable, and evaluate monthly budget control."""
+    try:
+        body = BudgetUpdateRequest.model_validate(await request.json())
+    except ValidationError as exc:
+        return _budget_validation_response(exc)
+    except Exception:
+        return _problem_response(
+            title="Invalid Budget Request",
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="request body must be valid JSON",
+        )
+
+    await configure_budget(
+        session,
+        user_id,
+        monthly_budget_amount=body.monthly_budget_amount,
+        enabled=body.enabled,
+    )
+    await session.commit()
+    return await budget_status_response(session, user_id)
+
+
 @billing_router.get("/invoices/{period}", response_model=InvoiceResponse)
 async def get_invoice(
     period: str,
@@ -1781,6 +1852,25 @@ async def create_charge(
     )
     if cached_response is not None:
         return cached_response
+
+    paused_budget = await current_budget_is_paused(session, user_id)
+    if paused_budget is not None:
+        period = current_budget_period()
+        paused_budget_id = str(paused_budget.id)
+        await session.rollback()
+        return _problem_response(
+            title="Monthly Budget Paused",
+            status_code=status.HTTP_409_CONFLICT,
+            detail="monthly budget has been reached; increase or disable the budget to resume charges",
+            errors=[
+                ErrorDetail(
+                    field_path="billing.budget",
+                    value=paused_budget_id,
+                    constraint=f"paused for period {period.start.isoformat()}",
+                    remediation_hint_key="errors.409.monthly_budget_paused",
+                )
+            ],
+        )
 
     if not await _has_any_transactions(session, user_id):
         await _seed_demo_balance(session, user_id)
@@ -2664,6 +2754,7 @@ async def finalize_charge(
             elapsed_seconds=body.elapsed_seconds,
             finalize_status=body.status,
         )
+        await evaluate_budget_thresholds(session, user_id)
         await session.commit()
         balance_after = await _balance_for(session, user_id)
         return FinalizeChargeResponse(
@@ -2711,6 +2802,7 @@ async def finalize_charge(
         )
     )
 
+    await evaluate_budget_thresholds(session, user_id)
     await session.commit()
     balance_after = await _balance_for(session, user_id)
     return FinalizeChargeResponse(
@@ -2771,6 +2863,7 @@ async def confirm_charge(
             detail=str(e),
         )
 
+    await evaluate_budget_thresholds(session, user_id)
     await session.commit()
     balance_after = await _balance_for(session, user_id)
 
