@@ -34,6 +34,8 @@ ProviderShadowCoverageClass = Literal[
     "adversarial",
     "desensitized_real",
 ]
+ProviderRolloutStatus = Literal["draft", "active", "paused", "completed", "cancelled"]
+ProviderRolloutStage = Literal[0, 5, 50, 100]
 ScopeSource = Literal["global", "tenant", "global_fallback"]
 
 _ID_PATTERN = r"^[a-z0-9][a-z0-9-]{0,63}$"
@@ -68,9 +70,11 @@ _FORBIDDEN_REFERENCE_FIELDS = {
     "raw_response",
     "refresh_token",
     "registry_password",
+    "routing_payload",
     "secret",
     "tax_id",
     "token",
+    "customer_payload",
 }
 _FORBIDDEN_REVENUE_SHARE_FIELDS = _FORBIDDEN_REFERENCE_FIELDS | {
     "provider_amount",
@@ -295,6 +299,8 @@ def _is_forbidden_reference_key(key: str) -> bool:
             "rawresponse",
             "providerrequest",
             "providerresponse",
+            "routingpayload",
+            "customerpayload",
             "rawbody",
             "jwt",
             "secret",
@@ -689,3 +695,95 @@ class ProviderShadowSampleResponse(BaseModel):
     @field_serializer("deviation_ratio")
     def serialize_deviation_ratio(self, value: Decimal) -> str:
         return f"{value.quantize(_RATIO_QUANT):.6f}"
+
+
+class ProviderRolloutUpsertRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    tenant_id: uuid.UUID | None = None
+    application_id: str | None = Field(default=None, pattern=_ID_PATTERN)
+    evaluation_id: str | None = Field(default=None, pattern=_ID_PATTERN)
+    run_id: str | None = Field(default=None, pattern=_ID_PATTERN)
+    rollout_id: str | None = Field(default=None, pattern=_ID_PATTERN)
+    evidence_refs: list[str] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="before")
+    @classmethod
+    def reject_derived_fields(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            forbidden = {
+                "baseline_provider_id",
+                "benchmark_suite",
+                "current_stage_percent",
+                "requested_provider_id",
+                "shadow_summary_snapshot",
+                "stage_history",
+                "status",
+            }
+            present = sorted(forbidden.intersection(data))
+            if present:
+                raise ValueError(f"rollout derived fields are not allowed: {present}")
+        return data
+
+    @field_validator("evidence_refs")
+    @classmethod
+    def validate_evidence_refs(cls, value: list[str]) -> list[str]:
+        refs: list[str] = []
+        for item in value:
+            ref = _validate_reference(item, field_name="evidence_refs")
+            if ref not in refs:
+                refs.append(ref)
+        return refs
+
+    @field_validator("metadata")
+    @classmethod
+    def validate_rollout_metadata(cls, value: dict[str, Any]) -> dict[str, Any]:
+        _reject_forbidden_reference_fields(value)
+        return value
+
+
+class ProviderRolloutActionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    target_stage_percent: ProviderRolloutStage | None = None
+    reason_ref: str = Field(..., min_length=1)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("reason_ref")
+    @classmethod
+    def validate_reason_ref(cls, value: str) -> str:
+        return _validate_reference(value, field_name="reason_ref")
+
+    @field_validator("metadata")
+    @classmethod
+    def validate_action_metadata(cls, value: dict[str, Any]) -> dict[str, Any]:
+        _reject_forbidden_reference_fields(value)
+        return value
+
+
+class ProviderRolloutResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: uuid.UUID
+    tenant_id: uuid.UUID | None = None
+    application_id: str = Field(..., pattern=_ID_PATTERN)
+    evaluation_id: str = Field(..., pattern=_ID_PATTERN)
+    run_id: str = Field(..., pattern=_ID_PATTERN)
+    rollout_id: str = Field(..., pattern=_ID_PATTERN)
+    requested_provider_id: str = Field(..., pattern=_ID_PATTERN)
+    baseline_provider_id: str = Field(..., pattern=_ID_PATTERN)
+    benchmark_suite: str = Field(..., pattern=_BENCHMARK_SUITE_PATTERN)
+    status: ProviderRolloutStatus
+    current_stage_percent: ProviderRolloutStage
+    stage_history: list[dict[str, Any]]
+    shadow_summary_snapshot: dict[str, Any]
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+    paused_at: datetime | None = None
+    cancelled_at: datetime | None = None
+    evidence_refs: list[str]
+    metadata: dict[str, Any]
+    scope_source: ScopeSource
+    created_at: datetime
+    updated_at: datetime

@@ -762,3 +762,129 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_provider_shadow_samples_tenant_sample_id
 
 CREATE INDEX IF NOT EXISTS idx_provider_shadow_samples_run
     ON provider_shadow_validation_samples(run_row_id, coverage_class);
+
+-- Story 7.B.3: Provider gradient rollout contract and staged promotion gate.
+-- Contract/evidence records only; no live traffic routing, feature flag mutation, or solver routing.
+
+CREATE TABLE IF NOT EXISTS provider_gradient_rollouts (
+    id                          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id                   UUID NULL,
+    application_row_id          UUID NOT NULL REFERENCES provider_applications(id) ON DELETE CASCADE,
+    evaluation_row_id           UUID NOT NULL REFERENCES provider_application_evaluation_requests(id) ON DELETE CASCADE,
+    shadow_run_row_id           UUID NOT NULL REFERENCES provider_shadow_validation_runs(id) ON DELETE CASCADE,
+    application_id              VARCHAR(64) NOT NULL,
+    evaluation_id               VARCHAR(64) NOT NULL,
+    run_id                      VARCHAR(64) NOT NULL,
+    rollout_id                  VARCHAR(64) NOT NULL,
+    requested_provider_id       VARCHAR(64) NOT NULL,
+    baseline_provider_id        VARCHAR(64) NOT NULL,
+    benchmark_suite             VARCHAR(64) NOT NULL,
+    status                      VARCHAR(32) NOT NULL DEFAULT 'draft',
+    current_stage_percent       INTEGER NOT NULL DEFAULT 0,
+    stage_history               JSONB NOT NULL DEFAULT '[]'::jsonb,
+    shadow_summary_snapshot     JSONB NOT NULL DEFAULT '{}'::jsonb,
+    started_at                  TIMESTAMPTZ NULL,
+    completed_at                TIMESTAMPTZ NULL,
+    paused_at                   TIMESTAMPTZ NULL,
+    cancelled_at                TIMESTAMPTZ NULL,
+    evidence_refs               JSONB NOT NULL DEFAULT '[]'::jsonb,
+    metadata                    JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at                  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at                  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE provider_gradient_rollouts
+    ADD COLUMN IF NOT EXISTS tenant_id UUID NULL,
+    ADD COLUMN IF NOT EXISTS stage_history JSONB NOT NULL DEFAULT '[]'::jsonb,
+    ADD COLUMN IF NOT EXISTS shadow_summary_snapshot JSONB NOT NULL DEFAULT '{}'::jsonb,
+    ADD COLUMN IF NOT EXISTS evidence_refs JSONB NOT NULL DEFAULT '[]'::jsonb,
+    ADD COLUMN IF NOT EXISTS metadata JSONB NOT NULL DEFAULT '{}'::jsonb;
+
+ALTER TABLE provider_gradient_rollouts
+    DROP CONSTRAINT IF EXISTS ck_provider_gradient_rollouts_application_id;
+ALTER TABLE provider_gradient_rollouts
+    ADD CONSTRAINT ck_provider_gradient_rollouts_application_id
+    CHECK (application_id ~ '^[a-z0-9][a-z0-9-]{0,63}$');
+
+ALTER TABLE provider_gradient_rollouts
+    DROP CONSTRAINT IF EXISTS ck_provider_gradient_rollouts_evaluation_id;
+ALTER TABLE provider_gradient_rollouts
+    ADD CONSTRAINT ck_provider_gradient_rollouts_evaluation_id
+    CHECK (evaluation_id ~ '^[a-z0-9][a-z0-9-]{0,63}$');
+
+ALTER TABLE provider_gradient_rollouts
+    DROP CONSTRAINT IF EXISTS ck_provider_gradient_rollouts_run_id;
+ALTER TABLE provider_gradient_rollouts
+    ADD CONSTRAINT ck_provider_gradient_rollouts_run_id
+    CHECK (run_id ~ '^[a-z0-9][a-z0-9-]{0,63}$');
+
+ALTER TABLE provider_gradient_rollouts
+    DROP CONSTRAINT IF EXISTS ck_provider_gradient_rollouts_rollout_id;
+ALTER TABLE provider_gradient_rollouts
+    ADD CONSTRAINT ck_provider_gradient_rollouts_rollout_id
+    CHECK (rollout_id ~ '^[a-z0-9][a-z0-9-]{0,63}$');
+
+ALTER TABLE provider_gradient_rollouts
+    DROP CONSTRAINT IF EXISTS ck_provider_gradient_rollouts_requested_provider_id;
+ALTER TABLE provider_gradient_rollouts
+    ADD CONSTRAINT ck_provider_gradient_rollouts_requested_provider_id
+    CHECK (requested_provider_id ~ '^[a-z0-9][a-z0-9-]{0,63}$');
+
+ALTER TABLE provider_gradient_rollouts
+    DROP CONSTRAINT IF EXISTS ck_provider_gradient_rollouts_baseline_provider_id;
+ALTER TABLE provider_gradient_rollouts
+    ADD CONSTRAINT ck_provider_gradient_rollouts_baseline_provider_id
+    CHECK (baseline_provider_id ~ '^[a-z0-9][a-z0-9-]{0,63}$');
+
+ALTER TABLE provider_gradient_rollouts
+    DROP CONSTRAINT IF EXISTS ck_provider_gradient_rollouts_benchmark_suite;
+ALTER TABLE provider_gradient_rollouts
+    ADD CONSTRAINT ck_provider_gradient_rollouts_benchmark_suite
+    CHECK (benchmark_suite ~ '^[a-z0-9][a-z0-9_-]{0,63}$');
+
+ALTER TABLE provider_gradient_rollouts
+    DROP CONSTRAINT IF EXISTS ck_provider_gradient_rollouts_status;
+ALTER TABLE provider_gradient_rollouts
+    ADD CONSTRAINT ck_provider_gradient_rollouts_status
+    CHECK (status IN ('draft', 'active', 'paused', 'completed', 'cancelled'));
+
+ALTER TABLE provider_gradient_rollouts
+    DROP CONSTRAINT IF EXISTS ck_provider_gradient_rollouts_stage;
+ALTER TABLE provider_gradient_rollouts
+    ADD CONSTRAINT ck_provider_gradient_rollouts_stage
+    CHECK (current_stage_percent IN (0, 5, 50, 100));
+
+ALTER TABLE provider_gradient_rollouts
+    DROP CONSTRAINT IF EXISTS ck_provider_gradient_rollouts_stage_history_array;
+ALTER TABLE provider_gradient_rollouts
+    ADD CONSTRAINT ck_provider_gradient_rollouts_stage_history_array
+    CHECK (jsonb_typeof(stage_history) = 'array');
+
+ALTER TABLE provider_gradient_rollouts
+    DROP CONSTRAINT IF EXISTS ck_provider_gradient_rollouts_shadow_summary_object;
+ALTER TABLE provider_gradient_rollouts
+    ADD CONSTRAINT ck_provider_gradient_rollouts_shadow_summary_object
+    CHECK (jsonb_typeof(shadow_summary_snapshot) = 'object');
+
+ALTER TABLE provider_gradient_rollouts
+    DROP CONSTRAINT IF EXISTS ck_provider_gradient_rollouts_evidence_refs_array;
+ALTER TABLE provider_gradient_rollouts
+    ADD CONSTRAINT ck_provider_gradient_rollouts_evidence_refs_array
+    CHECK (jsonb_typeof(evidence_refs) = 'array');
+
+ALTER TABLE provider_gradient_rollouts
+    DROP CONSTRAINT IF EXISTS ck_provider_gradient_rollouts_metadata_object;
+ALTER TABLE provider_gradient_rollouts
+    ADD CONSTRAINT ck_provider_gradient_rollouts_metadata_object
+    CHECK (jsonb_typeof(metadata) = 'object');
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_provider_gradient_rollouts_global_rollout_id
+    ON provider_gradient_rollouts(shadow_run_row_id, rollout_id)
+    WHERE tenant_id IS NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_provider_gradient_rollouts_tenant_rollout_id
+    ON provider_gradient_rollouts(tenant_id, shadow_run_row_id, rollout_id)
+    WHERE tenant_id IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_provider_gradient_rollouts_shadow_run
+    ON provider_gradient_rollouts(shadow_run_row_id, status, current_stage_percent);

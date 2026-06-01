@@ -483,3 +483,62 @@ class ProviderShadowValidationSample(Base):
             postgresql_where=text("tenant_id IS NOT NULL"),
         ),
     )
+
+
+class ProviderGradientRollout(Base):
+    """Auditable staged rollout contract derived from a passed shadow run."""
+
+    __tablename__ = "provider_gradient_rollouts"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()
+    )
+    tenant_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    application_row_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    evaluation_row_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    shadow_run_row_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    application_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    evaluation_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    run_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    rollout_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    requested_provider_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    baseline_provider_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    benchmark_suite: Mapped[str] = mapped_column(String(64), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="draft")
+    current_stage_percent: Mapped[int] = mapped_column(nullable=False, default=0)
+    stage_history: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, nullable=False, default=list)
+    shadow_summary_snapshot: Mapped[dict[str, Any]] = mapped_column(
+        JSONB, nullable=False, default=dict
+    )
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    paused_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    evidence_refs: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
+    rollout_metadata: Mapped[dict[str, Any]] = mapped_column(
+        "metadata", JSONB, nullable=False, default=dict
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    __table_args__ = (
+        Index(
+            "uq_provider_gradient_rollouts_global_rollout_id",
+            "shadow_run_row_id",
+            "rollout_id",
+            unique=True,
+            postgresql_where=text("tenant_id IS NULL"),
+        ),
+        Index(
+            "uq_provider_gradient_rollouts_tenant_rollout_id",
+            "tenant_id",
+            "shadow_run_row_id",
+            "rollout_id",
+            unique=True,
+            postgresql_where=text("tenant_id IS NOT NULL"),
+        ),
+    )
