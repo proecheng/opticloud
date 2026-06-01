@@ -4,7 +4,7 @@ baseline_commit: 65af760799d17f01afe4edd1861c55c0be553ce4
 epic_num: 5
 story_num: D.5
 epic_name: Billing - Invoices + Templates + Budget + Notifications
-status: in-progress
+status: done
 priority: High
 type: billing monthly budget alert and automatic pause
 created_by: bmad-create-story
@@ -30,7 +30,7 @@ sources:
 
 # Story 5.D.5 - Monthly budget alert + 自动暂停
 
-Status: in-progress
+Status: done
 
 ## Story
 
@@ -134,7 +134,7 @@ Planning references `paused_by_budget`, but Story 5.A.0a currently ships a 7-sta
 - [ ] T7: Review, gates, and GitHub sync (AC: 25)
   - [x] Run focused backend/web tests and static gates.
   - [x] Run post-implementation code review and fix findings.
-  - [ ] Commit, push, create PR, wait for CI, merge, delete remote branch, and sync local `main`.
+  - [x] Commit, push, create PR, wait for CI, merge, delete remote branch, and sync local `main`.
 
 ## Dev Notes
 
@@ -202,6 +202,7 @@ GPT-5 Codex
 - Focused web gate: `pnpm vitest run src/lib/billing-budget.test.ts src/app/console/billing/invoices/page.test.tsx` -> 11 passed.
 - Web regression gates: `pnpm typecheck` passed; `pnpm test` -> 155 passed.
 - Whitespace gate: `git diff --check` passed.
+- GitHub sync: PR #131 passed CI, merged into `main` at `d1b53c34ac11b0c0c19d441d5f9734176200fa36`, remote story branch deleted, and local `main` synced.
 
 ### Completion Notes List
 
@@ -233,6 +234,7 @@ GPT-5 Codex
 
 - 2026-06-01 - Story created for monthly budget alert, idempotent notification events, automatic budget pause, and compact billing Console panel.
 - 2026-06-01 - Implemented budget persistence, API routes, charge lifecycle pause/evaluation, Console panel, tests, post-review fixes, and local gates.
+- 2026-06-01 - PR #131 passed GitHub CI, merged to `main`, remote branch deleted, local `main` synced, and story marked done.
 
 ## Post-Implementation Code Review
 
