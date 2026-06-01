@@ -26,6 +26,14 @@ RevenueSharePolicyStatus = Literal["reserved", "active", "deprecated"]
 RevenueShareHookStatus = Literal["reserved", "captured", "voided"]
 ProviderApplicationStatus = Literal["draft", "submitted"]
 ProviderEvaluationStatus = Literal["requested", "queued", "cancelled"]
+ProviderShadowRunStatus = Literal["draft", "running", "passed", "failed", "cancelled"]
+ProviderShadowRunUpsertStatus = Literal["draft", "running", "cancelled"]
+ProviderShadowCoverageClass = Literal[
+    "platform_standard",
+    "provider_supplied",
+    "adversarial",
+    "desensitized_real",
+]
 ScopeSource = Literal["global", "tenant", "global_fallback"]
 
 _ID_PATTERN = r"^[a-z0-9][a-z0-9-]{0,63}$"
@@ -52,8 +60,12 @@ _FORBIDDEN_REFERENCE_FIELDS = {
     "password",
     "phone",
     "provider_secret",
+    "provider_request",
+    "provider_response",
     "raw_body",
     "raw_dataset",
+    "raw_request",
+    "raw_response",
     "refresh_token",
     "registry_password",
     "secret",
@@ -279,6 +291,10 @@ def _is_forbidden_reference_key(key: str) -> bool:
             "email",
             "phone",
             "rawdataset",
+            "rawrequest",
+            "rawresponse",
+            "providerrequest",
+            "providerresponse",
             "rawbody",
             "jwt",
             "secret",
@@ -511,3 +527,165 @@ class ProviderEvaluationResponse(BaseModel):
     scope_source: ScopeSource
     created_at: datetime
     updated_at: datetime
+
+
+class ProviderShadowRunSummary(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    sample_count: int = Field(..., ge=0)
+    evaluation_sample_count: int = Field(..., ge=1, le=500)
+    observed_day_span: int = Field(..., ge=0)
+    coverage_classes: list[ProviderShadowCoverageClass]
+    coverage_class_counts: dict[ProviderShadowCoverageClass, int]
+    success_count: int = Field(..., ge=0)
+    success_rate: Decimal = Field(..., ge=0, le=1)
+    average_deviation_ratio: Decimal = Field(..., ge=0)
+    provider_p95_latency_ms: int = Field(..., ge=0)
+    baseline_p95_latency_ms: int = Field(..., ge=0)
+    p95_latency_ratio: Decimal = Field(..., ge=0)
+    thresholds: dict[str, Any]
+    failed_reasons: list[str]
+
+    @field_serializer("success_rate", "average_deviation_ratio", "p95_latency_ratio")
+    def serialize_summary_decimal(self, value: Decimal) -> str:
+        return f"{value.quantize(_RATIO_QUANT):.6f}"
+
+
+class ProviderShadowRunUpsertRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    tenant_id: uuid.UUID | None = None
+    application_id: str | None = Field(default=None, pattern=_ID_PATTERN)
+    evaluation_id: str | None = Field(default=None, pattern=_ID_PATTERN)
+    run_id: str | None = Field(default=None, pattern=_ID_PATTERN)
+    baseline_provider_id: str = Field(..., pattern=_ID_PATTERN)
+    status: ProviderShadowRunUpsertStatus | None = None
+    started_at: datetime | None = None
+    evidence_refs: list[str] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="before")
+    @classmethod
+    def reject_derived_fields(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            forbidden = {
+                "summary",
+                "requested_provider_id",
+                "benchmark_suite",
+                "evaluation_sample_count",
+            }
+            present = sorted(forbidden.intersection(data))
+            if present:
+                raise ValueError(f"shadow run derived fields are not allowed: {present}")
+        return data
+
+    @field_validator("evidence_refs")
+    @classmethod
+    def validate_evidence_refs(cls, value: list[str]) -> list[str]:
+        refs: list[str] = []
+        for item in value:
+            ref = _validate_reference(item, field_name="evidence_refs")
+            if ref not in refs:
+                refs.append(ref)
+        return refs
+
+    @field_validator("metadata")
+    @classmethod
+    def validate_shadow_metadata(cls, value: dict[str, Any]) -> dict[str, Any]:
+        _reject_forbidden_reference_fields(value)
+        return value
+
+
+class ProviderShadowRunResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: uuid.UUID
+    tenant_id: uuid.UUID | None = None
+    application_id: str = Field(..., pattern=_ID_PATTERN)
+    evaluation_id: str = Field(..., pattern=_ID_PATTERN)
+    run_id: str = Field(..., pattern=_ID_PATTERN)
+    requested_provider_id: str = Field(..., pattern=_ID_PATTERN)
+    benchmark_suite: str = Field(..., pattern=_BENCHMARK_SUITE_PATTERN)
+    evaluation_sample_count: int = Field(..., ge=1, le=500)
+    baseline_provider_id: str = Field(..., pattern=_ID_PATTERN)
+    status: ProviderShadowRunStatus
+    started_at: datetime | None = None
+    ended_at: datetime | None = None
+    summary: ProviderShadowRunSummary | dict[str, Any]
+    evidence_refs: list[str]
+    metadata: dict[str, Any]
+    scope_source: ScopeSource
+    created_at: datetime
+    updated_at: datetime
+
+
+class ProviderShadowSampleUpsertRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    tenant_id: uuid.UUID | None = None
+    sample_id: str | None = Field(default=None, pattern=_ID_PATTERN)
+    coverage_class: ProviderShadowCoverageClass
+    dataset_ref: str = Field(..., min_length=1)
+    case_ref: str = Field(..., min_length=1)
+    observed_at: datetime
+    provider_status_code: int = Field(..., ge=100, le=599)
+    provider_latency_ms: int = Field(..., ge=1)
+    baseline_latency_ms: int = Field(..., ge=1)
+    deviation_ratio: Decimal = Field(..., ge=Decimal("0"), le=Decimal("999.999999"))
+    timed_out: bool = False
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="before")
+    @classmethod
+    def reject_derived_fields(cls, data: Any) -> Any:
+        if isinstance(data, dict) and "passed" in data:
+            raise ValueError("passed is derived by the service")
+        return data
+
+    @field_validator("dataset_ref")
+    @classmethod
+    def validate_dataset_ref(cls, value: str) -> str:
+        return _validate_reference(value, field_name="dataset_ref")
+
+    @field_validator("case_ref")
+    @classmethod
+    def validate_case_ref(cls, value: str) -> str:
+        return _validate_reference(value, field_name="case_ref")
+
+    @field_validator("deviation_ratio")
+    @classmethod
+    def normalize_deviation_ratio(cls, value: Decimal) -> Decimal:
+        return value.quantize(_RATIO_QUANT)
+
+    @field_validator("metadata")
+    @classmethod
+    def validate_sample_metadata(cls, value: dict[str, Any]) -> dict[str, Any]:
+        _reject_forbidden_reference_fields(value)
+        return value
+
+
+class ProviderShadowSampleResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: uuid.UUID
+    tenant_id: uuid.UUID | None = None
+    run_id: str = Field(..., pattern=_ID_PATTERN)
+    sample_id: str = Field(..., pattern=_ID_PATTERN)
+    coverage_class: ProviderShadowCoverageClass
+    dataset_ref: str
+    case_ref: str
+    observed_at: datetime
+    provider_status_code: int = Field(..., ge=100, le=599)
+    provider_latency_ms: int = Field(..., ge=1)
+    baseline_latency_ms: int = Field(..., ge=1)
+    deviation_ratio: Decimal = Field(..., ge=0)
+    timed_out: bool
+    passed: bool
+    metadata: dict[str, Any]
+    scope_source: ScopeSource
+    created_at: datetime
+    updated_at: datetime
+
+    @field_serializer("deviation_ratio")
+    def serialize_deviation_ratio(self, value: Decimal) -> str:
+        return f"{value.quantize(_RATIO_QUANT):.6f}"

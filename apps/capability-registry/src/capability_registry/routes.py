@@ -5,6 +5,8 @@ from __future__ import annotations
 import secrets
 import uuid
 from datetime import UTC, datetime
+from decimal import Decimal
+from math import ceil
 from typing import Annotated, Any, Protocol, cast
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Path, Query, status
@@ -25,6 +27,8 @@ from capability_registry.models import (
     ProviderApplication,
     ProviderApplicationEvaluationRequest,
     ProviderOAuthFlow,
+    ProviderShadowValidationRun,
+    ProviderShadowValidationSample,
     RevenueShareHook,
     RevenueSharePolicy,
 )
@@ -41,6 +45,13 @@ from capability_registry.schemas import (
     ProviderEvaluationStatus,
     ProviderEvaluationUpsertRequest,
     ProviderResponse,
+    ProviderShadowCoverageClass,
+    ProviderShadowRunResponse,
+    ProviderShadowRunStatus,
+    ProviderShadowRunSummary,
+    ProviderShadowRunUpsertRequest,
+    ProviderShadowSampleResponse,
+    ProviderShadowSampleUpsertRequest,
     ProviderUpsertRequest,
     RevenueShareHookCreateRequest,
     RevenueShareHookResponse,
@@ -53,6 +64,19 @@ router = APIRouter(prefix="/v1")
 health_router = APIRouter(tags=["health"])
 cache = CapabilityCache(settings.redis_url, settings.cache_ttl_seconds)
 _PATH_ID_PATTERN = r"^[a-z0-9][a-z0-9-]{0,63}$"
+_SHADOW_REQUIRED_COVERAGE_CLASSES: tuple[ProviderShadowCoverageClass, ...] = (
+    "platform_standard",
+    "provider_supplied",
+    "adversarial",
+    "desensitized_real",
+)
+_SHADOW_MIN_OBSERVED_DAYS = 14
+_SHADOW_MIN_SAMPLE_COUNT = 500
+_SHADOW_MIN_SAMPLES_PER_COVERAGE_CLASS = 1
+_SHADOW_MIN_SUCCESS_RATE = Decimal("0.980000")
+_SHADOW_MAX_AVERAGE_DEVIATION = Decimal("0.020000")
+_SHADOW_MAX_P95_LATENCY_RATIO = Decimal("1.500000")
+_RATIO_QUANT = Decimal("0.000001")
 
 
 class CacheBackend(Protocol):
@@ -1523,3 +1547,743 @@ async def list_provider_application_evaluations(
         )
     ).scalars()
     return [await _provider_evaluation_response(row, requested_tenant_id=tenant_id) for row in rows]
+
+
+async def _resolve_shadow_evaluation(
+    session: AsyncSession,
+    *,
+    application_id: str,
+    evaluation_id: str,
+    tenant_id: uuid.UUID | None,
+) -> tuple[ProviderApplication, ProviderApplicationEvaluationRequest]:
+    application = await _load_provider_application_row(
+        session,
+        application_id=application_id,
+        tenant_id=tenant_id,
+        allow_global_fallback=tenant_id is not None,
+    )
+    if application is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="provider application not found",
+        )
+    if application.status != "submitted":
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="provider application must be submitted before shadow validation",
+        )
+    evaluation = await _load_provider_evaluation_row(
+        session,
+        application_row_id=application.id,
+        evaluation_id=evaluation_id,
+        tenant_id=tenant_id,
+    )
+    if evaluation is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="provider evaluation request not found",
+        )
+    if evaluation.status == "cancelled":
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="cancelled provider evaluation cannot be shadow validated",
+        )
+    return application, evaluation
+
+
+async def _load_shadow_run_row(
+    session: AsyncSession,
+    *,
+    evaluation_row_id: uuid.UUID,
+    run_id: str,
+    tenant_id: uuid.UUID | None,
+) -> ProviderShadowValidationRun | None:
+    return (
+        await session.execute(
+            select(ProviderShadowValidationRun).where(
+                ProviderShadowValidationRun.evaluation_row_id == evaluation_row_id,
+                ProviderShadowValidationRun.run_id == run_id,
+                (
+                    ProviderShadowValidationRun.tenant_id.is_(None)
+                    if tenant_id is None
+                    else ProviderShadowValidationRun.tenant_id == tenant_id
+                ),
+            )
+        )
+    ).scalar_one_or_none()
+
+
+async def _lock_shadow_run_row(
+    session: AsyncSession,
+    row: ProviderShadowValidationRun,
+) -> ProviderShadowValidationRun:
+    locked = (
+        await session.execute(
+            select(ProviderShadowValidationRun)
+            .where(ProviderShadowValidationRun.id == row.id)
+            .with_for_update()
+        )
+    ).scalar_one()
+    return locked
+
+
+async def _load_shadow_sample_row(
+    session: AsyncSession,
+    *,
+    run_row_id: uuid.UUID,
+    sample_id: str,
+    tenant_id: uuid.UUID | None,
+) -> ProviderShadowValidationSample | None:
+    return (
+        await session.execute(
+            select(ProviderShadowValidationSample).where(
+                ProviderShadowValidationSample.run_row_id == run_row_id,
+                ProviderShadowValidationSample.sample_id == sample_id,
+                (
+                    ProviderShadowValidationSample.tenant_id.is_(None)
+                    if tenant_id is None
+                    else ProviderShadowValidationSample.tenant_id == tenant_id
+                ),
+            )
+        )
+    ).scalar_one_or_none()
+
+
+def _sample_passed(row: ProviderShadowValidationSample) -> bool:
+    return (
+        200 <= row.provider_status_code <= 299
+        and not row.timed_out
+        and row.deviation_ratio <= _SHADOW_MAX_AVERAGE_DEVIATION
+    )
+
+
+def _shadow_thresholds() -> dict[str, object]:
+    return {
+        "min_observed_days": _SHADOW_MIN_OBSERVED_DAYS,
+        "min_sample_count": _SHADOW_MIN_SAMPLE_COUNT,
+        "required_coverage_classes": list(_SHADOW_REQUIRED_COVERAGE_CLASSES),
+        "min_samples_per_coverage_class": _SHADOW_MIN_SAMPLES_PER_COVERAGE_CLASS,
+        "min_success_rate": f"{_SHADOW_MIN_SUCCESS_RATE:.6f}",
+        "max_average_deviation_ratio": f"{_SHADOW_MAX_AVERAGE_DEVIATION:.6f}",
+        "max_p95_latency_ratio": f"{_SHADOW_MAX_P95_LATENCY_RATIO:.6f}",
+    }
+
+
+def _nearest_rank_p95(values: list[int]) -> int:
+    if not values:
+        return 0
+    ordered = sorted(values)
+    index = max(0, ceil(0.95 * len(ordered)) - 1)
+    return ordered[index]
+
+
+def _decimal_ratio(numerator: int, denominator: int) -> Decimal:
+    if denominator <= 0:
+        return Decimal("0.000000")
+    return (Decimal(numerator) / Decimal(denominator)).quantize(_RATIO_QUANT)
+
+
+def _shadow_summary_from_samples(
+    run: ProviderShadowValidationRun,
+    samples: list[ProviderShadowValidationSample],
+) -> ProviderShadowRunSummary:
+    sample_count = len(samples)
+    coverage_class_counts: dict[ProviderShadowCoverageClass, int] = dict.fromkeys(
+        _SHADOW_REQUIRED_COVERAGE_CLASSES, 0
+    )
+    for sample in samples:
+        coverage_class = cast(ProviderShadowCoverageClass, sample.coverage_class)
+        coverage_class_counts[coverage_class] = coverage_class_counts.get(coverage_class, 0) + 1
+
+    if samples:
+        observed_dates = [sample.observed_at for sample in samples]
+        observed_day_span = (max(observed_dates) - min(observed_dates)).days
+        success_count = sum(1 for sample in samples if _sample_passed(sample))
+        average_deviation = (
+            sum((sample.deviation_ratio for sample in samples), Decimal("0.000000"))
+            / Decimal(sample_count)
+        ).quantize(_RATIO_QUANT)
+        provider_p95 = _nearest_rank_p95([sample.provider_latency_ms for sample in samples])
+        baseline_p95 = _nearest_rank_p95([sample.baseline_latency_ms for sample in samples])
+        p95_ratio = (
+            (Decimal(provider_p95) / Decimal(baseline_p95)).quantize(_RATIO_QUANT)
+            if baseline_p95 > 0
+            else Decimal("999999.999999")
+        )
+    else:
+        observed_day_span = 0
+        success_count = 0
+        average_deviation = Decimal("0.000000")
+        provider_p95 = 0
+        baseline_p95 = 0
+        p95_ratio = Decimal("999999.999999")
+
+    success_rate = _decimal_ratio(success_count, sample_count)
+    coverage_classes = [
+        coverage_class
+        for coverage_class in _SHADOW_REQUIRED_COVERAGE_CLASSES
+        if coverage_class_counts.get(coverage_class, 0) >= _SHADOW_MIN_SAMPLES_PER_COVERAGE_CLASS
+    ]
+    failed_reasons: list[str] = []
+    if run.evaluation_sample_count != _SHADOW_MIN_SAMPLE_COUNT:
+        failed_reasons.append("evaluation_sample_count_below_required")
+    if sample_count != run.evaluation_sample_count or sample_count != _SHADOW_MIN_SAMPLE_COUNT:
+        failed_reasons.append("sample_count_mismatch")
+    if observed_day_span < _SHADOW_MIN_OBSERVED_DAYS:
+        failed_reasons.append("observed_day_span_below_threshold")
+    missing_coverage = [
+        coverage_class
+        for coverage_class in _SHADOW_REQUIRED_COVERAGE_CLASSES
+        if coverage_class_counts.get(coverage_class, 0) < _SHADOW_MIN_SAMPLES_PER_COVERAGE_CLASS
+    ]
+    if missing_coverage:
+        failed_reasons.append("coverage_class_missing")
+    if success_rate < _SHADOW_MIN_SUCCESS_RATE:
+        failed_reasons.append("success_rate_below_threshold")
+    if average_deviation > _SHADOW_MAX_AVERAGE_DEVIATION:
+        failed_reasons.append("average_deviation_above_threshold")
+    if baseline_p95 <= 0 or p95_ratio > _SHADOW_MAX_P95_LATENCY_RATIO:
+        failed_reasons.append("p95_latency_ratio_above_threshold")
+
+    return ProviderShadowRunSummary(
+        sample_count=sample_count,
+        evaluation_sample_count=run.evaluation_sample_count,
+        observed_day_span=observed_day_span,
+        coverage_classes=coverage_classes,
+        coverage_class_counts=coverage_class_counts,
+        success_count=success_count,
+        success_rate=success_rate,
+        average_deviation_ratio=average_deviation,
+        provider_p95_latency_ms=provider_p95,
+        baseline_p95_latency_ms=baseline_p95,
+        p95_latency_ratio=p95_ratio,
+        thresholds=_shadow_thresholds(),
+        failed_reasons=failed_reasons,
+    )
+
+
+async def _shadow_run_response(
+    row: ProviderShadowValidationRun,
+    *,
+    requested_tenant_id: uuid.UUID | None,
+) -> ProviderShadowRunResponse:
+    summary: ProviderShadowRunSummary | dict[str, Any]
+    if row.summary:
+        summary = ProviderShadowRunSummary.model_validate(row.summary)
+    else:
+        summary = {}
+    return ProviderShadowRunResponse(
+        id=row.id,
+        tenant_id=row.tenant_id,
+        application_id=row.application_id,
+        evaluation_id=row.evaluation_id,
+        run_id=row.run_id,
+        requested_provider_id=row.requested_provider_id,
+        benchmark_suite=row.benchmark_suite,
+        evaluation_sample_count=row.evaluation_sample_count,
+        baseline_provider_id=row.baseline_provider_id,
+        status=cast(Any, row.status),
+        started_at=row.started_at,
+        ended_at=row.ended_at,
+        summary=summary,
+        evidence_refs=list(row.evidence_refs),
+        metadata=dict(row.run_metadata),
+        scope_source=_scope_source(row.tenant_id, requested_tenant_id),
+        created_at=row.created_at,
+        updated_at=row.updated_at,
+    )
+
+
+async def _shadow_sample_response(
+    run: ProviderShadowValidationRun,
+    row: ProviderShadowValidationSample,
+    *,
+    requested_tenant_id: uuid.UUID | None,
+) -> ProviderShadowSampleResponse:
+    return ProviderShadowSampleResponse(
+        id=row.id,
+        tenant_id=row.tenant_id,
+        run_id=run.run_id,
+        sample_id=row.sample_id,
+        coverage_class=cast(Any, row.coverage_class),
+        dataset_ref=row.dataset_ref,
+        case_ref=row.case_ref,
+        observed_at=row.observed_at,
+        provider_status_code=row.provider_status_code,
+        provider_latency_ms=row.provider_latency_ms,
+        baseline_latency_ms=row.baseline_latency_ms,
+        deviation_ratio=row.deviation_ratio,
+        timed_out=row.timed_out,
+        passed=_sample_passed(row),
+        metadata=dict(row.sample_metadata),
+        scope_source=_scope_source(row.tenant_id, requested_tenant_id),
+        created_at=row.created_at,
+        updated_at=row.updated_at,
+    )
+
+
+def _material_shadow_run_values(body: ProviderShadowRunUpsertRequest) -> dict[str, Any]:
+    return {
+        "baseline_provider_id": body.baseline_provider_id,
+        "started_at": body.started_at,
+        "evidence_refs": body.evidence_refs,
+        "metadata": body.metadata,
+    }
+
+
+def _assert_locked_shadow_run_unchanged(
+    row: ProviderShadowValidationRun,
+    body: ProviderShadowRunUpsertRequest,
+) -> None:
+    existing = {
+        "baseline_provider_id": row.baseline_provider_id,
+        "status": row.status,
+        "started_at": row.started_at,
+        "evidence_refs": list(row.evidence_refs),
+        "metadata": dict(row.run_metadata),
+    }
+    incoming = _material_shadow_run_values(body)
+    if body.status is not None and body.status != row.status:
+        incoming["status"] = body.status
+        existing["status"] = row.status
+    changed = sorted(key for key, value in incoming.items() if existing[key] != value)
+    if changed:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"{row.status} shadow run fields are immutable: {', '.join(changed)}",
+        )
+
+
+@router.put(
+    "/provider-applications/{application_id}/evaluation-requests/{evaluation_id}"
+    "/shadow-runs/{run_id}",
+    response_model=ProviderShadowRunResponse,
+    tags=["provider-shadow-validation"],
+)
+async def upsert_provider_shadow_run(
+    application_id: Annotated[str, Path(pattern=_PATH_ID_PATTERN)],
+    evaluation_id: Annotated[str, Path(pattern=_PATH_ID_PATTERN)],
+    run_id: Annotated[str, Path(pattern=_PATH_ID_PATTERN)],
+    body: ProviderShadowRunUpsertRequest,
+    x_internal_service_auth: str | None = Header(default=None, alias="X-Internal-Service-Auth"),
+    session: AsyncSession = Depends(get_session),
+) -> ProviderShadowRunResponse:
+    _require_write_auth(x_internal_service_auth)
+    _assert_path_id(body.application_id, application_id, "application_id")
+    _assert_path_id(body.evaluation_id, evaluation_id, "evaluation_id")
+    _assert_path_id(body.run_id, run_id, "run_id")
+    application, evaluation = await _resolve_shadow_evaluation(
+        session,
+        application_id=application_id,
+        evaluation_id=evaluation_id,
+        tenant_id=body.tenant_id,
+    )
+    row = await _load_shadow_run_row(
+        session,
+        evaluation_row_id=evaluation.id,
+        run_id=run_id,
+        tenant_id=body.tenant_id,
+    )
+    now = datetime.now(UTC)
+    requested_status = body.status or (row.status if row is not None else "draft")
+    started_at = body.started_at
+    if requested_status == "running" and started_at is None:
+        started_at = now
+    if row is None:
+        row = ProviderShadowValidationRun(
+            tenant_id=body.tenant_id,
+            application_row_id=application.id,
+            evaluation_row_id=evaluation.id,
+            application_id=application.application_id,
+            evaluation_id=evaluation.evaluation_id,
+            run_id=run_id,
+            requested_provider_id=evaluation.requested_provider_id,
+            benchmark_suite=evaluation.benchmark_suite,
+            evaluation_sample_count=evaluation.sample_count,
+            baseline_provider_id=body.baseline_provider_id,
+            status=requested_status,
+            started_at=started_at,
+            summary={},
+            evidence_refs=body.evidence_refs,
+            run_metadata=body.metadata,
+            created_at=now,
+            updated_at=now,
+        )
+        session.add(row)
+    else:
+        row = await _lock_shadow_run_row(session, row)
+        if body.tenant_id != row.tenant_id:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="tenant_id is immutable",
+            )
+        if row.status in {"passed", "failed", "cancelled"}:
+            _assert_locked_shadow_run_unchanged(row, body)
+        elif row.status == "running":
+            if requested_status == "draft":
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail="running shadow run cannot return to draft",
+                )
+            if body.baseline_provider_id != row.baseline_provider_id:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail="baseline_provider_id is immutable after running",
+                )
+        if row.status not in {"passed", "failed", "cancelled"}:
+            row.baseline_provider_id = body.baseline_provider_id
+            row.status = requested_status
+            row.started_at = row.started_at or started_at
+            row.evidence_refs = body.evidence_refs
+            row.run_metadata = body.metadata
+            row.updated_at = now
+    try:
+        await session.flush()
+    except IntegrityError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="provider shadow run identity already exists",
+        ) from exc
+    return await _shadow_run_response(row, requested_tenant_id=body.tenant_id)
+
+
+@router.get(
+    "/provider-applications/{application_id}/evaluation-requests/{evaluation_id}"
+    "/shadow-runs/{run_id}",
+    response_model=ProviderShadowRunResponse,
+    tags=["provider-shadow-validation"],
+)
+async def get_provider_shadow_run(
+    application_id: Annotated[str, Path(pattern=_PATH_ID_PATTERN)],
+    evaluation_id: Annotated[str, Path(pattern=_PATH_ID_PATTERN)],
+    run_id: Annotated[str, Path(pattern=_PATH_ID_PATTERN)],
+    tenant_id: uuid.UUID | None = Query(default=None),
+    session: AsyncSession = Depends(get_session),
+) -> ProviderShadowRunResponse:
+    _, evaluation = await _resolve_shadow_evaluation(
+        session,
+        application_id=application_id,
+        evaluation_id=evaluation_id,
+        tenant_id=tenant_id,
+    )
+    row = await _load_shadow_run_row(
+        session,
+        evaluation_row_id=evaluation.id,
+        run_id=run_id,
+        tenant_id=tenant_id,
+    )
+    if row is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="provider shadow validation run not found",
+        )
+    return await _shadow_run_response(row, requested_tenant_id=tenant_id)
+
+
+@router.get(
+    "/provider-applications/{application_id}/evaluation-requests/{evaluation_id}/shadow-runs",
+    response_model=list[ProviderShadowRunResponse],
+    tags=["provider-shadow-validation"],
+)
+async def list_provider_shadow_runs(
+    application_id: Annotated[str, Path(pattern=_PATH_ID_PATTERN)],
+    evaluation_id: Annotated[str, Path(pattern=_PATH_ID_PATTERN)],
+    tenant_id: uuid.UUID | None = Query(default=None),
+    status_filter: ProviderShadowRunStatus | None = Query(default=None, alias="status"),
+    session: AsyncSession = Depends(get_session),
+) -> list[ProviderShadowRunResponse]:
+    _, evaluation = await _resolve_shadow_evaluation(
+        session,
+        application_id=application_id,
+        evaluation_id=evaluation_id,
+        tenant_id=tenant_id,
+    )
+    conditions: list[ColumnElement[bool]] = [
+        ProviderShadowValidationRun.evaluation_row_id == evaluation.id,
+        (
+            ProviderShadowValidationRun.tenant_id.is_(None)
+            if tenant_id is None
+            else ProviderShadowValidationRun.tenant_id == tenant_id
+        ),
+    ]
+    if status_filter is not None:
+        conditions.append(ProviderShadowValidationRun.status == status_filter)
+    rows = (
+        await session.execute(
+            select(ProviderShadowValidationRun)
+            .where(*conditions)
+            .order_by(ProviderShadowValidationRun.run_id)
+        )
+    ).scalars()
+    return [await _shadow_run_response(row, requested_tenant_id=tenant_id) for row in rows]
+
+
+@router.put(
+    "/provider-applications/{application_id}/evaluation-requests/{evaluation_id}"
+    "/shadow-runs/{run_id}/samples/{sample_id}",
+    response_model=ProviderShadowSampleResponse,
+    tags=["provider-shadow-validation"],
+)
+async def upsert_provider_shadow_sample(
+    application_id: Annotated[str, Path(pattern=_PATH_ID_PATTERN)],
+    evaluation_id: Annotated[str, Path(pattern=_PATH_ID_PATTERN)],
+    run_id: Annotated[str, Path(pattern=_PATH_ID_PATTERN)],
+    sample_id: Annotated[str, Path(pattern=_PATH_ID_PATTERN)],
+    body: ProviderShadowSampleUpsertRequest,
+    x_internal_service_auth: str | None = Header(default=None, alias="X-Internal-Service-Auth"),
+    session: AsyncSession = Depends(get_session),
+) -> ProviderShadowSampleResponse:
+    _require_write_auth(x_internal_service_auth)
+    _assert_path_id(body.sample_id, sample_id, "sample_id")
+    _, evaluation = await _resolve_shadow_evaluation(
+        session,
+        application_id=application_id,
+        evaluation_id=evaluation_id,
+        tenant_id=body.tenant_id,
+    )
+    run = await _load_shadow_run_row(
+        session,
+        evaluation_row_id=evaluation.id,
+        run_id=run_id,
+        tenant_id=body.tenant_id,
+    )
+    if run is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="provider shadow validation run not found",
+        )
+    run = await _lock_shadow_run_row(session, run)
+    if run.status != "running":
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="shadow samples can only be written while run is running",
+        )
+    if body.tenant_id != run.tenant_id:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="sample tenant_id must match shadow run tenant_id",
+        )
+    row = await _load_shadow_sample_row(
+        session,
+        run_row_id=run.id,
+        sample_id=sample_id,
+        tenant_id=body.tenant_id,
+    )
+    if row is None:
+        existing_count = (
+            await session.execute(
+                select(ProviderShadowValidationSample.id).where(
+                    ProviderShadowValidationSample.run_row_id == run.id,
+                    (
+                        ProviderShadowValidationSample.tenant_id.is_(None)
+                        if body.tenant_id is None
+                        else ProviderShadowValidationSample.tenant_id == body.tenant_id
+                    ),
+                )
+            )
+        ).scalars()
+        if len(list(existing_count)) >= run.evaluation_sample_count:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="shadow sample count exceeds evaluation sample_count",
+            )
+        now = datetime.now(UTC)
+        row = ProviderShadowValidationSample(
+            tenant_id=body.tenant_id,
+            run_row_id=run.id,
+            sample_id=sample_id,
+            coverage_class=body.coverage_class,
+            dataset_ref=body.dataset_ref,
+            case_ref=body.case_ref,
+            observed_at=body.observed_at,
+            provider_status_code=body.provider_status_code,
+            provider_latency_ms=body.provider_latency_ms,
+            baseline_latency_ms=body.baseline_latency_ms,
+            deviation_ratio=body.deviation_ratio,
+            timed_out=body.timed_out,
+            sample_metadata=body.metadata,
+            created_at=now,
+            updated_at=now,
+        )
+        session.add(row)
+    else:
+        now = datetime.now(UTC)
+        row.coverage_class = body.coverage_class
+        row.dataset_ref = body.dataset_ref
+        row.case_ref = body.case_ref
+        row.observed_at = body.observed_at
+        row.provider_status_code = body.provider_status_code
+        row.provider_latency_ms = body.provider_latency_ms
+        row.baseline_latency_ms = body.baseline_latency_ms
+        row.deviation_ratio = body.deviation_ratio
+        row.timed_out = body.timed_out
+        row.sample_metadata = body.metadata
+        row.updated_at = now
+    try:
+        await session.flush()
+    except IntegrityError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="provider shadow sample identity already exists",
+        ) from exc
+    return await _shadow_sample_response(run, row, requested_tenant_id=body.tenant_id)
+
+
+@router.get(
+    "/provider-applications/{application_id}/evaluation-requests/{evaluation_id}"
+    "/shadow-runs/{run_id}/samples/{sample_id}",
+    response_model=ProviderShadowSampleResponse,
+    tags=["provider-shadow-validation"],
+)
+async def get_provider_shadow_sample(
+    application_id: Annotated[str, Path(pattern=_PATH_ID_PATTERN)],
+    evaluation_id: Annotated[str, Path(pattern=_PATH_ID_PATTERN)],
+    run_id: Annotated[str, Path(pattern=_PATH_ID_PATTERN)],
+    sample_id: Annotated[str, Path(pattern=_PATH_ID_PATTERN)],
+    tenant_id: uuid.UUID | None = Query(default=None),
+    session: AsyncSession = Depends(get_session),
+) -> ProviderShadowSampleResponse:
+    _, evaluation = await _resolve_shadow_evaluation(
+        session,
+        application_id=application_id,
+        evaluation_id=evaluation_id,
+        tenant_id=tenant_id,
+    )
+    run = await _load_shadow_run_row(
+        session,
+        evaluation_row_id=evaluation.id,
+        run_id=run_id,
+        tenant_id=tenant_id,
+    )
+    if run is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="provider shadow validation run not found",
+        )
+    row = await _load_shadow_sample_row(
+        session,
+        run_row_id=run.id,
+        sample_id=sample_id,
+        tenant_id=tenant_id,
+    )
+    if row is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="provider shadow validation sample not found",
+        )
+    return await _shadow_sample_response(run, row, requested_tenant_id=tenant_id)
+
+
+@router.get(
+    "/provider-applications/{application_id}/evaluation-requests/{evaluation_id}"
+    "/shadow-runs/{run_id}/samples",
+    response_model=list[ProviderShadowSampleResponse],
+    tags=["provider-shadow-validation"],
+)
+async def list_provider_shadow_samples(
+    application_id: Annotated[str, Path(pattern=_PATH_ID_PATTERN)],
+    evaluation_id: Annotated[str, Path(pattern=_PATH_ID_PATTERN)],
+    run_id: Annotated[str, Path(pattern=_PATH_ID_PATTERN)],
+    tenant_id: uuid.UUID | None = Query(default=None),
+    coverage_class: ProviderShadowCoverageClass | None = Query(default=None),
+    passed: bool | None = Query(default=None),
+    session: AsyncSession = Depends(get_session),
+) -> list[ProviderShadowSampleResponse]:
+    _, evaluation = await _resolve_shadow_evaluation(
+        session,
+        application_id=application_id,
+        evaluation_id=evaluation_id,
+        tenant_id=tenant_id,
+    )
+    run = await _load_shadow_run_row(
+        session,
+        evaluation_row_id=evaluation.id,
+        run_id=run_id,
+        tenant_id=tenant_id,
+    )
+    if run is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="provider shadow validation run not found",
+        )
+    conditions: list[ColumnElement[bool]] = [
+        ProviderShadowValidationSample.run_row_id == run.id,
+        (
+            ProviderShadowValidationSample.tenant_id.is_(None)
+            if tenant_id is None
+            else ProviderShadowValidationSample.tenant_id == tenant_id
+        ),
+    ]
+    if coverage_class is not None:
+        conditions.append(ProviderShadowValidationSample.coverage_class == coverage_class)
+    rows = list(
+        (
+            await session.execute(
+                select(ProviderShadowValidationSample)
+                .where(*conditions)
+                .order_by(ProviderShadowValidationSample.sample_id)
+            )
+        ).scalars()
+    )
+    if passed is not None:
+        rows = [row for row in rows if _sample_passed(row) is passed]
+    return [await _shadow_sample_response(run, row, requested_tenant_id=tenant_id) for row in rows]
+
+
+@router.post(
+    "/provider-applications/{application_id}/evaluation-requests/{evaluation_id}"
+    "/shadow-runs/{run_id}/finalize",
+    response_model=ProviderShadowRunResponse,
+    tags=["provider-shadow-validation"],
+)
+async def finalize_provider_shadow_run(
+    application_id: Annotated[str, Path(pattern=_PATH_ID_PATTERN)],
+    evaluation_id: Annotated[str, Path(pattern=_PATH_ID_PATTERN)],
+    run_id: Annotated[str, Path(pattern=_PATH_ID_PATTERN)],
+    tenant_id: uuid.UUID | None = Query(default=None),
+    x_internal_service_auth: str | None = Header(default=None, alias="X-Internal-Service-Auth"),
+    session: AsyncSession = Depends(get_session),
+) -> ProviderShadowRunResponse:
+    _require_write_auth(x_internal_service_auth)
+    _, evaluation = await _resolve_shadow_evaluation(
+        session,
+        application_id=application_id,
+        evaluation_id=evaluation_id,
+        tenant_id=tenant_id,
+    )
+    run = await _load_shadow_run_row(
+        session,
+        evaluation_row_id=evaluation.id,
+        run_id=run_id,
+        tenant_id=tenant_id,
+    )
+    if run is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="provider shadow validation run not found",
+        )
+    run = await _lock_shadow_run_row(session, run)
+    if run.status in {"passed", "failed"}:
+        return await _shadow_run_response(run, requested_tenant_id=tenant_id)
+    if run.status != "running":
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="only running shadow validation runs can be finalized",
+        )
+    samples = list(
+        (
+            await session.execute(
+                select(ProviderShadowValidationSample)
+                .where(ProviderShadowValidationSample.run_row_id == run.id)
+                .order_by(ProviderShadowValidationSample.sample_id)
+            )
+        ).scalars()
+    )
+    summary = _shadow_summary_from_samples(run, samples)
+    run.summary = summary.model_dump(mode="json")
+    run.status = "passed" if not summary.failed_reasons else "failed"
+    now = datetime.now(UTC)
+    run.ended_at = run.ended_at or now
+    run.updated_at = now
+    await session.flush()
+    return await _shadow_run_response(run, requested_tenant_id=tenant_id)

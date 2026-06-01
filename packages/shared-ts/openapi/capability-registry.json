@@ -1148,6 +1148,603 @@
         "title": "ProviderResponse",
         "type": "object"
       },
+      "ProviderShadowRunResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "application_id": {
+            "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+            "title": "Application Id",
+            "type": "string"
+          },
+          "baseline_provider_id": {
+            "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+            "title": "Baseline Provider Id",
+            "type": "string"
+          },
+          "benchmark_suite": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$",
+            "title": "Benchmark Suite",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "ended_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ended At"
+          },
+          "evaluation_id": {
+            "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+            "title": "Evaluation Id",
+            "type": "string"
+          },
+          "evaluation_sample_count": {
+            "maximum": 500.0,
+            "minimum": 1.0,
+            "title": "Evaluation Sample Count",
+            "type": "integer"
+          },
+          "evidence_refs": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Evidence Refs",
+            "type": "array"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "requested_provider_id": {
+            "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+            "title": "Requested Provider Id",
+            "type": "string"
+          },
+          "run_id": {
+            "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+            "title": "Run Id",
+            "type": "string"
+          },
+          "scope_source": {
+            "enum": [
+              "global",
+              "tenant",
+              "global_fallback"
+            ],
+            "title": "Scope Source",
+            "type": "string"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "status": {
+            "enum": [
+              "draft",
+              "running",
+              "passed",
+              "failed",
+              "cancelled"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProviderShadowRunSummary"
+              },
+              {
+                "additionalProperties": true,
+                "type": "object"
+              }
+            ],
+            "title": "Summary"
+          },
+          "tenant_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tenant Id"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "application_id",
+          "evaluation_id",
+          "run_id",
+          "requested_provider_id",
+          "benchmark_suite",
+          "evaluation_sample_count",
+          "baseline_provider_id",
+          "status",
+          "summary",
+          "evidence_refs",
+          "metadata",
+          "scope_source",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ProviderShadowRunResponse",
+        "type": "object"
+      },
+      "ProviderShadowRunSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "average_deviation_ratio": {
+            "title": "Average Deviation Ratio",
+            "type": "string"
+          },
+          "baseline_p95_latency_ms": {
+            "minimum": 0.0,
+            "title": "Baseline P95 Latency Ms",
+            "type": "integer"
+          },
+          "coverage_class_counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "propertyNames": {
+              "enum": [
+                "platform_standard",
+                "provider_supplied",
+                "adversarial",
+                "desensitized_real"
+              ]
+            },
+            "title": "Coverage Class Counts",
+            "type": "object"
+          },
+          "coverage_classes": {
+            "items": {
+              "enum": [
+                "platform_standard",
+                "provider_supplied",
+                "adversarial",
+                "desensitized_real"
+              ],
+              "type": "string"
+            },
+            "title": "Coverage Classes",
+            "type": "array"
+          },
+          "evaluation_sample_count": {
+            "maximum": 500.0,
+            "minimum": 1.0,
+            "title": "Evaluation Sample Count",
+            "type": "integer"
+          },
+          "failed_reasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Failed Reasons",
+            "type": "array"
+          },
+          "observed_day_span": {
+            "minimum": 0.0,
+            "title": "Observed Day Span",
+            "type": "integer"
+          },
+          "p95_latency_ratio": {
+            "title": "P95 Latency Ratio",
+            "type": "string"
+          },
+          "provider_p95_latency_ms": {
+            "minimum": 0.0,
+            "title": "Provider P95 Latency Ms",
+            "type": "integer"
+          },
+          "sample_count": {
+            "minimum": 0.0,
+            "title": "Sample Count",
+            "type": "integer"
+          },
+          "success_count": {
+            "minimum": 0.0,
+            "title": "Success Count",
+            "type": "integer"
+          },
+          "success_rate": {
+            "title": "Success Rate",
+            "type": "string"
+          },
+          "thresholds": {
+            "additionalProperties": true,
+            "title": "Thresholds",
+            "type": "object"
+          }
+        },
+        "required": [
+          "sample_count",
+          "evaluation_sample_count",
+          "observed_day_span",
+          "coverage_classes",
+          "coverage_class_counts",
+          "success_count",
+          "success_rate",
+          "average_deviation_ratio",
+          "provider_p95_latency_ms",
+          "baseline_p95_latency_ms",
+          "p95_latency_ratio",
+          "thresholds",
+          "failed_reasons"
+        ],
+        "title": "ProviderShadowRunSummary",
+        "type": "object"
+      },
+      "ProviderShadowRunUpsertRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "application_id": {
+            "anyOf": [
+              {
+                "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Application Id"
+          },
+          "baseline_provider_id": {
+            "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+            "title": "Baseline Provider Id",
+            "type": "string"
+          },
+          "evaluation_id": {
+            "anyOf": [
+              {
+                "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evaluation Id"
+          },
+          "evidence_refs": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Evidence Refs",
+            "type": "array"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "run_id": {
+            "anyOf": [
+              {
+                "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run Id"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "enum": [
+                  "draft",
+                  "running",
+                  "cancelled"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "tenant_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tenant Id"
+          }
+        },
+        "required": [
+          "baseline_provider_id"
+        ],
+        "title": "ProviderShadowRunUpsertRequest",
+        "type": "object"
+      },
+      "ProviderShadowSampleResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "baseline_latency_ms": {
+            "minimum": 1.0,
+            "title": "Baseline Latency Ms",
+            "type": "integer"
+          },
+          "case_ref": {
+            "title": "Case Ref",
+            "type": "string"
+          },
+          "coverage_class": {
+            "enum": [
+              "platform_standard",
+              "provider_supplied",
+              "adversarial",
+              "desensitized_real"
+            ],
+            "title": "Coverage Class",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "dataset_ref": {
+            "title": "Dataset Ref",
+            "type": "string"
+          },
+          "deviation_ratio": {
+            "title": "Deviation Ratio",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "observed_at": {
+            "format": "date-time",
+            "title": "Observed At",
+            "type": "string"
+          },
+          "passed": {
+            "title": "Passed",
+            "type": "boolean"
+          },
+          "provider_latency_ms": {
+            "minimum": 1.0,
+            "title": "Provider Latency Ms",
+            "type": "integer"
+          },
+          "provider_status_code": {
+            "maximum": 599.0,
+            "minimum": 100.0,
+            "title": "Provider Status Code",
+            "type": "integer"
+          },
+          "run_id": {
+            "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+            "title": "Run Id",
+            "type": "string"
+          },
+          "sample_id": {
+            "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+            "title": "Sample Id",
+            "type": "string"
+          },
+          "scope_source": {
+            "enum": [
+              "global",
+              "tenant",
+              "global_fallback"
+            ],
+            "title": "Scope Source",
+            "type": "string"
+          },
+          "tenant_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tenant Id"
+          },
+          "timed_out": {
+            "title": "Timed Out",
+            "type": "boolean"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "run_id",
+          "sample_id",
+          "coverage_class",
+          "dataset_ref",
+          "case_ref",
+          "observed_at",
+          "provider_status_code",
+          "provider_latency_ms",
+          "baseline_latency_ms",
+          "deviation_ratio",
+          "timed_out",
+          "passed",
+          "metadata",
+          "scope_source",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ProviderShadowSampleResponse",
+        "type": "object"
+      },
+      "ProviderShadowSampleUpsertRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "baseline_latency_ms": {
+            "minimum": 1.0,
+            "title": "Baseline Latency Ms",
+            "type": "integer"
+          },
+          "case_ref": {
+            "minLength": 1,
+            "title": "Case Ref",
+            "type": "string"
+          },
+          "coverage_class": {
+            "enum": [
+              "platform_standard",
+              "provider_supplied",
+              "adversarial",
+              "desensitized_real"
+            ],
+            "title": "Coverage Class",
+            "type": "string"
+          },
+          "dataset_ref": {
+            "minLength": 1,
+            "title": "Dataset Ref",
+            "type": "string"
+          },
+          "deviation_ratio": {
+            "anyOf": [
+              {
+                "maximum": 999.999999,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              }
+            ],
+            "title": "Deviation Ratio"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "observed_at": {
+            "format": "date-time",
+            "title": "Observed At",
+            "type": "string"
+          },
+          "provider_latency_ms": {
+            "minimum": 1.0,
+            "title": "Provider Latency Ms",
+            "type": "integer"
+          },
+          "provider_status_code": {
+            "maximum": 599.0,
+            "minimum": 100.0,
+            "title": "Provider Status Code",
+            "type": "integer"
+          },
+          "sample_id": {
+            "anyOf": [
+              {
+                "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sample Id"
+          },
+          "tenant_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tenant Id"
+          },
+          "timed_out": {
+            "default": false,
+            "title": "Timed Out",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "coverage_class",
+          "dataset_ref",
+          "case_ref",
+          "observed_at",
+          "provider_status_code",
+          "provider_latency_ms",
+          "baseline_latency_ms",
+          "deviation_ratio"
+        ],
+        "title": "ProviderShadowSampleUpsertRequest",
+        "type": "object"
+      },
       "ProviderUpsertRequest": {
         "additionalProperties": false,
         "properties": {
@@ -2452,6 +3049,675 @@
         "summary": "Upsert Provider Application Evaluation",
         "tags": [
           "provider-applications"
+        ]
+      }
+    },
+    "/v1/provider-applications/{application_id}/evaluation-requests/{evaluation_id}/shadow-runs": {
+      "get": {
+        "operationId": "list_provider_shadow_runs_v1_provider_applications__application_id__evaluation_requests__evaluation_id__shadow_runs_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "application_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+              "title": "Application Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "evaluation_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+              "title": "Evaluation Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "tenant_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tenant Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "draft",
+                    "running",
+                    "passed",
+                    "failed",
+                    "cancelled"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ProviderShadowRunResponse"
+                  },
+                  "title": "Response List Provider Shadow Runs V1 Provider Applications  Application Id  Evaluation Requests  Evaluation Id  Shadow Runs Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Provider Shadow Runs",
+        "tags": [
+          "provider-shadow-validation"
+        ]
+      }
+    },
+    "/v1/provider-applications/{application_id}/evaluation-requests/{evaluation_id}/shadow-runs/{run_id}": {
+      "get": {
+        "operationId": "get_provider_shadow_run_v1_provider_applications__application_id__evaluation_requests__evaluation_id__shadow_runs__run_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "application_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+              "title": "Application Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "evaluation_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+              "title": "Evaluation Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "tenant_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tenant Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderShadowRunResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Provider Shadow Run",
+        "tags": [
+          "provider-shadow-validation"
+        ]
+      },
+      "put": {
+        "operationId": "upsert_provider_shadow_run_v1_provider_applications__application_id__evaluation_requests__evaluation_id__shadow_runs__run_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "application_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+              "title": "Application Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "evaluation_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+              "title": "Evaluation Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Internal-Service-Auth",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Internal-Service-Auth"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProviderShadowRunUpsertRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderShadowRunResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Upsert Provider Shadow Run",
+        "tags": [
+          "provider-shadow-validation"
+        ]
+      }
+    },
+    "/v1/provider-applications/{application_id}/evaluation-requests/{evaluation_id}/shadow-runs/{run_id}/finalize": {
+      "post": {
+        "operationId": "finalize_provider_shadow_run_v1_provider_applications__application_id__evaluation_requests__evaluation_id__shadow_runs__run_id__finalize_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "application_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+              "title": "Application Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "evaluation_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+              "title": "Evaluation Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "tenant_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tenant Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Internal-Service-Auth",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Internal-Service-Auth"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderShadowRunResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Finalize Provider Shadow Run",
+        "tags": [
+          "provider-shadow-validation"
+        ]
+      }
+    },
+    "/v1/provider-applications/{application_id}/evaluation-requests/{evaluation_id}/shadow-runs/{run_id}/samples": {
+      "get": {
+        "operationId": "list_provider_shadow_samples_v1_provider_applications__application_id__evaluation_requests__evaluation_id__shadow_runs__run_id__samples_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "application_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+              "title": "Application Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "evaluation_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+              "title": "Evaluation Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "tenant_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tenant Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "coverage_class",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "platform_standard",
+                    "provider_supplied",
+                    "adversarial",
+                    "desensitized_real"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Coverage Class"
+            }
+          },
+          {
+            "in": "query",
+            "name": "passed",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Passed"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ProviderShadowSampleResponse"
+                  },
+                  "title": "Response List Provider Shadow Samples V1 Provider Applications  Application Id  Evaluation Requests  Evaluation Id  Shadow Runs  Run Id  Samples Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Provider Shadow Samples",
+        "tags": [
+          "provider-shadow-validation"
+        ]
+      }
+    },
+    "/v1/provider-applications/{application_id}/evaluation-requests/{evaluation_id}/shadow-runs/{run_id}/samples/{sample_id}": {
+      "get": {
+        "operationId": "get_provider_shadow_sample_v1_provider_applications__application_id__evaluation_requests__evaluation_id__shadow_runs__run_id__samples__sample_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "application_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+              "title": "Application Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "evaluation_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+              "title": "Evaluation Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "sample_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+              "title": "Sample Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "tenant_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tenant Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderShadowSampleResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Provider Shadow Sample",
+        "tags": [
+          "provider-shadow-validation"
+        ]
+      },
+      "put": {
+        "operationId": "upsert_provider_shadow_sample_v1_provider_applications__application_id__evaluation_requests__evaluation_id__shadow_runs__run_id__samples__sample_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "application_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+              "title": "Application Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "evaluation_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+              "title": "Evaluation Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "sample_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+              "title": "Sample Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Internal-Service-Auth",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Internal-Service-Auth"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProviderShadowSampleUpsertRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderShadowSampleResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Upsert Provider Shadow Sample",
+        "tags": [
+          "provider-shadow-validation"
         ]
       }
     },
