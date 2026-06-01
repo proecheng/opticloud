@@ -26,6 +26,7 @@ from capability_registry.models import (
     CapabilityTag,
     ProviderApplication,
     ProviderApplicationEvaluationRequest,
+    ProviderGradientRollout,
     ProviderOAuthFlow,
     ProviderShadowValidationRun,
     ProviderShadowValidationSample,
@@ -45,6 +46,11 @@ from capability_registry.schemas import (
     ProviderEvaluationStatus,
     ProviderEvaluationUpsertRequest,
     ProviderResponse,
+    ProviderRolloutActionRequest,
+    ProviderRolloutResponse,
+    ProviderRolloutStage,
+    ProviderRolloutStatus,
+    ProviderRolloutUpsertRequest,
     ProviderShadowCoverageClass,
     ProviderShadowRunResponse,
     ProviderShadowRunStatus,
@@ -76,6 +82,7 @@ _SHADOW_MIN_SAMPLES_PER_COVERAGE_CLASS = 1
 _SHADOW_MIN_SUCCESS_RATE = Decimal("0.980000")
 _SHADOW_MAX_AVERAGE_DEVIATION = Decimal("0.020000")
 _SHADOW_MAX_P95_LATENCY_RATIO = Decimal("1.500000")
+_ROLLOUT_STAGES: tuple[ProviderRolloutStage, ...] = (0, 5, 50, 100)
 _RATIO_QUANT = Decimal("0.000001")
 
 
@@ -1822,6 +1829,158 @@ async def _shadow_sample_response(
     )
 
 
+async def _resolve_shadow_run_for_rollout(
+    session: AsyncSession,
+    *,
+    application_id: str,
+    evaluation_id: str,
+    run_id: str,
+    tenant_id: uuid.UUID | None,
+) -> tuple[
+    ProviderApplication,
+    ProviderApplicationEvaluationRequest,
+    ProviderShadowValidationRun,
+]:
+    application, evaluation = await _resolve_shadow_evaluation(
+        session,
+        application_id=application_id,
+        evaluation_id=evaluation_id,
+        tenant_id=tenant_id,
+    )
+    run = await _load_shadow_run_row(
+        session,
+        evaluation_row_id=evaluation.id,
+        run_id=run_id,
+        tenant_id=tenant_id,
+    )
+    if run is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="provider shadow validation run not found",
+        )
+    return application, evaluation, run
+
+
+async def _load_rollout_row(
+    session: AsyncSession,
+    *,
+    shadow_run_row_id: uuid.UUID,
+    rollout_id: str,
+    tenant_id: uuid.UUID | None,
+) -> ProviderGradientRollout | None:
+    return (
+        await session.execute(
+            select(ProviderGradientRollout).where(
+                ProviderGradientRollout.shadow_run_row_id == shadow_run_row_id,
+                ProviderGradientRollout.rollout_id == rollout_id,
+                (
+                    ProviderGradientRollout.tenant_id.is_(None)
+                    if tenant_id is None
+                    else ProviderGradientRollout.tenant_id == tenant_id
+                ),
+            )
+        )
+    ).scalar_one_or_none()
+
+
+async def _lock_rollout_row(
+    session: AsyncSession,
+    row: ProviderGradientRollout,
+) -> ProviderGradientRollout:
+    return (
+        await session.execute(
+            select(ProviderGradientRollout)
+            .where(ProviderGradientRollout.id == row.id)
+            .with_for_update()
+        )
+    ).scalar_one()
+
+
+def _next_rollout_stage(stage: int) -> ProviderRolloutStage | None:
+    try:
+        index = _ROLLOUT_STAGES.index(cast(ProviderRolloutStage, stage))
+    except ValueError:
+        return None
+    if index + 1 >= len(_ROLLOUT_STAGES):
+        return None
+    return _ROLLOUT_STAGES[index + 1]
+
+
+def _stage_history_entry(
+    *,
+    stage_percent: int,
+    changed_at: datetime,
+    from_status: str,
+    to_status: str,
+    reason_ref: str,
+    action: str,
+    metadata: dict[str, Any],
+) -> dict[str, Any]:
+    entry: dict[str, Any] = {
+        "action": action,
+        "stage_percent": stage_percent,
+        "changed_at": changed_at.isoformat(),
+        "from_status": from_status,
+        "to_status": to_status,
+        "reason_ref": reason_ref,
+    }
+    if metadata:
+        entry["metadata"] = metadata
+    return entry
+
+
+def _append_stage_history(
+    row: ProviderGradientRollout,
+    entry: dict[str, Any],
+) -> None:
+    row.stage_history = [*list(row.stage_history), entry]
+
+
+def _assert_rollout_body_matches_path(
+    body: ProviderRolloutUpsertRequest,
+    *,
+    application_id: str,
+    evaluation_id: str,
+    run_id: str,
+    rollout_id: str,
+) -> None:
+    _assert_path_id(body.application_id, application_id, "application_id")
+    _assert_path_id(body.evaluation_id, evaluation_id, "evaluation_id")
+    _assert_path_id(body.run_id, run_id, "run_id")
+    _assert_path_id(body.rollout_id, rollout_id, "rollout_id")
+
+
+async def _rollout_response(
+    row: ProviderGradientRollout,
+    *,
+    requested_tenant_id: uuid.UUID | None,
+) -> ProviderRolloutResponse:
+    return ProviderRolloutResponse(
+        id=row.id,
+        tenant_id=row.tenant_id,
+        application_id=row.application_id,
+        evaluation_id=row.evaluation_id,
+        run_id=row.run_id,
+        rollout_id=row.rollout_id,
+        requested_provider_id=row.requested_provider_id,
+        baseline_provider_id=row.baseline_provider_id,
+        benchmark_suite=row.benchmark_suite,
+        status=cast(Any, row.status),
+        current_stage_percent=cast(Any, row.current_stage_percent),
+        stage_history=list(row.stage_history),
+        shadow_summary_snapshot=dict(row.shadow_summary_snapshot),
+        started_at=row.started_at,
+        completed_at=row.completed_at,
+        paused_at=row.paused_at,
+        cancelled_at=row.cancelled_at,
+        evidence_refs=list(row.evidence_refs),
+        metadata=dict(row.rollout_metadata),
+        scope_source=_scope_source(row.tenant_id, requested_tenant_id),
+        created_at=row.created_at,
+        updated_at=row.updated_at,
+    )
+
+
 def _material_shadow_run_values(body: ProviderShadowRunUpsertRequest) -> dict[str, Any]:
     return {
         "baseline_provider_id": body.baseline_provider_id,
@@ -2287,3 +2446,410 @@ async def finalize_provider_shadow_run(
     run.updated_at = now
     await session.flush()
     return await _shadow_run_response(run, requested_tenant_id=tenant_id)
+
+
+@router.put(
+    "/provider-applications/{application_id}/evaluation-requests/{evaluation_id}"
+    "/shadow-runs/{run_id}/rollouts/{rollout_id}",
+    response_model=ProviderRolloutResponse,
+    tags=["provider-gradient-rollout"],
+)
+async def upsert_provider_rollout(
+    application_id: Annotated[str, Path(pattern=_PATH_ID_PATTERN)],
+    evaluation_id: Annotated[str, Path(pattern=_PATH_ID_PATTERN)],
+    run_id: Annotated[str, Path(pattern=_PATH_ID_PATTERN)],
+    rollout_id: Annotated[str, Path(pattern=_PATH_ID_PATTERN)],
+    body: ProviderRolloutUpsertRequest,
+    x_internal_service_auth: str | None = Header(default=None, alias="X-Internal-Service-Auth"),
+    session: AsyncSession = Depends(get_session),
+) -> ProviderRolloutResponse:
+    _require_write_auth(x_internal_service_auth)
+    _assert_rollout_body_matches_path(
+        body,
+        application_id=application_id,
+        evaluation_id=evaluation_id,
+        run_id=run_id,
+        rollout_id=rollout_id,
+    )
+    application, evaluation, run = await _resolve_shadow_run_for_rollout(
+        session,
+        application_id=application_id,
+        evaluation_id=evaluation_id,
+        run_id=run_id,
+        tenant_id=body.tenant_id,
+    )
+    if run.status != "passed" or not run.summary:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="provider rollout requires a passed shadow validation run with summary",
+        )
+    shadow_summary = ProviderShadowRunSummary.model_validate(run.summary)
+    if shadow_summary.failed_reasons:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="provider rollout requires a clean passed shadow summary",
+        )
+    row = await _load_rollout_row(
+        session,
+        shadow_run_row_id=run.id,
+        rollout_id=rollout_id,
+        tenant_id=body.tenant_id,
+    )
+    now = datetime.now(UTC)
+    if row is None:
+        row = ProviderGradientRollout(
+            tenant_id=body.tenant_id,
+            application_row_id=application.id,
+            evaluation_row_id=evaluation.id,
+            shadow_run_row_id=run.id,
+            application_id=application.application_id,
+            evaluation_id=evaluation.evaluation_id,
+            run_id=run.run_id,
+            rollout_id=rollout_id,
+            requested_provider_id=run.requested_provider_id,
+            baseline_provider_id=run.baseline_provider_id,
+            benchmark_suite=run.benchmark_suite,
+            status="draft",
+            current_stage_percent=0,
+            stage_history=[],
+            shadow_summary_snapshot=shadow_summary.model_dump(mode="json"),
+            evidence_refs=body.evidence_refs,
+            rollout_metadata=body.metadata,
+            created_at=now,
+            updated_at=now,
+        )
+        session.add(row)
+    else:
+        row = await _lock_rollout_row(session, row)
+        if body.tenant_id != row.tenant_id:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="tenant_id is immutable",
+            )
+        if row.status != "draft":
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"{row.status} rollout fields are immutable",
+            )
+        row.evidence_refs = body.evidence_refs
+        row.rollout_metadata = body.metadata
+        row.updated_at = now
+    try:
+        await session.flush()
+    except IntegrityError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="provider rollout identity already exists",
+        ) from exc
+    return await _rollout_response(row, requested_tenant_id=body.tenant_id)
+
+
+@router.get(
+    "/provider-applications/{application_id}/evaluation-requests/{evaluation_id}"
+    "/shadow-runs/{run_id}/rollouts/{rollout_id}",
+    response_model=ProviderRolloutResponse,
+    tags=["provider-gradient-rollout"],
+)
+async def get_provider_rollout(
+    application_id: Annotated[str, Path(pattern=_PATH_ID_PATTERN)],
+    evaluation_id: Annotated[str, Path(pattern=_PATH_ID_PATTERN)],
+    run_id: Annotated[str, Path(pattern=_PATH_ID_PATTERN)],
+    rollout_id: Annotated[str, Path(pattern=_PATH_ID_PATTERN)],
+    tenant_id: uuid.UUID | None = Query(default=None),
+    session: AsyncSession = Depends(get_session),
+) -> ProviderRolloutResponse:
+    _, _, run = await _resolve_shadow_run_for_rollout(
+        session,
+        application_id=application_id,
+        evaluation_id=evaluation_id,
+        run_id=run_id,
+        tenant_id=tenant_id,
+    )
+    row = await _load_rollout_row(
+        session,
+        shadow_run_row_id=run.id,
+        rollout_id=rollout_id,
+        tenant_id=tenant_id,
+    )
+    if row is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="provider gradient rollout not found",
+        )
+    return await _rollout_response(row, requested_tenant_id=tenant_id)
+
+
+@router.get(
+    "/provider-applications/{application_id}/evaluation-requests/{evaluation_id}"
+    "/shadow-runs/{run_id}/rollouts",
+    response_model=list[ProviderRolloutResponse],
+    tags=["provider-gradient-rollout"],
+)
+async def list_provider_rollouts(
+    application_id: Annotated[str, Path(pattern=_PATH_ID_PATTERN)],
+    evaluation_id: Annotated[str, Path(pattern=_PATH_ID_PATTERN)],
+    run_id: Annotated[str, Path(pattern=_PATH_ID_PATTERN)],
+    tenant_id: uuid.UUID | None = Query(default=None),
+    status_filter: ProviderRolloutStatus | None = Query(default=None, alias="status"),
+    stage_percent: int | None = Query(default=None),
+    session: AsyncSession = Depends(get_session),
+) -> list[ProviderRolloutResponse]:
+    if stage_percent is not None and stage_percent not in _ROLLOUT_STAGES:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="stage_percent must be one of 0, 5, 50, or 100",
+        )
+    _, _, run = await _resolve_shadow_run_for_rollout(
+        session,
+        application_id=application_id,
+        evaluation_id=evaluation_id,
+        run_id=run_id,
+        tenant_id=tenant_id,
+    )
+    conditions: list[ColumnElement[bool]] = [
+        ProviderGradientRollout.shadow_run_row_id == run.id,
+        (
+            ProviderGradientRollout.tenant_id.is_(None)
+            if tenant_id is None
+            else ProviderGradientRollout.tenant_id == tenant_id
+        ),
+    ]
+    if status_filter is not None:
+        conditions.append(ProviderGradientRollout.status == status_filter)
+    if stage_percent is not None:
+        conditions.append(ProviderGradientRollout.current_stage_percent == stage_percent)
+    rows = (
+        await session.execute(
+            select(ProviderGradientRollout)
+            .where(*conditions)
+            .order_by(ProviderGradientRollout.rollout_id)
+        )
+    ).scalars()
+    return [await _rollout_response(row, requested_tenant_id=tenant_id) for row in rows]
+
+
+@router.post(
+    "/provider-applications/{application_id}/evaluation-requests/{evaluation_id}"
+    "/shadow-runs/{run_id}/rollouts/{rollout_id}/advance",
+    response_model=ProviderRolloutResponse,
+    tags=["provider-gradient-rollout"],
+)
+async def advance_provider_rollout(
+    application_id: Annotated[str, Path(pattern=_PATH_ID_PATTERN)],
+    evaluation_id: Annotated[str, Path(pattern=_PATH_ID_PATTERN)],
+    run_id: Annotated[str, Path(pattern=_PATH_ID_PATTERN)],
+    rollout_id: Annotated[str, Path(pattern=_PATH_ID_PATTERN)],
+    body: ProviderRolloutActionRequest,
+    tenant_id: uuid.UUID | None = Query(default=None),
+    x_internal_service_auth: str | None = Header(default=None, alias="X-Internal-Service-Auth"),
+    session: AsyncSession = Depends(get_session),
+) -> ProviderRolloutResponse:
+    _require_write_auth(x_internal_service_auth)
+    _, _, run = await _resolve_shadow_run_for_rollout(
+        session,
+        application_id=application_id,
+        evaluation_id=evaluation_id,
+        run_id=run_id,
+        tenant_id=tenant_id,
+    )
+    row = await _load_rollout_row(
+        session,
+        shadow_run_row_id=run.id,
+        rollout_id=rollout_id,
+        tenant_id=tenant_id,
+    )
+    if row is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="provider gradient rollout not found",
+        )
+    row = await _lock_rollout_row(session, row)
+    if row.status == "completed":
+        if body.target_stage_percent not in {None, 100}:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="completed rollout can only replay completion",
+            )
+        return await _rollout_response(row, requested_tenant_id=tenant_id)
+    if row.status == "cancelled":
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="cancelled rollout cannot be advanced",
+        )
+    if row.status not in {"draft", "active", "paused"}:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="rollout cannot be advanced from current status",
+        )
+    next_stage = _next_rollout_stage(row.current_stage_percent)
+    if next_stage is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="rollout has no next stage",
+        )
+    if body.target_stage_percent is not None and body.target_stage_percent != next_stage:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="target_stage_percent must be the next rollout stage",
+        )
+    now = datetime.now(UTC)
+    from_status = row.status
+    to_status = "completed" if next_stage == 100 else "active"
+    row.status = to_status
+    row.current_stage_percent = next_stage
+    row.started_at = row.started_at or now
+    if next_stage == 100:
+        row.completed_at = row.completed_at or now
+    if from_status == "paused":
+        row.paused_at = row.paused_at or now
+    _append_stage_history(
+        row,
+        _stage_history_entry(
+            stage_percent=next_stage,
+            changed_at=now,
+            from_status=from_status,
+            to_status=to_status,
+            reason_ref=body.reason_ref,
+            action="advance",
+            metadata=body.metadata,
+        ),
+    )
+    row.updated_at = now
+    await session.flush()
+    return await _rollout_response(row, requested_tenant_id=tenant_id)
+
+
+@router.post(
+    "/provider-applications/{application_id}/evaluation-requests/{evaluation_id}"
+    "/shadow-runs/{run_id}/rollouts/{rollout_id}/pause",
+    response_model=ProviderRolloutResponse,
+    tags=["provider-gradient-rollout"],
+)
+async def pause_provider_rollout(
+    application_id: Annotated[str, Path(pattern=_PATH_ID_PATTERN)],
+    evaluation_id: Annotated[str, Path(pattern=_PATH_ID_PATTERN)],
+    run_id: Annotated[str, Path(pattern=_PATH_ID_PATTERN)],
+    rollout_id: Annotated[str, Path(pattern=_PATH_ID_PATTERN)],
+    body: ProviderRolloutActionRequest,
+    tenant_id: uuid.UUID | None = Query(default=None),
+    x_internal_service_auth: str | None = Header(default=None, alias="X-Internal-Service-Auth"),
+    session: AsyncSession = Depends(get_session),
+) -> ProviderRolloutResponse:
+    _require_write_auth(x_internal_service_auth)
+    _, _, run = await _resolve_shadow_run_for_rollout(
+        session,
+        application_id=application_id,
+        evaluation_id=evaluation_id,
+        run_id=run_id,
+        tenant_id=tenant_id,
+    )
+    row = await _load_rollout_row(
+        session,
+        shadow_run_row_id=run.id,
+        rollout_id=rollout_id,
+        tenant_id=tenant_id,
+    )
+    if row is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="provider gradient rollout not found",
+        )
+    row = await _lock_rollout_row(session, row)
+    if body.target_stage_percent is not None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="pause does not accept target_stage_percent",
+        )
+    if row.status != "active" or row.current_stage_percent not in {5, 50}:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="only active rollout at 5 or 50 percent can be paused",
+        )
+    now = datetime.now(UTC)
+    from_status = row.status
+    row.status = "paused"
+    row.paused_at = row.paused_at or now
+    _append_stage_history(
+        row,
+        _stage_history_entry(
+            stage_percent=row.current_stage_percent,
+            changed_at=now,
+            from_status=from_status,
+            to_status="paused",
+            reason_ref=body.reason_ref,
+            action="pause",
+            metadata=body.metadata,
+        ),
+    )
+    row.updated_at = now
+    await session.flush()
+    return await _rollout_response(row, requested_tenant_id=tenant_id)
+
+
+@router.post(
+    "/provider-applications/{application_id}/evaluation-requests/{evaluation_id}"
+    "/shadow-runs/{run_id}/rollouts/{rollout_id}/cancel",
+    response_model=ProviderRolloutResponse,
+    tags=["provider-gradient-rollout"],
+)
+async def cancel_provider_rollout(
+    application_id: Annotated[str, Path(pattern=_PATH_ID_PATTERN)],
+    evaluation_id: Annotated[str, Path(pattern=_PATH_ID_PATTERN)],
+    run_id: Annotated[str, Path(pattern=_PATH_ID_PATTERN)],
+    rollout_id: Annotated[str, Path(pattern=_PATH_ID_PATTERN)],
+    body: ProviderRolloutActionRequest,
+    tenant_id: uuid.UUID | None = Query(default=None),
+    x_internal_service_auth: str | None = Header(default=None, alias="X-Internal-Service-Auth"),
+    session: AsyncSession = Depends(get_session),
+) -> ProviderRolloutResponse:
+    _require_write_auth(x_internal_service_auth)
+    _, _, run = await _resolve_shadow_run_for_rollout(
+        session,
+        application_id=application_id,
+        evaluation_id=evaluation_id,
+        run_id=run_id,
+        tenant_id=tenant_id,
+    )
+    row = await _load_rollout_row(
+        session,
+        shadow_run_row_id=run.id,
+        rollout_id=rollout_id,
+        tenant_id=tenant_id,
+    )
+    if row is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="provider gradient rollout not found",
+        )
+    row = await _lock_rollout_row(session, row)
+    if body.target_stage_percent is not None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="cancel does not accept target_stage_percent",
+        )
+    if row.status == "cancelled":
+        return await _rollout_response(row, requested_tenant_id=tenant_id)
+    if row.status == "completed":
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="completed rollout cannot be cancelled",
+        )
+    now = datetime.now(UTC)
+    from_status = row.status
+    row.status = "cancelled"
+    row.cancelled_at = row.cancelled_at or now
+    _append_stage_history(
+        row,
+        _stage_history_entry(
+            stage_percent=row.current_stage_percent,
+            changed_at=now,
+            from_status=from_status,
+            to_status="cancelled",
+            reason_ref=body.reason_ref,
+            action="cancel",
+            metadata=body.metadata,
+        ),
+    )
+    row.updated_at = now
+    await session.flush()
+    return await _rollout_response(row, requested_tenant_id=tenant_id)

@@ -89,7 +89,8 @@ async def clean_tables(engine: AsyncEngine) -> AsyncIterator[None]:
     async with maker() as session:
         await session.execute(
             text(
-                "TRUNCATE provider_shadow_validation_samples, provider_shadow_validation_runs, "
+                "TRUNCATE provider_gradient_rollouts, "
+                "provider_shadow_validation_samples, provider_shadow_validation_runs, "
                 "provider_application_evaluation_requests, provider_applications, "
                 "revenue_share_hooks, revenue_share_policies, "
                 "provider_oauth_flows, capability_tags, capabilities, "
@@ -246,6 +247,24 @@ def shadow_sample_payload(**overrides: Any) -> dict[str, Any]:
         "baseline_latency_ms": 100,
         "deviation_ratio": "0.010000",
         "timed_out": False,
+        "metadata": {"source": "test"},
+    }
+    payload.update(overrides)
+    return payload
+
+
+def rollout_payload(**overrides: Any) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "evidence_refs": ["oss://provider-rollouts/app-professor-lu/run-001/rollout-001.json"],
+        "metadata": {"source": "test"},
+    }
+    payload.update(overrides)
+    return payload
+
+
+def rollout_action_payload(**overrides: Any) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "reason_ref": "oss://provider-rollouts/app-professor-lu/run-001/reason.json",
         "metadata": {"source": "test"},
     }
     payload.update(overrides)
@@ -1587,5 +1606,416 @@ def test_provider_shadow_openapi_omits_unsafe_fields() -> None:
         "cancelled",
     }
     for schema in shadow_schemas.values():
+        properties = set(schema.get("properties", {}))
+        assert properties.isdisjoint(forbidden_terms)
+
+
+async def _create_passed_shadow_run(
+    client: AsyncClient,
+    *,
+    application_id: str = "app-professor-lu",
+    evaluation_id: str = "eval-001",
+    run_id: str = "run-001",
+    requested_provider_id: str = "professor-lu",
+) -> dict[str, Any]:
+    app_resp = await client.put(
+        f"/v1/provider-applications/{application_id}",
+        json=provider_application_payload(
+            requested_provider_id=requested_provider_id,
+            status="submitted",
+        ),
+    )
+    assert app_resp.status_code == 200, app_resp.text
+    eval_resp = await client.put(
+        f"/v1/provider-applications/{application_id}/evaluation-requests/{evaluation_id}",
+        json=provider_evaluation_payload(evaluation_id=evaluation_id),
+    )
+    assert eval_resp.status_code == 200, eval_resp.text
+    run_resp = await client.put(
+        f"/v1/provider-applications/{application_id}/evaluation-requests/{evaluation_id}"
+        f"/shadow-runs/{run_id}",
+        json=shadow_run_payload(),
+    )
+    assert run_resp.status_code == 200, run_resp.text
+    base_time = datetime(2026, 6, 1, tzinfo=UTC)
+    coverage_classes = [
+        "platform_standard",
+        "provider_supplied",
+        "adversarial",
+        "desensitized_real",
+    ]
+    for index in range(500):
+        response = await client.put(
+            f"/v1/provider-applications/{application_id}/evaluation-requests/{evaluation_id}"
+            f"/shadow-runs/{run_id}/samples/sample-{index:03d}",
+            json=shadow_sample_payload(
+                coverage_class=coverage_classes[index % len(coverage_classes)],
+                case_ref=f"fixture://provider-shadow/case-{index:03d}",
+                observed_at=(base_time + timedelta(days=index % 15)).isoformat(),
+            ),
+        )
+        assert response.status_code == 200, response.text
+    finalize = await client.post(
+        f"/v1/provider-applications/{application_id}/evaluation-requests/{evaluation_id}"
+        f"/shadow-runs/{run_id}/finalize"
+    )
+    assert finalize.status_code == 200, finalize.text
+    assert finalize.json()["status"] == "passed"
+    return finalize.json()
+
+
+async def test_provider_rollout_requires_passed_shadow_and_snapshots_summary(
+    client: AsyncClient,
+    engine: AsyncEngine,
+) -> None:
+    await _create_submitted_application_and_evaluation(client)
+    run_resp = await client.put(
+        "/v1/provider-applications/app-professor-lu/evaluation-requests/eval-001"
+        "/shadow-runs/run-001",
+        json=shadow_run_payload(),
+    )
+    assert run_resp.status_code == 200, run_resp.text
+
+    not_passed = await client.put(
+        "/v1/provider-applications/app-professor-lu/evaluation-requests/eval-001"
+        "/shadow-runs/run-001/rollouts/rollout-001",
+        json=rollout_payload(),
+    )
+    assert not_passed.status_code == 422
+    assert "passed shadow" in not_passed.text
+
+    await client.post(
+        "/v1/provider-applications/app-professor-lu/evaluation-requests/eval-001"
+        "/shadow-runs/run-001/finalize"
+    )
+    failed_shadow = await client.put(
+        "/v1/provider-applications/app-professor-lu/evaluation-requests/eval-001"
+        "/shadow-runs/run-001/rollouts/rollout-001",
+        json=rollout_payload(),
+    )
+    assert failed_shadow.status_code == 422
+
+    passed_shadow = await _create_passed_shadow_run(
+        client,
+        application_id="app-professor-lu-passed",
+        evaluation_id="eval-passed",
+        run_id="run-passed",
+        requested_provider_id="professor-lu-passed",
+    )
+    maker = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
+    async with maker() as session:
+        await session.execute(
+            text(
+                "UPDATE provider_shadow_validation_runs "
+                "SET summary = jsonb_set(summary, '{failed_reasons}', '[\"manual_drift\"]'::jsonb) "
+                "WHERE run_id = 'run-passed'"
+            )
+        )
+        await session.commit()
+    drifted_shadow = await client.put(
+        "/v1/provider-applications/app-professor-lu-passed/evaluation-requests/eval-passed"
+        "/shadow-runs/run-passed/rollouts/rollout-001",
+        json=rollout_payload(),
+    )
+    assert drifted_shadow.status_code == 422
+    assert "clean passed shadow summary" in drifted_shadow.text
+    async with maker() as session:
+        await session.execute(
+            text(
+                "UPDATE provider_shadow_validation_runs "
+                "SET summary = jsonb_set(summary, '{failed_reasons}', '[]'::jsonb) "
+                "WHERE run_id = 'run-passed'"
+            )
+        )
+        await session.commit()
+
+    forbidden_derived = await client.put(
+        "/v1/provider-applications/app-professor-lu-passed/evaluation-requests/eval-passed"
+        "/shadow-runs/run-passed/rollouts/rollout-001",
+        json={**rollout_payload(), "stage_history": []},
+    )
+    assert forbidden_derived.status_code == 422
+
+    raw_payload = await client.put(
+        "/v1/provider-applications/app-professor-lu-passed/evaluation-requests/eval-passed"
+        "/shadow-runs/run-passed/rollouts/rollout-001",
+        json=rollout_payload(metadata={"routingPayload": {"customer_id": "raw"}}),
+    )
+    assert raw_payload.status_code == 422
+
+    create = await client.put(
+        "/v1/provider-applications/app-professor-lu-passed/evaluation-requests/eval-passed"
+        "/shadow-runs/run-passed/rollouts/rollout-001",
+        json=rollout_payload(),
+    )
+    assert create.status_code == 200, create.text
+    body = create.json()
+    assert body["status"] == "draft"
+    assert body["current_stage_percent"] == 0
+    assert body["requested_provider_id"] == "professor-lu-passed"
+    assert body["baseline_provider_id"] == "highs"
+    assert body["benchmark_suite"] == "lp_standard_500"
+    assert body["stage_history"] == []
+    assert body["shadow_summary_snapshot"] == passed_shadow["summary"]
+
+    async with maker() as session:
+        provider_count = (
+            await session.execute(
+                text(
+                    "SELECT count(*) FROM capability_providers "
+                    "WHERE provider_id = 'professor-lu-passed'"
+                )
+            )
+        ).scalar_one()
+        shadow_status = (
+            await session.execute(
+                text(
+                    "SELECT status FROM provider_shadow_validation_runs WHERE run_id = 'run-passed'"
+                )
+            )
+        ).scalar_one()
+    assert provider_count == 0
+    assert shadow_status == "passed"
+
+
+async def test_provider_rollout_stage_progression_pause_cancel_and_listing(
+    client: AsyncClient,
+) -> None:
+    await _create_passed_shadow_run(
+        client,
+        application_id="app-professor-lu",
+        requested_provider_id="professor-lu-rollout",
+    )
+    create = await client.put(
+        "/v1/provider-applications/app-professor-lu/evaluation-requests/eval-001"
+        "/shadow-runs/run-001/rollouts/rollout-001",
+        json=rollout_payload(),
+    )
+    assert create.status_code == 200, create.text
+
+    skip = await client.post(
+        "/v1/provider-applications/app-professor-lu/evaluation-requests/eval-001"
+        "/shadow-runs/run-001/rollouts/rollout-001/advance",
+        json=rollout_action_payload(target_stage_percent=50),
+    )
+    assert skip.status_code == 422
+
+    first = await client.post(
+        "/v1/provider-applications/app-professor-lu/evaluation-requests/eval-001"
+        "/shadow-runs/run-001/rollouts/rollout-001/advance",
+        json=rollout_action_payload(target_stage_percent=5),
+    )
+    assert first.status_code == 200, first.text
+    first_body = first.json()
+    assert first_body["status"] == "active"
+    assert first_body["current_stage_percent"] == 5
+    assert first_body["started_at"] is not None
+    assert [item["stage_percent"] for item in first_body["stage_history"]] == [5]
+
+    pause = await client.post(
+        "/v1/provider-applications/app-professor-lu/evaluation-requests/eval-001"
+        "/shadow-runs/run-001/rollouts/rollout-001/pause",
+        json=rollout_action_payload(reason_ref="oss://provider-rollouts/reason-pause.json"),
+    )
+    assert pause.status_code == 200, pause.text
+    assert pause.json()["status"] == "paused"
+    assert pause.json()["paused_at"] is not None
+
+    resume = await client.post(
+        "/v1/provider-applications/app-professor-lu/evaluation-requests/eval-001"
+        "/shadow-runs/run-001/rollouts/rollout-001/advance",
+        json=rollout_action_payload(target_stage_percent=50),
+    )
+    assert resume.status_code == 200, resume.text
+    assert resume.json()["status"] == "active"
+    assert resume.json()["current_stage_percent"] == 50
+    assert resume.json()["started_at"] == first_body["started_at"]
+
+    complete = await client.post(
+        "/v1/provider-applications/app-professor-lu/evaluation-requests/eval-001"
+        "/shadow-runs/run-001/rollouts/rollout-001/advance",
+        json=rollout_action_payload(target_stage_percent=100),
+    )
+    assert complete.status_code == 200, complete.text
+    complete_body = complete.json()
+    assert complete_body["status"] == "completed"
+    assert complete_body["current_stage_percent"] == 100
+    assert complete_body["completed_at"] is not None
+    assert [item["action"] for item in complete_body["stage_history"]] == [
+        "advance",
+        "pause",
+        "advance",
+        "advance",
+    ]
+
+    replay = await client.post(
+        "/v1/provider-applications/app-professor-lu/evaluation-requests/eval-001"
+        "/shadow-runs/run-001/rollouts/rollout-001/advance",
+        json=rollout_action_payload(target_stage_percent=100),
+    )
+    assert replay.status_code == 200, replay.text
+    assert replay.json()["completed_at"] == complete_body["completed_at"]
+    assert replay.json()["stage_history"] == complete_body["stage_history"]
+
+    cannot_cancel_completed = await client.post(
+        "/v1/provider-applications/app-professor-lu/evaluation-requests/eval-001"
+        "/shadow-runs/run-001/rollouts/rollout-001/cancel",
+        json=rollout_action_payload(reason_ref="oss://provider-rollouts/reason-cancel.json"),
+    )
+    assert cannot_cancel_completed.status_code == 422
+
+    await client.put(
+        "/v1/provider-applications/app-professor-lu/evaluation-requests/eval-001"
+        "/shadow-runs/run-001/rollouts/rollout-002",
+        json=rollout_payload(
+            evidence_refs=["oss://provider-rollouts/app-professor-lu/run-001/rollout-002.json"]
+        ),
+    )
+    cancel = await client.post(
+        "/v1/provider-applications/app-professor-lu/evaluation-requests/eval-001"
+        "/shadow-runs/run-001/rollouts/rollout-002/cancel",
+        json=rollout_action_payload(reason_ref="oss://provider-rollouts/reason-cancel.json"),
+    )
+    assert cancel.status_code == 200, cancel.text
+    assert cancel.json()["status"] == "cancelled"
+    cancel_replay = await client.post(
+        "/v1/provider-applications/app-professor-lu/evaluation-requests/eval-001"
+        "/shadow-runs/run-001/rollouts/rollout-002/cancel",
+        json=rollout_action_payload(reason_ref="oss://provider-rollouts/reason-cancel.json"),
+    )
+    assert cancel_replay.status_code == 200, cancel_replay.text
+    assert cancel_replay.json()["stage_history"] == cancel.json()["stage_history"]
+
+    cancelled_advance = await client.post(
+        "/v1/provider-applications/app-professor-lu/evaluation-requests/eval-001"
+        "/shadow-runs/run-001/rollouts/rollout-002/advance",
+        json=rollout_action_payload(target_stage_percent=5),
+    )
+    assert cancelled_advance.status_code == 422
+
+    pause_with_target = await client.post(
+        "/v1/provider-applications/app-professor-lu/evaluation-requests/eval-001"
+        "/shadow-runs/run-001/rollouts/rollout-002/pause",
+        json=rollout_action_payload(target_stage_percent=50),
+    )
+    assert pause_with_target.status_code == 422
+
+    listed = await client.get(
+        "/v1/provider-applications/app-professor-lu/evaluation-requests/eval-001"
+        "/shadow-runs/run-001/rollouts?status=completed&stage_percent=100"
+    )
+    assert listed.status_code == 200, listed.text
+    assert [item["rollout_id"] for item in listed.json()] == ["rollout-001"]
+
+
+async def test_provider_rollout_tenant_scope_and_write_auth(
+    client: AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    tenant_id = str(uuid.uuid4())
+    await client.put(
+        "/v1/provider-applications/app-global",
+        json=provider_application_payload(status="submitted"),
+    )
+    await client.put(
+        f"/v1/provider-applications/app-global/evaluation-requests/eval-tenant?tenant_id={tenant_id}",
+        json=provider_evaluation_payload(
+            tenant_id=tenant_id,
+            evaluation_id="eval-tenant",
+            status="queued",
+        ),
+    )
+    tenant_run = await client.put(
+        "/v1/provider-applications/app-global/evaluation-requests/eval-tenant/shadow-runs/run-001",
+        json=shadow_run_payload(tenant_id=tenant_id),
+    )
+    assert tenant_run.status_code == 200, tenant_run.text
+
+    global_rollout_against_tenant = await client.put(
+        "/v1/provider-applications/app-global/evaluation-requests/eval-tenant"
+        "/shadow-runs/run-001/rollouts/rollout-001",
+        json=rollout_payload(),
+    )
+    assert global_rollout_against_tenant.status_code == 404
+
+    async with client.stream(
+        "POST",
+        "/v1/provider-applications/app-global/evaluation-requests/eval-tenant"
+        f"/shadow-runs/run-001/finalize?tenant_id={tenant_id}",
+    ) as finalize:
+        assert finalize.status_code == 200
+    tenant_failed_rollout = await client.put(
+        "/v1/provider-applications/app-global/evaluation-requests/eval-tenant"
+        "/shadow-runs/run-001/rollouts/rollout-001",
+        json=rollout_payload(tenant_id=tenant_id),
+    )
+    assert tenant_failed_rollout.status_code == 422
+
+    await _create_passed_shadow_run(
+        client,
+        application_id="app-professor-lu",
+        requested_provider_id="professor-lu-auth",
+    )
+    monkeypatch.setattr(
+        "capability_registry.routes.settings.internal_secret",
+        SecretStr("internal-test-secret"),
+    )
+    missing_auth = await client.put(
+        "/v1/provider-applications/app-professor-lu/evaluation-requests/eval-001"
+        "/shadow-runs/run-001/rollouts/rollout-001",
+        json=rollout_payload(),
+    )
+    assert missing_auth.status_code == 401
+    ok = await client.put(
+        "/v1/provider-applications/app-professor-lu/evaluation-requests/eval-001"
+        "/shadow-runs/run-001/rollouts/rollout-001",
+        json=rollout_payload(),
+        headers={"X-Internal-Service-Auth": "internal-test-secret"},
+    )
+    assert ok.status_code == 200, ok.text
+    missing_advance_auth = await client.post(
+        "/v1/provider-applications/app-professor-lu/evaluation-requests/eval-001"
+        "/shadow-runs/run-001/rollouts/rollout-001/advance",
+        json=rollout_action_payload(target_stage_percent=5),
+    )
+    assert missing_advance_auth.status_code == 401
+
+
+def test_provider_rollout_openapi_omits_unsafe_fields() -> None:
+    spec = json.loads(OPENAPI_PATH.read_text(encoding="utf-8"))
+    rollout_schemas = {
+        name: schema
+        for name, schema in spec["components"]["schemas"].items()
+        if name.startswith("ProviderRollout")
+    }
+    assert rollout_schemas
+    forbidden_terms = {
+        "api_key",
+        "password",
+        "client_secret",
+        "access_token",
+        "refresh_token",
+        "registry_password",
+        "docker_password",
+        "bank_account",
+        "tax_id",
+        "raw_dataset",
+        "raw_request",
+        "raw_response",
+        "provider_request",
+        "provider_response",
+        "routing_payload",
+        "customer_payload",
+    }
+    request_properties = set(rollout_schemas["ProviderRolloutUpsertRequest"].get("properties", {}))
+    action_properties = set(rollout_schemas["ProviderRolloutActionRequest"].get("properties", {}))
+    response_properties = set(rollout_schemas["ProviderRolloutResponse"].get("properties", {}))
+    assert "stage_history" not in request_properties
+    assert "shadow_summary_snapshot" not in request_properties
+    assert "current_stage_percent" not in request_properties
+    assert "target_stage_percent" in action_properties
+    assert "stage_history" in response_properties
+    assert "shadow_summary_snapshot" in response_properties
+    for schema in rollout_schemas.values():
         properties = set(schema.get("properties", {}))
         assert properties.isdisjoint(forbidden_terms)
