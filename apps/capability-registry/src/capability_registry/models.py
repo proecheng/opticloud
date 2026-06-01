@@ -267,3 +267,118 @@ class RevenueShareHook(Base):
             "period_month",
         ),
     )
+
+
+class ProviderApplication(Base):
+    """Provider Marketplace v2 application intake record.
+
+    This is not the live provider catalog. Applications reserve references for
+    later review and shadow validation stories.
+    """
+
+    __tablename__ = "provider_applications"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()
+    )
+    tenant_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    application_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    requested_provider_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    provider_kind: Mapped[str] = mapped_column(String(32), nullable=False)
+    display_name: Mapped[str] = mapped_column(String(120), nullable=False)
+    organization_name: Mapped[str] = mapped_column(String(160), nullable=False)
+    contact_email: Mapped[str] = mapped_column(String(254), nullable=False)
+    homepage_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    openapi_url: Mapped[str] = mapped_column(Text, nullable=False)
+    openapi_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    image_digest: Mapped[str] = mapped_column(Text, nullable=False)
+    cosign_bundle: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+    evaluation_profile: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="draft")
+    submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    application_metadata: Mapped[dict[str, Any]] = mapped_column(
+        "metadata", JSONB, nullable=False, default=dict
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    __table_args__ = (
+        Index(
+            "uq_provider_applications_global_application_id",
+            "application_id",
+            unique=True,
+            postgresql_where=text("tenant_id IS NULL"),
+        ),
+        Index(
+            "uq_provider_applications_tenant_application_id",
+            "tenant_id",
+            "application_id",
+            unique=True,
+            postgresql_where=text("tenant_id IS NOT NULL"),
+        ),
+        Index(
+            "uq_provider_applications_global_requested_provider_id",
+            "requested_provider_id",
+            unique=True,
+            postgresql_where=text("tenant_id IS NULL"),
+        ),
+        Index(
+            "uq_provider_applications_tenant_requested_provider_id",
+            "tenant_id",
+            "requested_provider_id",
+            unique=True,
+            postgresql_where=text("tenant_id IS NOT NULL"),
+        ),
+    )
+
+
+class ProviderApplicationEvaluationRequest(Base):
+    """Evaluation intake request for a submitted provider application."""
+
+    __tablename__ = "provider_application_evaluation_requests"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()
+    )
+    tenant_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    application_row_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    application_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    evaluation_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    requested_provider_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    benchmark_suite: Mapped[str] = mapped_column(String(64), nullable=False)
+    sample_count: Mapped[int] = mapped_column(nullable=False)
+    timeout_seconds: Mapped[int] = mapped_column(nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="requested")
+    dataset_refs: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
+    report_ref: Mapped[str | None] = mapped_column(Text, nullable=True)
+    evaluation_metadata: Mapped[dict[str, Any]] = mapped_column(
+        "metadata", JSONB, nullable=False, default=dict
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    __table_args__ = (
+        Index(
+            "uq_provider_application_evaluations_global_eval_id",
+            "application_row_id",
+            "evaluation_id",
+            unique=True,
+            postgresql_where=text("tenant_id IS NULL"),
+        ),
+        Index(
+            "uq_provider_application_evaluations_tenant_eval_id",
+            "tenant_id",
+            "application_row_id",
+            "evaluation_id",
+            unique=True,
+            postgresql_where=text("tenant_id IS NOT NULL"),
+        ),
+    )

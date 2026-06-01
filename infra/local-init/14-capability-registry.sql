@@ -346,3 +346,222 @@ CREATE INDEX IF NOT EXISTS idx_revenue_share_hooks_lookup
 
 CREATE INDEX IF NOT EXISTS idx_revenue_share_hooks_policy_id
     ON revenue_share_hooks(policy_id);
+
+-- Story 7.B.1: Provider Apply v2 intake contract.
+-- Intake-only application/evaluation records; no provider catalog mutation or worker execution.
+
+CREATE TABLE IF NOT EXISTS provider_applications (
+    id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id               UUID NULL,
+    application_id          VARCHAR(64) NOT NULL,
+    requested_provider_id   VARCHAR(64) NOT NULL,
+    provider_kind           VARCHAR(32) NOT NULL,
+    display_name            VARCHAR(120) NOT NULL,
+    organization_name       VARCHAR(160) NOT NULL,
+    contact_email           VARCHAR(254) NOT NULL,
+    homepage_url            TEXT NULL,
+    openapi_url             TEXT NOT NULL,
+    openapi_sha256          VARCHAR(64) NOT NULL,
+    image_digest            TEXT NOT NULL,
+    cosign_bundle           JSONB NOT NULL DEFAULT '{}'::jsonb,
+    evaluation_profile      JSONB NOT NULL DEFAULT '{}'::jsonb,
+    status                  VARCHAR(32) NOT NULL DEFAULT 'draft',
+    submitted_at            TIMESTAMPTZ NULL,
+    metadata                JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at              TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE provider_applications
+    ADD COLUMN IF NOT EXISTS tenant_id UUID NULL,
+    ADD COLUMN IF NOT EXISTS homepage_url TEXT NULL,
+    ADD COLUMN IF NOT EXISTS submitted_at TIMESTAMPTZ NULL,
+    ADD COLUMN IF NOT EXISTS metadata JSONB NOT NULL DEFAULT '{}'::jsonb;
+
+ALTER TABLE provider_applications
+    DROP CONSTRAINT IF EXISTS ck_provider_applications_application_id;
+ALTER TABLE provider_applications
+    ADD CONSTRAINT ck_provider_applications_application_id
+    CHECK (application_id ~ '^[a-z0-9][a-z0-9-]{0,63}$');
+
+ALTER TABLE provider_applications
+    DROP CONSTRAINT IF EXISTS ck_provider_applications_requested_provider_id;
+ALTER TABLE provider_applications
+    ADD CONSTRAINT ck_provider_applications_requested_provider_id
+    CHECK (requested_provider_id ~ '^[a-z0-9][a-z0-9-]{0,63}$');
+
+ALTER TABLE provider_applications
+    DROP CONSTRAINT IF EXISTS ck_provider_applications_provider_kind;
+ALTER TABLE provider_applications
+    ADD CONSTRAINT ck_provider_applications_provider_kind
+    CHECK (provider_kind IN ('external', 'commercial'));
+
+ALTER TABLE provider_applications
+    DROP CONSTRAINT IF EXISTS ck_provider_applications_status;
+ALTER TABLE provider_applications
+    ADD CONSTRAINT ck_provider_applications_status
+    CHECK (status IN ('draft', 'submitted'));
+
+ALTER TABLE provider_applications
+    DROP CONSTRAINT IF EXISTS ck_provider_applications_contact_email;
+ALTER TABLE provider_applications
+    ADD CONSTRAINT ck_provider_applications_contact_email
+    CHECK (contact_email ~ '^[^@\s]+@[^@\s]+\.[^@\s]+$');
+
+ALTER TABLE provider_applications
+    DROP CONSTRAINT IF EXISTS ck_provider_applications_homepage_url;
+ALTER TABLE provider_applications
+    ADD CONSTRAINT ck_provider_applications_homepage_url
+    CHECK (homepage_url IS NULL OR homepage_url ~ '^https?://');
+
+ALTER TABLE provider_applications
+    DROP CONSTRAINT IF EXISTS ck_provider_applications_openapi_url;
+ALTER TABLE provider_applications
+    ADD CONSTRAINT ck_provider_applications_openapi_url
+    CHECK (openapi_url ~ '^https?://');
+
+ALTER TABLE provider_applications
+    DROP CONSTRAINT IF EXISTS ck_provider_applications_openapi_sha256;
+ALTER TABLE provider_applications
+    ADD CONSTRAINT ck_provider_applications_openapi_sha256
+    CHECK (openapi_sha256 ~ '^[0-9A-Fa-f]{64}$');
+
+ALTER TABLE provider_applications
+    DROP CONSTRAINT IF EXISTS ck_provider_applications_image_digest;
+ALTER TABLE provider_applications
+    ADD CONSTRAINT ck_provider_applications_image_digest
+    CHECK (image_digest ~ 'sha256:[0-9A-Fa-f]{64}');
+
+ALTER TABLE provider_applications
+    DROP CONSTRAINT IF EXISTS ck_provider_applications_cosign_bundle_object;
+ALTER TABLE provider_applications
+    ADD CONSTRAINT ck_provider_applications_cosign_bundle_object
+    CHECK (jsonb_typeof(cosign_bundle) = 'object');
+
+ALTER TABLE provider_applications
+    DROP CONSTRAINT IF EXISTS ck_provider_applications_evaluation_profile_object;
+ALTER TABLE provider_applications
+    ADD CONSTRAINT ck_provider_applications_evaluation_profile_object
+    CHECK (jsonb_typeof(evaluation_profile) = 'object');
+
+ALTER TABLE provider_applications
+    DROP CONSTRAINT IF EXISTS ck_provider_applications_metadata_object;
+ALTER TABLE provider_applications
+    ADD CONSTRAINT ck_provider_applications_metadata_object
+    CHECK (jsonb_typeof(metadata) = 'object');
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_provider_applications_global_application_id
+    ON provider_applications(application_id)
+    WHERE tenant_id IS NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_provider_applications_tenant_application_id
+    ON provider_applications(tenant_id, application_id)
+    WHERE tenant_id IS NOT NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_provider_applications_global_requested_provider_id
+    ON provider_applications(requested_provider_id)
+    WHERE tenant_id IS NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_provider_applications_tenant_requested_provider_id
+    ON provider_applications(tenant_id, requested_provider_id)
+    WHERE tenant_id IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_provider_applications_status
+    ON provider_applications(status, requested_provider_id);
+
+CREATE TABLE IF NOT EXISTS provider_application_evaluation_requests (
+    id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id               UUID NULL,
+    application_row_id      UUID NOT NULL REFERENCES provider_applications(id) ON DELETE CASCADE,
+    application_id          VARCHAR(64) NOT NULL,
+    evaluation_id           VARCHAR(64) NOT NULL,
+    requested_provider_id   VARCHAR(64) NOT NULL,
+    benchmark_suite         VARCHAR(64) NOT NULL,
+    sample_count            INTEGER NOT NULL,
+    timeout_seconds         INTEGER NOT NULL,
+    status                  VARCHAR(32) NOT NULL DEFAULT 'requested',
+    dataset_refs            JSONB NOT NULL DEFAULT '[]'::jsonb,
+    report_ref              TEXT NULL,
+    metadata                JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at              TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE provider_application_evaluation_requests
+    ADD COLUMN IF NOT EXISTS tenant_id UUID NULL,
+    ADD COLUMN IF NOT EXISTS report_ref TEXT NULL,
+    ADD COLUMN IF NOT EXISTS metadata JSONB NOT NULL DEFAULT '{}'::jsonb;
+
+ALTER TABLE provider_application_evaluation_requests
+    DROP CONSTRAINT IF EXISTS ck_provider_application_evaluations_application_id;
+ALTER TABLE provider_application_evaluation_requests
+    ADD CONSTRAINT ck_provider_application_evaluations_application_id
+    CHECK (application_id ~ '^[a-z0-9][a-z0-9-]{0,63}$');
+
+ALTER TABLE provider_application_evaluation_requests
+    DROP CONSTRAINT IF EXISTS ck_provider_application_evaluations_evaluation_id;
+ALTER TABLE provider_application_evaluation_requests
+    ADD CONSTRAINT ck_provider_application_evaluations_evaluation_id
+    CHECK (evaluation_id ~ '^[a-z0-9][a-z0-9-]{0,63}$');
+
+ALTER TABLE provider_application_evaluation_requests
+    DROP CONSTRAINT IF EXISTS ck_provider_application_evaluations_requested_provider_id;
+ALTER TABLE provider_application_evaluation_requests
+    ADD CONSTRAINT ck_provider_application_evaluations_requested_provider_id
+    CHECK (requested_provider_id ~ '^[a-z0-9][a-z0-9-]{0,63}$');
+
+ALTER TABLE provider_application_evaluation_requests
+    DROP CONSTRAINT IF EXISTS ck_provider_application_evaluations_benchmark_suite;
+ALTER TABLE provider_application_evaluation_requests
+    ADD CONSTRAINT ck_provider_application_evaluations_benchmark_suite
+    CHECK (benchmark_suite ~ '^[a-z0-9][a-z0-9_-]{0,63}$');
+
+ALTER TABLE provider_application_evaluation_requests
+    DROP CONSTRAINT IF EXISTS ck_provider_application_evaluations_sample_count;
+ALTER TABLE provider_application_evaluation_requests
+    ADD CONSTRAINT ck_provider_application_evaluations_sample_count
+    CHECK (sample_count BETWEEN 1 AND 500);
+
+ALTER TABLE provider_application_evaluation_requests
+    DROP CONSTRAINT IF EXISTS ck_provider_application_evaluations_timeout_seconds;
+ALTER TABLE provider_application_evaluation_requests
+    ADD CONSTRAINT ck_provider_application_evaluations_timeout_seconds
+    CHECK (timeout_seconds BETWEEN 1 AND 60);
+
+ALTER TABLE provider_application_evaluation_requests
+    DROP CONSTRAINT IF EXISTS ck_provider_application_evaluations_status;
+ALTER TABLE provider_application_evaluation_requests
+    ADD CONSTRAINT ck_provider_application_evaluations_status
+    CHECK (status IN ('requested', 'queued', 'cancelled'));
+
+ALTER TABLE provider_application_evaluation_requests
+    DROP CONSTRAINT IF EXISTS ck_provider_application_evaluations_dataset_refs;
+ALTER TABLE provider_application_evaluation_requests
+    ADD CONSTRAINT ck_provider_application_evaluations_dataset_refs
+    CHECK (
+        jsonb_typeof(dataset_refs) = 'array'
+        AND jsonb_array_length(dataset_refs) >= 1
+    );
+
+ALTER TABLE provider_application_evaluation_requests
+    DROP CONSTRAINT IF EXISTS ck_provider_application_evaluations_report_ref;
+ALTER TABLE provider_application_evaluation_requests
+    ADD CONSTRAINT ck_provider_application_evaluations_report_ref
+    CHECK (report_ref IS NULL OR report_ref ~ '^(s3|oss|fixture|benchmark|repro)://');
+
+ALTER TABLE provider_application_evaluation_requests
+    DROP CONSTRAINT IF EXISTS ck_provider_application_evaluations_metadata_object;
+ALTER TABLE provider_application_evaluation_requests
+    ADD CONSTRAINT ck_provider_application_evaluations_metadata_object
+    CHECK (jsonb_typeof(metadata) = 'object');
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_provider_application_evaluations_global_eval_id
+    ON provider_application_evaluation_requests(application_row_id, evaluation_id)
+    WHERE tenant_id IS NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_provider_application_evaluations_tenant_eval_id
+    ON provider_application_evaluation_requests(tenant_id, application_row_id, evaluation_id)
+    WHERE tenant_id IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_provider_application_evaluations_application
+    ON provider_application_evaluation_requests(application_row_id, status);

@@ -88,7 +88,8 @@ async def clean_tables(engine: AsyncEngine) -> AsyncIterator[None]:
     async with maker() as session:
         await session.execute(
             text(
-                "TRUNCATE revenue_share_hooks, revenue_share_policies, "
+                "TRUNCATE provider_application_evaluation_requests, provider_applications, "
+                "revenue_share_hooks, revenue_share_policies, "
                 "provider_oauth_flows, capability_tags, capabilities, "
                 "capability_providers RESTART IDENTITY CASCADE"
             )
@@ -180,6 +181,40 @@ def hook_payload(**overrides: Any) -> dict[str, Any]:
         "gross_amount_ref": "credit-ledger:gross:v1",
         "currency": "CNY",
         "status": "reserved",
+        "metadata": {"source": "test"},
+    }
+    payload.update(overrides)
+    return payload
+
+
+def provider_application_payload(**overrides: Any) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "requested_provider_id": "professor-lu",
+        "provider_kind": "external",
+        "display_name": "Professor Lu VRPTW",
+        "organization_name": "Lu Lab",
+        "contact_email": "provider@example.edu",
+        "homepage_url": "https://lab.example.edu/provider",
+        "openapi_url": "https://lab.example.edu/openapi.json",
+        "openapi_sha256": SHA,
+        "image_digest": DIGEST,
+        "cosign_bundle": {"bundle_ref": "oss://provider-applications/professor-lu/cosign.json"},
+        "evaluation_profile": {"suite_ref": "benchmark://provider-intake/lp-standard"},
+        "status": "draft",
+        "metadata": {"source": "test"},
+    }
+    payload.update(overrides)
+    return payload
+
+
+def provider_evaluation_payload(**overrides: Any) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "benchmark_suite": "lp_standard_500",
+        "sample_count": 500,
+        "timeout_seconds": 60,
+        "status": "requested",
+        "dataset_refs": ["benchmark://provider-intake/lp-standard-v1"],
+        "report_ref": "oss://provider-evaluations/app-professor-lu/eval-001/report.json",
         "metadata": {"source": "test"},
     }
     payload.update(overrides)
@@ -690,3 +725,377 @@ def test_revenue_share_openapi_omits_unsafe_fields() -> None:
     for schema in revenue_schemas.values():
         properties = set(schema.get("properties", {}))
         assert properties.isdisjoint(forbidden_terms)
+
+
+async def test_provider_application_upsert_read_submit_and_no_catalog_side_effect(
+    client: AsyncClient,
+    engine: AsyncEngine,
+) -> None:
+    create = await client.put(
+        "/v1/provider-applications/app-professor-lu",
+        json=provider_application_payload(),
+    )
+    assert create.status_code == 200, create.text
+    body = create.json()
+    assert body["application_id"] == "app-professor-lu"
+    assert body["requested_provider_id"] == "professor-lu"
+    assert body["status"] == "draft"
+    assert body["submitted_at"] is None
+
+    read = await client.get("/v1/provider-applications/app-professor-lu")
+    assert read.status_code == 200, read.text
+    assert read.json()["scope_source"] == "global"
+
+    submit = await client.post("/v1/provider-applications/app-professor-lu/submit")
+    assert submit.status_code == 200, submit.text
+    submitted = submit.json()
+    assert submitted["status"] == "submitted"
+    assert submitted["submitted_at"] is not None
+
+    replay = await client.post("/v1/provider-applications/app-professor-lu/submit")
+    assert replay.status_code == 200, replay.text
+    assert replay.json()["submitted_at"] == submitted["submitted_at"]
+
+    maker = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
+    async with maker() as session:
+        provider_count = (
+            await session.execute(
+                text("SELECT count(*) FROM capability_providers WHERE provider_id = 'professor-lu'")
+            )
+        ).scalar_one()
+    assert provider_count == 0
+
+
+async def test_provider_application_validation_scope_and_immutability(
+    client: AsyncClient,
+) -> None:
+    bad_kind = await client.put(
+        "/v1/provider-applications/app-professor-lu",
+        json=provider_application_payload(provider_kind="open_source"),
+    )
+    assert bad_kind.status_code == 422
+
+    bad_url = await client.put(
+        "/v1/provider-applications/app-professor-lu",
+        json=provider_application_payload(openapi_url="file:///tmp/openapi.json"),
+    )
+    assert bad_url.status_code == 422
+
+    bad_secret_metadata = await client.put(
+        "/v1/provider-applications/app-professor-lu",
+        json=provider_application_payload(metadata={"nested": {"api_key": "raw"}}),
+    )
+    assert bad_secret_metadata.status_code == 422
+
+    bad_pii_metadata = await client.put(
+        "/v1/provider-applications/app-professor-lu",
+        json=provider_application_payload(
+            metadata={"nested": {"contact_email": "leak@example.edu"}}
+        ),
+    )
+    assert bad_pii_metadata.status_code == 422
+
+    bad_camel_secret = await client.put(
+        "/v1/provider-applications/app-professor-lu",
+        json=provider_application_payload(cosign_bundle={"registryPassword": "raw"}),
+    )
+    assert bad_camel_secret.status_code == 422
+
+    create = await client.put(
+        "/v1/provider-applications/app-professor-lu",
+        json=provider_application_payload(status="submitted"),
+    )
+    assert create.status_code == 200, create.text
+    submitted_at = create.json()["submitted_at"]
+
+    mutate_artifact = await client.put(
+        "/v1/provider-applications/app-professor-lu",
+        json=provider_application_payload(openapi_sha256="b" * 64, status="submitted"),
+    )
+    assert mutate_artifact.status_code == 422
+    assert "immutable" in mutate_artifact.text
+
+    back_to_draft = await client.put(
+        "/v1/provider-applications/app-professor-lu",
+        json=provider_application_payload(status="draft"),
+    )
+    assert back_to_draft.status_code == 422
+
+    keep_non_material = await client.put(
+        "/v1/provider-applications/app-professor-lu",
+        json=provider_application_payload(
+            display_name="Professor Lu Updated",
+            status="submitted",
+            submitted_at=submitted_at,
+        ),
+    )
+    assert keep_non_material.status_code == 200, keep_non_material.text
+    assert keep_non_material.json()["display_name"] == "Professor Lu Updated"
+    assert keep_non_material.json()["submitted_at"] == submitted_at
+
+    tenant_id = str(uuid.uuid4())
+    tenant_read = await client.get(
+        f"/v1/provider-applications/app-professor-lu?tenant_id={tenant_id}"
+    )
+    assert tenant_read.status_code == 200, tenant_read.text
+    assert tenant_read.json()["scope_source"] == "global_fallback"
+
+    tenant_application = await client.put(
+        "/v1/provider-applications/app-professor-lu",
+        json=provider_application_payload(
+            tenant_id=tenant_id,
+            requested_provider_id="professor-lu-tenant",
+        ),
+    )
+    assert tenant_application.status_code == 200, tenant_application.text
+    assert tenant_application.json()["scope_source"] == "tenant"
+
+    tenant_mutation = await client.put(
+        "/v1/provider-applications/app-professor-lu",
+        json=provider_application_payload(
+            tenant_id=str(uuid.uuid4()),
+            requested_provider_id="professor-lu-other-tenant",
+        ),
+    )
+    assert tenant_mutation.status_code == 200, tenant_mutation.text
+
+
+async def test_provider_application_duplicate_requested_provider_returns_422(
+    client: AsyncClient,
+    engine: AsyncEngine,
+) -> None:
+    first = await client.put(
+        "/v1/provider-applications/app-professor-lu",
+        json=provider_application_payload(),
+    )
+    assert first.status_code == 200, first.text
+
+    duplicate_provider = await client.put(
+        "/v1/provider-applications/app-professor-lu-copy",
+        json=provider_application_payload(),
+    )
+    assert duplicate_provider.status_code == 422
+    assert "requested_provider_id" in duplicate_provider.text
+
+    maker = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
+    async with maker() as session:
+        with pytest.raises(IntegrityError):
+            await session.execute(
+                text(
+                    """
+                    INSERT INTO provider_applications(
+                        application_id,
+                        requested_provider_id,
+                        provider_kind,
+                        display_name,
+                        organization_name,
+                        contact_email,
+                        openapi_url,
+                        openapi_sha256,
+                        image_digest
+                    )
+                    VALUES (
+                        'app-professor-lu-db',
+                        'professor-lu',
+                        'external',
+                        'Professor Lu',
+                        'Lu Lab',
+                        'provider@example.edu',
+                        'https://lab.example.edu/openapi.json',
+                        :sha,
+                        :digest
+                    )
+                    """
+                ),
+                {"sha": SHA, "digest": DIGEST},
+            )
+            await session.commit()
+
+
+async def test_provider_evaluation_requires_submitted_application_and_valid_refs(
+    client: AsyncClient,
+) -> None:
+    draft = await client.put(
+        "/v1/provider-applications/app-professor-lu",
+        json=provider_application_payload(),
+    )
+    assert draft.status_code == 200, draft.text
+
+    draft_eval = await client.put(
+        "/v1/provider-applications/app-professor-lu/evaluation-requests/eval-001",
+        json=provider_evaluation_payload(),
+    )
+    assert draft_eval.status_code == 422
+    assert "submitted" in draft_eval.text
+
+    await client.post("/v1/provider-applications/app-professor-lu/submit")
+
+    bad_dataset = await client.put(
+        "/v1/provider-applications/app-professor-lu/evaluation-requests/eval-001",
+        json=provider_evaluation_payload(dataset_refs=["raw,dataset,row"]),
+    )
+    assert bad_dataset.status_code == 422
+
+    body_with_provider = provider_evaluation_payload()
+    body_with_provider["requested_provider_id"] = "spoofed"
+    spoofed_provider = await client.put(
+        "/v1/provider-applications/app-professor-lu/evaluation-requests/eval-001",
+        json=body_with_provider,
+    )
+    assert spoofed_provider.status_code == 422
+
+    create = await client.put(
+        "/v1/provider-applications/app-professor-lu/evaluation-requests/eval-001",
+        json=provider_evaluation_payload(status="queued"),
+    )
+    assert create.status_code == 200, create.text
+    evaluation = create.json()
+    assert evaluation["application_id"] == "app-professor-lu"
+    assert evaluation["evaluation_id"] == "eval-001"
+    assert evaluation["requested_provider_id"] == "professor-lu"
+    assert evaluation["status"] == "queued"
+
+    read = await client.get(
+        "/v1/provider-applications/app-professor-lu/evaluation-requests/eval-001"
+    )
+    assert read.status_code == 200, read.text
+    assert read.json()["scope_source"] == "global"
+
+    listed = await client.get(
+        "/v1/provider-applications/app-professor-lu/evaluation-requests?status=queued"
+    )
+    assert listed.status_code == 200, listed.text
+    assert [item["evaluation_id"] for item in listed.json()] == ["eval-001"]
+
+    locked_mutation = await client.put(
+        "/v1/provider-applications/app-professor-lu/evaluation-requests/eval-001",
+        json=provider_evaluation_payload(status="queued", sample_count=10),
+    )
+    assert locked_mutation.status_code == 422
+    assert "immutable" in locked_mutation.text
+
+    locked_status_mutation = await client.put(
+        "/v1/provider-applications/app-professor-lu/evaluation-requests/eval-001",
+        json=provider_evaluation_payload(status="cancelled"),
+    )
+    assert locked_status_mutation.status_code == 422
+    assert "immutable" in locked_status_mutation.text
+
+    idempotent = await client.put(
+        "/v1/provider-applications/app-professor-lu/evaluation-requests/eval-001",
+        json=provider_evaluation_payload(status="queued"),
+    )
+    assert idempotent.status_code == 200, idempotent.text
+    assert idempotent.json()["id"] == evaluation["id"]
+
+
+async def test_provider_evaluation_tenant_global_fallback_and_cross_application_scope(
+    client: AsyncClient,
+) -> None:
+    tenant_id = str(uuid.uuid4())
+    await client.put(
+        "/v1/provider-applications/app-global",
+        json=provider_application_payload(status="submitted"),
+    )
+    await client.put(
+        "/v1/provider-applications/app-tenant",
+        json=provider_application_payload(
+            tenant_id=tenant_id,
+            requested_provider_id="tenant-provider",
+            status="submitted",
+        ),
+    )
+
+    fallback_eval = await client.put(
+        f"/v1/provider-applications/app-global/evaluation-requests/eval-001?tenant_id={tenant_id}",
+        json=provider_evaluation_payload(tenant_id=tenant_id),
+    )
+    assert fallback_eval.status_code == 200, fallback_eval.text
+    assert fallback_eval.json()["scope_source"] == "tenant"
+    assert fallback_eval.json()["requested_provider_id"] == "professor-lu"
+
+    tenant_eval = await client.put(
+        "/v1/provider-applications/app-tenant/evaluation-requests/eval-001",
+        json=provider_evaluation_payload(
+            tenant_id=tenant_id,
+            benchmark_suite="vrptw_standard_500",
+        ),
+    )
+    assert tenant_eval.status_code == 200, tenant_eval.text
+    assert tenant_eval.json()["requested_provider_id"] == "tenant-provider"
+
+    global_list = await client.get("/v1/provider-applications/app-global/evaluation-requests")
+    assert global_list.status_code == 200, global_list.text
+    assert global_list.json() == []
+
+    tenant_list = await client.get(
+        f"/v1/provider-applications/app-global/evaluation-requests?tenant_id={tenant_id}"
+    )
+    assert tenant_list.status_code == 200, tenant_list.text
+    assert [item["evaluation_id"] for item in tenant_list.json()] == ["eval-001"]
+
+
+async def test_provider_application_write_protection_when_internal_secret_configured(
+    client: AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "capability_registry.routes.settings.internal_secret",
+        SecretStr("internal-test-secret"),
+    )
+
+    missing = await client.put(
+        "/v1/provider-applications/app-professor-lu",
+        json=provider_application_payload(),
+    )
+    assert missing.status_code == 401
+
+    ok = await client.put(
+        "/v1/provider-applications/app-professor-lu",
+        json=provider_application_payload(status="submitted"),
+        headers={"X-Internal-Service-Auth": "internal-test-secret"},
+    )
+    assert ok.status_code == 200, ok.text
+
+    missing_eval_auth = await client.put(
+        "/v1/provider-applications/app-professor-lu/evaluation-requests/eval-001",
+        json=provider_evaluation_payload(),
+    )
+    assert missing_eval_auth.status_code == 401
+
+    ok_eval = await client.put(
+        "/v1/provider-applications/app-professor-lu/evaluation-requests/eval-001",
+        json=provider_evaluation_payload(),
+        headers={"X-Internal-Service-Auth": "internal-test-secret"},
+    )
+    assert ok_eval.status_code == 200, ok_eval.text
+
+
+def test_provider_application_openapi_omits_unsafe_fields() -> None:
+    spec = json.loads(OPENAPI_PATH.read_text(encoding="utf-8"))
+    provider_application_schemas = {
+        name: schema
+        for name, schema in spec["components"]["schemas"].items()
+        if name.startswith("ProviderApplication") or name.startswith("ProviderEvaluation")
+    }
+    assert provider_application_schemas
+    forbidden_terms = {
+        "api_key",
+        "password",
+        "client_secret",
+        "access_token",
+        "refresh_token",
+        "registry_password",
+        "docker_password",
+        "bank_account",
+        "tax_id",
+        "raw_dataset",
+    }
+    request_properties = set(
+        provider_application_schemas["ProviderEvaluationUpsertRequest"].get("properties", {})
+    )
+    assert "requested_provider_id" not in request_properties
+    for name, schema in provider_application_schemas.items():
+        properties = set(schema.get("properties", {}))
+        if name != "ProviderEvaluationResponse":
+            assert properties.isdisjoint(forbidden_terms)
