@@ -3,7 +3,7 @@
 # Source: epics.md (21 Epics / 192 Stories, post AE rounds)
 # Path B unlock node sequence (5 + J1 vertical slice 4 锚点 + Critical Gaps)
 
-last_updated: 2026-05-31
+last_updated: 2026-06-01
 
 # ===== STATUS DEFINITIONS =====
 # backlog            — not yet started
@@ -184,7 +184,7 @@ development_status:
 
   5-d-1-bilingual-invoices: done              # 2026-05-31 — bilingual billing statement API/PDF/Console; post-review PDF completeness and UI state fixes applied
   5-d-2-7d-30d-sparkline-trends: done         # 2026-05-31 — reusable billing 7d/30d usage trend API + Console SparklineKPI; post-review trend error/layout fixes applied
-  5-d-3-job-templates-save: backlog
+  5-d-3-job-templates-save: done             # 2026-06-01 — solver-owned job template save foundation; post-review race/payload/schema/UI fixes applied
   5-d-4-job-templates-version: backlog
   5-d-5-monthly-budget-alert: backlog
   5-d-6-notification-preferences: backlog

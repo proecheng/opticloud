@@ -250,6 +250,60 @@ class PredictionIdempotencyKey(Base):
     __table_args__ = (Index("idx_prediction_idempotency_keys_expires_at", "expires_at"),)
 
 
+class JobTemplate(Base):
+    """Story 5.D.3 — owner-scoped saved execution request template."""
+
+    __tablename__ = "job_templates"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    name: Mapped[str] = mapped_column(String(120), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    source_kind: Mapped[str] = mapped_column(String(32), nullable=False)
+    source_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    task_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    payload_schema_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    payload_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    payload_sha256: Mapped[str] = mapped_column(Text, nullable=False)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    root_template_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("job_templates.id"), nullable=False
+    )
+    parent_template_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("job_templates.id"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        CheckConstraint(
+            "source_kind IN ('optimization', 'prediction')",
+            name="ck_job_templates_source_kind",
+        ),
+        CheckConstraint(
+            "payload_schema_version IN ('optimization_request_v1', 'prediction_request_v1')",
+            name="ck_job_templates_payload_schema_version",
+        ),
+        CheckConstraint("version >= 1", name="ck_job_templates_version_positive"),
+        Index(
+            "uq_job_templates_active_source_name",
+            "user_id",
+            "source_kind",
+            "source_id",
+            "name",
+            unique=True,
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+        Index(
+            "idx_job_templates_user_created_at",
+            "user_id",
+            text("created_at DESC"),
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+    )
+
+
 class CostAttribution(Base):
     """Story M2.3 — shared G3 cost attribution table."""
 

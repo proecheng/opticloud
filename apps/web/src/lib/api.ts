@@ -349,6 +349,89 @@ export interface PredictionResponse {
   completed_at: string;
 }
 
+// ===== Job templates (Story 5.D.3) =====
+
+export type JobTemplateSourceKind = "optimization" | "prediction";
+export type JobTemplatePayloadSchemaVersion =
+  | "optimization_request_v1"
+  | "prediction_request_v1";
+
+export interface JobTemplateCreateRequest {
+  name: string;
+  description?: string;
+  source_kind: JobTemplateSourceKind;
+  source_id: string;
+}
+
+export interface JobTemplateSummary {
+  id: string;
+  name: string;
+  description: string | null;
+  source_kind: JobTemplateSourceKind;
+  source_id: string;
+  task_type: string;
+  payload_schema_version: JobTemplatePayloadSchemaVersion;
+  payload_sha256: string;
+  version: number;
+  root_template_id: string;
+  parent_template_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface JobTemplateDetail extends JobTemplateSummary {
+  payload_json: Record<string, unknown>;
+}
+
+export interface JobTemplateListResponse {
+  items: JobTemplateSummary[];
+}
+
+export async function createJobTemplate(
+  apiKey: string,
+  body: JobTemplateCreateRequest,
+): Promise<JobTemplateDetail> {
+  return request<JobTemplateDetail>(
+    "/v1/job-templates",
+    {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify(body),
+    },
+    SOLVER_SERVICE_URL,
+  );
+}
+
+export async function listJobTemplates(apiKey: string): Promise<JobTemplateListResponse> {
+  return request<JobTemplateListResponse>(
+    "/v1/job-templates",
+    { headers: { Authorization: `Bearer ${apiKey}` } },
+    SOLVER_SERVICE_URL,
+  );
+}
+
+export async function getJobTemplate(
+  apiKey: string,
+  templateId: string,
+): Promise<JobTemplateDetail> {
+  return request<JobTemplateDetail>(
+    `/v1/job-templates/${encodeURIComponent(templateId)}`,
+    { headers: { Authorization: `Bearer ${apiKey}` } },
+    SOLVER_SERVICE_URL,
+  );
+}
+
+export async function deleteJobTemplate(apiKey: string, templateId: string): Promise<void> {
+  await request<unknown>(
+    `/v1/job-templates/${encodeURIComponent(templateId)}`,
+    {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${apiKey}` },
+    },
+    SOLVER_SERVICE_URL,
+  );
+}
+
 // ===== Login (Story 1.2 — OTP 2FA) =====
 
 export interface OTPRequestBody {

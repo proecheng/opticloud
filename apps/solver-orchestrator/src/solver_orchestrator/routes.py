@@ -11,14 +11,15 @@ import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 import structlog
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, status
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from opticloud_shared.cost_telemetry import CostTelemetryEvent, CostUnit, record_cost_event
 from opticloud_shared.schemas.errors import ErrorDetail
-from sqlalchemy import select
+from sqlalchemy import Table, select
+from sqlalchemy.dialects.postgresql import insert as postgresql_insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -45,9 +46,14 @@ from solver_orchestrator.fallback_execution import (
     is_retryable_solver_result,
 )
 from solver_orchestrator.forecasting import predict_quantiles
+from solver_orchestrator.job_templates import (
+    build_optimization_template_payload,
+    build_prediction_template_payload,
+)
 from solver_orchestrator.models import (
     CostAttribution,
     IdempotencyKey,
+    JobTemplate,
     Optimization,
     OptimizationBatch,
     OptimizationBatchIdempotencyKey,
@@ -75,6 +81,10 @@ from solver_orchestrator.schemas import (
     AlgorithmSchema,
     CitationSchema,
     IPAttributionSchema,
+    JobTemplateCreateRequest,
+    JobTemplateDetail,
+    JobTemplateListResponse,
+    JobTemplateSummary,
     ModelVersionSchema,
     OptimizationBatchRequest,
     OptimizationRequest,
@@ -760,6 +770,382 @@ def _idempotency_conflict_response(
         ],
         request_id=request_id,
     )
+
+
+def _job_template_summary_model(template: JobTemplate) -> JobTemplateSummary:
+    return JobTemplateSummary(
+        id=template.id,
+        name=template.name,
+        description=template.description,
+        source_kind=template.source_kind,  # type: ignore[arg-type]
+        source_id=template.source_id,
+        task_type=template.task_type,
+        payload_schema_version=template.payload_schema_version,  # type: ignore[arg-type]
+        payload_sha256=template.payload_sha256,
+        version=template.version,
+        root_template_id=template.root_template_id,
+        parent_template_id=template.parent_template_id,
+        created_at=template.created_at,
+        updated_at=template.updated_at,
+    )
+
+
+def _job_template_detail_model(template: JobTemplate) -> JobTemplateDetail:
+    return JobTemplateDetail(
+        **_job_template_summary_model(template).model_dump(),
+        payload_json=template.payload_json,
+    )
+
+
+def _job_template_response(template: JobTemplate, *, detail: bool) -> dict[str, Any]:
+    model = (
+        _job_template_detail_model(template) if detail else _job_template_summary_model(template)
+    )
+    content = json.loads(model.model_dump_json())
+    if not isinstance(content, dict):
+        raise ValueError("job template response did not encode an object")
+    return content
+
+
+async def _find_active_job_template(
+    session: AsyncSession,
+    *,
+    user_id: uuid.UUID,
+    source_kind: str,
+    source_id: uuid.UUID,
+    name: str,
+) -> JobTemplate | None:
+    result = await session.execute(
+        select(JobTemplate).where(
+            JobTemplate.user_id == user_id,
+            JobTemplate.source_kind == source_kind,
+            JobTemplate.source_id == source_id,
+            JobTemplate.name == name,
+            JobTemplate.deleted_at.is_(None),
+        )
+    )
+    return result.scalar_one_or_none()
+
+
+async def _insert_job_template_or_existing(
+    session: AsyncSession,
+    *,
+    values: dict[str, Any],
+    user_id: uuid.UUID,
+    source_kind: str,
+    source_id: uuid.UUID,
+    name: str,
+) -> tuple[JobTemplate, bool]:
+    table = cast(Table, JobTemplate.__table__)
+    for _attempt in range(2):
+        insert_result = await session.execute(
+            postgresql_insert(table)
+            .values(**values)
+            .on_conflict_do_nothing(
+                index_elements=[
+                    table.c.user_id,
+                    table.c.source_kind,
+                    table.c.source_id,
+                    table.c.name,
+                ],
+                index_where=table.c.deleted_at.is_(None),
+            )
+            .returning(table.c.id)
+        )
+        inserted_id = insert_result.scalar_one_or_none()
+        if inserted_id is not None:
+            inserted = await session.get(JobTemplate, inserted_id)
+            if inserted is None:
+                raise RuntimeError("inserted job template row could not be loaded")
+            return inserted, True
+
+        existing = await _find_active_job_template(
+            session,
+            user_id=user_id,
+            source_kind=source_kind,
+            source_id=source_id,
+            name=name,
+        )
+        if existing is not None:
+            return existing, False
+
+    raise RuntimeError("job template insert conflict could not be resolved")
+
+
+def _job_template_not_found_response(*, request_id: str | None = None) -> JSONResponse:
+    return _rfc7807_error(
+        title="Not Found",
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail="job template or source task not found",
+        request_id=request_id,
+    )
+
+
+def _source_task_not_completed_response(
+    *,
+    source_id: uuid.UUID,
+    source_status: str,
+    request_id: str | None,
+) -> JSONResponse:
+    return _rfc7807_error(
+        title="Source Task Not Completed",
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        detail=f"source task status is '{source_status}', expected 'completed'",
+        errors=[
+            ErrorDetail(
+                field_path="source_id",
+                value=str(source_id),
+                constraint="source task status must be completed",
+                remediation_hint_key="errors.422.source_task_not_completed",
+            )
+        ],
+        request_id=request_id,
+    )
+
+
+def _invalid_job_template_response(
+    *,
+    field_path: str,
+    value: object,
+    constraint: str,
+    request_id: str | None,
+) -> JSONResponse:
+    return _rfc7807_error(
+        title="Invalid Request Body",
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        detail=constraint,
+        errors=[
+            ErrorDetail(
+                field_path=field_path,
+                value=value,
+                constraint=constraint,
+                remediation_hint_key="errors.422.invalid_request_body",
+            )
+        ],
+        request_id=request_id,
+    )
+
+
+def _normalized_template_name(
+    payload: JobTemplateCreateRequest, *, request_id: str | None
+) -> tuple[str | None, JSONResponse | None]:
+    name = payload.name.strip()
+    if not name:
+        return None, _invalid_job_template_response(
+            field_path="name",
+            value=payload.name,
+            constraint="name must not be blank",
+            request_id=request_id,
+        )
+    return name, None
+
+
+def _normalized_template_description(description: str | None) -> str | None:
+    if description is None:
+        return None
+    normalized = description.strip()
+    return normalized or None
+
+
+@router.post(
+    "/job-templates",
+    tags=["execution"],
+    summary="保存成功任务为 job template (FR B11 / Story 5.D.3)",
+)
+async def create_job_template(
+    payload: JobTemplateCreateRequest,
+    request: Request,
+    authorization: str | None = Header(default=None),
+    session: AsyncSession = Depends(get_session),
+) -> JSONResponse:
+    client_ip = request.client.host if request.client else None
+    user_id, _api_key_id, scopes = await verify_api_key(authorization, session, client_ip=client_ip)
+    require_scope("optimize:write", scopes)
+    request_id = request.headers.get("x-request-id") or str(uuid.uuid4())
+
+    name, name_error = _normalized_template_name(payload, request_id=request_id)
+    if name_error is not None:
+        return name_error
+    assert name is not None
+    description = _normalized_template_description(payload.description)
+
+    existing = await _find_active_job_template(
+        session,
+        user_id=user_id,
+        source_kind=payload.source_kind,
+        source_id=payload.source_id,
+        name=name,
+    )
+    if existing is not None:
+        return JSONResponse(
+            content=_job_template_response(existing, detail=True),
+            status_code=status.HTTP_200_OK,
+        )
+
+    template_payload = None
+    if payload.source_kind == "optimization":
+        optimization_source = await session.get(Optimization, payload.source_id)
+        if optimization_source is None or optimization_source.user_id != user_id:
+            return _job_template_not_found_response(request_id=request_id)
+        if optimization_source.status != "completed":
+            return _source_task_not_completed_response(
+                source_id=payload.source_id,
+                source_status=optimization_source.status,
+                request_id=request_id,
+            )
+        try:
+            template_payload = build_optimization_template_payload(
+                optimization_source.input_payload
+            )
+        except Exception as exc:
+            return _invalid_job_template_response(
+                field_path="source_id",
+                value=str(payload.source_id),
+                constraint=f"source optimization payload is not templateable: {exc}",
+                request_id=request_id,
+            )
+    else:
+        prediction_source = await session.get(Prediction, payload.source_id)
+        if prediction_source is None or prediction_source.user_id != user_id:
+            return _job_template_not_found_response(request_id=request_id)
+        if prediction_source.status != "completed":
+            return _source_task_not_completed_response(
+                source_id=payload.source_id,
+                source_status=prediction_source.status,
+                request_id=request_id,
+            )
+        try:
+            template_payload = build_prediction_template_payload(prediction_source.input_payload)
+        except Exception as exc:
+            return _invalid_job_template_response(
+                field_path="source_id",
+                value=str(payload.source_id),
+                constraint=f"source prediction payload is not templateable: {exc}",
+                request_id=request_id,
+            )
+    assert template_payload is not None
+
+    template_id = uuid.uuid4()
+    now = datetime.now(UTC)
+    template, created = await _insert_job_template_or_existing(
+        session,
+        values={
+            "id": template_id,
+            "user_id": user_id,
+            "name": name,
+            "description": description,
+            "source_kind": payload.source_kind,
+            "source_id": payload.source_id,
+            "task_type": template_payload.task_type,
+            "payload_schema_version": template_payload.payload_schema_version,
+            "payload_json": template_payload.payload_json,
+            "payload_sha256": template_payload.payload_sha256,
+            "version": 1,
+            "root_template_id": template_id,
+            "parent_template_id": None,
+            "created_at": now,
+            "updated_at": now,
+            "deleted_at": None,
+        },
+        user_id=user_id,
+        source_kind=payload.source_kind,
+        source_id=payload.source_id,
+        name=name,
+    )
+    return JSONResponse(
+        content=_job_template_response(template, detail=True),
+        status_code=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
+    )
+
+
+@router.get(
+    "/job-templates",
+    tags=["execution"],
+    summary="列出当前 API key 用户的 job templates (Story 5.D.3)",
+)
+async def list_job_templates(
+    request: Request,
+    authorization: str | None = Header(default=None),
+    session: AsyncSession = Depends(get_session),
+) -> JSONResponse:
+    client_ip = request.client.host if request.client else None
+    user_id, _api_key_id, scopes = await verify_api_key(authorization, session, client_ip=client_ip)
+    require_scope("optimize:write", scopes)
+    result = await session.execute(
+        select(JobTemplate)
+        .where(JobTemplate.user_id == user_id, JobTemplate.deleted_at.is_(None))
+        .order_by(JobTemplate.created_at.desc(), JobTemplate.id.desc())
+    )
+    items = [_job_template_summary_model(item) for item in result.scalars().all()]
+    content = json.loads(JobTemplateListResponse(items=items).model_dump_json())
+    if not isinstance(content, dict):
+        raise ValueError("job template list response did not encode an object")
+    return JSONResponse(content=content, status_code=status.HTTP_200_OK)
+
+
+@router.get(
+    "/job-templates/{template_id}",
+    tags=["execution"],
+    summary="读取当前 API key 用户的 job template (Story 5.D.3)",
+)
+async def get_job_template(
+    template_id: uuid.UUID,
+    request: Request,
+    authorization: str | None = Header(default=None),
+    session: AsyncSession = Depends(get_session),
+) -> JSONResponse:
+    client_ip = request.client.host if request.client else None
+    user_id, _api_key_id, scopes = await verify_api_key(authorization, session, client_ip=client_ip)
+    require_scope("optimize:write", scopes)
+    result = await session.execute(
+        select(JobTemplate).where(
+            JobTemplate.id == template_id,
+            JobTemplate.user_id == user_id,
+            JobTemplate.deleted_at.is_(None),
+        )
+    )
+    template = result.scalar_one_or_none()
+    if template is None:
+        return _job_template_not_found_response(
+            request_id=request.headers.get("x-request-id") or str(uuid.uuid4())
+        )
+    return JSONResponse(
+        content=_job_template_response(template, detail=True),
+        status_code=status.HTTP_200_OK,
+    )
+
+
+@router.delete(
+    "/job-templates/{template_id}",
+    tags=["execution"],
+    summary="软删除当前 API key 用户的 job template (Story 5.D.3)",
+)
+async def delete_job_template(
+    template_id: uuid.UUID,
+    request: Request,
+    authorization: str | None = Header(default=None),
+    session: AsyncSession = Depends(get_session),
+) -> Response:
+    client_ip = request.client.host if request.client else None
+    user_id, _api_key_id, scopes = await verify_api_key(authorization, session, client_ip=client_ip)
+    require_scope("optimize:write", scopes)
+    result = await session.execute(
+        select(JobTemplate).where(
+            JobTemplate.id == template_id,
+            JobTemplate.user_id == user_id,
+            JobTemplate.deleted_at.is_(None),
+        )
+    )
+    template = result.scalar_one_or_none()
+    if template is None:
+        return _job_template_not_found_response(
+            request_id=request.headers.get("x-request-id") or str(uuid.uuid4())
+        )
+    now = datetime.now(UTC)
+    template.deleted_at = now
+    template.updated_at = now
+    await session.flush()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 def _prefix_problem_response_errors(response: JSONResponse, prefix: str) -> JSONResponse:
