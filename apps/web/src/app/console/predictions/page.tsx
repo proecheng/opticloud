@@ -16,9 +16,13 @@ import {
 
 import {
   createJobTemplate,
+  createJobTemplateVersion,
+  listJobTemplateVersions,
   OptiCloudClientError,
   type JobTemplateDetail,
+  type JobTemplateSummary,
   type PredictionFamily,
+  type PredictionRequest,
   type PredictionResponse,
   postPrediction,
 } from "@/lib/api";
@@ -75,6 +79,22 @@ function toRfc7807(error: unknown): RFC7807ErrorPayload {
     status: 500,
     detail: error instanceof Error ? error.message : "预测请求失败",
   };
+}
+
+function toPredictionRequestPayload(payload: Record<string, unknown>): PredictionRequest {
+  const family = payload.family;
+  const data = payload.data;
+  const horizon = payload.horizon;
+  if (
+    (family !== "arima" && family !== "chronos") ||
+    !Array.isArray(data) ||
+    data.some((value) => typeof value !== "number" || !Number.isFinite(value)) ||
+    typeof horizon !== "number" ||
+    !Number.isInteger(horizon)
+  ) {
+    throw new Error("模板版本 payload 不是有效预测请求");
+  }
+  return { family, data, horizon };
 }
 
 function formatNumber(value: number): string {
@@ -353,6 +373,164 @@ type TemplateSaveState =
   | { kind: "saved"; template: JobTemplateDetail }
   | { kind: "error"; error: RFC7807ErrorPayload };
 
+type TemplateReuseState =
+  | { kind: "idle"; history: JobTemplateSummary[] }
+  | { kind: "creating"; history: JobTemplateSummary[] }
+  | {
+      kind: "created";
+      template: JobTemplateDetail;
+      response: PredictionResponse;
+      history: JobTemplateSummary[];
+    }
+  | {
+      kind: "prediction_error";
+      template: JobTemplateDetail;
+      error: RFC7807ErrorPayload;
+      history: JobTemplateSummary[];
+    }
+  | { kind: "error"; error: RFC7807ErrorPayload; history: JobTemplateSummary[] };
+
+function TemplateReusePanel({
+  template,
+  apiKeyRef,
+}: {
+  template: JobTemplateDetail;
+  apiKeyRef: React.RefObject<HTMLInputElement>;
+}): JSX.Element {
+  const initialHorizon =
+    typeof template.payload_json.horizon === "number" ? template.payload_json.horizon : 3;
+  const [horizon, setHorizon] = useState(initialHorizon);
+  const [state, setState] = useState<TemplateReuseState>({
+    kind: "idle",
+    history: [template],
+  });
+
+  const createVersionAndPredict = async (): Promise<void> => {
+    const apiKey = apiKeyRef.current?.value.trim() ?? "";
+    if (apiKey === "") {
+      setState({
+        kind: "error",
+        history: state.history,
+        error: {
+          title: "Missing API Key",
+          status: 401,
+          detail: "请输入 API key 后再创建模板版本",
+        },
+      });
+      return;
+    }
+
+    const nextHorizon = Math.max(1, Math.min(90, Math.trunc(horizon)));
+    setState({ kind: "creating", history: state.history });
+    try {
+      const version = await createJobTemplateVersion(apiKey, template.id, {
+        parameter_path: "horizon",
+        value: nextHorizon,
+      });
+      const history = await listJobTemplateVersions(apiKey, template.id);
+      const historyItems = history.items.length > 0 ? history.items : [template, version];
+      let prediction: PredictionResponse;
+      try {
+        prediction = await postPrediction(
+          apiKey,
+          toPredictionRequestPayload(version.payload_json),
+          idempotencyKey(),
+        );
+      } catch (err) {
+        setState({
+          kind: "prediction_error",
+          template: version,
+          error: toRfc7807(err),
+          history: historyItems,
+        });
+        return;
+      }
+      setState({
+        kind: "created",
+        template: version,
+        response: prediction,
+        history: historyItems,
+      });
+    } catch (err) {
+      setState({ kind: "error", history: state.history, error: toRfc7807(err) });
+    }
+  };
+
+  const history = state.history.length > 0 ? state.history : [template];
+
+  return (
+    <div className="mt-4 space-y-4 rounded-md border border-border bg-muted/20 p-4">
+      <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto]">
+        <label className="block">
+          <span className="mb-1 block text-sm font-medium">新版预测步长</span>
+          <input
+            aria-label="新版预测步长"
+            type="number"
+            min={1}
+            max={90}
+            value={horizon}
+            onChange={(event) => setHorizon(Number(event.target.value))}
+            className="min-h-touch w-full rounded-md border border-border bg-background px-3 py-2"
+          />
+        </label>
+        <div className="flex items-end">
+          <button
+            type="button"
+            onClick={() => void createVersionAndPredict()}
+            disabled={state.kind === "creating"}
+            data-testid="create-template-version-button"
+            className="min-h-touch rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-primary-600 disabled:opacity-50"
+          >
+            {state.kind === "creating" ? "创建中..." : "创建版本并预测"}
+          </button>
+        </div>
+      </div>
+
+      <div data-testid="template-version-history" className="rounded-md border border-border bg-background">
+        <div className="border-b border-border px-3 py-2 text-sm font-medium">
+          版本历史
+        </div>
+        <div className="divide-y divide-border text-sm">
+          {history.map((item) => (
+            <div key={item.id} className="grid gap-1 px-3 py-2 md:grid-cols-[auto_1fr_auto]">
+              <span className="font-medium">v{item.version}</span>
+              <span className="truncate text-muted-foreground">{item.payload_sha256}</span>
+              <span className="text-muted-foreground">{item.parent_template_id ? "版本" : "根模板"}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {state.kind === "created" && (
+        <div data-testid="template-version-success" className="space-y-3">
+          <div className="rounded-md border border-success/30 bg-success/5 p-3 text-sm text-success">
+            已创建模板版本：{state.template.name} · v{state.template.version}
+          </div>
+          <PredictionResult response={state.response} />
+        </div>
+      )}
+      {state.kind === "prediction_error" && (
+        <div data-testid="template-version-prediction-error" className="space-y-3">
+          <div className="rounded-md border border-warning/30 bg-warning/5 p-3 text-sm text-warning">
+            已创建模板版本：{state.template.name} · v{state.template.version}
+          </div>
+          <div className="rounded-md border border-danger/30 bg-danger/5 p-3 text-sm text-danger">
+            {state.error.title}: {state.error.detail}
+          </div>
+        </div>
+      )}
+      {state.kind === "error" && (
+        <div
+          data-testid="template-version-error"
+          className="rounded-md border border-danger/30 bg-danger/5 p-3 text-sm text-danger"
+        >
+          {state.error.title}: {state.error.detail}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function TemplateSavePanel({
   response,
   apiKeyRef,
@@ -437,12 +615,15 @@ function TemplateSavePanel({
         </div>
       </div>
       {saveState.kind === "saved" && (
-        <div
-          data-testid="template-save-success"
-          className="rounded-md border border-success/30 bg-success/5 p-3 text-sm text-success"
-        >
-          已保存模板：{saveState.template.name} · v{saveState.template.version}
-        </div>
+        <>
+          <div
+            data-testid="template-save-success"
+            className="rounded-md border border-success/30 bg-success/5 p-3 text-sm text-success"
+          >
+            已保存模板：{saveState.template.name} · v{saveState.template.version}
+          </div>
+          <TemplateReusePanel template={saveState.template} apiKeyRef={apiKeyRef} />
+        </>
       )}
       {saveState.kind === "error" && (
         <div

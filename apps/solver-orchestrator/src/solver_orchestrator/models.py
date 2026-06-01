@@ -287,11 +287,19 @@ class JobTemplate(Base):
         ),
         CheckConstraint("version >= 1", name="ck_job_templates_version_positive"),
         Index(
-            "uq_job_templates_active_source_name",
+            "uq_job_templates_active_root_source_name",
             "user_id",
             "source_kind",
             "source_id",
             "name",
+            unique=True,
+            postgresql_where=text("deleted_at IS NULL AND parent_template_id IS NULL"),
+        ),
+        Index(
+            "uq_job_templates_active_root_version",
+            "user_id",
+            "root_template_id",
+            "version",
             unique=True,
             postgresql_where=text("deleted_at IS NULL"),
         ),
@@ -301,6 +309,7 @@ class JobTemplate(Base):
             text("created_at DESC"),
             postgresql_where=text("deleted_at IS NULL"),
         ),
+        Index("idx_job_templates_root_version", "user_id", "root_template_id", "version"),
     )
 
 

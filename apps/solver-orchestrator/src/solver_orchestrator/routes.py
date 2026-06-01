@@ -18,7 +18,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, s
 from fastapi.responses import JSONResponse, Response
 from opticloud_shared.cost_telemetry import CostTelemetryEvent, CostUnit, record_cost_event
 from opticloud_shared.schemas.errors import ErrorDetail
-from sqlalchemy import Table, select
+from sqlalchemy import Table, select, text
 from sqlalchemy.dialects.postgresql import insert as postgresql_insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -47,8 +47,11 @@ from solver_orchestrator.fallback_execution import (
 )
 from solver_orchestrator.forecasting import predict_quantiles
 from solver_orchestrator.job_templates import (
+    TemplateParameterError,
+    apply_template_parameter_override,
     build_optimization_template_payload,
     build_prediction_template_payload,
+    build_template_payload_from_version_payload,
 )
 from solver_orchestrator.models import (
     CostAttribution,
@@ -85,6 +88,8 @@ from solver_orchestrator.schemas import (
     JobTemplateDetail,
     JobTemplateListResponse,
     JobTemplateSummary,
+    JobTemplateVersionCreateRequest,
+    JobTemplateVersionsResponse,
     ModelVersionSchema,
     OptimizationBatchRequest,
     OptimizationRequest,
@@ -821,6 +826,7 @@ async def _find_active_job_template(
             JobTemplate.source_kind == source_kind,
             JobTemplate.source_id == source_id,
             JobTemplate.name == name,
+            JobTemplate.parent_template_id.is_(None),
             JobTemplate.deleted_at.is_(None),
         )
     )
@@ -848,7 +854,7 @@ async def _insert_job_template_or_existing(
                     table.c.source_id,
                     table.c.name,
                 ],
-                index_where=table.c.deleted_at.is_(None),
+                index_where=table.c.deleted_at.is_(None) & table.c.parent_template_id.is_(None),
             )
             .returning(table.c.id)
         )
@@ -870,6 +876,190 @@ async def _insert_job_template_or_existing(
             return existing, False
 
     raise RuntimeError("job template insert conflict could not be resolved")
+
+
+async def _get_owned_active_job_template(
+    session: AsyncSession,
+    *,
+    template_id: uuid.UUID,
+    user_id: uuid.UUID,
+) -> JobTemplate | None:
+    result = await session.execute(
+        select(JobTemplate).where(
+            JobTemplate.id == template_id,
+            JobTemplate.user_id == user_id,
+            JobTemplate.deleted_at.is_(None),
+        )
+    )
+    return result.scalar_one_or_none()
+
+
+async def _next_job_template_version(
+    session: AsyncSession,
+    *,
+    user_id: uuid.UUID,
+    root_template_id: uuid.UUID,
+) -> int:
+    result = await session.execute(
+        select(JobTemplate.version)
+        .where(
+            JobTemplate.user_id == user_id,
+            JobTemplate.root_template_id == root_template_id,
+        )
+        .order_by(JobTemplate.version.desc())
+        .limit(1)
+    )
+    current = result.scalar_one_or_none()
+    return int(current or 0) + 1
+
+
+def _job_template_lineage_lock_keys(
+    *, user_id: uuid.UUID, root_template_id: uuid.UUID
+) -> tuple[int, int]:
+    value = user_id.int ^ root_template_id.int
+    first = (value >> 32) & 0xFFFFFFFF
+    second = value & 0xFFFFFFFF
+
+    def _signed_32(part: int) -> int:
+        return part - 0x100000000 if part >= 0x80000000 else part
+
+    return _signed_32(first), _signed_32(second)
+
+
+async def _insert_job_template_version(
+    session: AsyncSession,
+    *,
+    values: dict[str, Any],
+    user_id: uuid.UUID,
+    root_template_id: uuid.UUID,
+) -> JobTemplate:
+    table = cast(Table, JobTemplate.__table__)
+    lock_key_1, lock_key_2 = _job_template_lineage_lock_keys(
+        user_id=user_id, root_template_id=root_template_id
+    )
+    await session.execute(
+        text("SELECT pg_advisory_xact_lock(:lock_key_1, :lock_key_2)"),
+        {"lock_key_1": lock_key_1, "lock_key_2": lock_key_2},
+    )
+    for _attempt in range(3):
+        next_version = await _next_job_template_version(
+            session, user_id=user_id, root_template_id=root_template_id
+        )
+        row_values = {**values, "version": next_version}
+        insert_result = await session.execute(
+            postgresql_insert(table)
+            .values(**row_values)
+            .on_conflict_do_nothing(
+                index_elements=[table.c.user_id, table.c.root_template_id, table.c.version],
+                index_where=table.c.deleted_at.is_(None),
+            )
+            .returning(table.c.id)
+        )
+        inserted_id = insert_result.scalar_one_or_none()
+        if inserted_id is None:
+            continue
+        inserted = await session.get(JobTemplate, inserted_id)
+        if inserted is None:
+            raise RuntimeError("inserted job template version row could not be loaded")
+        return inserted
+    raise RuntimeError("job template version insert conflict could not be resolved")
+
+
+def _validate_template_optimization_payload(
+    payload_json: dict[str, Any],
+    *,
+    request_id: str | None,
+) -> JSONResponse | None:
+    try:
+        payload = OptimizationRequest.model_validate(payload_json)
+    except Exception as exc:
+        return _invalid_job_template_response(
+            field_path="value",
+            value="[omitted]",
+            constraint=f"resulting optimization payload is invalid: {exc}",
+            request_id=request_id,
+        )
+
+    if payload.options.anonymous and not payload.options.reproducible:
+        return _anonymous_without_reproducible_error(request_id=request_id)
+
+    route = select_provider_route(payload.task_type, payload.solver)
+    route_error = _provider_route_error_response(
+        route,
+        task_type=payload.task_type,
+        requested_solver=payload.solver,
+        request_id=request_id,
+    )
+    if route_error is not None:
+        return route_error
+
+    attempt_plan = build_fallback_attempts(
+        primary_route=route,
+        task_type=payload.task_type,
+        requested_solver=payload.solver,
+        fallback_chain=payload.fallback_chain,
+    )
+    if attempt_plan.status is FallbackPlanStatus.UNAUDITED_SELF_ALGORITHM:
+        return _unaudited_self_algorithm_error(
+            attempt_plan,
+            field_path=(
+                f"fallback_chain[{attempt_plan.invalid_index}]"
+                if attempt_plan.invalid_index is not None
+                else "fallback_chain"
+            ),
+            request_id=request_id,
+        )
+    if attempt_plan.status is FallbackPlanStatus.INVALID_FALLBACK_SOLVER:
+        invalid_idx = attempt_plan.invalid_index if attempt_plan.invalid_index is not None else 0
+        supported = attempt_plan.supported_solvers or route.supported_solvers
+        invalid_candidate = attempt_plan.invalid_candidate
+        return _rfc7807_error(
+            title="Unsupported Fallback Solver",
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"fallback_chain[{invalid_idx}]='{invalid_candidate}' is not supported for "
+                f"task_type '{payload.task_type}'. Supported: {', '.join(supported)}"
+            ),
+            errors=[
+                ErrorDetail(
+                    field_path=f"fallback_chain[{invalid_idx}]",
+                    value=invalid_candidate,
+                    constraint=f"must be one of: {', '.join(supported)}",
+                    remediation_hint_key="errors.400.unsupported_fallback_solver",
+                )
+            ],
+            next_action="https://api.opticloud.cn/v1/algorithms",
+            request_id=request_id,
+        )
+    return None
+
+
+def _validate_template_version_payload(
+    *,
+    source_kind: str,
+    payload_json: dict[str, Any],
+    request_id: str | None,
+) -> JSONResponse | None:
+    if source_kind == "prediction":
+        try:
+            payload = PredictionRequest.model_validate(payload_json)
+        except Exception as exc:
+            return _invalid_job_template_response(
+                field_path="value",
+                value="[omitted]",
+                constraint=f"resulting prediction payload is invalid: {exc}",
+                request_id=request_id,
+            )
+        _, validation_error = _validate_prediction_payload(payload, request_id=request_id)
+        return validation_error
+    if source_kind == "optimization":
+        return _validate_template_optimization_payload(payload_json, request_id=request_id)
+    return _invalid_job_template_response(
+        field_path="source_kind",
+        value=source_kind,
+        constraint="source_kind must be optimization or prediction",
+        request_id=request_id,
+    )
 
 
 def _job_template_not_found_response(*, request_id: str | None = None) -> JSONResponse:
@@ -1112,6 +1302,132 @@ async def get_job_template(
     return JSONResponse(
         content=_job_template_response(template, detail=True),
         status_code=status.HTTP_200_OK,
+    )
+
+
+@router.get(
+    "/job-templates/{template_id}/versions",
+    tags=["execution"],
+    summary="列出当前 API key 用户的 job template 版本历史 (Story 5.D.4)",
+)
+async def list_job_template_versions(
+    template_id: uuid.UUID,
+    request: Request,
+    authorization: str | None = Header(default=None),
+    session: AsyncSession = Depends(get_session),
+) -> JSONResponse:
+    client_ip = request.client.host if request.client else None
+    user_id, _api_key_id, scopes = await verify_api_key(authorization, session, client_ip=client_ip)
+    require_scope("optimize:write", scopes)
+    request_id = request.headers.get("x-request-id") or str(uuid.uuid4())
+    template = await _get_owned_active_job_template(
+        session, template_id=template_id, user_id=user_id
+    )
+    if template is None:
+        return _job_template_not_found_response(request_id=request_id)
+
+    result = await session.execute(
+        select(JobTemplate)
+        .where(
+            JobTemplate.user_id == user_id,
+            JobTemplate.root_template_id == template.root_template_id,
+            JobTemplate.deleted_at.is_(None),
+        )
+        .order_by(JobTemplate.version.asc(), JobTemplate.created_at.asc(), JobTemplate.id.asc())
+    )
+    items = [_job_template_summary_model(item) for item in result.scalars().all()]
+    content = json.loads(JobTemplateVersionsResponse(items=items).model_dump_json())
+    if not isinstance(content, dict):
+        raise ValueError("job template versions response did not encode an object")
+    return JSONResponse(content=content, status_code=status.HTTP_200_OK)
+
+
+@router.post(
+    "/job-templates/{template_id}/versions",
+    tags=["execution"],
+    summary="基于当前 API key 用户的 job template 创建新版本 (Story 5.D.4)",
+)
+async def create_job_template_version(
+    template_id: uuid.UUID,
+    payload: JobTemplateVersionCreateRequest,
+    request: Request,
+    authorization: str | None = Header(default=None),
+    session: AsyncSession = Depends(get_session),
+) -> JSONResponse:
+    client_ip = request.client.host if request.client else None
+    user_id, _api_key_id, scopes = await verify_api_key(authorization, session, client_ip=client_ip)
+    require_scope("optimize:write", scopes)
+    request_id = request.headers.get("x-request-id") or str(uuid.uuid4())
+    parent = await _get_owned_active_job_template(session, template_id=template_id, user_id=user_id)
+    if parent is None:
+        return _job_template_not_found_response(request_id=request_id)
+
+    try:
+        merged_payload = apply_template_parameter_override(
+            parent.payload_json,
+            source_kind=parent.source_kind,  # type: ignore[arg-type]
+            parameter_path=payload.parameter_path,
+            value=payload.value,
+        )
+    except TemplateParameterError as exc:
+        return _invalid_job_template_response(
+            field_path=exc.field_path,
+            value=payload.parameter_path if exc.field_path == "parameter_path" else payload.value,
+            constraint=exc.detail,
+            request_id=request_id,
+        )
+
+    validation_error = _validate_template_version_payload(
+        source_kind=parent.source_kind,
+        payload_json=merged_payload,
+        request_id=request_id,
+    )
+    if validation_error is not None:
+        return validation_error
+
+    try:
+        template_payload = build_template_payload_from_version_payload(
+            source_kind=parent.source_kind,  # type: ignore[arg-type]
+            payload_json=merged_payload,
+        )
+    except (ValueError, TemplateParameterError) as exc:
+        return _invalid_job_template_response(
+            field_path="value",
+            value="[omitted]",
+            constraint=str(exc),
+            request_id=request_id,
+        )
+
+    now = datetime.now(UTC)
+    version_id = uuid.uuid4()
+    description = _normalized_template_description(payload.description)
+    if description is None:
+        description = parent.description
+    version = await _insert_job_template_version(
+        session,
+        values={
+            "id": version_id,
+            "user_id": user_id,
+            "name": parent.name,
+            "description": description,
+            "source_kind": parent.source_kind,
+            "source_id": parent.source_id,
+            "task_type": template_payload.task_type,
+            "payload_schema_version": template_payload.payload_schema_version,
+            "payload_json": template_payload.payload_json,
+            "payload_sha256": template_payload.payload_sha256,
+            "root_template_id": parent.root_template_id,
+            "parent_template_id": parent.id,
+            "created_at": now,
+            "updated_at": now,
+            "deleted_at": None,
+        },
+        user_id=user_id,
+        root_template_id=parent.root_template_id,
+    )
+    return JSONResponse(
+        content=_job_template_response(version, detail=True),
+        status_code=status.HTTP_201_CREATED,
     )
 
 

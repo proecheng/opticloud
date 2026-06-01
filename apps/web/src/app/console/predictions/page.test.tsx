@@ -7,6 +7,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   postPrediction: vi.fn(),
   createJobTemplate: vi.fn(),
+  createJobTemplateVersion: vi.fn(),
+  listJobTemplateVersions: vi.fn(),
 }));
 
 vi.mock("@/lib/api", async () => {
@@ -15,6 +17,8 @@ vi.mock("@/lib/api", async () => {
     ...actual,
     postPrediction: mocks.postPrediction,
     createJobTemplate: mocks.createJobTemplate,
+    createJobTemplateVersion: mocks.createJobTemplateVersion,
+    listJobTemplateVersions: mocks.listJobTemplateVersions,
   };
 });
 
@@ -81,11 +85,52 @@ const successResponse = {
   completed_at: "2026-05-28T01:00:01Z",
 };
 
+const versionPredictionResponse = {
+  ...successResponse,
+  prediction_id: "7da41a49-e6e5-4f55-b591-143ccfbb6013",
+  horizon: 6,
+  prediction: {
+    p10: [20, 21, 22, 23, 24, 25],
+    p50: [22, 23, 24, 25, 26, 27],
+    p90: [24, 25, 26, 27, 28, 29],
+  },
+};
+
+const savedTemplate = {
+  id: "2c4e9e2a-6bdf-49ef-bf03-12d8ee160bef",
+  name: "月度销量模板",
+  description: null,
+  source_kind: "prediction",
+  source_id: successResponse.prediction_id,
+  task_type: "forecast",
+  payload_schema_version: "prediction_request_v1",
+  payload_json: { family: "chronos", data: [1, 2, 3], horizon: 3 },
+  payload_sha256: "abc123",
+  version: 1,
+  root_template_id: "2c4e9e2a-6bdf-49ef-bf03-12d8ee160bef",
+  parent_template_id: null,
+  created_at: "2026-06-01T01:00:00Z",
+  updated_at: "2026-06-01T01:00:00Z",
+};
+
+const versionTemplate = {
+  ...savedTemplate,
+  id: "8e10ea97-2ebb-42ec-a027-960d20fd1b89",
+  payload_json: { family: "chronos", data: [1, 2, 3], horizon: 6 },
+  payload_sha256: "def456",
+  version: 2,
+  parent_template_id: savedTemplate.id,
+  updated_at: "2026-06-01T01:05:00Z",
+};
+
 describe("ConsolePredictionsPage", () => {
   beforeEach(() => {
     mocks.postPrediction.mockReset();
     mocks.createJobTemplate.mockReset();
+    mocks.createJobTemplateVersion.mockReset();
+    mocks.listJobTemplateVersions.mockReset();
     sessionStorage.clear();
+    localStorage.clear();
   });
 
   it("opens recovery modal for row 847 and cancel does not submit", async () => {
@@ -143,22 +188,7 @@ describe("ConsolePredictionsPage", () => {
 
   it("saves a completed prediction as a job template without resubmitting prediction or storing secrets", async () => {
     mocks.postPrediction.mockResolvedValue(successResponse);
-    mocks.createJobTemplate.mockResolvedValue({
-      id: "2c4e9e2a-6bdf-49ef-bf03-12d8ee160bef",
-      name: "月度销量模板",
-      description: null,
-      source_kind: "prediction",
-      source_id: successResponse.prediction_id,
-      task_type: "forecast",
-      payload_schema_version: "prediction_request_v1",
-      payload_json: { family: "chronos", data: [1, 2, 3], horizon: 3 },
-      payload_sha256: "abc123",
-      version: 1,
-      root_template_id: "2c4e9e2a-6bdf-49ef-bf03-12d8ee160bef",
-      parent_template_id: null,
-      created_at: "2026-06-01T01:00:00Z",
-      updated_at: "2026-06-01T01:00:00Z",
-    });
+    mocks.createJobTemplate.mockResolvedValue(savedTemplate);
     render(<ConsolePredictionsPage />);
 
     uploadCsv(buildCsv(12));
@@ -184,6 +214,163 @@ describe("ConsolePredictionsPage", () => {
     expect(mocks.postPrediction).toHaveBeenCalledTimes(1);
     expect(sessionStorage.getItem("api_key")).toBeNull();
     expect(JSON.stringify(sessionStorage)).not.toContain("sk-test");
+    expect(mocks.createJobTemplateVersion).not.toHaveBeenCalled();
+  });
+
+  it("creates a template version, submits returned payload, and keeps original result visible", async () => {
+    mocks.postPrediction
+      .mockResolvedValueOnce(successResponse)
+      .mockResolvedValueOnce(versionPredictionResponse);
+    mocks.createJobTemplate.mockResolvedValue(savedTemplate);
+    mocks.createJobTemplateVersion.mockResolvedValue(versionTemplate);
+    mocks.listJobTemplateVersions.mockResolvedValue({
+      items: [
+        { ...savedTemplate, payload_json: undefined },
+        { ...versionTemplate, payload_json: undefined },
+      ],
+    });
+    render(<ConsolePredictionsPage />);
+
+    uploadCsv(buildCsv(12));
+    expect(await screen.findByTestId("csv-ready-card")).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("API key"), { target: { value: "sk-test" } });
+    fireEvent.click(screen.getByTestId("prediction-submit"));
+    expect(await screen.findByTestId("prediction-result")).toBeTruthy();
+
+    fireEvent.change(screen.getByLabelText("模板名称"), {
+      target: { value: "月度销量模板" },
+    });
+    fireEvent.click(screen.getByTestId("save-template-button"));
+    expect(await screen.findByTestId("template-save-success")).toBeTruthy();
+
+    fireEvent.change(screen.getByLabelText("新版预测步长"), { target: { value: "6" } });
+    fireEvent.click(screen.getByTestId("create-template-version-button"));
+
+    expect((await screen.findByTestId("template-version-success")).textContent).toContain(
+      "v2",
+    );
+    expect(screen.getByTestId("template-version-history").textContent).toContain("v1");
+    expect(screen.getByTestId("template-version-history").textContent).toContain("v2");
+    expect(screen.getAllByTestId("prediction-result")).toHaveLength(2);
+    expect(mocks.createJobTemplateVersion).toHaveBeenCalledWith("sk-test", savedTemplate.id, {
+      parameter_path: "horizon",
+      value: 6,
+    });
+    expect(mocks.postPrediction).toHaveBeenNthCalledWith(
+      2,
+      "sk-test",
+      { family: "chronos", data: [1, 2, 3], horizon: 6 },
+      expect.any(String),
+    );
+    expect(mocks.listJobTemplateVersions).toHaveBeenCalledWith("sk-test", savedTemplate.id);
+    expect(sessionStorage.getItem("api_key")).toBeNull();
+    expect(localStorage.getItem("api_key")).toBeNull();
+    expect(JSON.stringify(sessionStorage)).not.toContain("sk-test");
+    expect(JSON.stringify(localStorage)).not.toContain("chronos");
+  });
+
+  it("shows template version errors without hiding the original prediction result or resubmitting", async () => {
+    mocks.postPrediction.mockResolvedValue(successResponse);
+    mocks.createJobTemplate.mockResolvedValue(savedTemplate);
+    mocks.createJobTemplateVersion.mockRejectedValue(
+      new OptiCloudClientError({
+        status: 422,
+        title: "Invalid Job Template",
+        detail: "horizon must be between 1 and 90",
+        errors: [
+          {
+            field_path: "horizon",
+            value: 0,
+            constraint: "horizon must be between 1 and 90",
+            remediation_hint_key: "errors.422.invalid_job_template",
+          },
+        ],
+      }),
+    );
+    render(<ConsolePredictionsPage />);
+
+    uploadCsv(buildCsv(12));
+    expect(await screen.findByTestId("csv-ready-card")).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("API key"), { target: { value: "sk-test" } });
+    fireEvent.click(screen.getByTestId("prediction-submit"));
+    expect(await screen.findByTestId("prediction-result")).toBeTruthy();
+
+    fireEvent.change(screen.getByLabelText("模板名称"), {
+      target: { value: "月度销量模板" },
+    });
+    fireEvent.click(screen.getByTestId("save-template-button"));
+    expect(await screen.findByTestId("template-save-success")).toBeTruthy();
+
+    fireEvent.change(screen.getByLabelText("新版预测步长"), { target: { value: "6" } });
+    fireEvent.click(screen.getByTestId("create-template-version-button"));
+
+    expect((await screen.findByTestId("template-version-error")).textContent).toContain(
+      "Invalid Job Template",
+    );
+    expect(screen.getByTestId("prediction-result")).toBeTruthy();
+    expect(mocks.postPrediction).toHaveBeenCalledTimes(1);
+    expect(mocks.listJobTemplateVersions).not.toHaveBeenCalled();
+  });
+
+  it("keeps created version metadata visible when the version prediction fails", async () => {
+    mocks.postPrediction
+      .mockResolvedValueOnce(successResponse)
+      .mockRejectedValueOnce(
+        new OptiCloudClientError({
+          status: 422,
+          title: "Invalid Prediction Data",
+          detail: "version payload rejected",
+          errors: [
+            {
+              field_path: "horizon",
+              value: 6,
+              constraint: "horizon rejected by provider",
+              remediation_hint_key: "errors.422.invalid_prediction_data",
+            },
+          ],
+        }),
+      );
+    mocks.createJobTemplate.mockResolvedValue(savedTemplate);
+    mocks.createJobTemplateVersion.mockResolvedValue(versionTemplate);
+    mocks.listJobTemplateVersions.mockResolvedValue({
+      items: [
+        { ...savedTemplate, payload_json: undefined },
+        { ...versionTemplate, payload_json: undefined },
+      ],
+    });
+    render(<ConsolePredictionsPage />);
+
+    uploadCsv(buildCsv(12));
+    expect(await screen.findByTestId("csv-ready-card")).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("API key"), { target: { value: "sk-test" } });
+    fireEvent.click(screen.getByTestId("prediction-submit"));
+    expect(await screen.findByTestId("prediction-result")).toBeTruthy();
+
+    fireEvent.change(screen.getByLabelText("模板名称"), {
+      target: { value: "月度销量模板" },
+    });
+    fireEvent.click(screen.getByTestId("save-template-button"));
+    expect(await screen.findByTestId("template-save-success")).toBeTruthy();
+
+    fireEvent.change(screen.getByLabelText("新版预测步长"), { target: { value: "6" } });
+    fireEvent.click(screen.getByTestId("create-template-version-button"));
+
+    expect((await screen.findByTestId("template-version-prediction-error")).textContent).toContain(
+      "v2",
+    );
+    expect(screen.getByTestId("template-version-prediction-error").textContent).toContain(
+      "Invalid Prediction Data",
+    );
+    expect(screen.getByTestId("template-version-history").textContent).toContain("v1");
+    expect(screen.getByTestId("template-version-history").textContent).toContain("v2");
+    expect(screen.getByTestId("prediction-result")).toBeTruthy();
+    expect(mocks.postPrediction).toHaveBeenCalledTimes(2);
+    expect(mocks.postPrediction).toHaveBeenNthCalledWith(
+      2,
+      "sk-test",
+      { family: "chronos", data: [1, 2, 3], horizon: 6 },
+      expect.any(String),
+    );
   });
 
   it("shows template save errors without hiding the prediction result", async () => {

@@ -387,6 +387,16 @@ export interface JobTemplateListResponse {
   items: JobTemplateSummary[];
 }
 
+export interface JobTemplateVersionCreateRequest {
+  parameter_path: string;
+  value: unknown;
+  description?: string;
+}
+
+export interface JobTemplateVersionsResponse {
+  items: JobTemplateSummary[];
+}
+
 export async function createJobTemplate(
   apiKey: string,
   body: JobTemplateCreateRequest,
@@ -428,6 +438,33 @@ export async function deleteJobTemplate(apiKey: string, templateId: string): Pro
       method: "DELETE",
       headers: { Authorization: `Bearer ${apiKey}` },
     },
+    SOLVER_SERVICE_URL,
+  );
+}
+
+export async function createJobTemplateVersion(
+  apiKey: string,
+  templateId: string,
+  body: JobTemplateVersionCreateRequest,
+): Promise<JobTemplateDetail> {
+  return request<JobTemplateDetail>(
+    `/v1/job-templates/${encodeURIComponent(templateId)}/versions`,
+    {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify(body),
+    },
+    SOLVER_SERVICE_URL,
+  );
+}
+
+export async function listJobTemplateVersions(
+  apiKey: string,
+  templateId: string,
+): Promise<JobTemplateVersionsResponse> {
+  return request<JobTemplateVersionsResponse>(
+    `/v1/job-templates/${encodeURIComponent(templateId)}/versions`,
+    { headers: { Authorization: `Bearer ${apiKey}` } },
     SOLVER_SERVICE_URL,
   );
 }
