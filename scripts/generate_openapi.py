@@ -32,7 +32,7 @@ def generate_auth_service() -> Path:
     spec = app.openapi()
     output = OUTPUT_DIR / "auth-service.json"
     output.write_text(
-        json.dumps(spec, indent=2, sort_keys=True, ensure_ascii=False),
+        json.dumps(spec, indent=2, sort_keys=True, ensure_ascii=False) + "\n",
         encoding="utf-8",
         newline="\n",
     )
@@ -50,7 +50,7 @@ def generate_capability_registry() -> Path:
     spec = app.openapi()
     output = OUTPUT_DIR / "capability-registry.json"
     output.write_text(
-        json.dumps(spec, indent=2, sort_keys=True, ensure_ascii=False),
+        json.dumps(spec, indent=2, sort_keys=True, ensure_ascii=False) + "\n",
         encoding="utf-8",
         newline="\n",
     )
