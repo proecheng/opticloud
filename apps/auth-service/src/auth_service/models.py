@@ -14,6 +14,7 @@ from typing import Any
 from sqlalchemy import (
     ARRAY,
     Boolean,
+    CheckConstraint,
     DateTime,
     ForeignKey,
     Index,
@@ -57,6 +58,52 @@ class User(Base):
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class NotificationPreference(Base):
+    """Story 5.D.6 — per-user notification channels for supported billing events."""
+
+    __tablename__ = "notification_preferences"
+    __table_args__ = (
+        CheckConstraint(
+            "event_type IN ('billing.budget.alerted', 'billing.budget.paused')",
+            name="ck_notification_preferences_event_type",
+        ),
+        CheckConstraint(
+            "webhook_url IS NULL OR length(webhook_url) <= 512",
+            name="ck_notification_preferences_webhook_url_length",
+        ),
+        CheckConstraint(
+            "(webhook_enabled = TRUE AND webhook_url IS NOT NULL AND length(webhook_url) > 0) "
+            "OR webhook_enabled = FALSE",
+            name="ck_notification_preferences_webhook_url_required",
+        ),
+        Index(
+            "idx_notification_preferences_user_event",
+            "user_id",
+            "event_type",
+            unique=True,
+        ),
+        Index("idx_notification_preferences_event_type", "event_type"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    event_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    email_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    webhook_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    in_app_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    webhook_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
 
 
 class APIKey(Base):
@@ -379,3 +426,27 @@ class AuditLog(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
+
+
+class OutboxEvent(Base):
+    """Generic outbox row published by the sidecar relayer."""
+
+    __tablename__ = "outbox"
+    __table_args__ = (
+        Index("idx_outbox_unsent", "occurred_at", postgresql_where=text("sent_at IS NULL")),
+        Index("idx_outbox_aggregate", "aggregate_type", "aggregate_id", "occurred_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()
+    )
+    aggregate_type: Mapped[str] = mapped_column(String(255), nullable=False)
+    aggregate_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    event_type: Mapped[str] = mapped_column(String(255), nullable=False)
+    event_version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    payload: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    headers: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+    occurred_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

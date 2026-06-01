@@ -68,6 +68,37 @@ async def test_user_id(engine: AsyncEngine) -> uuid.UUID:
     return user_id
 
 
+@pytest_asyncio.fixture(scope="session", autouse=True)
+async def _ensure_notification_preferences_schema(engine: AsyncEngine) -> None:
+    """Local DBs may predate Story 5.D.6; CI applies 13-notification-preferences.sql."""
+    maker = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
+    async with maker() as setup_session:
+        await setup_session.execute(
+            text(
+                """
+                CREATE TABLE IF NOT EXISTS notification_preferences (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    event_type VARCHAR(64) NOT NULL,
+                    email_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+                    webhook_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+                    in_app_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+                    webhook_url TEXT NULL,
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                )
+                """
+            )
+        )
+        await setup_session.execute(
+            text(
+                "CREATE UNIQUE INDEX IF NOT EXISTS idx_notification_preferences_user_event "
+                "ON notification_preferences(user_id, event_type)"
+            )
+        )
+        await setup_session.commit()
+
+
 @pytest_asyncio.fixture
 async def session(engine: AsyncEngine) -> AsyncIterator[AsyncSession]:
     """Per-test session — always commit-or-rollback in finally to release locks."""

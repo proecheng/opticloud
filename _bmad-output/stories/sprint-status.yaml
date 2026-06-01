@@ -187,7 +187,7 @@ development_status:
   5-d-3-job-templates-save: done             # 2026-06-01 — solver-owned job template save foundation; post-review race/payload/schema/UI fixes applied
   5-d-4-job-templates-version: done             # 2026-06-01 — solver job template versioning + lineage history + prediction Console reuse; post-review concurrency/UI error fixes applied
   5-d-5-monthly-budget-alert: done             # 2026-06-01 - monthly budget alert + automatic pause shipped; PR #131 passed CI, merged to main, remote branch deleted, local main synced
-  5-d-6-notification-preferences: backlog
+  5-d-6-notification-preferences: in-progress
   5-d-7-invoice-budget-tier2-component: backlog
 
   # ===== Epic 6.A/B/C: Reproducibility (13 stories) =====

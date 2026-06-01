@@ -8,6 +8,7 @@ from collections.abc import AsyncIterator, Callable
 from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
+from typing import Any
 
 import jwt
 import pytest_asyncio
@@ -172,6 +173,49 @@ async def _budget_outbox_rows(session: AsyncSession, user_id: uuid.UUID) -> list
         .all()
     )
     return [dict(row) for row in rows]
+
+
+async def _insert_notification_preference(
+    session: AsyncSession,
+    user_id: uuid.UUID,
+    event_type: str,
+    *,
+    email: bool,
+    webhook: bool,
+    in_app: bool,
+    webhook_url: str | None = None,
+) -> None:
+    await session.execute(
+        text(
+            """
+            INSERT INTO notification_preferences
+                (user_id, event_type, email_enabled, webhook_enabled, in_app_enabled,
+                 webhook_url, created_at, updated_at)
+            VALUES
+                (:user_id, :event_type, :email, :webhook, :in_app,
+                 :webhook_url, NOW(), NOW())
+            ON CONFLICT (user_id, event_type) DO UPDATE SET
+                email_enabled = EXCLUDED.email_enabled,
+                webhook_enabled = EXCLUDED.webhook_enabled,
+                in_app_enabled = EXCLUDED.in_app_enabled,
+                webhook_url = EXCLUDED.webhook_url,
+                updated_at = NOW()
+            """
+        ),
+        {
+            "user_id": user_id,
+            "event_type": event_type,
+            "email": email,
+            "webhook": webhook,
+            "in_app": in_app,
+            "webhook_url": webhook_url,
+        },
+    )
+    await session.commit()
+
+
+def _payloads_for(rows: list[dict], event_type: str) -> list[dict[str, Any]]:
+    return [row["payload"] for row in rows if row["event_type"] == event_type]
 
 
 async def _counts(session: AsyncSession, user_id: uuid.UUID) -> dict[str, int]:
@@ -444,3 +488,92 @@ async def test_confirm_and_finalize_evaluate_budget_thresholds_once(
     ) == 1
     spend = await monthly_actual_spend(session, user_id, current_budget_period())
     assert spend == Decimal("14.0000")
+
+
+async def test_budget_alert_and_pause_payloads_use_notification_preferences(
+    http_client: AsyncClient,
+    session: AsyncSession,
+    token_factory: tuple[Ed25519PrivateKey, Callable[[uuid.UUID], str]],
+) -> None:
+    user_id, headers = await _create_user(session, token_factory)
+    period = current_budget_period(datetime(2026, 6, 1, 12, tzinfo=UTC))
+    await _insert_notification_preference(
+        session,
+        user_id,
+        "billing.budget.alerted",
+        email=False,
+        webhook=False,
+        in_app=True,
+    )
+    await _insert_notification_preference(
+        session,
+        user_id,
+        "billing.budget.paused",
+        email=True,
+        webhook=True,
+        in_app=False,
+        webhook_url="https://hooks.example.com/budget",
+    )
+    await _insert_ledger(
+        session,
+        user_id,
+        amount="-100.00",
+        kind="charge",
+        created_at=period.start.replace(day=4, hour=1),
+    )
+
+    response = await http_client.put(
+        "/v1/billing/budget",
+        headers=headers,
+        json={"monthly_budget_amount": "100.00", "enabled": True},
+    )
+
+    assert response.status_code == 200, response.text
+    events = await _budget_event_rows(session, user_id)
+    outbox = await _budget_outbox_rows(session, user_id)
+    assert _payloads_for(events, "billing.budget.alerted")[0]["channels"] == ["in_app"]
+    paused_payload = _payloads_for(events, "billing.budget.paused")[0]
+    assert paused_payload["channels"] == ["email", "webhook"]
+    assert paused_payload["webhook_url_configured"] is True
+    assert _payloads_for(outbox, "billing.budget.paused")[0]["webhook_url_configured"] is True
+    serialized = str(events + outbox)
+    assert "hooks.example.com" not in serialized
+
+
+async def test_budget_notification_payloads_emit_empty_channels_when_all_disabled(
+    http_client: AsyncClient,
+    session: AsyncSession,
+    token_factory: tuple[Ed25519PrivateKey, Callable[[uuid.UUID], str]],
+) -> None:
+    user_id, headers = await _create_user(session, token_factory)
+    period = current_budget_period(datetime(2026, 6, 1, 12, tzinfo=UTC))
+    for event_type in ("billing.budget.alerted", "billing.budget.paused"):
+        await _insert_notification_preference(
+            session,
+            user_id,
+            event_type,
+            email=False,
+            webhook=False,
+            in_app=False,
+        )
+    await _insert_ledger(
+        session,
+        user_id,
+        amount="-100.00",
+        kind="charge",
+        created_at=period.start.replace(day=5, hour=1),
+    )
+
+    response = await http_client.put(
+        "/v1/billing/budget",
+        headers=headers,
+        json={"monthly_budget_amount": "100.00", "enabled": True},
+    )
+
+    assert response.status_code == 200, response.text
+    events = await _budget_event_rows(session, user_id)
+    outbox = await _budget_outbox_rows(session, user_id)
+    assert _payloads_for(events, "billing.budget.alerted")[0]["channels"] == []
+    assert _payloads_for(events, "billing.budget.paused")[0]["channels"] == []
+    assert _payloads_for(outbox, "billing.budget.alerted")[0]["channels"] == []
+    assert _payloads_for(outbox, "billing.budget.paused")[0]["channels"] == []

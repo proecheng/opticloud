@@ -2,14 +2,26 @@
 
 from __future__ import annotations
 
+import ipaddress
 import re
 import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Literal
+from urllib.parse import urlsplit
 
-from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
 
 PHONE_PATTERN = re.compile(r"^\+\d{6,15}$")  # E.164 international format
+NotificationEventType = Literal["billing.budget.alerted", "billing.budget.paused"]
+SUPPORTED_NOTIFICATION_EVENTS: tuple[NotificationEventType, ...] = (
+    "billing.budget.alerted",
+    "billing.budget.paused",
+)
+NOTIFICATION_CHANNEL_ORDER: tuple[Literal["email", "webhook", "in_app"], ...] = (
+    "email",
+    "webhook",
+    "in_app",
+)
 
 
 # ===== signup =====
@@ -157,6 +169,128 @@ class DataExportStatusResponse(BaseModel):
     package_sha256: str | None = None
     package_bytes: int | None = None
     last_error: str | None = None
+
+
+# ===== Story 5.D.6: notification preferences =====
+
+
+def _validate_webhook_url(value: str) -> str:
+    if len(value) > 512:
+        raise ValueError("webhook_url must be 512 characters or fewer")
+
+    parsed = urlsplit(value)
+    if parsed.scheme != "https":
+        raise ValueError("webhook_url must use https")
+    if not parsed.netloc or not parsed.hostname:
+        raise ValueError("webhook_url must include a host")
+    if parsed.username is not None or parsed.password is not None:
+        raise ValueError("webhook_url must not contain credentials")
+    if parsed.query or parsed.fragment:
+        raise ValueError("webhook_url must not contain query strings or fragments")
+
+    host = parsed.hostname.lower().rstrip(".")
+    if "%" in host:
+        raise ValueError("webhook_url host must not contain zone identifiers")
+    if (
+        host == "localhost"
+        or host.endswith(".localhost")
+        or host.endswith(".local")
+        or host.endswith(".internal")
+    ):
+        raise ValueError("webhook_url host must not be local or internal")
+
+    try:
+        ip = ipaddress.ip_address(host)
+    except ValueError:
+        if "." not in host:
+            raise ValueError("webhook_url host must not be local or internal") from None
+        labels = host.split(".")
+        if all(label.isdigit() for label in labels) or any(
+            label.lower().startswith("0x") for label in labels
+        ):
+            raise ValueError("webhook_url host must not use non-standard IP notation") from None
+        return value
+
+    if (
+        ip.is_loopback
+        or ip.is_private
+        or ip.is_reserved
+        or ip.is_link_local
+        or ip.is_unspecified
+        or ip.is_multicast
+    ):
+        raise ValueError("webhook_url host must be a public IP address")
+    return value
+
+
+def notification_channels(
+    *,
+    email: bool,
+    webhook: bool,
+    in_app: bool,
+) -> list[Literal["email", "webhook", "in_app"]]:
+    enabled = {"email": email, "webhook": webhook, "in_app": in_app}
+    return [channel for channel in NOTIFICATION_CHANNEL_ORDER if enabled[channel]]
+
+
+class NotificationPreferenceItem(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    event_type: NotificationEventType
+    email: bool = True
+    webhook: bool = False
+    in_app: bool = True
+    webhook_url: str | None = Field(default=None, max_length=512)
+
+    @field_validator("webhook_url")
+    @classmethod
+    def normalize_webhook_url(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        stripped = value.strip()
+        return stripped or None
+
+    @model_validator(mode="after")
+    def validate_webhook_contract(self) -> NotificationPreferenceItem:
+        if self.webhook_url is not None:
+            self.webhook_url = _validate_webhook_url(self.webhook_url)
+        if self.webhook:
+            if self.webhook_url is None:
+                raise ValueError("webhook_url is required when webhook is enabled")
+        return self
+
+
+class NotificationPreferencesUpdateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    items: list[NotificationPreferenceItem] = Field(
+        ...,
+        min_length=len(SUPPORTED_NOTIFICATION_EVENTS),
+        max_length=len(SUPPORTED_NOTIFICATION_EVENTS),
+    )
+
+    @model_validator(mode="after")
+    def validate_full_replacement(self) -> NotificationPreferencesUpdateRequest:
+        event_types = [item.event_type for item in self.items]
+        if len(set(event_types)) != len(event_types):
+            raise ValueError("items must not contain duplicate event_type values")
+        if set(event_types) != set(SUPPORTED_NOTIFICATION_EVENTS):
+            raise ValueError("items must include exactly one item for each supported event_type")
+        return self
+
+
+class NotificationPreferenceResponseItem(BaseModel):
+    event_type: NotificationEventType
+    email: bool
+    webhook: bool
+    in_app: bool
+    webhook_url: str | None = None
+    webhook_url_configured: bool = False
+    channels: list[Literal["email", "webhook", "in_app"]]
+
+
+class NotificationPreferencesResponse(BaseModel):
+    items: list[NotificationPreferenceResponseItem]
 
 
 # ===== Story 1.7: account merge proposals =====
