@@ -4,7 +4,7 @@ baseline_commit: 425a7e7c7ffd32ce3c9673c410e2c6dee4a58b4a
 epic_num: 7
 story_num: B.1
 epic_name: Provider Marketplace v2
-status: code-review
+status: done
 priority: High
 type: provider application contract and evaluation intake
 created_by: bmad-create-story
@@ -24,7 +24,7 @@ sources:
 
 # Story 7.B.1 - Provider Apply v2
 
-Status: code-review
+Status: done
 
 ## Story
 
@@ -130,8 +130,8 @@ This story creates the provider application intake contract only. It must not ru
 - [ ] T5: Review, gates, and GitHub sync (AC: 36-37)
   - [x] Run post-implementation code review and fix findings.
   - [x] Run local gates after fixes.
-  - [ ] Commit, push, create PR, wait for CI, merge, delete remote branch, and sync local `main`.
-  - [ ] Mark story and sprint status `done` only after merge/sync.
+  - [x] Commit, push, create PR, wait for CI, merge, delete remote branch, and sync local `main`.
+  - [x] Mark story and sprint status `done` only after merge/sync.
 
 ## Dev Notes
 
@@ -223,6 +223,7 @@ GPT-5 Codex
 - Lint/format gates: `uv run ruff check apps/capability-registry` and `uv run ruff format --check apps/capability-registry` -> passed.
 - OpenAPI gates: `uv run python scripts/generate_openapi.py` and `uv run python scripts/check_openapi_drift.py` -> passed.
 - Whitespace gate: `git diff --check` -> passed.
+- GitHub sync: PR #136 passed CI, squash-merged to `main` at `e646f69`, remote branch `codex/7-b-1-provider-apply-v2` was deleted, and local `main` synced with `origin/main`.
 
 ### Completion Notes List
 
@@ -232,6 +233,7 @@ GPT-5 Codex
 - Preserved 7.A provider/capability/OAuth/revenue-share behavior and proved application submission has no live catalog side effects.
 - Regenerated capability-registry OpenAPI and extended tests for unsafe-field absence, reference-only payloads, write auth, and tenant/global scope behavior.
 - Post-implementation review findings fixed: broader sensitive-key detection for metadata/cosign/evaluation payloads and status immutability for locked evaluation requests.
+- PR #136 passed GitHub CI, merged to `main`, branch cleanup completed, local `main` synced, and this story is now marked done.
 
 ### File List
 
@@ -251,6 +253,7 @@ GPT-5 Codex
 - 2026-06-01 - Pre-implementation review round 2 tightened drift controls, URL schemes, benchmark naming, and evaluation/application provider consistency.
 - 2026-06-01 - Pre-implementation review round 3 tightened closure conditions, tenant immutability, queued/cancelled evaluation immutability, and no-queue side effects.
 - 2026-06-01 - Implemented Provider Apply v2 intake schema/API/tests/OpenAPI; post-implementation review fixes applied; story moved to code-review pending GitHub sync.
+- 2026-06-01 - PR #136 passed CI, merged to `main`, branch cleanup and local sync completed; story status moved to `done`.
 
 ## Post-Implementation Code Review
 
