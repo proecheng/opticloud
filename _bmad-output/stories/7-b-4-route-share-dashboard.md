@@ -4,7 +4,7 @@ baseline_commit: 28f947cc52ff0bd68ffcc32e946c2962afe9c087
 epic_num: 7
 story_num: B.4
 epic_name: Provider Marketplace v2
-status: review
+status: done
 priority: High
 type: provider route-share dashboard read projection
 created_by: bmad-create-story
@@ -25,7 +25,7 @@ sources:
 
 # Story 7.B.4 - Route Share Dashboard
 
-Status: review
+Status: done
 
 ## Story
 
@@ -118,8 +118,8 @@ PRD FR P4 要求 Provider can view own route share over time。当前系统还�
   - [x] Run post-implementation code review and fix findings.
   - [x] Record code review findings and fixes in `Post-Implementation Code Review`.
   - [x] Run local gates after fixes.
-  - [ ] Commit, push, create PR, wait for CI, merge, delete remote branch, and sync local `main`.
-  - [ ] Mark story and sprint status `done` only after merge/sync.
+  - [x] Commit, push, create PR, wait for CI, merge, delete remote branch, and sync local `main`.
+  - [x] Mark story and sprint status `done` only after merge/sync.
 
 ## Dev Notes
 
@@ -189,6 +189,10 @@ GPT-5 Codex
 - Lint/format gates: `uv run ruff check apps/capability-registry` and `uv run ruff format --check apps/capability-registry` -> passed.
 - OpenAPI gates: `uv run python scripts/generate_openapi.py` and `uv run python scripts/check_openapi_drift.py` -> passed.
 - Whitespace gate: `git diff --check` -> passed.
+- GitHub PR: #139 (`https://github.com/proecheng/opticloud/pull/139`) passed CI and merged to `main`.
+- Merge commit: `1de9557e2f180a64cd847bdcf806380ee60051cd`.
+- Remote branch cleanup: `codex/7-b-4-route-share-dashboard` deleted after merge.
+- Local main sync: `git pull --ff-only origin main` -> already up to date.
 
 ### Completion Notes List
 
@@ -197,7 +201,7 @@ GPT-5 Codex
 - Added route-share dashboard schemas and `GET /v1/providers/{provider_id}/route-share-dashboard`.
 - Implemented provider/tenant/status/stage filters, timeline construction, fixed status counts, empty response shape, and fail-closed 409 behavior for malformed rollout history.
 - Post-implementation review findings fixed: route-share scope schema no longer exposes `global_fallback`, and OpenAPI marks `stage_percent` as the closed rollout stage enum while retaining HTTP query compatibility.
-- Local implementation gates passed; story is ready for GitHub PR review.
+- Local implementation gates passed; PR #139 passed GitHub CI, merged to `main`, remote branch was deleted, local `main` was synced, and story closure is complete.
 
 ### File List
 
@@ -213,6 +217,7 @@ GPT-5 Codex
 - 2026-06-01 - Story created for Provider Route Share Dashboard read projection.
 - 2026-06-01 - Completed 3 pre-implementation adversarial review rounds; story marked ready for development.
 - 2026-06-01 - Implemented route-share dashboard read projection, post-review fixes, tests, and OpenAPI update; story moved to review pending GitHub sync.
+- 2026-06-01 - PR #139 passed CI, merged to `main` at `1de9557e2f180a64cd847bdcf806380ee60051cd`, remote branch was deleted, local `main` synced, and story marked done.
 
 ## Pre-Implementation Adversarial Reviews
 
