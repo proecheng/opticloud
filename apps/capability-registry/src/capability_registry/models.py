@@ -382,3 +382,104 @@ class ProviderApplicationEvaluationRequest(Base):
             postgresql_where=text("tenant_id IS NOT NULL"),
         ),
     )
+
+
+class ProviderShadowValidationRun(Base):
+    """Shadow validation run gate for a provider application evaluation."""
+
+    __tablename__ = "provider_shadow_validation_runs"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()
+    )
+    tenant_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    application_row_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    evaluation_row_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    application_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    evaluation_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    run_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    requested_provider_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    benchmark_suite: Mapped[str] = mapped_column(String(64), nullable=False)
+    evaluation_sample_count: Mapped[int] = mapped_column(nullable=False)
+    baseline_provider_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="draft")
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    summary: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+    evidence_refs: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
+    run_metadata: Mapped[dict[str, Any]] = mapped_column(
+        "metadata", JSONB, nullable=False, default=dict
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    __table_args__ = (
+        Index(
+            "uq_provider_shadow_runs_global_run_id",
+            "evaluation_row_id",
+            "run_id",
+            unique=True,
+            postgresql_where=text("tenant_id IS NULL"),
+        ),
+        Index(
+            "uq_provider_shadow_runs_tenant_run_id",
+            "tenant_id",
+            "evaluation_row_id",
+            "run_id",
+            unique=True,
+            postgresql_where=text("tenant_id IS NOT NULL"),
+        ),
+    )
+
+
+class ProviderShadowValidationSample(Base):
+    """Reference-only shadow validation sample result."""
+
+    __tablename__ = "provider_shadow_validation_samples"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()
+    )
+    tenant_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    run_row_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    sample_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    coverage_class: Mapped[str] = mapped_column(String(32), nullable=False)
+    dataset_ref: Mapped[str] = mapped_column(Text, nullable=False)
+    case_ref: Mapped[str] = mapped_column(Text, nullable=False)
+    observed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    provider_status_code: Mapped[int] = mapped_column(nullable=False)
+    provider_latency_ms: Mapped[int] = mapped_column(nullable=False)
+    baseline_latency_ms: Mapped[int] = mapped_column(nullable=False)
+    deviation_ratio: Mapped[Decimal] = mapped_column(Numeric(9, 6), nullable=False)
+    timed_out: Mapped[bool] = mapped_column(nullable=False, default=False)
+    sample_metadata: Mapped[dict[str, Any]] = mapped_column(
+        "metadata", JSONB, nullable=False, default=dict
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    __table_args__ = (
+        Index(
+            "uq_provider_shadow_samples_global_sample_id",
+            "run_row_id",
+            "sample_id",
+            unique=True,
+            postgresql_where=text("tenant_id IS NULL"),
+        ),
+        Index(
+            "uq_provider_shadow_samples_tenant_sample_id",
+            "tenant_id",
+            "run_row_id",
+            "sample_id",
+            unique=True,
+            postgresql_where=text("tenant_id IS NOT NULL"),
+        ),
+    )

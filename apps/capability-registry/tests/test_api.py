@@ -8,6 +8,7 @@ import os
 import sys
 import uuid
 from collections.abc import AsyncIterator
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -88,7 +89,8 @@ async def clean_tables(engine: AsyncEngine) -> AsyncIterator[None]:
     async with maker() as session:
         await session.execute(
             text(
-                "TRUNCATE provider_application_evaluation_requests, provider_applications, "
+                "TRUNCATE provider_shadow_validation_samples, provider_shadow_validation_runs, "
+                "provider_application_evaluation_requests, provider_applications, "
                 "revenue_share_hooks, revenue_share_policies, "
                 "provider_oauth_flows, capability_tags, capabilities, "
                 "capability_providers RESTART IDENTITY CASCADE"
@@ -215,6 +217,35 @@ def provider_evaluation_payload(**overrides: Any) -> dict[str, Any]:
         "status": "requested",
         "dataset_refs": ["benchmark://provider-intake/lp-standard-v1"],
         "report_ref": "oss://provider-evaluations/app-professor-lu/eval-001/report.json",
+        "metadata": {"source": "test"},
+    }
+    payload.update(overrides)
+    return payload
+
+
+def shadow_run_payload(**overrides: Any) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "baseline_provider_id": "highs",
+        "status": "running",
+        "started_at": "2026-06-01T00:00:00Z",
+        "evidence_refs": ["oss://shadow-validation/app-professor-lu/run-001/evidence.json"],
+        "metadata": {"source": "test"},
+    }
+    payload.update(overrides)
+    return payload
+
+
+def shadow_sample_payload(**overrides: Any) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "coverage_class": "platform_standard",
+        "dataset_ref": "benchmark://provider-shadow/lp-standard-v1",
+        "case_ref": "fixture://provider-shadow/case-001",
+        "observed_at": "2026-06-01T00:00:00Z",
+        "provider_status_code": 200,
+        "provider_latency_ms": 100,
+        "baseline_latency_ms": 100,
+        "deviation_ratio": "0.010000",
+        "timed_out": False,
         "metadata": {"source": "test"},
     }
     payload.update(overrides)
@@ -1099,3 +1130,462 @@ def test_provider_application_openapi_omits_unsafe_fields() -> None:
         properties = set(schema.get("properties", {}))
         if name != "ProviderEvaluationResponse":
             assert properties.isdisjoint(forbidden_terms)
+
+
+async def _create_submitted_application_and_evaluation(
+    client: AsyncClient,
+    *,
+    evaluation_overrides: dict[str, Any] | None = None,
+) -> None:
+    app_resp = await client.put(
+        "/v1/provider-applications/app-professor-lu",
+        json=provider_application_payload(status="submitted"),
+    )
+    assert app_resp.status_code == 200, app_resp.text
+    eval_payload = provider_evaluation_payload()
+    if evaluation_overrides:
+        eval_payload.update(evaluation_overrides)
+    eval_resp = await client.put(
+        "/v1/provider-applications/app-professor-lu/evaluation-requests/eval-001",
+        json=eval_payload,
+    )
+    assert eval_resp.status_code == 200, eval_resp.text
+
+
+async def test_provider_shadow_run_requires_submitted_non_cancelled_evaluation(
+    client: AsyncClient,
+) -> None:
+    missing = await client.put(
+        "/v1/provider-applications/app-professor-lu/evaluation-requests/eval-001"
+        "/shadow-runs/run-001",
+        json=shadow_run_payload(),
+    )
+    assert missing.status_code == 404
+
+    await client.put(
+        "/v1/provider-applications/app-professor-lu",
+        json=provider_application_payload(),
+    )
+    draft_app = await client.put(
+        "/v1/provider-applications/app-professor-lu/evaluation-requests/eval-001"
+        "/shadow-runs/run-001",
+        json=shadow_run_payload(),
+    )
+    assert draft_app.status_code == 422
+
+    await client.post("/v1/provider-applications/app-professor-lu/submit")
+    cancelled_eval = await client.put(
+        "/v1/provider-applications/app-professor-lu/evaluation-requests/eval-001",
+        json=provider_evaluation_payload(status="cancelled"),
+    )
+    assert cancelled_eval.status_code == 200, cancelled_eval.text
+    cancelled_shadow = await client.put(
+        "/v1/provider-applications/app-professor-lu/evaluation-requests/eval-001"
+        "/shadow-runs/run-001",
+        json=shadow_run_payload(),
+    )
+    assert cancelled_shadow.status_code == 422
+
+
+async def test_provider_shadow_run_state_validation_and_no_catalog_side_effect(
+    client: AsyncClient,
+    engine: AsyncEngine,
+) -> None:
+    await _create_submitted_application_and_evaluation(client)
+
+    forbidden_summary = await client.put(
+        "/v1/provider-applications/app-professor-lu/evaluation-requests/eval-001"
+        "/shadow-runs/run-001",
+        json={**shadow_run_payload(), "summary": {"sample_count": 500}},
+    )
+    assert forbidden_summary.status_code == 422
+
+    forged_pass = await client.put(
+        "/v1/provider-applications/app-professor-lu/evaluation-requests/eval-001"
+        "/shadow-runs/run-001",
+        json=shadow_run_payload(status="passed"),
+    )
+    assert forged_pass.status_code == 422
+
+    create = await client.put(
+        "/v1/provider-applications/app-professor-lu/evaluation-requests/eval-001"
+        "/shadow-runs/run-001",
+        json=shadow_run_payload(),
+    )
+    assert create.status_code == 200, create.text
+    body = create.json()
+    assert body["run_id"] == "run-001"
+    assert body["requested_provider_id"] == "professor-lu"
+    assert body["benchmark_suite"] == "lp_standard_500"
+    assert body["evaluation_sample_count"] == 500
+    assert body["status"] == "running"
+    assert body["summary"] == {}
+
+    mutate_baseline = await client.put(
+        "/v1/provider-applications/app-professor-lu/evaluation-requests/eval-001"
+        "/shadow-runs/run-001",
+        json=shadow_run_payload(baseline_provider_id="or-tools"),
+    )
+    assert mutate_baseline.status_code == 422
+    assert "baseline_provider_id" in mutate_baseline.text
+
+    listed = await client.get(
+        "/v1/provider-applications/app-professor-lu/evaluation-requests/eval-001"
+        "/shadow-runs?status=running"
+    )
+    assert listed.status_code == 200, listed.text
+    assert [item["run_id"] for item in listed.json()] == ["run-001"]
+
+    maker = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
+    async with maker() as session:
+        provider_count = (
+            await session.execute(
+                text("SELECT count(*) FROM capability_providers WHERE provider_id = 'professor-lu'")
+            )
+        ).scalar_one()
+    assert provider_count == 0
+
+
+async def test_provider_shadow_samples_validate_scope_cap_and_derived_passed(
+    client: AsyncClient,
+) -> None:
+    await _create_submitted_application_and_evaluation(
+        client,
+        evaluation_overrides={"sample_count": 1},
+    )
+    run_resp = await client.put(
+        "/v1/provider-applications/app-professor-lu/evaluation-requests/eval-001"
+        "/shadow-runs/run-001",
+        json=shadow_run_payload(),
+    )
+    assert run_resp.status_code == 200, run_resp.text
+
+    bad_raw_payload = await client.put(
+        "/v1/provider-applications/app-professor-lu/evaluation-requests/eval-001"
+        "/shadow-runs/run-001/samples/sample-001",
+        json=shadow_sample_payload(metadata={"providerResponse": {"raw": True}}),
+    )
+    assert bad_raw_payload.status_code == 422
+
+    forged_passed = await client.put(
+        "/v1/provider-applications/app-professor-lu/evaluation-requests/eval-001"
+        "/shadow-runs/run-001/samples/sample-001",
+        json={**shadow_sample_payload(), "passed": True},
+    )
+    assert forged_passed.status_code == 422
+
+    sample = await client.put(
+        "/v1/provider-applications/app-professor-lu/evaluation-requests/eval-001"
+        "/shadow-runs/run-001/samples/sample-001",
+        json=shadow_sample_payload(),
+    )
+    assert sample.status_code == 200, sample.text
+    assert sample.json()["passed"] is True
+
+    timeout_update = await client.put(
+        "/v1/provider-applications/app-professor-lu/evaluation-requests/eval-001"
+        "/shadow-runs/run-001/samples/sample-001",
+        json=shadow_sample_payload(timed_out=True),
+    )
+    assert timeout_update.status_code == 200, timeout_update.text
+    assert timeout_update.json()["passed"] is False
+
+    over_cap = await client.put(
+        "/v1/provider-applications/app-professor-lu/evaluation-requests/eval-001"
+        "/shadow-runs/run-001/samples/sample-002",
+        json=shadow_sample_payload(),
+    )
+    assert over_cap.status_code == 422
+    assert "sample_count" in over_cap.text
+
+    running_to_cancelled = await client.put(
+        "/v1/provider-applications/app-professor-lu/evaluation-requests/eval-001"
+        "/shadow-runs/run-001",
+        json=shadow_run_payload(status="cancelled"),
+    )
+    assert running_to_cancelled.status_code == 200, running_to_cancelled.text
+
+    locked_sample = await client.put(
+        "/v1/provider-applications/app-professor-lu/evaluation-requests/eval-001"
+        "/shadow-runs/run-001/samples/sample-001",
+        json=shadow_sample_payload(),
+    )
+    assert locked_sample.status_code == 422
+
+
+async def test_provider_shadow_sample_cap_rechecked_under_run_lock(
+    client: AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    await _create_submitted_application_and_evaluation(
+        client,
+        evaluation_overrides={"sample_count": 1},
+    )
+    await client.put(
+        "/v1/provider-applications/app-professor-lu/evaluation-requests/eval-001"
+        "/shadow-runs/run-001",
+        json=shadow_run_payload(),
+    )
+
+    first = await client.put(
+        "/v1/provider-applications/app-professor-lu/evaluation-requests/eval-001"
+        "/shadow-runs/run-001/samples/sample-001",
+        json=shadow_sample_payload(),
+    )
+    assert first.status_code == 200, first.text
+
+    calls = 0
+    original_loader = registry_routes._load_shadow_sample_row
+
+    async def race_loader(*args: Any, **kwargs: Any) -> Any:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return None
+        return await original_loader(*args, **kwargs)
+
+    monkeypatch.setattr(registry_routes, "_load_shadow_sample_row", race_loader)
+    over_cap = await client.put(
+        "/v1/provider-applications/app-professor-lu/evaluation-requests/eval-001"
+        "/shadow-runs/run-001/samples/sample-002",
+        json=shadow_sample_payload(),
+    )
+    assert over_cap.status_code == 422
+    assert "sample_count" in over_cap.text
+
+
+async def test_provider_shadow_finalize_fails_closed_for_under_budget_run(
+    client: AsyncClient,
+) -> None:
+    await _create_submitted_application_and_evaluation(
+        client,
+        evaluation_overrides={"sample_count": 2},
+    )
+    await client.put(
+        "/v1/provider-applications/app-professor-lu/evaluation-requests/eval-001"
+        "/shadow-runs/run-001",
+        json=shadow_run_payload(),
+    )
+    base_time = datetime(2026, 6, 1, tzinfo=UTC)
+    for index, coverage_class in enumerate(("platform_standard", "provider_supplied")):
+        response = await client.put(
+            "/v1/provider-applications/app-professor-lu/evaluation-requests/eval-001"
+            f"/shadow-runs/run-001/samples/sample-00{index + 1}",
+            json=shadow_sample_payload(
+                coverage_class=coverage_class,
+                case_ref=f"fixture://provider-shadow/case-00{index + 1}",
+                observed_at=(base_time + timedelta(days=index)).isoformat(),
+            ),
+        )
+        assert response.status_code == 200, response.text
+
+    finalize = await client.post(
+        "/v1/provider-applications/app-professor-lu/evaluation-requests/eval-001"
+        "/shadow-runs/run-001/finalize"
+    )
+    assert finalize.status_code == 200, finalize.text
+    body = finalize.json()
+    assert body["status"] == "failed"
+    summary = body["summary"]
+    assert summary["sample_count"] == 2
+    assert summary["evaluation_sample_count"] == 2
+    assert "evaluation_sample_count_below_required" in summary["failed_reasons"]
+    assert "coverage_class_missing" in summary["failed_reasons"]
+
+    replay = await client.post(
+        "/v1/provider-applications/app-professor-lu/evaluation-requests/eval-001"
+        "/shadow-runs/run-001/finalize"
+    )
+    assert replay.status_code == 200, replay.text
+    assert replay.json()["ended_at"] == body["ended_at"]
+
+
+async def test_provider_shadow_finalize_passes_with_500_sample_gate(
+    client: AsyncClient,
+) -> None:
+    await _create_submitted_application_and_evaluation(client)
+    run_resp = await client.put(
+        "/v1/provider-applications/app-professor-lu/evaluation-requests/eval-001"
+        "/shadow-runs/run-001",
+        json=shadow_run_payload(),
+    )
+    assert run_resp.status_code == 200, run_resp.text
+    base_time = datetime(2026, 6, 1, tzinfo=UTC)
+    coverage_classes = [
+        "platform_standard",
+        "provider_supplied",
+        "adversarial",
+        "desensitized_real",
+    ]
+    for index in range(500):
+        coverage_class = coverage_classes[index % len(coverage_classes)]
+        response = await client.put(
+            "/v1/provider-applications/app-professor-lu/evaluation-requests/eval-001"
+            f"/shadow-runs/run-001/samples/sample-{index:03d}",
+            json=shadow_sample_payload(
+                coverage_class=coverage_class,
+                case_ref=f"fixture://provider-shadow/case-{index:03d}",
+                observed_at=(base_time + timedelta(days=index % 15)).isoformat(),
+                provider_latency_ms=100 + (index % 10),
+                baseline_latency_ms=100,
+                deviation_ratio="0.010000",
+            ),
+        )
+        assert response.status_code == 200, response.text
+
+    finalize = await client.post(
+        "/v1/provider-applications/app-professor-lu/evaluation-requests/eval-001"
+        "/shadow-runs/run-001/finalize"
+    )
+    assert finalize.status_code == 200, finalize.text
+    body = finalize.json()
+    assert body["status"] == "passed"
+    summary = body["summary"]
+    assert summary["sample_count"] == 500
+    assert summary["evaluation_sample_count"] == 500
+    assert summary["observed_day_span"] == 14
+    assert summary["success_count"] == 500
+    assert summary["success_rate"] == "1.000000"
+    assert summary["average_deviation_ratio"] == "0.010000"
+    assert summary["baseline_p95_latency_ms"] == 100
+    assert summary["p95_latency_ratio"] <= "1.500000"
+    assert summary["failed_reasons"] == []
+
+    passed_filter = await client.get(
+        "/v1/provider-applications/app-professor-lu/evaluation-requests/eval-001"
+        "/shadow-runs/run-001/samples?passed=true&coverage_class=adversarial"
+    )
+    assert passed_filter.status_code == 200, passed_filter.text
+    assert all(item["coverage_class"] == "adversarial" for item in passed_filter.json())
+    assert all(item["passed"] is True for item in passed_filter.json())
+
+    idempotent_upsert = await client.put(
+        "/v1/provider-applications/app-professor-lu/evaluation-requests/eval-001"
+        "/shadow-runs/run-001",
+        json=shadow_run_payload(status=None),
+    )
+    assert idempotent_upsert.status_code == 200, idempotent_upsert.text
+    assert idempotent_upsert.json()["id"] == body["id"]
+
+
+async def test_provider_shadow_tenant_scope_requires_tenant_evaluation(
+    client: AsyncClient,
+) -> None:
+    tenant_id = str(uuid.uuid4())
+    await client.put(
+        "/v1/provider-applications/app-global",
+        json=provider_application_payload(status="submitted"),
+    )
+    await client.put(
+        "/v1/provider-applications/app-global/evaluation-requests/eval-001",
+        json=provider_evaluation_payload(status="queued"),
+    )
+
+    tenant_against_global_eval = await client.put(
+        "/v1/provider-applications/app-global/evaluation-requests/eval-001/shadow-runs/run-001",
+        json=shadow_run_payload(tenant_id=tenant_id),
+    )
+    assert tenant_against_global_eval.status_code == 404
+
+    tenant_eval = await client.put(
+        f"/v1/provider-applications/app-global/evaluation-requests/eval-tenant?tenant_id={tenant_id}",
+        json=provider_evaluation_payload(
+            tenant_id=tenant_id,
+            evaluation_id="eval-tenant",
+            status="queued",
+        ),
+    )
+    assert tenant_eval.status_code == 200, tenant_eval.text
+
+    tenant_run = await client.put(
+        "/v1/provider-applications/app-global/evaluation-requests/eval-tenant/shadow-runs/run-001",
+        json=shadow_run_payload(tenant_id=tenant_id),
+    )
+    assert tenant_run.status_code == 200, tenant_run.text
+    assert tenant_run.json()["scope_source"] == "tenant"
+
+
+async def test_provider_shadow_write_protection_when_internal_secret_configured(
+    client: AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    await _create_submitted_application_and_evaluation(client)
+    monkeypatch.setattr(
+        "capability_registry.routes.settings.internal_secret",
+        SecretStr("internal-test-secret"),
+    )
+
+    missing_run_auth = await client.put(
+        "/v1/provider-applications/app-professor-lu/evaluation-requests/eval-001"
+        "/shadow-runs/run-001",
+        json=shadow_run_payload(),
+    )
+    assert missing_run_auth.status_code == 401
+
+    ok_run = await client.put(
+        "/v1/provider-applications/app-professor-lu/evaluation-requests/eval-001"
+        "/shadow-runs/run-001",
+        json=shadow_run_payload(),
+        headers={"X-Internal-Service-Auth": "internal-test-secret"},
+    )
+    assert ok_run.status_code == 200, ok_run.text
+
+    missing_sample_auth = await client.put(
+        "/v1/provider-applications/app-professor-lu/evaluation-requests/eval-001"
+        "/shadow-runs/run-001/samples/sample-001",
+        json=shadow_sample_payload(),
+    )
+    assert missing_sample_auth.status_code == 401
+
+    ok_sample = await client.put(
+        "/v1/provider-applications/app-professor-lu/evaluation-requests/eval-001"
+        "/shadow-runs/run-001/samples/sample-001",
+        json=shadow_sample_payload(),
+        headers={"X-Internal-Service-Auth": "internal-test-secret"},
+    )
+    assert ok_sample.status_code == 200, ok_sample.text
+
+
+def test_provider_shadow_openapi_omits_unsafe_fields() -> None:
+    spec = json.loads(OPENAPI_PATH.read_text(encoding="utf-8"))
+    shadow_schemas = {
+        name: schema
+        for name, schema in spec["components"]["schemas"].items()
+        if name.startswith("ProviderShadow")
+    }
+    assert shadow_schemas
+    forbidden_terms = {
+        "api_key",
+        "password",
+        "client_secret",
+        "access_token",
+        "refresh_token",
+        "registry_password",
+        "docker_password",
+        "bank_account",
+        "tax_id",
+        "raw_dataset",
+        "raw_request",
+        "raw_response",
+        "provider_request",
+        "provider_response",
+    }
+    sample_request_properties = set(
+        shadow_schemas["ProviderShadowSampleUpsertRequest"].get("properties", {})
+    )
+    run_request_properties = set(
+        shadow_schemas["ProviderShadowRunUpsertRequest"].get("properties", {})
+    )
+    assert "passed" not in sample_request_properties
+    assert "summary" not in run_request_properties
+    status_schema = shadow_schemas["ProviderShadowRunUpsertRequest"]["properties"]["status"][
+        "anyOf"
+    ][0]
+    assert set(status_schema["enum"]) == {
+        "draft",
+        "running",
+        "cancelled",
+    }
+    for schema in shadow_schemas.values():
+        properties = set(schema.get("properties", {}))
+        assert properties.isdisjoint(forbidden_terms)

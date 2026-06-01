@@ -565,3 +565,200 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_provider_application_evaluations_tenant_eva
 
 CREATE INDEX IF NOT EXISTS idx_provider_application_evaluations_application
     ON provider_application_evaluation_requests(application_row_id, status);
+
+-- Story 7.B.2: Provider shadow validation contract and promotion gate.
+-- Contract/evidence records only; no provider execution, worker queue, or traffic rollout.
+
+CREATE TABLE IF NOT EXISTS provider_shadow_validation_runs (
+    id                          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id                   UUID NULL,
+    application_row_id          UUID NOT NULL REFERENCES provider_applications(id) ON DELETE CASCADE,
+    evaluation_row_id           UUID NOT NULL REFERENCES provider_application_evaluation_requests(id) ON DELETE CASCADE,
+    application_id              VARCHAR(64) NOT NULL,
+    evaluation_id               VARCHAR(64) NOT NULL,
+    run_id                      VARCHAR(64) NOT NULL,
+    requested_provider_id       VARCHAR(64) NOT NULL,
+    benchmark_suite             VARCHAR(64) NOT NULL,
+    evaluation_sample_count     INTEGER NOT NULL,
+    baseline_provider_id        VARCHAR(64) NOT NULL,
+    status                      VARCHAR(32) NOT NULL DEFAULT 'draft',
+    started_at                  TIMESTAMPTZ NULL,
+    ended_at                    TIMESTAMPTZ NULL,
+    summary                     JSONB NOT NULL DEFAULT '{}'::jsonb,
+    evidence_refs               JSONB NOT NULL DEFAULT '[]'::jsonb,
+    metadata                    JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at                  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at                  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE provider_shadow_validation_runs
+    ADD COLUMN IF NOT EXISTS tenant_id UUID NULL,
+    ADD COLUMN IF NOT EXISTS evaluation_sample_count INTEGER NOT NULL DEFAULT 500,
+    ADD COLUMN IF NOT EXISTS summary JSONB NOT NULL DEFAULT '{}'::jsonb,
+    ADD COLUMN IF NOT EXISTS evidence_refs JSONB NOT NULL DEFAULT '[]'::jsonb,
+    ADD COLUMN IF NOT EXISTS metadata JSONB NOT NULL DEFAULT '{}'::jsonb;
+
+ALTER TABLE provider_shadow_validation_runs
+    DROP CONSTRAINT IF EXISTS ck_provider_shadow_runs_application_id;
+ALTER TABLE provider_shadow_validation_runs
+    ADD CONSTRAINT ck_provider_shadow_runs_application_id
+    CHECK (application_id ~ '^[a-z0-9][a-z0-9-]{0,63}$');
+
+ALTER TABLE provider_shadow_validation_runs
+    DROP CONSTRAINT IF EXISTS ck_provider_shadow_runs_evaluation_id;
+ALTER TABLE provider_shadow_validation_runs
+    ADD CONSTRAINT ck_provider_shadow_runs_evaluation_id
+    CHECK (evaluation_id ~ '^[a-z0-9][a-z0-9-]{0,63}$');
+
+ALTER TABLE provider_shadow_validation_runs
+    DROP CONSTRAINT IF EXISTS ck_provider_shadow_runs_run_id;
+ALTER TABLE provider_shadow_validation_runs
+    ADD CONSTRAINT ck_provider_shadow_runs_run_id
+    CHECK (run_id ~ '^[a-z0-9][a-z0-9-]{0,63}$');
+
+ALTER TABLE provider_shadow_validation_runs
+    DROP CONSTRAINT IF EXISTS ck_provider_shadow_runs_requested_provider_id;
+ALTER TABLE provider_shadow_validation_runs
+    ADD CONSTRAINT ck_provider_shadow_runs_requested_provider_id
+    CHECK (requested_provider_id ~ '^[a-z0-9][a-z0-9-]{0,63}$');
+
+ALTER TABLE provider_shadow_validation_runs
+    DROP CONSTRAINT IF EXISTS ck_provider_shadow_runs_baseline_provider_id;
+ALTER TABLE provider_shadow_validation_runs
+    ADD CONSTRAINT ck_provider_shadow_runs_baseline_provider_id
+    CHECK (baseline_provider_id ~ '^[a-z0-9][a-z0-9-]{0,63}$');
+
+ALTER TABLE provider_shadow_validation_runs
+    DROP CONSTRAINT IF EXISTS ck_provider_shadow_runs_benchmark_suite;
+ALTER TABLE provider_shadow_validation_runs
+    ADD CONSTRAINT ck_provider_shadow_runs_benchmark_suite
+    CHECK (benchmark_suite ~ '^[a-z0-9][a-z0-9_-]{0,63}$');
+
+ALTER TABLE provider_shadow_validation_runs
+    DROP CONSTRAINT IF EXISTS ck_provider_shadow_runs_evaluation_sample_count;
+ALTER TABLE provider_shadow_validation_runs
+    ADD CONSTRAINT ck_provider_shadow_runs_evaluation_sample_count
+    CHECK (evaluation_sample_count BETWEEN 1 AND 500);
+
+ALTER TABLE provider_shadow_validation_runs
+    DROP CONSTRAINT IF EXISTS ck_provider_shadow_runs_status;
+ALTER TABLE provider_shadow_validation_runs
+    ADD CONSTRAINT ck_provider_shadow_runs_status
+    CHECK (status IN ('draft', 'running', 'passed', 'failed', 'cancelled'));
+
+ALTER TABLE provider_shadow_validation_runs
+    DROP CONSTRAINT IF EXISTS ck_provider_shadow_runs_summary_object;
+ALTER TABLE provider_shadow_validation_runs
+    ADD CONSTRAINT ck_provider_shadow_runs_summary_object
+    CHECK (jsonb_typeof(summary) = 'object');
+
+ALTER TABLE provider_shadow_validation_runs
+    DROP CONSTRAINT IF EXISTS ck_provider_shadow_runs_evidence_refs_array;
+ALTER TABLE provider_shadow_validation_runs
+    ADD CONSTRAINT ck_provider_shadow_runs_evidence_refs_array
+    CHECK (jsonb_typeof(evidence_refs) = 'array');
+
+ALTER TABLE provider_shadow_validation_runs
+    DROP CONSTRAINT IF EXISTS ck_provider_shadow_runs_metadata_object;
+ALTER TABLE provider_shadow_validation_runs
+    ADD CONSTRAINT ck_provider_shadow_runs_metadata_object
+    CHECK (jsonb_typeof(metadata) = 'object');
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_provider_shadow_runs_global_run_id
+    ON provider_shadow_validation_runs(evaluation_row_id, run_id)
+    WHERE tenant_id IS NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_provider_shadow_runs_tenant_run_id
+    ON provider_shadow_validation_runs(tenant_id, evaluation_row_id, run_id)
+    WHERE tenant_id IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_provider_shadow_runs_evaluation
+    ON provider_shadow_validation_runs(evaluation_row_id, status);
+
+CREATE TABLE IF NOT EXISTS provider_shadow_validation_samples (
+    id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id               UUID NULL,
+    run_row_id              UUID NOT NULL REFERENCES provider_shadow_validation_runs(id) ON DELETE CASCADE,
+    sample_id               VARCHAR(64) NOT NULL,
+    coverage_class          VARCHAR(32) NOT NULL,
+    dataset_ref             TEXT NOT NULL,
+    case_ref                TEXT NOT NULL,
+    observed_at             TIMESTAMPTZ NOT NULL,
+    provider_status_code    INTEGER NOT NULL,
+    provider_latency_ms     INTEGER NOT NULL,
+    baseline_latency_ms     INTEGER NOT NULL,
+    deviation_ratio         NUMERIC(9, 6) NOT NULL,
+    timed_out               BOOLEAN NOT NULL DEFAULT false,
+    metadata                JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at              TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE provider_shadow_validation_samples
+    ADD COLUMN IF NOT EXISTS tenant_id UUID NULL,
+    ADD COLUMN IF NOT EXISTS metadata JSONB NOT NULL DEFAULT '{}'::jsonb;
+
+ALTER TABLE provider_shadow_validation_samples
+    DROP CONSTRAINT IF EXISTS ck_provider_shadow_samples_sample_id;
+ALTER TABLE provider_shadow_validation_samples
+    ADD CONSTRAINT ck_provider_shadow_samples_sample_id
+    CHECK (sample_id ~ '^[a-z0-9][a-z0-9-]{0,63}$');
+
+ALTER TABLE provider_shadow_validation_samples
+    DROP CONSTRAINT IF EXISTS ck_provider_shadow_samples_coverage_class;
+ALTER TABLE provider_shadow_validation_samples
+    ADD CONSTRAINT ck_provider_shadow_samples_coverage_class
+    CHECK (coverage_class IN ('platform_standard', 'provider_supplied', 'adversarial', 'desensitized_real'));
+
+ALTER TABLE provider_shadow_validation_samples
+    DROP CONSTRAINT IF EXISTS ck_provider_shadow_samples_dataset_ref;
+ALTER TABLE provider_shadow_validation_samples
+    ADD CONSTRAINT ck_provider_shadow_samples_dataset_ref
+    CHECK (dataset_ref ~ '^(s3|oss|fixture|benchmark|repro)://');
+
+ALTER TABLE provider_shadow_validation_samples
+    DROP CONSTRAINT IF EXISTS ck_provider_shadow_samples_case_ref;
+ALTER TABLE provider_shadow_validation_samples
+    ADD CONSTRAINT ck_provider_shadow_samples_case_ref
+    CHECK (case_ref ~ '^(s3|oss|fixture|benchmark|repro)://');
+
+ALTER TABLE provider_shadow_validation_samples
+    DROP CONSTRAINT IF EXISTS ck_provider_shadow_samples_status_code;
+ALTER TABLE provider_shadow_validation_samples
+    ADD CONSTRAINT ck_provider_shadow_samples_status_code
+    CHECK (provider_status_code BETWEEN 100 AND 599);
+
+ALTER TABLE provider_shadow_validation_samples
+    DROP CONSTRAINT IF EXISTS ck_provider_shadow_samples_provider_latency;
+ALTER TABLE provider_shadow_validation_samples
+    ADD CONSTRAINT ck_provider_shadow_samples_provider_latency
+    CHECK (provider_latency_ms > 0);
+
+ALTER TABLE provider_shadow_validation_samples
+    DROP CONSTRAINT IF EXISTS ck_provider_shadow_samples_baseline_latency;
+ALTER TABLE provider_shadow_validation_samples
+    ADD CONSTRAINT ck_provider_shadow_samples_baseline_latency
+    CHECK (baseline_latency_ms > 0);
+
+ALTER TABLE provider_shadow_validation_samples
+    DROP CONSTRAINT IF EXISTS ck_provider_shadow_samples_deviation_ratio;
+ALTER TABLE provider_shadow_validation_samples
+    ADD CONSTRAINT ck_provider_shadow_samples_deviation_ratio
+    CHECK (deviation_ratio >= 0 AND deviation_ratio <= 999.999999);
+
+ALTER TABLE provider_shadow_validation_samples
+    DROP CONSTRAINT IF EXISTS ck_provider_shadow_samples_metadata_object;
+ALTER TABLE provider_shadow_validation_samples
+    ADD CONSTRAINT ck_provider_shadow_samples_metadata_object
+    CHECK (jsonb_typeof(metadata) = 'object');
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_provider_shadow_samples_global_sample_id
+    ON provider_shadow_validation_samples(run_row_id, sample_id)
+    WHERE tenant_id IS NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_provider_shadow_samples_tenant_sample_id
+    ON provider_shadow_validation_samples(tenant_id, run_row_id, sample_id)
+    WHERE tenant_id IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_provider_shadow_samples_run
+    ON provider_shadow_validation_samples(run_row_id, coverage_class);
