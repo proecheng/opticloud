@@ -222,7 +222,7 @@ development_status:
   7-a-2-revenue-share-hook-v2-reservation: done
 
   7-b-1-provider-apply-v2: done
-  7-b-2-shadow-validation: code-review
+  7-b-2-shadow-validation: done
   7-b-3-gradient-rollout: backlog
   7-b-4-route-share-dashboard: backlog
   7-b-5-provider-kpi-dashboard: backlog

@@ -4,7 +4,7 @@ baseline_commit: 3344539b661193adea945137c4cc5fdc78189838
 epic_num: 7
 story_num: B.2
 epic_name: Provider Marketplace v2
-status: code-review
+status: done
 priority: High
 type: provider shadow validation contract and promotion gate
 created_by: bmad-create-story
@@ -22,7 +22,7 @@ sources:
 
 # Story 7.B.2 - Shadow Validation
 
-Status: code-review
+Status: done
 
 ## Story
 
@@ -125,8 +125,8 @@ This story creates the shadow validation contract and deterministic gate calcula
 - [ ] T5: Review, gates, and GitHub sync (AC: 36-37)
   - [x] Run post-implementation code review and fix findings.
   - [x] Run local gates after fixes.
-  - [ ] Commit, push, create PR, wait for CI, merge, delete remote branch, and sync local `main`.
-  - [ ] Mark story and sprint status `done` only after merge/sync.
+  - [x] Commit, push, create PR, wait for CI, merge, delete remote branch, and sync local `main`.
+  - [x] Mark story and sprint status `done` only after merge/sync.
 
 ## Dev Notes
 
@@ -205,6 +205,7 @@ GPT-5 Codex
 - Lint/format gates: `uv run ruff check apps/capability-registry` and `uv run ruff format --check apps/capability-registry` -> passed.
 - OpenAPI gates: `uv run python scripts/generate_openapi.py` and `uv run python scripts/check_openapi_drift.py` -> passed.
 - Whitespace gate: `git diff --check` -> passed.
+- GitHub sync: PR #137 passed CI, squash-merged to `main` at `bfadbb1`, remote branch `codex/7-b-2-shadow-validation` was deleted, and local `main` synced with `origin/main`.
 
 ### Completion Notes List
 
@@ -213,6 +214,7 @@ GPT-5 Codex
 - Implemented deterministic NFR P2 gate summary: 500-sample/evaluation alignment, 14-day observed span, four coverage classes, success rate, average deviation, nearest-rank P95 latency ratio, thresholds, and failed reasons.
 - Preserved existing 7.A and 7.B.1 behavior and proved shadow validation has no live provider catalog side effects.
 - Post-implementation review fixes applied: upsert OpenAPI no longer exposes `passed|failed`, finalized-run idempotency uses omitted status, and run row locking serializes sample cap/finalize state.
+- PR #137 passed GitHub CI, merged to `main`, branch cleanup completed, local `main` synced, and this story is now marked done.
 
 ### File List
 
@@ -232,6 +234,7 @@ GPT-5 Codex
 - 2026-06-01 - Pre-implementation review round 2 aligned shadow evidence with 7.B.1 evaluation sample budget and average-deviation semantics.
 - 2026-06-01 - Pre-implementation review round 3 added persisted evaluation sample count, coverage counts, exact 500-sample pass rule, and explicit per-coverage threshold.
 - 2026-06-01 - Implemented Provider Shadow Validation schema/API/tests/OpenAPI; post-implementation review fixes applied; story moved to code-review pending final local gates and GitHub sync.
+- 2026-06-01 - PR #137 passed CI, merged to `main`, branch cleanup and local sync completed; story status moved to `done`.
 
 ## Pre-Implementation Adversarial Reviews
 
@@ -294,4 +297,4 @@ Revisions applied:
 
 ### Outcome
 
-Changes requested during review were patched. Focused tests and local gates passed after fixes; GitHub sync remains before `done`.
+Changes requested during review were patched. Focused tests, local gates, GitHub CI, merge, branch cleanup, and local sync are complete.
