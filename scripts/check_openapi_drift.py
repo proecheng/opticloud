@@ -23,7 +23,7 @@ OPENAPI_DIR = REPO_ROOT / "packages" / "shared-ts" / "openapi"
 
 def main() -> int:
     if not OPENAPI_DIR.exists():
-        print("  ⚠️  No openapi/ directory; run `generate_openapi.py` first.")
+        print("  WARN No openapi/ directory; run `generate_openapi.py` first.")
         return 1
 
     # Generate fresh spec into temp dir
@@ -41,7 +41,7 @@ def main() -> int:
             check=False,
         )
         if result.returncode != 0:
-            print(f"  ❌ Generate failed: {result.stderr}")
+            print(f"  ERROR Generate failed: {result.stderr}")
             return 1
 
         # Check git status for changes in openapi/
@@ -53,7 +53,7 @@ def main() -> int:
             check=False,
         )
         if git_diff.returncode != 0:
-            print("  ❌ OpenAPI spec drift detected!")
+            print("  ERROR OpenAPI spec drift detected!")
             print("     The checked-in openapi/ files differ from generated.")
             print("     Run `uv run python scripts/generate_openapi.py` + commit.")
             print()
@@ -61,7 +61,7 @@ def main() -> int:
             print(git_diff.stdout)
             return 1
 
-    print("  ✅ No OpenAPI drift.")
+    print("  OK No OpenAPI drift.")
     return 0
 
 

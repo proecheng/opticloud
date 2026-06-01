@@ -111,6 +111,7 @@ jobs:
               - 'apps/sandbox-runner/**'
             capability_registry:
               - 'apps/capability-registry/**'
+              - 'infra/local-init/14-capability-registry.sql'
             repro_service:
               - 'apps/repro-service/**'
             image_archival:
@@ -233,7 +234,7 @@ jobs:
   # ===== Mypy strict (Story 0.5) — separate job so it has access to project deps =====
   mypy:
     needs: changes
-    if: needs.changes.outputs.shared_py == 'true' || needs.changes.outputs.python_sdk == 'true' || needs.changes.outputs.auth_service == 'true' || needs.changes.outputs.solver_orchestrator == 'true' || needs.changes.outputs.billing_service == 'true' || needs.changes.outputs.ci_or_root == 'true'
+    if: needs.changes.outputs.shared_py == 'true' || needs.changes.outputs.python_sdk == 'true' || needs.changes.outputs.auth_service == 'true' || needs.changes.outputs.solver_orchestrator == 'true' || needs.changes.outputs.billing_service == 'true' || needs.changes.outputs.capability_registry == 'true' || needs.changes.outputs.ci_or_root == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -472,6 +473,53 @@ jobs:
 
   # ===== Other service stubs (will populate as services come online) =====
   # api-gateway-test, ...
+
+  # ===== capability-registry tests (Story 7.A.1) =====
+  capability-registry-test:
+    needs: changes
+    if: needs.changes.outputs.capability_registry == 'true' || needs.changes.outputs.shared_py == 'true' || needs.changes.outputs.ci_or_root == 'true'
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: opticloud
+          POSTGRES_PASSWORD: opticloud_dev  # pragma: allowlist secret
+          POSTGRES_DB: opticloud_dev
+        options: >-
+          --health-cmd "pg_isready -U opticloud -d opticloud_dev"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 5
+        ports:
+          - 6379:6379
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: pip install uv==${{ env.UV_VERSION }}
+      - run: uv sync --all-packages --extra dev
+      - name: Apply schema
+        env:
+          PGPASSWORD: opticloud_dev  # pragma: allowlist secret
+        run: |
+          psql -h localhost -U opticloud -d opticloud_dev -f infra/local-init/14-capability-registry.sql
+          psql -h localhost -U opticloud -d opticloud_dev -f infra/local-init/14-capability-registry.sql
+      - name: Run tests
+        env:
+          DATABASE_URL: postgresql+asyncpg://opticloud:opticloud_dev@localhost:5432/opticloud_dev  # pragma: allowlist secret
+          REDIS_URL: redis://localhost:6379
+        run: uv run pytest apps/capability-registry/tests/ -v
 
   # ===== sandbox-runner tests (Story M3.1) =====
   sandbox-runner-test:
@@ -849,7 +897,7 @@ jobs:
   # ===== OpenAPI drift check (P64 + Story 0.4) =====
   openapi-drift:
     needs: changes
-    if: needs.changes.outputs.auth_service == 'true' || needs.changes.outputs.shared_py == 'true' || needs.changes.outputs.ci_or_root == 'true'
+    if: needs.changes.outputs.auth_service == 'true' || needs.changes.outputs.capability_registry == 'true' || needs.changes.outputs.shared_py == 'true' || needs.changes.outputs.ci_or_root == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

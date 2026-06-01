@@ -1,0 +1,3275 @@
+{
+  "components": {
+    "schemas": {
+      "APIKeyCreateRequest": {
+        "description": "FR A2 api_keys.create body.\n\nStory 1.3: `expires_in_days` is a convenience that resolves server-side to\n`expires_at = NOW + days`. Sending both → 422.",
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "expires_in_days": {
+            "anyOf": [
+              {
+                "maximum": 3650.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires In Days"
+          },
+          "label": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          },
+          "scope": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Scope",
+            "type": "array"
+          }
+        },
+        "required": [
+          "label"
+        ],
+        "title": "APIKeyCreateRequest",
+        "type": "object"
+      },
+      "APIKeyCreateResponse": {
+        "description": "FR A2 api_keys.create response (full key returned ONCE).",
+        "properties": {
+          "api_key": {
+            "description": "Full key, e.g. 'sk-XXXXX...' — copy now, never shown again",
+            "title": "Api Key",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "hash_preview": {
+            "description": "SHA256 hash preview (debugging)",
+            "title": "Hash Preview",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "prefix": {
+            "description": "First 6 chars visible for identification",
+            "title": "Prefix",
+            "type": "string"
+          },
+          "scope": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Scope",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "api_key",
+          "prefix",
+          "hash_preview",
+          "label",
+          "scope",
+          "expires_at",
+          "created_at"
+        ],
+        "title": "APIKeyCreateResponse",
+        "type": "object"
+      },
+      "APIKeyGeoAnomalyWarning": {
+        "description": "User-safe warning data for Story 1.11 geo-anomaly risk.",
+        "properties": {
+          "current_geo_bucket": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Geo Bucket"
+          },
+          "current_geo_label_zh": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Geo Label Zh"
+          },
+          "current_ip": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Ip"
+          },
+          "detected_at": {
+            "format": "date-time",
+            "title": "Detected At",
+            "type": "string"
+          },
+          "detector_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detector Version"
+          },
+          "geo_risk_score": {
+            "title": "Geo Risk Score",
+            "type": "number"
+          },
+          "previous_geo_bucket": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Geo Bucket"
+          },
+          "previous_geo_label_zh": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Geo Label Zh"
+          },
+          "previous_ip": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Ip"
+          }
+        },
+        "required": [
+          "geo_risk_score",
+          "detected_at"
+        ],
+        "title": "APIKeyGeoAnomalyWarning",
+        "type": "object"
+      },
+      "APIKeyListItem": {
+        "description": "FR A2 api_keys list item.",
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "geo_anomaly": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/APIKeyGeoAnomalyWarning"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "geo_anomaly_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geo Anomaly At"
+          },
+          "geo_risk_score": {
+            "default": 0.0,
+            "title": "Geo Risk Score",
+            "type": "number"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "last_used_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Used At"
+          },
+          "last_used_geo_bucket": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Used Geo Bucket"
+          },
+          "last_used_ip": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Used Ip"
+          },
+          "prefix": {
+            "title": "Prefix",
+            "type": "string"
+          },
+          "revoked_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revoked At"
+          },
+          "scope": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Scope",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "prefix",
+          "label",
+          "description",
+          "scope",
+          "expires_at",
+          "last_used_at",
+          "revoked_at",
+          "created_at"
+        ],
+        "title": "APIKeyListItem",
+        "type": "object"
+      },
+      "AccountDeletionStatusResponse": {
+        "description": "Authenticated account deletion status.",
+        "properties": {
+          "completed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "grace_period_days": {
+            "default": 7,
+            "title": "Grace Period Days",
+            "type": "integer"
+          },
+          "hard_delete_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hard Delete At"
+          },
+          "requested_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requested At"
+          },
+          "status": {
+            "enum": [
+              "none",
+              "scheduled",
+              "completed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "user_id_snapshot": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Id Snapshot"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "AccountDeletionStatusResponse",
+        "type": "object"
+      },
+      "AccountMergeAdminReviewRequest": {
+        "properties": {
+          "decision": {
+            "enum": [
+              "approve",
+              "reject"
+            ],
+            "title": "Decision",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "decision",
+          "reason"
+        ],
+        "title": "AccountMergeAdminReviewRequest",
+        "type": "object"
+      },
+      "AccountMergeEvidence": {
+        "description": "Evidence collected for FR A7 account-merge review.",
+        "properties": {
+          "contact_email": {
+            "format": "email",
+            "title": "Contact Email",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 500,
+            "minLength": 4,
+            "title": "Reason",
+            "type": "string"
+          },
+          "supporting_note": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Supporting Note"
+          },
+          "team_size": {
+            "anyOf": [
+              {
+                "maximum": 50.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Team Size"
+          }
+        },
+        "required": [
+          "reason",
+          "contact_email"
+        ],
+        "title": "AccountMergeEvidence",
+        "type": "object"
+      },
+      "AccountMergeProposalCreateRequest": {
+        "properties": {
+          "duplicate_user_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Duplicate User Ids",
+            "type": "array"
+          },
+          "evidence": {
+            "$ref": "#/components/schemas/AccountMergeEvidence"
+          },
+          "primary_user_id": {
+            "format": "uuid",
+            "title": "Primary User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "primary_user_id",
+          "duplicate_user_ids",
+          "evidence"
+        ],
+        "title": "AccountMergeProposalCreateRequest",
+        "type": "object"
+      },
+      "AccountMergeProposalResponse": {
+        "properties": {
+          "accepted_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accepted At"
+          },
+          "auto_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Auto Score"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "decision_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision Reason"
+          },
+          "duplicate_user_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Duplicate User Ids",
+            "type": "array"
+          },
+          "evidence": {
+            "additionalProperties": true,
+            "title": "Evidence",
+            "type": "object"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "next_action": {
+            "title": "Next Action",
+            "type": "string"
+          },
+          "primary_user_id": {
+            "format": "uuid",
+            "title": "Primary User Id",
+            "type": "string"
+          },
+          "requester_user_id": {
+            "format": "uuid",
+            "title": "Requester User Id",
+            "type": "string"
+          },
+          "review_due_at": {
+            "format": "date-time",
+            "title": "Review Due At",
+            "type": "string"
+          },
+          "review_mode": {
+            "enum": [
+              "human",
+              "auto"
+            ],
+            "title": "Review Mode",
+            "type": "string"
+          },
+          "reviewed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewed At"
+          },
+          "reviewed_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewed By"
+          },
+          "status": {
+            "enum": [
+              "pending_review",
+              "approved",
+              "rejected",
+              "auto_approved",
+              "accepted",
+              "cancelled"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "requester_user_id",
+          "primary_user_id",
+          "duplicate_user_ids",
+          "evidence",
+          "status",
+          "review_mode",
+          "auto_score",
+          "review_due_at",
+          "reviewed_at",
+          "reviewed_by",
+          "decision_reason",
+          "accepted_at",
+          "created_at",
+          "updated_at",
+          "next_action"
+        ],
+        "title": "AccountMergeProposalResponse",
+        "type": "object"
+      },
+      "AdminFlagRequest": {
+        "properties": {
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "rule_code": {
+            "title": "Rule Code",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "rule_code"
+        ],
+        "title": "AdminFlagRequest",
+        "type": "object"
+      },
+      "AdminFlagResponse": {
+        "properties": {
+          "distinct_enabled_triggers": {
+            "title": "Distinct Enabled Triggers",
+            "type": "integer"
+          },
+          "flag_id": {
+            "format": "uuid",
+            "title": "Flag Id",
+            "type": "string"
+          },
+          "user_frozen": {
+            "title": "User Frozen",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "flag_id",
+          "user_frozen",
+          "distinct_enabled_triggers"
+        ],
+        "title": "AdminFlagResponse",
+        "type": "object"
+      },
+      "AdminUnfreezeRequest": {
+        "properties": {
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "title": "AdminUnfreezeRequest",
+        "type": "object"
+      },
+      "AdminUnfreezeResponse": {
+        "properties": {
+          "is_frozen": {
+            "title": "Is Frozen",
+            "type": "boolean"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "is_frozen"
+        ],
+        "title": "AdminUnfreezeResponse",
+        "type": "object"
+      },
+      "DataExportCreateRequest": {
+        "description": "Authenticated data export create request.",
+        "properties": {
+          "format": {
+            "default": "json",
+            "enum": [
+              "json",
+              "csv"
+            ],
+            "title": "Format",
+            "type": "string"
+          }
+        },
+        "title": "DataExportCreateRequest",
+        "type": "object"
+      },
+      "DataExportStatusResponse": {
+        "description": "Authenticated data export request/status response.",
+        "properties": {
+          "completed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "download_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Download Url"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "format": {
+            "default": "json",
+            "enum": [
+              "json",
+              "csv"
+            ],
+            "title": "Format",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "last_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error"
+          },
+          "package_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Package Bytes"
+          },
+          "package_sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Package Sha256"
+          },
+          "requested_at": {
+            "format": "date-time",
+            "title": "Requested At",
+            "type": "string"
+          },
+          "sla_deadline_at": {
+            "format": "date-time",
+            "title": "Sla Deadline At",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "queued",
+              "processing",
+              "completed",
+              "failed",
+              "expired"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "requested_at",
+          "sla_deadline_at"
+        ],
+        "title": "DataExportStatusResponse",
+        "type": "object"
+      },
+      "FrozenAppealAcceptRequest": {
+        "properties": {
+          "tracking_token": {
+            "maxLength": 255,
+            "minLength": 16,
+            "title": "Tracking Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tracking_token"
+        ],
+        "title": "FrozenAppealAcceptRequest",
+        "type": "object"
+      },
+      "FrozenAppealAcceptResponse": {
+        "properties": {
+          "appeal_id": {
+            "format": "uuid",
+            "title": "Appeal Id",
+            "type": "string"
+          },
+          "next_action": {
+            "enum": [
+              "submit_proposal",
+              "await_review",
+              "accept_merge",
+              "completed",
+              "contact_support"
+            ],
+            "title": "Next Action",
+            "type": "string"
+          },
+          "proposal": {
+            "$ref": "#/components/schemas/AccountMergeProposalResponse"
+          },
+          "status": {
+            "enum": [
+              "started",
+              "proposal_submitted",
+              "accepted",
+              "expired"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "appeal_id",
+          "status",
+          "proposal",
+          "next_action"
+        ],
+        "title": "FrozenAppealAcceptResponse",
+        "type": "object"
+      },
+      "FrozenAppealProposalRequest": {
+        "properties": {
+          "contact_email": {
+            "format": "email",
+            "title": "Contact Email",
+            "type": "string"
+          },
+          "duplicate_user_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Duplicate User Ids",
+            "type": "array"
+          },
+          "reason": {
+            "maxLength": 500,
+            "minLength": 4,
+            "title": "Reason",
+            "type": "string"
+          },
+          "supporting_note": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Supporting Note"
+          },
+          "team_size": {
+            "anyOf": [
+              {
+                "maximum": 50.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Team Size"
+          },
+          "tracking_token": {
+            "maxLength": 255,
+            "minLength": 16,
+            "title": "Tracking Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tracking_token",
+          "duplicate_user_ids",
+          "reason",
+          "contact_email"
+        ],
+        "title": "FrozenAppealProposalRequest",
+        "type": "object"
+      },
+      "FrozenAppealRiskSummary": {
+        "properties": {
+          "latest_flag_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Flag At"
+          },
+          "latest_rule_codes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Latest Rule Codes",
+            "type": "array"
+          },
+          "risk_score": {
+            "title": "Risk Score",
+            "type": "number"
+          },
+          "total_flag_count": {
+            "title": "Total Flag Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total_flag_count",
+          "latest_rule_codes",
+          "latest_flag_at",
+          "risk_score"
+        ],
+        "title": "FrozenAppealRiskSummary",
+        "type": "object"
+      },
+      "FrozenAppealStartRequest": {
+        "properties": {
+          "email": {
+            "format": "email",
+            "title": "Email",
+            "type": "string"
+          },
+          "phone": {
+            "description": "E.164 phone number (e.g. +8613800138000)",
+            "title": "Phone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "phone",
+          "email"
+        ],
+        "title": "FrozenAppealStartRequest",
+        "type": "object"
+      },
+      "FrozenAppealStartResponse": {
+        "properties": {
+          "appeal_id": {
+            "format": "uuid",
+            "title": "Appeal Id",
+            "type": "string"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "next_action": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Action"
+          },
+          "proposal": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AccountMergeProposalResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "risk_summary": {
+            "$ref": "#/components/schemas/FrozenAppealRiskSummary"
+          },
+          "status": {
+            "enum": [
+              "started",
+              "proposal_submitted",
+              "accepted",
+              "expired"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "tracking_token": {
+            "title": "Tracking Token",
+            "type": "string"
+          },
+          "tracking_url": {
+            "title": "Tracking Url",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "appeal_id",
+          "status",
+          "user_id",
+          "tracking_token",
+          "tracking_url",
+          "expires_at",
+          "risk_summary"
+        ],
+        "title": "FrozenAppealStartResponse",
+        "type": "object"
+      },
+      "FrozenAppealStatusResponse": {
+        "properties": {
+          "appeal_id": {
+            "format": "uuid",
+            "title": "Appeal Id",
+            "type": "string"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "last_viewed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Viewed At"
+          },
+          "next_action": {
+            "enum": [
+              "submit_proposal",
+              "await_review",
+              "accept_merge",
+              "completed",
+              "contact_support"
+            ],
+            "title": "Next Action",
+            "type": "string"
+          },
+          "proposal": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AccountMergeProposalResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "risk_summary": {
+            "$ref": "#/components/schemas/FrozenAppealRiskSummary"
+          },
+          "status": {
+            "enum": [
+              "started",
+              "proposal_submitted",
+              "accepted",
+              "expired"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "appeal_id",
+          "status",
+          "expires_at",
+          "last_viewed_at",
+          "risk_summary",
+          "next_action"
+        ],
+        "title": "FrozenAppealStatusResponse",
+        "type": "object"
+      },
+      "GuardianConsentPendingResponse": {
+        "description": "Story 1.9 — pending guardian consent response for 14-17 signup.",
+        "properties": {
+          "dev_guardian_consent_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dev Guardian Consent Token"
+          },
+          "expires_in_seconds": {
+            "title": "Expires In Seconds",
+            "type": "integer"
+          },
+          "guardian_email": {
+            "format": "email",
+            "title": "Guardian Email",
+            "type": "string"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          },
+          "status": {
+            "const": "guardian_consent_required",
+            "default": "guardian_consent_required",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "request_id",
+          "expires_in_seconds",
+          "guardian_email"
+        ],
+        "title": "GuardianConsentPendingResponse",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "LoginRequest": {
+        "description": "POST /v1/auth/login body — phone + email + 2 OTP codes.",
+        "properties": {
+          "email": {
+            "format": "email",
+            "title": "Email",
+            "type": "string"
+          },
+          "email_otp": {
+            "maxLength": 6,
+            "minLength": 6,
+            "pattern": "^\\d{6}$",
+            "title": "Email Otp",
+            "type": "string"
+          },
+          "phone": {
+            "description": "E.164 phone (e.g. +8613800138000)",
+            "title": "Phone",
+            "type": "string"
+          },
+          "phone_otp": {
+            "maxLength": 6,
+            "minLength": 6,
+            "pattern": "^\\d{6}$",
+            "title": "Phone Otp",
+            "type": "string"
+          }
+        },
+        "required": [
+          "phone",
+          "email",
+          "phone_otp",
+          "email_otp"
+        ],
+        "title": "LoginRequest",
+        "type": "object"
+      },
+      "LoginResponse": {
+        "description": "POST /v1/auth/login response — same shape as SignupResponse.",
+        "properties": {
+          "edu_tier": {
+            "default": false,
+            "description": "FR A4 .edu/.ac.cn auto-detected",
+            "title": "Edu Tier",
+            "type": "boolean"
+          },
+          "jwt_access": {
+            "title": "Jwt Access",
+            "type": "string"
+          },
+          "jwt_refresh": {
+            "title": "Jwt Refresh",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "jwt_access",
+          "jwt_refresh"
+        ],
+        "title": "LoginResponse",
+        "type": "object"
+      },
+      "NotificationPreferenceItem": {
+        "additionalProperties": false,
+        "properties": {
+          "email": {
+            "default": true,
+            "title": "Email",
+            "type": "boolean"
+          },
+          "event_type": {
+            "enum": [
+              "billing.budget.alerted",
+              "billing.budget.paused"
+            ],
+            "title": "Event Type",
+            "type": "string"
+          },
+          "in_app": {
+            "default": true,
+            "title": "In App",
+            "type": "boolean"
+          },
+          "webhook": {
+            "default": false,
+            "title": "Webhook",
+            "type": "boolean"
+          },
+          "webhook_url": {
+            "anyOf": [
+              {
+                "maxLength": 512,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Webhook Url"
+          }
+        },
+        "required": [
+          "event_type"
+        ],
+        "title": "NotificationPreferenceItem",
+        "type": "object"
+      },
+      "NotificationPreferenceResponseItem": {
+        "properties": {
+          "channels": {
+            "items": {
+              "enum": [
+                "email",
+                "webhook",
+                "in_app"
+              ],
+              "type": "string"
+            },
+            "title": "Channels",
+            "type": "array"
+          },
+          "email": {
+            "title": "Email",
+            "type": "boolean"
+          },
+          "event_type": {
+            "enum": [
+              "billing.budget.alerted",
+              "billing.budget.paused"
+            ],
+            "title": "Event Type",
+            "type": "string"
+          },
+          "in_app": {
+            "title": "In App",
+            "type": "boolean"
+          },
+          "webhook": {
+            "title": "Webhook",
+            "type": "boolean"
+          },
+          "webhook_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Webhook Url"
+          },
+          "webhook_url_configured": {
+            "default": false,
+            "title": "Webhook Url Configured",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "event_type",
+          "email",
+          "webhook",
+          "in_app",
+          "channels"
+        ],
+        "title": "NotificationPreferenceResponseItem",
+        "type": "object"
+      },
+      "NotificationPreferencesResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/NotificationPreferenceResponseItem"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "NotificationPreferencesResponse",
+        "type": "object"
+      },
+      "NotificationPreferencesUpdateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/NotificationPreferenceItem"
+            },
+            "maxItems": 2,
+            "minItems": 2,
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "NotificationPreferencesUpdateRequest",
+        "type": "object"
+      },
+      "OTPRequestBody": {
+        "description": "POST /v1/auth/otp/request body.",
+        "properties": {
+          "email": {
+            "format": "email",
+            "title": "Email",
+            "type": "string"
+          },
+          "phone": {
+            "description": "E.164 phone (e.g. +8613800138000)",
+            "title": "Phone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "phone",
+          "email"
+        ],
+        "title": "OTPRequestBody",
+        "type": "object"
+      },
+      "OTPRequestResponse": {
+        "description": "POST /v1/auth/otp/request response.\n\n`dev_phone_otp` / `dev_email_otp` populated only when\nOTP_DEV_MODE_RETURN=true (default in `.env.example` for local dev).\nProduction sets the env to false; codes only reach operators via logs.",
+        "properties": {
+          "dev_email_otp": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dev Email Otp"
+          },
+          "dev_phone_otp": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dev Phone Otp"
+          },
+          "expires_in_seconds": {
+            "default": 300,
+            "title": "Expires In Seconds",
+            "type": "integer"
+          },
+          "factors": {
+            "items": {
+              "enum": [
+                "phone",
+                "email"
+              ],
+              "type": "string"
+            },
+            "title": "Factors",
+            "type": "array"
+          }
+        },
+        "required": [
+          "factors"
+        ],
+        "title": "OTPRequestResponse",
+        "type": "object"
+      },
+      "RiskFlagItem": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "rule_code": {
+            "title": "Rule Code",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "rule_code",
+          "source",
+          "metadata",
+          "created_at"
+        ],
+        "title": "RiskFlagItem",
+        "type": "object"
+      },
+      "RiskRuleItem": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "label_zh": {
+            "title": "Label Zh",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "label_zh",
+          "description",
+          "enabled",
+          "created_at"
+        ],
+        "title": "RiskRuleItem",
+        "type": "object"
+      },
+      "SignupRequest": {
+        "description": "FR A1 signup request body.",
+        "properties": {
+          "age_years": {
+            "description": "Age declaration in years",
+            "maximum": 120.0,
+            "minimum": 0.0,
+            "title": "Age Years",
+            "type": "integer"
+          },
+          "email": {
+            "description": "Valid email address",
+            "format": "email",
+            "title": "Email",
+            "type": "string"
+          },
+          "guardian_consent_request_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Guardian consent request id returned by the pending signup response",
+            "title": "Guardian Consent Request Id"
+          },
+          "guardian_consent_token": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 16,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "One-time guardian consent token",
+            "title": "Guardian Consent Token"
+          },
+          "guardian_email": {
+            "anyOf": [
+              {
+                "format": "email",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Required for age 14-17 until guardian consent is confirmed",
+            "title": "Guardian Email"
+          },
+          "phone": {
+            "description": "E.164 phone number (e.g. +8613800138000)",
+            "title": "Phone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "phone",
+          "email",
+          "age_years"
+        ],
+        "title": "SignupRequest",
+        "type": "object"
+      },
+      "SignupResponse": {
+        "description": "FR A1 signup response.",
+        "properties": {
+          "edu_tier": {
+            "default": false,
+            "description": "FR A4 .edu/.ac.cn auto-detected",
+            "title": "Edu Tier",
+            "type": "boolean"
+          },
+          "jwt_access": {
+            "title": "Jwt Access",
+            "type": "string"
+          },
+          "jwt_refresh": {
+            "title": "Jwt Refresh",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "jwt_access",
+          "jwt_refresh"
+        ],
+        "title": "SignupResponse",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "description": "Sprint 0 Story 0.6 — 注册 / API Key / JWT. FR A1-A10 (10 FR) coverage; AC: signup P95 < 800ms, api_keys.create P95 < 300ms (CRG1).",
+    "title": "OptiCloud Auth Service",
+    "version": "0.0.1"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/healthz": {
+      "get": {
+        "description": "Liveness probe.",
+        "operationId": "healthz_healthz_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Healthz Healthz Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Healthz",
+        "tags": [
+          "health"
+        ]
+      }
+    },
+    "/readyz": {
+      "get": {
+        "description": "Readiness probe — check DB connectivity.",
+        "operationId": "readyz_readyz_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Readyz Readyz Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Readyz",
+        "tags": [
+          "health"
+        ]
+      }
+    },
+    "/v1/admin/account-merge-proposals": {
+      "get": {
+        "operationId": "admin_list_account_merge_proposals_v1_admin_account_merge_proposals_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status_filter",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status Filter"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-admin-secret",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Admin-Secret"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AccountMergeProposalResponse"
+                  },
+                  "title": "Response Admin List Account Merge Proposals V1 Admin Account Merge Proposals Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List account-merge proposals awaiting review (FR A7)",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/v1/admin/account-merge-proposals/{proposal_id}/review": {
+      "post": {
+        "operationId": "admin_review_account_merge_proposal_v1_admin_account_merge_proposals__proposal_id__review_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "proposal_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Proposal Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-admin-secret",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Admin-Secret"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccountMergeAdminReviewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountMergeProposalResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Approve or reject an account-merge proposal (FR A7)",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/v1/admin/risk-flags": {
+      "get": {
+        "operationId": "admin_list_risk_flags_v1_admin_risk_flags_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "User Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-admin-secret",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Admin-Secret"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RiskFlagItem"
+                  },
+                  "title": "Response Admin List Risk Flags V1 Admin Risk Flags Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List risk flags for a user (FR A5 audit)",
+        "tags": [
+          "admin"
+        ]
+      },
+      "post": {
+        "description": "Admin records a risk flag for a user against a known rule_code. Counts toward the ≥2-distinct-enabled-rules freeze threshold. Flags for disabled rules are recorded (audit trail) but do NOT contribute to freeze.",
+        "operationId": "admin_add_risk_flag_v1_admin_risk_flags_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-admin-secret",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Admin-Secret"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminFlagRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminFlagResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Add a manual risk flag against a user (FR A5)",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/v1/admin/risk-rules": {
+      "get": {
+        "operationId": "admin_list_risk_rules_v1_admin_risk_rules_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-admin-secret",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Admin-Secret"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RiskRuleItem"
+                  },
+                  "title": "Response Admin List Risk Rules V1 Admin Risk Rules Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List all risk rules + enabled state (FR A5 ops convenience)",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/v1/admin/users/{user_id}/unfreeze": {
+      "post": {
+        "description": "Admin lifts a freeze. Does NOT delete `risk_flags` rows — audit trail preserved. Idempotent: unfreezing an already-unfrozen user returns 200 cleanly.",
+        "operationId": "admin_unfreeze_user_v1_admin_users__user_id__unfreeze_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "User Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-admin-secret",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Admin-Secret"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminUnfreezeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminUnfreezeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Clear is_frozen for a user (FR A5 appeal path)",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/v1/auth/account-deletion": {
+      "get": {
+        "operationId": "get_account_deletion_status_v1_auth_account_deletion_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountDeletionStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "查看账户删除状态",
+        "tags": [
+          "auth"
+        ]
+      },
+      "post": {
+        "operationId": "request_account_deletion_v1_auth_account_deletion_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountDeletionStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "请求账户删除",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/v1/auth/account-merge-proposals": {
+      "get": {
+        "operationId": "list_account_merge_proposals_v1_auth_account_merge_proposals_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AccountMergeProposalResponse"
+                  },
+                  "title": "Response List Account Merge Proposals V1 Auth Account Merge Proposals Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "列出当前用户的账户合并提案",
+        "tags": [
+          "auth"
+        ]
+      },
+      "post": {
+        "operationId": "create_account_merge_proposal_v1_auth_account_merge_proposals_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccountMergeProposalCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountMergeProposalResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "提交冻结账户合并提案",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/v1/auth/account-merge-proposals/{proposal_id}/accept": {
+      "post": {
+        "operationId": "accept_account_merge_proposal_v1_auth_account_merge_proposals__proposal_id__accept_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "proposal_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Proposal Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountMergeProposalResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "接受已批准的账户合并提案",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/v1/auth/api_keys": {
+      "get": {
+        "operationId": "list_api_keys_v1_auth_api_keys_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/APIKeyListItem"
+                  },
+                  "title": "Response List Api Keys V1 Auth Api Keys Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "列出 own API Keys",
+        "tags": [
+          "auth"
+        ]
+      },
+      "post": {
+        "description": "FR A2: 用户 can create API keys with scoped permissions, label, description, optional expiration. Returns FULL key ONCE — store it now. Architecture D7: HMAC-SHA256 with Vault pepper; only hash + prefix persisted.",
+        "operationId": "create_api_key_v1_auth_api_keys_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/APIKeyCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIKeyCreateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "创建新 API Key",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/v1/auth/api_keys/{key_id}": {
+      "delete": {
+        "operationId": "revoke_api_key_v1_auth_api_keys__key_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Key Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "吊销 API Key (FR A2)",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/v1/auth/data-exports": {
+      "post": {
+        "operationId": "request_data_export_v1_auth_data_exports_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/DataExportCreateRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataExportStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "请求 PIPL JSON/CSV 数据导出",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/v1/auth/data-exports/{export_id}": {
+      "get": {
+        "operationId": "get_data_export_status_v1_auth_data_exports__export_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "export_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Export Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataExportStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "查看 PIPL JSON/CSV 数据导出状态",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/v1/auth/data-exports/{export_id}/download": {
+      "get": {
+        "operationId": "download_data_export_v1_auth_data_exports__export_id__download_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "export_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Export Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "下载已完成的 PIPL JSON/CSV 数据导出包",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/v1/auth/frozen-appeals/start": {
+      "post": {
+        "operationId": "start_frozen_appeal_route_v1_auth_frozen_appeals_start_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FrozenAppealStartRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FrozenAppealStartResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Start a frozen-account appeal",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/v1/auth/frozen-appeals/{appeal_id}": {
+      "get": {
+        "operationId": "get_frozen_appeal_route_v1_auth_frozen_appeals__appeal_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "appeal_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Appeal Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "tracking_token",
+            "required": true,
+            "schema": {
+              "maxLength": 255,
+              "minLength": 16,
+              "title": "Tracking Token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FrozenAppealStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "View a frozen appeal status",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/v1/auth/frozen-appeals/{appeal_id}/accept": {
+      "post": {
+        "operationId": "accept_frozen_appeal_route_v1_auth_frozen_appeals__appeal_id__accept_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "appeal_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Appeal Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FrozenAppealAcceptRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FrozenAppealAcceptResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Accept an approved frozen appeal merge",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/v1/auth/frozen-appeals/{appeal_id}/proposal": {
+      "post": {
+        "operationId": "submit_frozen_appeal_proposal_route_v1_auth_frozen_appeals__appeal_id__proposal_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "appeal_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Appeal Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FrozenAppealProposalRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FrozenAppealStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Submit a merge proposal for a frozen appeal",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/v1/auth/login": {
+      "post": {
+        "description": "FR A1: 已注册用户用 phone + email + 两个 6 位 OTP 登录。两个 OTP 任一错误 / 过期 / 已使用 → 401 且 detail 不指明哪个 factor（防 enumeration）。",
+        "operationId": "login_v1_auth_login_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "OTP 双因素登录",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/v1/auth/notification-preferences": {
+      "get": {
+        "operationId": "get_notification_preferences_v1_auth_notification_preferences_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationPreferencesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "查看当前用户通知偏好",
+        "tags": [
+          "auth"
+        ]
+      },
+      "put": {
+        "operationId": "update_notification_preferences_v1_auth_notification_preferences_put",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotificationPreferencesUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationPreferencesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "全量更新当前用户通知偏好",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/v1/auth/otp/request": {
+      "post": {
+        "description": "FR A1: 请求登录所需的双 OTP（phone + email）。每个 factor 一个 6 位数字 OTP，TTL 5 分钟。响应中 `dev_phone_otp` / `dev_email_otp` 仅在 `OTP_DEV_MODE_RETURN=true` （local dev 默认）时返回；生产环境通过 logs 派发到 SMS/Email provider（M3 集成）。",
+        "operationId": "request_otp_v1_auth_otp_request_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OTPRequestBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OTPRequestResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "请求登录 OTP 双因素验证码",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/v1/auth/signup": {
+      "post": {
+        "description": "FR A1: 任何访客 can register via 手机号+邮箱双因素验证. Returns user_id + JWT pair. Education tier auto-detected via .edu/.ac.cn email (FR A4).",
+        "operationId": "signup_v1_auth_signup_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SignupRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignupResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GuardianConsentPendingResponse"
+                }
+              }
+            },
+            "description": "Accepted"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "注册新用户（手机+邮箱双因素）",
+        "tags": [
+          "auth"
+        ]
+      }
+    }
+  }
+}
