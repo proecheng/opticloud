@@ -4,7 +4,7 @@ baseline_commit: 8b4c46e
 epic_num: 5
 story_num: D.7
 epic_name: Billing - Invoices + Templates + Budget + Notifications
-status: ready-for-dev
+status: done
 priority: High
 type: invoice and budget Tier 2 UI components
 created_by: bmad-create-story
@@ -27,7 +27,7 @@ sources:
 
 # Story 5.D.7 - InvoiceCard + BudgetAlertCard Tier 2 Component
 
-Status: code-review
+Status: done
 
 ## Story
 
@@ -134,8 +134,8 @@ Planning has a naming tension: UX-DR1 lists `InvoiceCard` as Tier 2 and `BudgetA
 - [ ] T5: Review, gates, and GitHub sync (AC: 39)
   - [x] Run focused package/web tests and static gates.
   - [x] Run post-implementation code review and fix findings.
-  - [ ] Commit, push, create PR, wait for CI, merge, delete remote branch, and sync local `main`.
-  - [ ] Mark story and sprint status `done` only after merge/sync.
+  - [x] Commit, push, create PR, wait for CI, merge, delete remote branch, and sync local `main`.
+  - [x] Mark story and sprint status `done` only after merge/sync.
 
 ## Dev Notes
 
@@ -205,12 +205,14 @@ GPT-5 Codex
 - UI package regression gate: `pnpm --filter @opticloud/ui test` -> 96 passed.
 - Web package regression gate: `pnpm --filter @opticloud/web test` -> 164 passed.
 - Whitespace gate: `git diff --check` passed.
+- GitHub sync: PR #133 passed required CI, squash-merged to `main` at `5403e4d`, remote branch deleted, and local `main` synced with `origin/main`.
 
 ### Completion Notes List
 
 - Added presentation-only `InvoiceCard` and `BudgetAlertCard` components with package-local API-compatible model types, Storybook stories, focused unit tests, and axe coverage.
 - Replaced the billing Console inline invoice/budget surfaces with `@opticloud/ui` components while preserving page-owned API calls, PDF object URL handling, trend cards, and isolated loading/error states.
 - Post-implementation review found and fixed two patch items: threshold-alert budget status now uses warning semantics, and InvoiceCard no longer nests card-like bordered panels inside the outer card.
+- PR #133 passed GitHub CI, merged to `main`, remote branch cleanup completed, local `main` synced, and this story is now marked done.
 
 ### File List
 
@@ -233,6 +235,7 @@ GPT-5 Codex
 
 - 2026-06-01 - Story created for `InvoiceCard` and `BudgetAlertCard` Tier 2 components and billing Console integration.
 - 2026-06-01 - Implemented Tier 2 billing cards, Storybook/a11y/unit coverage, Console integration, and post-review fixes.
+- 2026-06-01 - PR #133 passed CI, merged to `main`, branch cleanup and local sync completed; story status moved to `done`.
 
 ## Post-Implementation Code Review
 
