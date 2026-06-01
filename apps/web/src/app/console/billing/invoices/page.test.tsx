@@ -236,7 +236,7 @@ describe("BillingInvoicesPage", () => {
     expect(await screen.findByText("月度预算")).toBeTruthy();
     expect(screen.getByText("¥100.00")).toBeTruthy();
     expect(screen.getByText("70%")).toBeTruthy();
-    expect(screen.getByText(/alerted/)).toBeTruthy();
+    expect(screen.getByText(/已提醒/)).toBeTruthy();
     expect(mocks.getBillingUsageTrends).toHaveBeenCalledWith("jwt-test");
     expect(mocks.getBillingBudget).toHaveBeenCalledWith("jwt-test");
     expect(mocks.listBillingInvoices).toHaveBeenCalledWith("jwt-test");
@@ -272,6 +272,21 @@ describe("BillingInvoicesPage", () => {
 
     expect(await screen.findByText("OptiCloud 账单明细")).toBeTruthy();
     expect(await screen.findByText("预算加载失败：budget service unavailable")).toBeTruthy();
+    expect(screen.getByText("近 7 天实际用量支出趋势 / Last 7 days actual usage spend trend")).toBeTruthy();
+  });
+
+  it("keeps the budget card visible when invoice loading fails", async () => {
+    sessionStorage.setItem("jwt_access", "jwt-test");
+    mocks.listBillingInvoices.mockResolvedValue({
+      items: [{ period: "2026-05", actual_spend: "0.50", net_credit_movement: "1999.50" }],
+    });
+    mocks.getBillingInvoice.mockRejectedValue(new Error("invoice service unavailable"));
+
+    render(<BillingInvoicesPage />);
+
+    expect(await screen.findByText("账单加载失败")).toBeTruthy();
+    expect(await screen.findByTestId("budget-alert-card")).toBeTruthy();
+    expect(screen.getByText("¥100.00")).toBeTruthy();
     expect(screen.getByText("近 7 天实际用量支出趋势 / Last 7 days actual usage spend trend")).toBeTruthy();
   });
 
