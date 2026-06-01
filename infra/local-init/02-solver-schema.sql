@@ -266,10 +266,19 @@ BEGIN
 END
 $$;
 
-CREATE UNIQUE INDEX IF NOT EXISTS uq_job_templates_active_source_name
+DROP INDEX IF EXISTS uq_job_templates_active_source_name;
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_job_templates_active_root_source_name
     ON job_templates(user_id, source_kind, source_id, name)
+    WHERE deleted_at IS NULL AND parent_template_id IS NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_job_templates_active_root_version
+    ON job_templates(user_id, root_template_id, version)
     WHERE deleted_at IS NULL;
 
 CREATE INDEX IF NOT EXISTS idx_job_templates_user_created_at
     ON job_templates(user_id, created_at DESC)
     WHERE deleted_at IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_job_templates_root_version
+    ON job_templates(user_id, root_template_id, version);

@@ -275,3 +275,15 @@ class JobTemplateDetail(JobTemplateSummary):
 
 class JobTemplateListResponse(BaseModel):
     items: list[JobTemplateSummary]
+
+
+class JobTemplateVersionCreateRequest(BaseModel):
+    parameter_path: str = Field(..., min_length=1, max_length=120)
+    value: Any
+    description: str | None = Field(default=None, max_length=500)
+
+    model_config = {"extra": "forbid"}
+
+
+class JobTemplateVersionsResponse(BaseModel):
+    items: list[JobTemplateSummary]

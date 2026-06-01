@@ -154,8 +154,24 @@ async def _ensure_job_template_table(db_engine: AsyncEngine) -> None:
         await conn.execute(
             text(
                 """
-                CREATE UNIQUE INDEX IF NOT EXISTS uq_job_templates_active_source_name
+                DROP INDEX IF EXISTS uq_job_templates_active_source_name
+                """
+            )
+        )
+        await conn.execute(
+            text(
+                """
+                CREATE UNIQUE INDEX IF NOT EXISTS uq_job_templates_active_root_source_name
                 ON job_templates(user_id, source_kind, source_id, name)
+                WHERE deleted_at IS NULL AND parent_template_id IS NULL
+                """
+            )
+        )
+        await conn.execute(
+            text(
+                """
+                CREATE UNIQUE INDEX IF NOT EXISTS uq_job_templates_active_root_version
+                ON job_templates(user_id, root_template_id, version)
                 WHERE deleted_at IS NULL
                 """
             )
@@ -166,6 +182,14 @@ async def _ensure_job_template_table(db_engine: AsyncEngine) -> None:
                 CREATE INDEX IF NOT EXISTS idx_job_templates_user_created_at
                 ON job_templates(user_id, created_at DESC)
                 WHERE deleted_at IS NULL
+                """
+            )
+        )
+        await conn.execute(
+            text(
+                """
+                CREATE INDEX IF NOT EXISTS idx_job_templates_root_version
+                ON job_templates(user_id, root_template_id, version)
                 """
             )
         )
@@ -451,7 +475,8 @@ def test_local_init_schema_contains_job_templates_contract() -> None:
 
     assert "CREATE TABLE IF NOT EXISTS job_templates" in schema
     assert "payload_schema_version" in schema
-    assert "uq_job_templates_active_source_name" in schema
+    assert "uq_job_templates_active_root_source_name" in schema
+    assert "uq_job_templates_active_root_version" in schema
     assert "ck_job_templates_source_kind" in schema
 
 
@@ -581,6 +606,272 @@ async def test_duplicate_template_save_race_returns_existing_row(
     assert bodies[0]["id"] == bodies[1]["id"]
     after = await _counts(db_engine, user_id)
     assert after["job_templates"] == before["job_templates"] + 1
+
+
+async def test_template_version_creation_updates_prediction_payload_and_history(
+    client_with_db: AsyncClient,
+    api_key,
+    db_engine: AsyncEngine,
+) -> None:
+    auth, user_id, api_key_id = api_key
+    prediction_id = await _insert_prediction(db_engine, user_id=user_id, api_key_id=api_key_id)
+    root = await client_with_db.post(
+        "/v1/job-templates",
+        json={
+            "name": "预测版本链",
+            "source_kind": "prediction",
+            "source_id": str(prediction_id),
+        },
+        headers={"Authorization": auth},
+    )
+    assert root.status_code == 201, root.text
+    before = await _counts(db_engine, user_id)
+
+    version = await client_with_db.post(
+        f"/v1/job-templates/{root.json()['id']}/versions",
+        json={"parameter_path": "horizon", "value": 5, "description": "horizon v2"},
+        headers={"Authorization": auth},
+    )
+
+    assert version.status_code == 201, version.text
+    body = version.json()
+    assert body["id"] != root.json()["id"]
+    assert body["version"] == 2
+    assert body["root_template_id"] == root.json()["id"]
+    assert body["parent_template_id"] == root.json()["id"]
+    assert body["description"] == "horizon v2"
+    assert body["payload_json"] == {
+        "family": "arima",
+        "data": [1.0, 2.0, 3.0, 4.0],
+        "horizon": 5,
+    }
+    assert body["payload_sha256"] == _hash_envelope(
+        "prediction", "prediction_request_v1", body["payload_json"]
+    )
+
+    history = await client_with_db.get(
+        f"/v1/job-templates/{body['id']}/versions",
+        headers={"Authorization": auth},
+    )
+
+    assert history.status_code == 200, history.text
+    items = history.json()["items"]
+    assert [item["version"] for item in items] == [1, 2]
+    assert "payload_json" not in items[0]
+    assert [item["id"] for item in items] == [root.json()["id"], body["id"]]
+    after = await _counts(db_engine, user_id)
+    assert after == {**before, "job_templates": before["job_templates"] + 1}
+
+
+async def test_template_version_concurrent_creation_allocates_unique_versions(
+    client_with_db: AsyncClient,
+    api_key,
+    db_engine: AsyncEngine,
+) -> None:
+    auth, user_id, api_key_id = api_key
+    prediction_id = await _insert_prediction(db_engine, user_id=user_id, api_key_id=api_key_id)
+    root = await client_with_db.post(
+        "/v1/job-templates",
+        json={
+            "name": "并发版本链",
+            "source_kind": "prediction",
+            "source_id": str(prediction_id),
+        },
+        headers={"Authorization": auth},
+    )
+    assert root.status_code == 201, root.text
+    root_id = root.json()["id"]
+
+    responses = await asyncio.gather(
+        *(
+            client_with_db.post(
+                f"/v1/job-templates/{root_id}/versions",
+                json={"parameter_path": "horizon", "value": value},
+                headers={"Authorization": auth},
+            )
+            for value in (4, 5, 6, 7)
+        )
+    )
+
+    assert all(response.status_code == 201 for response in responses), [
+        response.text for response in responses
+    ]
+    bodies = [response.json() for response in responses]
+    assert sorted(body["version"] for body in bodies) == [2, 3, 4, 5]
+    assert len({body["version"] for body in bodies}) == 4
+    assert len({body["id"] for body in bodies}) == 4
+
+    history = await client_with_db.get(
+        f"/v1/job-templates/{root_id}/versions",
+        headers={"Authorization": auth},
+    )
+
+    assert history.status_code == 200, history.text
+    assert [item["version"] for item in history.json()["items"]] == [1, 2, 3, 4, 5]
+
+
+async def test_template_version_creation_updates_optimization_payload(
+    client_with_db: AsyncClient,
+    api_key,
+    db_engine: AsyncEngine,
+) -> None:
+    auth, user_id, api_key_id = api_key
+    optimization_id = await _insert_optimization(
+        db_engine,
+        user_id=user_id,
+        api_key_id=api_key_id,
+        input_payload={
+            "task_type": "lp",
+            "minimize": {"c": [1.0, 1.0]},
+            "st": {"A": [[1.0, 1.0]], "b": [10.0]},
+            "options": {"max_solve_seconds": 30.0, "top_k_alternatives": 1},
+            "solver": "highs",
+        },
+    )
+    root = await client_with_db.post(
+        "/v1/job-templates",
+        json={
+            "name": "LP 版本链",
+            "source_kind": "optimization",
+            "source_id": str(optimization_id),
+        },
+        headers={"Authorization": auth},
+    )
+    assert root.status_code == 201, root.text
+
+    version = await client_with_db.post(
+        f"/v1/job-templates/{root.json()['id']}/versions",
+        json={"parameter_path": "options.max_solve_seconds", "value": 45.0},
+        headers={"Authorization": auth},
+    )
+
+    assert version.status_code == 201, version.text
+    body = version.json()
+    assert body["version"] == 2
+    assert body["payload_json"] == {
+        "task_type": "lp",
+        "st": {"A": [[1.0, 1.0]], "b": [10.0]},
+        "options": {"max_solve_seconds": 45.0, "top_k_alternatives": 1},
+        "minimize": {"c": [1.0, 1.0]},
+        "solver": "highs",
+    }
+    assert body["payload_sha256"] == _hash_envelope(
+        "optimization", "optimization_request_v1", body["payload_json"]
+    )
+
+
+async def test_template_version_rejects_invalid_paths_values_and_cross_user_access(
+    client_with_db: AsyncClient,
+    api_key,
+    second_api_key,
+    db_engine: AsyncEngine,
+) -> None:
+    auth, user_id, api_key_id = api_key
+    second_auth, _, _ = second_api_key
+    prediction_id = await _insert_prediction(db_engine, user_id=user_id, api_key_id=api_key_id)
+    root = await client_with_db.post(
+        "/v1/job-templates",
+        json={
+            "name": "非法版本路径",
+            "source_kind": "prediction",
+            "source_id": str(prediction_id),
+        },
+        headers={"Authorization": auth},
+    )
+    assert root.status_code == 201, root.text
+    root_id = root.json()["id"]
+    before = await _counts(db_engine, user_id)
+
+    invalid_path = await client_with_db.post(
+        f"/v1/job-templates/{root_id}/versions",
+        json={"parameter_path": "_system.billing", "value": {"charge_id": "leak"}},
+        headers={"Authorization": auth},
+    )
+    invalid_value = await client_with_db.post(
+        f"/v1/job-templates/{root_id}/versions",
+        json={"parameter_path": "horizon", "value": 0},
+        headers={"Authorization": auth},
+    )
+    cross_user = await client_with_db.post(
+        f"/v1/job-templates/{root_id}/versions",
+        json={"parameter_path": "horizon", "value": 4},
+        headers={"Authorization": second_auth},
+    )
+    forbidden_fields = await client_with_db.post(
+        f"/v1/job-templates/{root_id}/versions",
+        json={
+            "parameter_path": "horizon",
+            "value": 4,
+            "payload_json": {"horizon": 4},
+            "version": 99,
+            "root_template_id": str(uuid.uuid4()),
+            "user_id": str(uuid.uuid4()),
+        },
+        headers={"Authorization": auth},
+    )
+
+    assert invalid_path.status_code == 422, invalid_path.text
+    assert invalid_path.json()["errors"][0]["field_path"] == "parameter_path"
+    assert invalid_value.status_code == 422, invalid_value.text
+    assert invalid_value.json()["errors"][0]["field_path"] == "horizon"
+    assert cross_user.status_code == 404, cross_user.text
+    cross_user_body = cross_user.json()
+    assert cross_user_body["errors"] == [
+        {
+            "field_path": "$",
+            "value": None,
+            "constraint": "resource must exist and be visible to the caller",
+            "remediation_hint_key": "errors.404.not_found",
+        }
+    ]
+    assert forbidden_fields.status_code == 422, forbidden_fields.text
+    rejected_fields = {error["field_path"] for error in forbidden_fields.json()["errors"]}
+    assert {"payload_json", "version", "root_template_id", "user_id"}.issubset(rejected_fields)
+    assert await _counts(db_engine, user_id) == before
+
+
+async def test_template_version_soft_delete_hides_only_selected_version(
+    client_with_db: AsyncClient,
+    api_key,
+    db_engine: AsyncEngine,
+) -> None:
+    auth, user_id, api_key_id = api_key
+    prediction_id = await _insert_prediction(db_engine, user_id=user_id, api_key_id=api_key_id)
+    root = await client_with_db.post(
+        "/v1/job-templates",
+        json={
+            "name": "删除版本链",
+            "source_kind": "prediction",
+            "source_id": str(prediction_id),
+        },
+        headers={"Authorization": auth},
+    )
+    assert root.status_code == 201, root.text
+    version = await client_with_db.post(
+        f"/v1/job-templates/{root.json()['id']}/versions",
+        json={"parameter_path": "horizon", "value": 4},
+        headers={"Authorization": auth},
+    )
+    assert version.status_code == 201, version.text
+
+    deleted = await client_with_db.delete(
+        f"/v1/job-templates/{version.json()['id']}",
+        headers={"Authorization": auth},
+    )
+    history = await client_with_db.get(
+        f"/v1/job-templates/{root.json()['id']}/versions",
+        headers={"Authorization": auth},
+    )
+    next_version = await client_with_db.post(
+        f"/v1/job-templates/{root.json()['id']}/versions",
+        json={"parameter_path": "horizon", "value": 5},
+        headers={"Authorization": auth},
+    )
+
+    assert deleted.status_code == 204, deleted.text
+    assert [item["version"] for item in history.json()["items"]] == [1]
+    assert next_version.status_code == 201, next_version.text
+    assert next_version.json()["version"] == 3
 
 
 async def test_save_optimization_template_keeps_submit_compatible_payload_shape(

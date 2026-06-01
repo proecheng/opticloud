@@ -2,8 +2,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   createJobTemplate,
+  createJobTemplateVersion,
   deleteJobTemplate,
   getJobTemplate,
+  listJobTemplateVersions,
   listJobTemplates,
 } from "./api";
 
@@ -102,6 +104,74 @@ describe("job templates API client", () => {
     expect(new Headers(init?.headers).get("Authorization")).toBe("Bearer sk-test");
   });
 
+  it("creates a template version with one parameter override", async () => {
+    const version = {
+      ...detail,
+      id: "8e10ea97-2ebb-42ec-a027-960d20fd1b89",
+      version: 2,
+      parent_template_id: detail.id,
+      payload_json: { family: "arima", data: [1, 2, 3], horizon: 6 },
+      payload_sha256: "def456",
+    };
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(JSON.stringify(version), {
+        status: 201,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+
+    const result = await createJobTemplateVersion("sk-test", detail.id, {
+      parameter_path: "horizon",
+      value: 6,
+      description: "six month reuse",
+    });
+
+    expect(result.version).toBe(2);
+    expect(result.payload_json.horizon).toBe(6);
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(url).toBe(`http://localhost:8002/v1/job-templates/${detail.id}/versions`);
+    expect(init?.method).toBe("POST");
+    expect(new Headers(init?.headers).get("Authorization")).toBe("Bearer sk-test");
+    expect(init?.body).toBe(
+      JSON.stringify({
+        parameter_path: "horizon",
+        value: 6,
+        description: "six month reuse",
+      }),
+    );
+  });
+
+  it("lists template versions without full payloads", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          items: [
+            { ...detail, payload_json: undefined },
+            {
+              ...detail,
+              id: "8e10ea97-2ebb-42ec-a027-960d20fd1b89",
+              version: 2,
+              parent_template_id: detail.id,
+              payload_json: undefined,
+            },
+          ],
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+
+    const result = await listJobTemplateVersions("sk-test", detail.id);
+
+    expect(result.items.map((item) => item.version)).toEqual([1, 2]);
+    expect("payload_json" in (result.items[0] ?? {})).toBe(false);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `http://localhost:8002/v1/job-templates/${detail.id}/versions`,
+    );
+    expect(new Headers(fetchMock.mock.calls[0]?.[1]?.headers).get("Authorization")).toBe(
+      "Bearer sk-test",
+    );
+  });
+
   it("preserves RFC7807-style errors", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
       new Response(
@@ -135,6 +205,43 @@ describe("job templates API client", () => {
         expect.objectContaining({
           field_path: "source_id",
           constraint: "source task status must be completed",
+        }),
+      ],
+    });
+  });
+
+  it("preserves RFC7807-style version errors", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          title: "Invalid Job Template",
+          status: 422,
+          detail: "parameter path is not editable",
+          errors: [
+            {
+              field_path: "parameter_path",
+              value: "_system.billing",
+              constraint: "path is not editable for prediction templates",
+              remediation_hint_key: "errors.422.invalid_job_template",
+            },
+          ],
+        }),
+        { status: 422, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+
+    await expect(
+      createJobTemplateVersion("sk-test", detail.id, {
+        parameter_path: "_system.billing",
+        value: { charge_id: "leak" },
+      }),
+    ).rejects.toMatchObject({
+      status: 422,
+      title: "Invalid Job Template",
+      errors: [
+        expect.objectContaining({
+          field_path: "parameter_path",
+          constraint: "path is not editable for prediction templates",
         }),
       ],
     });

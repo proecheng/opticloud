@@ -5,11 +5,30 @@ from __future__ import annotations
 import hashlib
 import json
 import numbers
+from copy import deepcopy
 from dataclasses import dataclass
 from typing import Any, Literal
 
 SourceKind = Literal["optimization", "prediction"]
 PayloadSchemaVersion = Literal["optimization_request_v1", "prediction_request_v1"]
+PREDICTION_VERSION_PATHS = frozenset({"family", "data", "horizon"})
+OPTIMIZATION_VERSION_PATHS = frozenset(
+    {
+        "solver",
+        "fallback_chain",
+        "minimize.c",
+        "maximize.c",
+        "st.A",
+        "st.b",
+        "st.x_lower",
+        "st.x_upper",
+        "options.max_solve_seconds",
+        "options.top_k_alternatives",
+        "options.reproducible",
+        "options.anonymous",
+        "options.backtest",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -19,6 +38,13 @@ class TemplatePayload:
     payload_schema_version: PayloadSchemaVersion
     payload_json: dict[str, Any]
     payload_sha256: str
+
+
+class TemplateParameterError(ValueError):
+    def __init__(self, field_path: str, detail: str) -> None:
+        super().__init__(detail)
+        self.field_path = field_path
+        self.detail = detail
 
 
 def strip_system_metadata(value: Any) -> Any:
@@ -43,6 +69,87 @@ def canonical_payload_hash(
     }
     canon = json.dumps(envelope, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
     return hashlib.sha256(canon.encode("utf-8")).hexdigest()
+
+
+def reject_internal_template_payload_fields(payload: Any) -> None:
+    banned_keys = {
+        "_system",
+        "solution",
+        "objective",
+        "prediction",
+        "predictions",
+        "error",
+        "errors",
+        "billing",
+        "charge_id",
+        "idempotency_key",
+        "api_key",
+        "authorization",
+        "jwt",
+        "email",
+        "phone",
+        "raw_file_bytes",
+    }
+
+    def _walk(value: Any, path: str) -> None:
+        if isinstance(value, dict):
+            for key, item in value.items():
+                next_path = f"{path}.{key}" if path else key
+                if key in banned_keys:
+                    raise TemplateParameterError(
+                        next_path,
+                        f"template payload must not contain internal field '{key}'",
+                    )
+                _walk(item, next_path)
+        elif isinstance(value, list):
+            for idx, item in enumerate(value):
+                _walk(item, f"{path}[{idx}]")
+
+    _walk(payload, "")
+
+
+def _allowed_paths_for(source_kind: SourceKind) -> frozenset[str]:
+    return PREDICTION_VERSION_PATHS if source_kind == "prediction" else OPTIMIZATION_VERSION_PATHS
+
+
+def apply_template_parameter_override(
+    payload_json: dict[str, Any],
+    *,
+    source_kind: SourceKind,
+    parameter_path: str,
+    value: Any,
+) -> dict[str, Any]:
+    if parameter_path not in _allowed_paths_for(source_kind):
+        allowed = ", ".join(sorted(_allowed_paths_for(source_kind)))
+        raise TemplateParameterError(
+            "parameter_path",
+            f"parameter_path must be one of: {allowed}",
+        )
+
+    merged = deepcopy(payload_json)
+    cursor: dict[str, Any] = merged
+    parts = parameter_path.split(".")
+    for part in parts[:-1]:
+        child = cursor.get(part)
+        if child is None:
+            child = {}
+            cursor[part] = child
+        if not isinstance(child, dict):
+            raise TemplateParameterError(parameter_path, f"{part} must be an object")
+        cursor = child
+    cursor[parts[-1]] = value
+    reject_internal_template_payload_fields(merged)
+    return merged
+
+
+def build_template_payload_from_version_payload(
+    *,
+    source_kind: SourceKind,
+    payload_json: dict[str, Any],
+) -> TemplatePayload:
+    if source_kind == "prediction":
+        return build_prediction_template_payload(payload_json)
+    return build_optimization_template_payload(payload_json)
 
 
 def _as_object(value: Any, *, field_name: str) -> dict[str, Any]:
