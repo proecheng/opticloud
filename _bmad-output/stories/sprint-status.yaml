@@ -215,10 +215,10 @@ development_status:
   6-c-4-equivalent-matching: backlog
 
   # ===== Epic 7.A/B: Provider (15 stories) =====
-  epic-7-a: backlog
+  epic-7-a: in-progress
   epic-7-b: backlog
 
-  7-a-1-capability-registry-v1-schema: backlog
+  7-a-1-capability-registry-v1-schema: code-review
   7-a-2-revenue-share-hook-v2-reservation: backlog
 
   7-b-1-provider-apply-v2: backlog

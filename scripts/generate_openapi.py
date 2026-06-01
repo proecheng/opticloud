@@ -13,11 +13,12 @@ Outputs:
 from __future__ import annotations
 
 import json
+import os
 import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-OUTPUT_DIR = REPO_ROOT / "packages" / "shared-ts" / "openapi"
+OUTPUT_DIR = Path(os.getenv("OPENAPI_OUTPUT_DIR", REPO_ROOT / "packages" / "shared-ts" / "openapi"))
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 
@@ -30,8 +31,30 @@ def generate_auth_service() -> Path:
 
     spec = app.openapi()
     output = OUTPUT_DIR / "auth-service.json"
-    output.write_text(json.dumps(spec, indent=2, sort_keys=True, ensure_ascii=False))
-    print(f"  ✅ {output.relative_to(REPO_ROOT)} ({len(spec.get('paths', {}))} paths)")
+    output.write_text(
+        json.dumps(spec, indent=2, sort_keys=True, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+    print(f"  OK {output.relative_to(REPO_ROOT)} ({len(spec.get('paths', {}))} paths)")
+    return output
+
+
+def generate_capability_registry() -> Path:
+    """Generate openapi.json from capability-registry FastAPI app."""
+    sys.path.insert(0, str(REPO_ROOT / "apps" / "capability-registry" / "src"))
+    sys.path.insert(0, str(REPO_ROOT / "packages" / "shared-py"))
+
+    from capability_registry.main import app  # type: ignore[import-not-found]
+
+    spec = app.openapi()
+    output = OUTPUT_DIR / "capability-registry.json"
+    output.write_text(
+        json.dumps(spec, indent=2, sort_keys=True, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+    print(f"  OK {output.relative_to(REPO_ROOT)} ({len(spec.get('paths', {}))} paths)")
     return output
 
 
@@ -39,13 +62,14 @@ def main() -> int:
     print("OptiCloud OpenAPI generation...")
     try:
         generate_auth_service()
+        generate_capability_registry()
     except ImportError as e:
-        print(f"  ⚠️  auth-service import failed: {e}")
+        print(f"  WARN service import failed: {e}")
         print("     Run `uv sync` first to install deps.")
         return 1
 
-    # Future: solver-orchestrator, billing-service, capability-registry, etc.
-    print("✅ OpenAPI generation complete.")
+    # Future: solver-orchestrator, billing-service, etc.
+    print("OK OpenAPI generation complete.")
     return 0
 
 
