@@ -33,6 +33,7 @@ from capability_registry.models import (
     ProviderRevenuePayoutEntry,
     ProviderShadowValidationRun,
     ProviderShadowValidationSample,
+    ProviderVersionUpdateRequest,
     RevenueShareHook,
     RevenueSharePolicy,
 )
@@ -83,11 +84,17 @@ from capability_registry.schemas import (
     ProviderShadowSampleResponse,
     ProviderShadowSampleUpsertRequest,
     ProviderUpsertRequest,
+    ProviderVersionChangeKind,
+    ProviderVersionUpdateResponse,
+    ProviderVersionUpdateStatus,
+    ProviderVersionUpdateStatusPatchRequest,
+    ProviderVersionUpdateUpsertRequest,
     RevenueShareHookCreateRequest,
     RevenueShareHookResponse,
     RevenueSharePolicyResponse,
     RevenueSharePolicyUpsertRequest,
     ScopeSource,
+    _reject_forbidden_reference_fields,
     normalize_money,
     platform_revenue_amount,
     provider_revenue_amount,
@@ -1587,6 +1594,314 @@ def _assert_locked_evaluation_unchanged(
         )
 
 
+async def _load_version_update_row(
+    session: AsyncSession,
+    *,
+    application_row_id: uuid.UUID,
+    version_update_id: str,
+    tenant_id: uuid.UUID | None,
+) -> ProviderVersionUpdateRequest | None:
+    return (
+        await session.execute(
+            select(ProviderVersionUpdateRequest).where(
+                ProviderVersionUpdateRequest.application_row_id == application_row_id,
+                ProviderVersionUpdateRequest.version_update_id == version_update_id,
+                (
+                    ProviderVersionUpdateRequest.tenant_id.is_(None)
+                    if tenant_id is None
+                    else ProviderVersionUpdateRequest.tenant_id == tenant_id
+                ),
+            )
+        )
+    ).scalar_one_or_none()
+
+
+def _version_conflict(detail: str) -> HTTPException:
+    return HTTPException(status_code=status.HTTP_409_CONFLICT, detail=detail)
+
+
+def _coerce_version_status(value: str) -> ProviderVersionUpdateStatus:
+    if value not in {"draft", "submitted", "under_review", "approved", "rejected", "cancelled"}:
+        raise _version_conflict("version update status drift")
+    return cast(ProviderVersionUpdateStatus, value)
+
+
+def _coerce_version_change_kind(value: str) -> ProviderVersionChangeKind:
+    if value not in {"patch", "minor", "major"}:
+        raise _version_conflict("version update change_kind drift")
+    return cast(ProviderVersionChangeKind, value)
+
+
+_SEMVER_PATTERN = re.compile(r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$")
+
+
+def _parse_stored_semver(value: str, *, field_name: str) -> tuple[int, int, int]:
+    match = _SEMVER_PATTERN.match(value)
+    if not match:
+        raise _version_conflict(f"{field_name} drift")
+    return (int(match.group(1)), int(match.group(2)), int(match.group(3)))
+
+
+def _validate_stored_version_delta(row: ProviderVersionUpdateRequest) -> None:
+    current = _parse_stored_semver(row.current_version, field_name="current_version")
+    proposed = _parse_stored_semver(row.proposed_version, field_name="proposed_version")
+    if proposed <= current:
+        raise _version_conflict("version update semver drift")
+    current_major, current_minor, current_patch = current
+    proposed_major, proposed_minor, proposed_patch = proposed
+    change_kind = _coerce_version_change_kind(row.change_kind)
+    if change_kind == "patch":
+        valid = (
+            proposed_major == current_major
+            and proposed_minor == current_minor
+            and proposed_patch > current_patch
+        )
+    elif change_kind == "minor":
+        valid = (
+            proposed_major == current_major
+            and proposed_minor > current_minor
+            and proposed_patch == 0
+        )
+    else:
+        valid = proposed_major > current_major and proposed_minor == 0 and proposed_patch == 0
+    if not valid:
+        raise _version_conflict("version update change_kind drift")
+
+
+def _validate_version_reference(value: str | None, *, field_name: str) -> None:
+    if value is not None and not re.match(r"^(s3|oss|fixture|benchmark|repro)://", value):
+        raise _version_conflict(f"{field_name} drift")
+
+
+def _validate_version_path_id(value: str, *, field_name: str) -> None:
+    if not re.match(_PATH_ID_PATTERN, value):
+        raise _version_conflict(f"{field_name} drift")
+
+
+def _require_version_aware_datetime(value: datetime | None, *, field_name: str) -> None:
+    if value is not None and (value.tzinfo is None or value.utcoffset() is None):
+        raise _version_conflict(f"{field_name} must be timezone-aware")
+
+
+def _validate_version_update_row(
+    row: ProviderVersionUpdateRequest,
+    application: ProviderApplication,
+    *,
+    requested_tenant_id: uuid.UUID | None,
+) -> None:
+    if row.tenant_id != requested_tenant_id:
+        raise _version_conflict("version update tenant scope drift")
+    if application.tenant_id != requested_tenant_id:
+        raise _version_conflict("version update application scope drift")
+    if row.application_row_id != application.id or row.application_id != application.application_id:
+        raise _version_conflict("version update application drift")
+    if row.requested_provider_id != application.requested_provider_id:
+        raise _version_conflict("version update requested_provider_id drift")
+    _validate_version_path_id(row.application_id, field_name="application_id")
+    _validate_version_path_id(row.version_update_id, field_name="version_update_id")
+    _validate_version_path_id(row.requested_provider_id, field_name="requested_provider_id")
+    _validate_stored_version_delta(row)
+    _coerce_version_status(row.status)
+    if not re.match(r"^https?://", row.openapi_url):
+        raise _version_conflict("openapi_url drift")
+    if not re.match(r"^[0-9a-fA-F]{64}$", row.openapi_sha256):
+        raise _version_conflict("openapi_sha256 drift")
+    if not re.search(r"sha256:[0-9a-fA-F]{64}", row.image_digest):
+        raise _version_conflict("image_digest drift")
+    if not isinstance(row.cosign_bundle, dict):
+        raise _version_conflict("cosign_bundle drift")
+    if not isinstance(row.update_metadata, dict):
+        raise _version_conflict("metadata drift")
+    try:
+        _reject_forbidden_reference_fields(row.cosign_bundle)
+        _reject_forbidden_reference_fields(row.update_metadata)
+    except ValueError as exc:
+        raise _version_conflict("version update unsafe metadata drift") from exc
+    _validate_version_reference(row.sbom_ref, field_name="sbom_ref")
+    _validate_version_reference(row.release_notes_ref, field_name="release_notes_ref")
+    _validate_version_reference(row.review_notes_ref, field_name="review_notes_ref")
+    _require_version_aware_datetime(row.submitted_at, field_name="submitted_at")
+    _require_version_aware_datetime(row.reviewed_at, field_name="reviewed_at")
+    _require_version_aware_datetime(row.created_at, field_name="created_at")
+    _require_version_aware_datetime(row.updated_at, field_name="updated_at")
+    if row.record_version < 1:
+        raise _version_conflict("record_version drift")
+
+
+def _version_scope_source(
+    row_tenant_id: uuid.UUID | None,
+    requested_tenant_id: uuid.UUID | None,
+) -> ProviderDashboardScopeSource:
+    if row_tenant_id is None and requested_tenant_id is None:
+        return "global"
+    if row_tenant_id == requested_tenant_id and requested_tenant_id is not None:
+        return "tenant"
+    raise _version_conflict("version update cannot use global fallback scope")
+
+
+def _version_etag(row: ProviderVersionUpdateRequest) -> str:
+    return f'"{row.version_update_id}:{row.record_version}"'
+
+
+def _set_version_etag(response: Response, row: ProviderVersionUpdateRequest) -> None:
+    response.headers["ETag"] = _version_etag(row)
+
+
+def _require_matching_etag(
+    *,
+    if_match: str | None,
+    row: ProviderVersionUpdateRequest,
+) -> None:
+    if if_match is None:
+        raise HTTPException(
+            status_code=status.HTTP_428_PRECONDITION_REQUIRED,
+            detail="If-Match header required",
+        )
+    if if_match != _version_etag(row):
+        raise HTTPException(
+            status_code=status.HTTP_412_PRECONDITION_FAILED,
+            detail="If-Match header does not match current resource version",
+        )
+
+
+async def _lock_version_update_row(
+    session: AsyncSession,
+    row: ProviderVersionUpdateRequest,
+) -> ProviderVersionUpdateRequest:
+    locked = (
+        await session.execute(
+            select(ProviderVersionUpdateRequest)
+            .where(ProviderVersionUpdateRequest.id == row.id)
+            .with_for_update()
+        )
+    ).scalar_one()
+    return locked
+
+
+def _version_update_response(
+    row: ProviderVersionUpdateRequest,
+    application: ProviderApplication,
+    *,
+    requested_tenant_id: uuid.UUID | None,
+    response: Response | None,
+) -> ProviderVersionUpdateResponse:
+    _validate_version_update_row(row, application, requested_tenant_id=requested_tenant_id)
+    if response is not None:
+        _set_version_etag(response, row)
+    return ProviderVersionUpdateResponse(
+        id=row.id,
+        tenant_id=row.tenant_id,
+        application_id=row.application_id,
+        version_update_id=row.version_update_id,
+        requested_provider_id=row.requested_provider_id,
+        current_version=row.current_version,
+        proposed_version=row.proposed_version,
+        change_kind=_coerce_version_change_kind(row.change_kind),
+        openapi_url=row.openapi_url,
+        openapi_sha256=row.openapi_sha256,
+        image_digest=row.image_digest,
+        cosign_bundle=dict(row.cosign_bundle),
+        sbom_ref=row.sbom_ref,
+        release_notes_ref=row.release_notes_ref,
+        status=_coerce_version_status(row.status),
+        review_notes_ref=row.review_notes_ref,
+        submitted_at=row.submitted_at,
+        reviewed_at=row.reviewed_at,
+        record_version=row.record_version,
+        metadata=dict(row.update_metadata),
+        scope_source=_version_scope_source(row.tenant_id, requested_tenant_id),
+        created_at=row.created_at,
+        updated_at=row.updated_at,
+    )
+
+
+def _version_material_values(body: ProviderVersionUpdateUpsertRequest) -> dict[str, Any]:
+    return {
+        "current_version": body.current_version,
+        "proposed_version": body.proposed_version,
+        "change_kind": body.change_kind,
+        "openapi_url": body.openapi_url,
+        "openapi_sha256": body.openapi_sha256,
+        "image_digest": body.image_digest,
+        "cosign_bundle": body.cosign_bundle,
+        "sbom_ref": body.sbom_ref,
+        "release_notes_ref": body.release_notes_ref,
+    }
+
+
+def _assert_submitted_version_material_unchanged(
+    row: ProviderVersionUpdateRequest,
+    body: ProviderVersionUpdateUpsertRequest,
+) -> None:
+    if row.status == "draft":
+        return
+    existing = {
+        "current_version": row.current_version,
+        "proposed_version": row.proposed_version,
+        "change_kind": row.change_kind,
+        "openapi_url": row.openapi_url,
+        "openapi_sha256": row.openapi_sha256,
+        "image_digest": row.image_digest,
+        "cosign_bundle": dict(row.cosign_bundle),
+        "sbom_ref": row.sbom_ref,
+        "release_notes_ref": row.release_notes_ref,
+    }
+    incoming = _version_material_values(body)
+    changed = sorted(key for key, value in incoming.items() if existing[key] != value)
+    if changed:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"{row.status} version update fields are immutable: {', '.join(changed)}",
+        )
+
+
+def _assert_version_status_transition(
+    current_status: str,
+    next_status: ProviderVersionUpdateStatus,
+    *,
+    review_notes_ref: str | None,
+) -> bool:
+    current = _coerce_version_status(current_status)
+    if current == next_status:
+        return False
+    allowed: dict[str, set[str]] = {
+        "draft": {"submitted", "cancelled"},
+        "submitted": {"under_review", "cancelled"},
+        "under_review": {"approved", "rejected", "cancelled"},
+        "approved": set(),
+        "rejected": set(),
+        "cancelled": set(),
+    }
+    if next_status not in allowed[current]:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"invalid version update status transition: {current} -> {next_status}",
+        )
+    if next_status in {"approved", "rejected"} and review_notes_ref is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="review_notes_ref is required for approved or rejected status",
+        )
+    return True
+
+
+def _assert_terminal_version_patch_idempotent(
+    row: ProviderVersionUpdateRequest,
+    body: ProviderVersionUpdateStatusPatchRequest,
+) -> None:
+    if row.status not in {"approved", "rejected", "cancelled"}:
+        return
+    if (
+        body.status != row.status
+        or body.review_notes_ref != row.review_notes_ref
+        or body.metadata != dict(row.update_metadata)
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"{row.status} version update is immutable",
+        )
+
+
 @router.post(
     "/revenue-share/hooks",
     response_model=RevenueShareHookResponse,
@@ -2206,6 +2521,293 @@ async def list_provider_application_evaluations(
         )
     ).scalars()
     return [await _provider_evaluation_response(row, requested_tenant_id=tenant_id) for row in rows]
+
+
+@router.put(
+    "/provider-applications/{application_id}/version-updates/{version_update_id}",
+    response_model=ProviderVersionUpdateResponse,
+    tags=["provider-version-updates"],
+)
+async def upsert_provider_version_update(
+    application_id: Annotated[str, Path(pattern=_PATH_ID_PATTERN)],
+    version_update_id: Annotated[str, Path(pattern=_PATH_ID_PATTERN)],
+    body: ProviderVersionUpdateUpsertRequest,
+    response: Response,
+    if_match: str | None = Header(default=None, alias="If-Match"),
+    x_internal_service_auth: str | None = Header(default=None, alias="X-Internal-Service-Auth"),
+    session: AsyncSession = Depends(get_session),
+) -> ProviderVersionUpdateResponse:
+    _require_write_auth(x_internal_service_auth)
+    _assert_path_id(body.application_id, application_id, "application_id")
+    _assert_path_id(body.version_update_id, version_update_id, "version_update_id")
+    application = await _load_provider_application_row(
+        session,
+        application_id=application_id,
+        tenant_id=body.tenant_id,
+        allow_global_fallback=False,
+    )
+    if application is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="provider application not found",
+        )
+    if application.status != "submitted":
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="provider application must be submitted before version update",
+        )
+    row = await _load_version_update_row(
+        session,
+        application_row_id=application.id,
+        version_update_id=version_update_id,
+        tenant_id=body.tenant_id,
+    )
+    now = datetime.now(UTC)
+    if row is None:
+        submitted_at = now if body.status == "submitted" else None
+        row = ProviderVersionUpdateRequest(
+            tenant_id=body.tenant_id,
+            application_row_id=application.id,
+            application_id=application.application_id,
+            version_update_id=version_update_id,
+            requested_provider_id=application.requested_provider_id,
+            current_version=body.current_version,
+            proposed_version=body.proposed_version,
+            change_kind=body.change_kind,
+            openapi_url=body.openapi_url,
+            openapi_sha256=body.openapi_sha256,
+            image_digest=body.image_digest,
+            cosign_bundle=body.cosign_bundle,
+            sbom_ref=body.sbom_ref,
+            release_notes_ref=body.release_notes_ref,
+            status=body.status,
+            submitted_at=submitted_at,
+            record_version=1,
+            update_metadata=body.metadata,
+            created_at=now,
+            updated_at=now,
+        )
+        session.add(row)
+    else:
+        row = await _lock_version_update_row(session, row)
+        _validate_version_update_row(row, application, requested_tenant_id=body.tenant_id)
+        _require_matching_etag(if_match=if_match, row=row)
+        _assert_submitted_version_material_unchanged(row, body)
+        changed = any(
+            getattr(row, key) != value for key, value in _version_material_values(body).items()
+        )
+        changed = changed or row.status != body.status or dict(row.update_metadata) != body.metadata
+        if row.status != body.status:
+            transitioned = _assert_version_status_transition(
+                row.status,
+                cast(ProviderVersionUpdateStatus, body.status),
+                review_notes_ref=row.review_notes_ref,
+            )
+            if transitioned and body.status == "submitted":
+                row.submitted_at = row.submitted_at or now
+        if changed:
+            row.current_version = body.current_version
+            row.proposed_version = body.proposed_version
+            row.change_kind = body.change_kind
+            row.openapi_url = body.openapi_url
+            row.openapi_sha256 = body.openapi_sha256
+            row.image_digest = body.image_digest
+            row.cosign_bundle = body.cosign_bundle
+            row.sbom_ref = body.sbom_ref
+            row.release_notes_ref = body.release_notes_ref
+            row.status = body.status
+            row.update_metadata = body.metadata
+            row.record_version += 1
+            row.updated_at = now
+    try:
+        await session.flush()
+    except IntegrityError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="provider version update identity already exists",
+        ) from exc
+    return _version_update_response(
+        row,
+        application,
+        requested_tenant_id=body.tenant_id,
+        response=response,
+    )
+
+
+@router.get(
+    "/provider-applications/{application_id}/version-updates/{version_update_id}",
+    response_model=ProviderVersionUpdateResponse,
+    tags=["provider-version-updates"],
+)
+async def get_provider_version_update(
+    application_id: Annotated[str, Path(pattern=_PATH_ID_PATTERN)],
+    version_update_id: Annotated[str, Path(pattern=_PATH_ID_PATTERN)],
+    response: Response,
+    tenant_id: uuid.UUID | None = Query(default=None),
+    session: AsyncSession = Depends(get_session),
+) -> ProviderVersionUpdateResponse:
+    application = await _load_provider_application_row(
+        session,
+        application_id=application_id,
+        tenant_id=tenant_id,
+        allow_global_fallback=False,
+    )
+    if application is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="provider application not found",
+        )
+    row = await _load_version_update_row(
+        session,
+        application_row_id=application.id,
+        version_update_id=version_update_id,
+        tenant_id=tenant_id,
+    )
+    if row is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="provider version update not found",
+        )
+    return _version_update_response(
+        row,
+        application,
+        requested_tenant_id=tenant_id,
+        response=response,
+    )
+
+
+@router.get(
+    "/provider-applications/{application_id}/version-updates",
+    response_model=list[ProviderVersionUpdateResponse],
+    tags=["provider-version-updates"],
+)
+async def list_provider_version_updates(
+    application_id: Annotated[str, Path(pattern=_PATH_ID_PATTERN)],
+    tenant_id: uuid.UUID | None = Query(default=None),
+    requested_provider_id: Annotated[str | None, Query(pattern=_PATH_ID_PATTERN)] = None,
+    status_filter: ProviderVersionUpdateStatus | None = Query(default=None, alias="status"),
+    change_kind: ProviderVersionChangeKind | None = Query(default=None),
+    session: AsyncSession = Depends(get_session),
+) -> list[ProviderVersionUpdateResponse]:
+    application = await _load_provider_application_row(
+        session,
+        application_id=application_id,
+        tenant_id=tenant_id,
+        allow_global_fallback=False,
+    )
+    if application is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="provider application not found",
+        )
+    conditions: list[ColumnElement[bool]] = [
+        ProviderVersionUpdateRequest.application_row_id == application.id,
+        (
+            ProviderVersionUpdateRequest.tenant_id.is_(None)
+            if tenant_id is None
+            else ProviderVersionUpdateRequest.tenant_id == tenant_id
+        ),
+    ]
+    if requested_provider_id is not None:
+        conditions.append(
+            ProviderVersionUpdateRequest.requested_provider_id == requested_provider_id
+        )
+    if status_filter is not None:
+        conditions.append(ProviderVersionUpdateRequest.status == status_filter)
+    if change_kind is not None:
+        conditions.append(ProviderVersionUpdateRequest.change_kind == change_kind)
+    rows = list(
+        (
+            await session.execute(
+                select(ProviderVersionUpdateRequest)
+                .where(*conditions)
+                .order_by(
+                    ProviderVersionUpdateRequest.created_at.desc(),
+                    ProviderVersionUpdateRequest.version_update_id,
+                )
+            )
+        ).scalars()
+    )
+    return [
+        _version_update_response(
+            row,
+            application,
+            requested_tenant_id=tenant_id,
+            response=None,
+        )
+        for row in rows
+    ]
+
+
+@router.patch(
+    "/provider-applications/{application_id}/version-updates/{version_update_id}/status",
+    response_model=ProviderVersionUpdateResponse,
+    tags=["provider-version-updates"],
+)
+async def patch_provider_version_update_status(
+    application_id: Annotated[str, Path(pattern=_PATH_ID_PATTERN)],
+    version_update_id: Annotated[str, Path(pattern=_PATH_ID_PATTERN)],
+    body: ProviderVersionUpdateStatusPatchRequest,
+    response: Response,
+    tenant_id: uuid.UUID | None = Query(default=None),
+    if_match: str | None = Header(default=None, alias="If-Match"),
+    x_internal_service_auth: str | None = Header(default=None, alias="X-Internal-Service-Auth"),
+    session: AsyncSession = Depends(get_session),
+) -> ProviderVersionUpdateResponse:
+    _require_write_auth(x_internal_service_auth)
+    application = await _load_provider_application_row(
+        session,
+        application_id=application_id,
+        tenant_id=tenant_id,
+        allow_global_fallback=False,
+    )
+    if application is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="provider application not found",
+        )
+    row = await _load_version_update_row(
+        session,
+        application_row_id=application.id,
+        version_update_id=version_update_id,
+        tenant_id=tenant_id,
+    )
+    if row is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="provider version update not found",
+        )
+    row = await _lock_version_update_row(session, row)
+    _validate_version_update_row(row, application, requested_tenant_id=tenant_id)
+    _require_matching_etag(if_match=if_match, row=row)
+    _assert_terminal_version_patch_idempotent(row, body)
+    transitioned = _assert_version_status_transition(
+        row.status,
+        body.status,
+        review_notes_ref=body.review_notes_ref,
+    )
+    if (
+        transitioned
+        or body.review_notes_ref != row.review_notes_ref
+        or body.metadata != row.update_metadata
+    ):
+        now = datetime.now(UTC)
+        row.status = body.status
+        if body.status == "submitted":
+            row.submitted_at = row.submitted_at or now
+        if body.status in {"approved", "rejected"}:
+            row.reviewed_at = row.reviewed_at or now
+        row.review_notes_ref = body.review_notes_ref
+        row.update_metadata = body.metadata
+        row.record_version += 1
+        row.updated_at = now
+        await session.flush()
+    return _version_update_response(
+        row,
+        application,
+        requested_tenant_id=tenant_id,
+        response=response,
+    )
 
 
 async def _resolve_shadow_evaluation(

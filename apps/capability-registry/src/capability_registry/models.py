@@ -447,6 +447,72 @@ class ProviderApplicationEvaluationRequest(Base):
     )
 
 
+class ProviderVersionUpdateRequest(Base):
+    """Provider version update review contract.
+
+    Version approvals are review records only. They do not mutate the live
+    provider catalog or routing state.
+    """
+
+    __tablename__ = "provider_version_update_requests"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()
+    )
+    tenant_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    application_row_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    application_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    version_update_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    requested_provider_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    current_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    proposed_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    change_kind: Mapped[str] = mapped_column(String(16), nullable=False)
+    openapi_url: Mapped[str] = mapped_column(Text, nullable=False)
+    openapi_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    image_digest: Mapped[str] = mapped_column(Text, nullable=False)
+    cosign_bundle: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+    sbom_ref: Mapped[str | None] = mapped_column(Text, nullable=True)
+    release_notes_ref: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="draft")
+    review_notes_ref: Mapped[str | None] = mapped_column(Text, nullable=True)
+    submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    record_version: Mapped[int] = mapped_column(nullable=False, default=1)
+    update_metadata: Mapped[dict[str, Any]] = mapped_column(
+        "metadata", JSONB, nullable=False, default=dict
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    __table_args__ = (
+        Index(
+            "uq_provider_version_updates_global_update_id",
+            "application_row_id",
+            "version_update_id",
+            unique=True,
+            postgresql_where=text("tenant_id IS NULL"),
+        ),
+        Index(
+            "uq_provider_version_updates_tenant_update_id",
+            "tenant_id",
+            "application_row_id",
+            "version_update_id",
+            unique=True,
+            postgresql_where=text("tenant_id IS NOT NULL"),
+        ),
+        Index(
+            "idx_provider_version_updates_application",
+            "application_row_id",
+            "status",
+            "change_kind",
+        ),
+    )
+
+
 class ProviderShadowValidationRun(Base):
     """Shadow validation run gate for a provider application evaluation."""
 
