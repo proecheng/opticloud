@@ -4,7 +4,7 @@ baseline_commit: 973bfb22a87fc4748899d0da38d76aca62362e9c
 epic_num: 8
 story_num: A.1
 epic_name: Public Status + Audit + Vuln Response
-status: code-review
+status: done
 priority: High
 type: Public unauthenticated status page
 created_by: bmad-create-story
@@ -21,7 +21,7 @@ sources:
 
 # Story 8.A.1 - Public Status Page
 
-Status: code-review
+Status: done
 
 ## Story
 
@@ -112,13 +112,13 @@ Architecture 将 Status-Page 标为 `web / SSR / 无鉴权 / Direction "Trust-Fo
   - [x] Escape XML fields explicitly.
   - [x] Add route tests for content type, incident items, ordering, and escaping.
 
-- [ ] T4: Review, gates, and GitHub sync (AC: 21, 23-26)
+- [x] T4: Review, gates, and GitHub sync (AC: 21, 23-26)
   - [x] Confirm `apps/web/package.json` has no dependency change.
   - [x] Run post-implementation code review and fix findings.
   - [x] Record review findings and fixes in this story.
   - [x] Run focused tests, full web tests, typecheck, and diff-check.
-  - [ ] Commit, push, create PR, wait for CI, merge, delete remote branch, and sync local `main`.
-  - [ ] Mark story and sprint status `done` only after merge/sync.
+  - [x] Commit, push, create PR, wait for CI, merge, delete remote branch, and sync local `main`.
+  - [x] Mark story and sprint status `done` only after merge/sync.
 
 ## Dev Notes
 
@@ -203,6 +203,8 @@ GPT-5 Codex
 - Story and sprint status moved to `code-review` after local review and gates; final `done` remains gated on GitHub CI, PR merge, remote branch cleanup, and local `main` sync.
 - GitHub PR #145 first CI run failed in e2e build because `apps/web/src/app/status/page.tsx` exported non-Next page field `StatusPageView`.
 - CI fix moved `StatusPageView` to `apps/web/src/app/status/StatusPageView.tsx`; reran focused status tests, typecheck, diff-check, and `pnpm -C apps/web build` successfully before pushing the fix.
+- GitHub PR #145 passed checks including `changes`, `lint`, `ts-typecheck`, `e2e`, `matrix-detect`, `build-and-sbom (auth-service)`, and `gtm-toolkit-validation`.
+- PR #145 squash-merged to `main` at merge commit `f66f5ea1885819fe6de5b828a8d27bbbbe028206`; remote feature branch deleted; local `main` synced to `origin/main`.
 
 ### Completion Notes List
 
@@ -210,6 +212,7 @@ GPT-5 Codex
 - Completed 3 pre-implementation adversarial review rounds and revised the story after each round.
 - Added shared public status model, derived overall status, ordered incident history, RSS XML generation with escaping, public `/status` page, `/status/rss.xml` route, homepage navigation link, and focused tests.
 - Post-review fixes added coverage for empty incident history and no network fetch during public status page render.
+- GitHub sync completed: PR #145 passed CI, merged, remote branch deleted, local `main` synced, and story/sprint status marked done.
 
 ### File List
 
@@ -235,6 +238,7 @@ GPT-5 Codex
 - 2026-06-02 - Completed post-implementation code review, fixed 2 patch findings, and reran local gates.
 - 2026-06-02 - Story moved to code-review pending GitHub sync.
 - 2026-06-02 - Fixed CI Next build export issue by moving `StatusPageView` out of `page.tsx`; local Next build passed.
+- 2026-06-02 - PR #145 passed GitHub CI, merged to main, remote branch deleted, local main synced; story marked done.
 
 ## Post-Implementation Code Review
 
