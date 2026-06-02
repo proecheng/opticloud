@@ -4,7 +4,7 @@ baseline_commit: 935dfff5004875b7c696108cc239c5b8a88ae274
 epic_num: 8
 story_num: A.6
 epic_name: Public Status + Audit + Vuln Response
-status: code-review
+status: done
 priority: High
 type: Public vulnerability disclosure submission surface
 created_by: bmad-create-story
@@ -24,7 +24,7 @@ sources:
 
 # Story 8.A.6 - 安全研究者 Vuln Submission
 
-Status: code-review
+Status: done
 
 ## Story
 
@@ -111,14 +111,14 @@ PRD NFR-R 章节写有 CVSS >= 7 关键漏洞 24h 补丁部署，而 Story 8.A.6
   - [x] Add navigation link from landing and public page header.
   - [x] Add happy-dom page tests for public/no-auth/no-storage/no-fetch rendering and required copy.
 
-- [ ] T4: Review, gates, and GitHub sync (AC: 22-26)
+- [x] T4: Review, gates, and GitHub sync (AC: 22-26)
   - [x] Confirm `apps/web/package.json` has no dependency change.
   - [x] Run focused tests before broader gates.
   - [x] Run post-implementation code review and fix findings.
   - [x] Record review findings and fixes in this story.
   - [x] Run local gates.
-  - [ ] Commit, push, create PR, wait for CI, merge, delete remote branch, and sync local `main`.
-  - [ ] Mark story and sprint status `done` only after merge/sync.
+  - [x] Commit, push, create PR, wait for CI, merge, delete remote branch, and sync local `main`.
+  - [x] Mark story and sprint status `done` only after merge/sync.
 
 ## Dev Notes
 
@@ -191,11 +191,14 @@ GPT-5 Codex
 - Focused tests after review fixes: `pnpm --filter @opticloud/web test -- security-disclosure security/page.test.tsx security.txt status/page.test.tsx` -> 10 passed.
 - Final gates after review fixes: `pnpm --filter @opticloud/web test` -> 202 passed; `pnpm --filter @opticloud/web typecheck` -> passed; `pnpm -C apps/web build` -> passed; `git diff --check` -> passed; package/lockfile diff empty.
 - Story and sprint status moved to `code-review` after local gates; final `done` remains gated on GitHub CI, PR merge, remote branch cleanup, local `main` sync, and post-merge status sync.
+- GitHub sync: PR #150 passed checks including `changes`, `lint`, `ts-typecheck`, `e2e`, `matrix-detect`, `build-and-sbom (auth-service)`, and `gtm-toolkit-validation`; PR squash-merged to `main` at `112d3281e7523668517a5382d6ae67db3bac9b8f`; remote branch `codex/8-a-6-vuln-submission` was deleted; local `main` is synced to `origin/main`.
 
 ### Completion Notes List
 
 - Story created for public vulnerability disclosure submission surface.
 - Completed 3 pre-implementation adversarial review rounds and revised the story after each round.
+- Implemented shared `security.txt` / `/security` public disclosure surface, report requirements, SLA copy, safe-harbor boundaries, and overclaim protections.
+- GitHub sync completed: PR #150 passed CI, merged, remote branch deleted, local `main` synced, and story/sprint status marked done.
 
 ### File List
 
@@ -221,6 +224,7 @@ GPT-5 Codex
 - 2026-06-03 - Implementation started; story and sprint status moved to in-progress.
 - 2026-06-03 - Implemented shared security disclosure policy model, `/.well-known/security.txt`, `/security` page, public navigation link, and focused tests.
 - 2026-06-03 - Completed post-implementation code review; fixed public nav wrap and Status Page Security discoverability; final local gates passed and story moved to code-review pending GitHub sync.
+- 2026-06-03 - PR #150 passed GitHub CI, merged to main, remote branch deleted, local main synced; story marked done.
 
 ## Post-Implementation Code Review
 
