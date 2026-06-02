@@ -4,7 +4,7 @@ baseline_commit: 598f36906a51e88f4aeee2eb01f2f2e60a0942a8
 epic_num: 7
 story_num: B.7
 epic_name: Provider Marketplace v2
-status: in-progress
+status: done
 priority: High
 type: provider version update request contract
 created_by: bmad-create-story
@@ -28,7 +28,7 @@ sources:
 
 # Story 7.B.7 - Provider Version Management
 
-Status: in-progress
+Status: done
 
 ## Story
 
@@ -134,12 +134,12 @@ Epic 7.B 已完成 Provider application/evaluation intake、shadow validation、
   - [x] Add OpenAPI unsafe-field absence and ETag-related behavior coverage。
   - [x] Regenerate checked-in OpenAPI and run drift check。
 
-- [ ] T5: Review, gates, and GitHub sync (AC: 41-42)
+- [x] T5: Review, gates, and GitHub sync (AC: 41-42)
   - [x] Run post-implementation code review and fix findings。
   - [x] Record code review findings and fixes in `Post-Implementation Code Review`。
   - [x] Run local gates after fixes。
-  - [ ] Commit, push, create PR, wait for CI, merge, delete remote branch, and sync local `main`。
-  - [ ] Mark story and sprint status `done` only after merge/sync。
+  - [x] Commit, push, create PR, wait for CI, merge, delete remote branch, and sync local `main`。
+  - [x] Mark story and sprint status `done` only after merge/sync。
 
 ## Dev Notes
 
@@ -247,6 +247,7 @@ GPT-5 Codex
 - 2026-06-02 - Completed 3 pre-implementation adversarial review rounds; story marked ready for development。
 - 2026-06-02 - Implementation started; story and sprint status moved to in-progress。
 - 2026-06-02 - Implemented Provider Version Management request contract, tests, OpenAPI update, post-review fix, and local gates; pending GitHub sync。
+- 2026-06-02 - GitHub CI passed; PR #142 merged to `main` at `b2a7d63`; remote branch deleted; local `main` synced; story marked done。
 
 ## Pre-Implementation Adversarial Reviews
 
