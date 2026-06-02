@@ -182,9 +182,7 @@ async def test_audit_logs_time_filters_and_invalid_ranges(
     before_id = await _insert_audit(
         engine, user_id=user_id, action="audit.before", created_at=base - timedelta(hours=2)
     )
-    start_id = await _insert_audit(
-        engine, user_id=user_id, action="audit.start", created_at=base
-    )
+    start_id = await _insert_audit(engine, user_id=user_id, action="audit.start", created_at=base)
     end_id = await _insert_audit(
         engine, user_id=user_id, action="audit.end", created_at=base + timedelta(hours=2)
     )

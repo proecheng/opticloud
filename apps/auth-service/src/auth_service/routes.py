@@ -794,7 +794,9 @@ def _resolve_audit_log_window_and_cursor(
         cursor_from = _parse_audit_log_time(_cursor_str(cursor_payload, "from"), "cursor.from")
         cursor_to = _parse_audit_log_time(_cursor_str(cursor_payload, "to"), "cursor.to")
         cursor_limit = _cursor_int(cursor_payload, "limit")
-        from_dt = _parse_audit_log_time(from_param, "from") if from_param is not None else cursor_from
+        from_dt = (
+            _parse_audit_log_time(from_param, "from") if from_param is not None else cursor_from
+        )
         to_dt = _parse_audit_log_time(to_param, "to") if to_param is not None else cursor_to
         limit = limit_param if limit_param is not None else cursor_limit
         if (
