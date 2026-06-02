@@ -38,7 +38,8 @@ ProviderRolloutStatus = Literal["draft", "active", "paused", "completed", "cance
 ProviderRolloutStage = Literal[0, 5, 50, 100]
 ProviderRouteShareAction = Literal["created", "advance", "pause", "cancel"]
 ScopeSource = Literal["global", "tenant", "global_fallback"]
-ProviderRouteShareScopeSource = Literal["global", "tenant"]
+ProviderDashboardScopeSource = Literal["global", "tenant"]
+ProviderRouteShareScopeSource = ProviderDashboardScopeSource
 
 _ID_PATTERN = r"^[a-z0-9][a-z0-9-]{0,63}$"
 _BENCHMARK_SUITE_PATTERN = r"^[a-z0-9][a-z0-9_-]{0,63}$"
@@ -848,3 +849,90 @@ class ProviderRouteShareDashboardResponse(BaseModel):
     highest_current_stage_percent: ProviderRolloutStage
     current_rollouts: list[ProviderRouteShareCurrentRollout]
     timeline: list[ProviderRouteShareTimelinePoint]
+
+
+class ProviderKpiRunStatusCounts(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    draft: int = Field(default=0, ge=0)
+    running: int = Field(default=0, ge=0)
+    passed: int = Field(default=0, ge=0)
+    failed: int = Field(default=0, ge=0)
+    cancelled: int = Field(default=0, ge=0)
+
+
+class ProviderKpiAggregateMetrics(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    sample_count: int = Field(..., ge=0)
+    success_count: int = Field(..., ge=0)
+    failed_count: int = Field(..., ge=0)
+    timeout_count: int = Field(..., ge=0)
+    provider_error_count: int = Field(..., ge=0)
+    success_rate: Decimal = Field(..., ge=0, le=1)
+    average_deviation_ratio: Decimal = Field(..., ge=0)
+    provider_p95_latency_ms: int = Field(..., ge=0)
+    baseline_p95_latency_ms: int = Field(..., ge=0)
+    p95_latency_ratio: Decimal = Field(..., ge=0)
+
+    @field_serializer("success_rate", "average_deviation_ratio", "p95_latency_ratio")
+    def serialize_kpi_decimal(self, value: Decimal) -> str:
+        return f"{value.quantize(_RATIO_QUANT):.6f}"
+
+
+class ProviderKpiRunMetric(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    application_id: str = Field(..., pattern=_ID_PATTERN)
+    evaluation_id: str = Field(..., pattern=_ID_PATTERN)
+    run_id: str = Field(..., pattern=_ID_PATTERN)
+    provider_id: str = Field(..., pattern=_ID_PATTERN)
+    baseline_provider_id: str = Field(..., pattern=_ID_PATTERN)
+    benchmark_suite: str = Field(..., pattern=_BENCHMARK_SUITE_PATTERN)
+    status: ProviderShadowRunStatus
+    started_at: datetime | None = None
+    ended_at: datetime | None = None
+    updated_at: datetime
+    observed_from: datetime | None = None
+    observed_to: datetime | None = None
+    coverage_classes: list[ProviderShadowCoverageClass]
+    coverage_class_counts: dict[ProviderShadowCoverageClass, int]
+    threshold_violations: list[str]
+    metrics: ProviderKpiAggregateMetrics
+    scope_source: ProviderDashboardScopeSource
+
+
+class ProviderKpiTimelinePoint(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    application_id: str = Field(..., pattern=_ID_PATTERN)
+    evaluation_id: str = Field(..., pattern=_ID_PATTERN)
+    run_id: str = Field(..., pattern=_ID_PATTERN)
+    provider_id: str = Field(..., pattern=_ID_PATTERN)
+    benchmark_suite: str = Field(..., pattern=_BENCHMARK_SUITE_PATTERN)
+    bucket_start: datetime
+    metrics: ProviderKpiAggregateMetrics
+    scope_source: ProviderDashboardScopeSource
+
+
+class ProviderKpiRolloutSummary(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    total_rollouts: int = Field(..., ge=0)
+    highest_current_stage_percent: ProviderRolloutStage
+    status_counts: ProviderRouteShareStatusCounts
+
+
+class ProviderKpiDashboardResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    provider_id: str = Field(..., pattern=_ID_PATTERN)
+    tenant_id: uuid.UUID | None = None
+    from_at: datetime | None = None
+    to_at: datetime | None = None
+    run_status_counts: ProviderKpiRunStatusCounts
+    total_runs: int = Field(..., ge=0)
+    aggregate: ProviderKpiAggregateMetrics
+    rollout_summary: ProviderKpiRolloutSummary
+    run_metrics: list[ProviderKpiRunMetric]
+    timeline: list[ProviderKpiTimelinePoint]
