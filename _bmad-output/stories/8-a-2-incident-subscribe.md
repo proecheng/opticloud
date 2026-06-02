@@ -4,7 +4,7 @@ baseline_commit: cff1617cd13cb9548922444ba27a7390de8fdda7
 epic_num: 8
 story_num: A.2
 epic_name: Public Status + Audit + Vuln Response
-status: code-review
+status: done
 priority: High
 type: Authenticated incident notification subscription
 created_by: bmad-create-story
@@ -26,7 +26,7 @@ sources:
 
 # Story 8.A.2 - Incident Subscribe
 
-Status: code-review
+Status: done
 
 ## Story
 
@@ -133,8 +133,8 @@ Incident 默认全关是硬约束：未显式订阅的用户不能因为默认�
   - [x] Run focused backend/web tests before broader gates.
   - [x] Run post-implementation code review and fix findings.
   - [x] Run local gates and record results.
-  - [ ] Commit, push, create PR, wait for CI, merge, delete remote branch, and sync local `main`.
-  - [ ] Mark story and sprint status `done` only after merge/sync.
+  - [x] Commit, push, create PR, wait for CI, merge, delete remote branch, and sync local `main`.
+  - [x] Mark story and sprint status `done` only after merge/sync.
 
 ## Dev Notes
 
@@ -211,6 +211,7 @@ GPT-5 Codex
 - Post-implementation code review found 3 patch findings: incident PUT omitted-channel defaults could accidentally enable email/in-app; incident request SQL constraint drift was not repaired for pre-existing tables; fan-out helper used an unnecessary RowMapping-to-dict conversion. All 3 were fixed.
 - Focused backend after review fixes: `uv run pytest apps/auth-service/tests/test_notification_preferences.py -q` -> 14 passed.
 - Final local gates after review fixes: auth-service tests 97 passed; web tests 179 passed; billing budget focused tests 6 passed; OpenAPI drift, ruff check, ruff format check, mypy, web typecheck, and `git diff --check` passed.
+- GitHub sync: PR #146 passed checks including `changes`, `lint`, `mypy`, `auth-service-test`, `billing-service-test`, `contract-test`, `ts-typecheck`, `openapi-drift`, `e2e`, `matrix-detect`, `build-and-sbom (auth-service)`, and `gtm-toolkit-validation`; PR squash-merged to `main` at `01aa3284d0f415a85568add20b3fc9c5a64afdad`; remote branch `codex/8-a-2-incident-subscribe` was deleted; local `main` is synced to `origin/main`.
 
 ### Completion Notes List
 
@@ -219,6 +220,7 @@ GPT-5 Codex
 - Implemented explicit opt-in incident notification preference event `status.incident.published`, preserving billing defaults while incident defaults stay disabled.
 - Added idempotent admin-secret protected incident fan-out that creates pointer-safe `status_incident_notification_requests` rows and `status.incident.notification_requested` outbox rows only for active explicit subscribers.
 - Extended account notification preferences UI and public Status Page subscription discovery to link users to `/auth/account#notification-preferences` without claiming provider delivery is active.
+- GitHub sync completed: PR #146 passed CI, merged, remote branch deleted, local `main` synced, and story/sprint status marked done.
 
 ### File List
 
@@ -245,6 +247,7 @@ GPT-5 Codex
 - 2026-06-02 - Implementation started; story and sprint status moved to in-progress.
 - 2026-06-02 - Implemented incident notification preference event, idempotent fan-out request/outbox contract, account UI controls, Status Page subscription link, focused tests, regressions, and static gates; story moved to code-review.
 - 2026-06-02 - Completed post-implementation code review; fixed incident omitted-field defaults, SQL constraint idempotency, and fan-out RowMapping handling.
+- 2026-06-02 - PR #146 passed GitHub CI, merged to main, remote branch deleted, local main synced; story marked done.
 
 ## Post-Implementation Code Review
 
