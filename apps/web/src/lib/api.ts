@@ -14,6 +14,9 @@ const SOLVER_SERVICE_URL =
 const BILLING_SERVICE_URL =
   process.env.NEXT_PUBLIC_BILLING_SERVICE_URL ?? "http://localhost:8003";
 
+const CAPABILITY_REGISTRY_URL =
+  process.env.NEXT_PUBLIC_CAPABILITY_REGISTRY_URL ?? "http://localhost:8006";
+
 export interface SignupRequest {
   phone: string;
   email: string;
@@ -1346,5 +1349,458 @@ export async function rerunReproductionVoucher(
       },
     },
     SOLVER_SERVICE_URL,
+  );
+}
+
+// ===== Provider Console (Story 7.B.9 — read-only aggregate) =====
+
+export type ProviderDashboardScopeSource = "global" | "tenant";
+export type ProviderApplicationScopeSource = ProviderDashboardScopeSource | "global_fallback";
+
+export type ProviderApplicationStatus = "draft" | "submitted" | "under_review" | "accepted" | "rejected";
+export type ProviderApplicationKind = "self" | "academic" | "partner" | "commercial";
+
+export interface ProviderApplicationResponse {
+  id: string;
+  tenant_id: string | null;
+  application_id: string;
+  requested_provider_id: string;
+  provider_kind: ProviderApplicationKind;
+  display_name: string;
+  organization_name: string;
+  contact_email: string;
+  homepage_url: string | null;
+  openapi_url: string;
+  openapi_sha256: string;
+  image_digest: string;
+  cosign_bundle: Record<string, unknown>;
+  evaluation_profile: Record<string, unknown>;
+  status: ProviderApplicationStatus;
+  submitted_at: string | null;
+  metadata: Record<string, unknown>;
+  scope_source: ProviderApplicationScopeSource;
+  created_at: string;
+  updated_at: string;
+}
+
+export type ProviderRolloutStatus = "draft" | "active" | "paused" | "completed" | "cancelled";
+export type ProviderRolloutStage = 0 | 5 | 50 | 100;
+
+export interface ProviderRouteShareStatusCounts {
+  draft: number;
+  active: number;
+  paused: number;
+  completed: number;
+  cancelled: number;
+}
+
+export interface ProviderRouteShareCurrentRollout {
+  application_id: string;
+  evaluation_id: string;
+  run_id: string;
+  rollout_id: string;
+  status: ProviderRolloutStatus;
+  current_stage_percent: ProviderRolloutStage;
+  started_at: string | null;
+  completed_at: string | null;
+  paused_at: string | null;
+  cancelled_at: string | null;
+  updated_at: string;
+  scope_source: ProviderDashboardScopeSource;
+}
+
+export interface ProviderRouteShareTimelinePoint {
+  application_id: string;
+  evaluation_id: string;
+  run_id: string;
+  rollout_id: string;
+  provider_id: string;
+  baseline_provider_id: string;
+  benchmark_suite: string;
+  action: "created" | "advance" | "pause" | "cancel";
+  stage_percent: ProviderRolloutStage;
+  from_status: ProviderRolloutStatus | null;
+  to_status: ProviderRolloutStatus;
+  observed_at: string;
+  scope_source: ProviderDashboardScopeSource;
+}
+
+export interface ProviderRouteShareDashboardResponse {
+  provider_id: string;
+  tenant_id: string | null;
+  from_at: string | null;
+  to_at: string | null;
+  status_counts: ProviderRouteShareStatusCounts;
+  total_rollouts: number;
+  highest_current_stage_percent: ProviderRolloutStage;
+  current_rollouts: ProviderRouteShareCurrentRollout[];
+  timeline: ProviderRouteShareTimelinePoint[];
+}
+
+export type ProviderShadowRunStatus = "draft" | "running" | "passed" | "failed" | "cancelled";
+
+export interface ProviderKpiRunStatusCounts {
+  draft: number;
+  running: number;
+  passed: number;
+  failed: number;
+  cancelled: number;
+}
+
+export interface ProviderKpiAggregateMetrics {
+  sample_count: number;
+  success_count: number;
+  failed_count: number;
+  timeout_count: number;
+  provider_error_count: number;
+  success_rate: string;
+  average_deviation_ratio: string;
+  provider_p95_latency_ms: number;
+  baseline_p95_latency_ms: number;
+  p95_latency_ratio: string;
+}
+
+export interface ProviderKpiRunMetric {
+  application_id: string;
+  evaluation_id: string;
+  run_id: string;
+  provider_id: string;
+  baseline_provider_id: string;
+  benchmark_suite: string;
+  status: ProviderShadowRunStatus;
+  started_at: string | null;
+  ended_at: string | null;
+  updated_at: string;
+  observed_from: string | null;
+  observed_to: string | null;
+  coverage_classes: string[];
+  coverage_class_counts: Record<string, number>;
+  threshold_violations: string[];
+  metrics: ProviderKpiAggregateMetrics;
+  scope_source: ProviderDashboardScopeSource;
+}
+
+export interface ProviderKpiTimelinePoint {
+  application_id: string;
+  evaluation_id: string;
+  run_id: string;
+  provider_id: string;
+  benchmark_suite: string;
+  bucket_start: string;
+  metrics: ProviderKpiAggregateMetrics;
+  scope_source: ProviderDashboardScopeSource;
+}
+
+export interface ProviderKpiDashboardResponse {
+  provider_id: string;
+  tenant_id: string | null;
+  from_at: string | null;
+  to_at: string | null;
+  run_status_counts: ProviderKpiRunStatusCounts;
+  total_runs: number;
+  aggregate: ProviderKpiAggregateMetrics;
+  rollout_summary: {
+    total_rollouts: number;
+    highest_current_stage_percent: ProviderRolloutStage;
+    status_counts: ProviderRouteShareStatusCounts;
+  };
+  run_metrics: ProviderKpiRunMetric[];
+  timeline: ProviderKpiTimelinePoint[];
+}
+
+export type ProviderRevenuePayoutStatus = "pending" | "held" | "paid" | "voided";
+
+export interface ProviderRevenuePayoutStatusCounts {
+  pending: number;
+  held: number;
+  paid: number;
+  voided: number;
+}
+
+export interface ProviderRevenuePayoutCurrencyTotal {
+  currency: string;
+  entry_count: number;
+  gross_amount: string;
+  provider_revenue_amount: string;
+  platform_revenue_amount: string;
+  pending_payout_amount: string;
+  held_payout_amount: string;
+  paid_amount: string;
+  voided_gross_amount: string;
+}
+
+export interface ProviderRevenuePayoutPeriodSummary extends ProviderRevenuePayoutCurrencyTotal {
+  period_month: string;
+}
+
+export interface ProviderRevenuePayoutEntryRow {
+  entry_id: string;
+  hook_id: string;
+  provider_id: string;
+  k_algo: string;
+  policy_id: string;
+  source_service: string;
+  source_event_id: string;
+  period_month: string;
+  currency: string;
+  gross_amount: string;
+  provider_share_ratio: string;
+  platform_share_ratio: string;
+  provider_revenue_amount: string;
+  platform_revenue_amount: string;
+  status: ProviderRevenuePayoutStatus;
+  recognized_at: string;
+  scope_source: ProviderDashboardScopeSource;
+}
+
+export interface ProviderRevenuePayoutDashboardResponse {
+  provider_id: string;
+  tenant_id: string | null;
+  from_at: string | null;
+  to_at: string | null;
+  period_month: string | null;
+  status: ProviderRevenuePayoutStatus | null;
+  k_algo: string | null;
+  currency: string | null;
+  status_counts: ProviderRevenuePayoutStatusCounts;
+  total_entries: number;
+  currency_totals: ProviderRevenuePayoutCurrencyTotal[];
+  period_summaries: ProviderRevenuePayoutPeriodSummary[];
+  entries: ProviderRevenuePayoutEntryRow[];
+}
+
+export type ProviderVersionChangeKind = "patch" | "minor" | "major";
+export type ProviderVersionUpdateStatus =
+  | "draft"
+  | "submitted"
+  | "under_review"
+  | "approved"
+  | "rejected"
+  | "cancelled";
+
+export interface ProviderVersionUpdateResponse {
+  id: string;
+  tenant_id: string | null;
+  application_id: string;
+  version_update_id: string;
+  requested_provider_id: string;
+  current_version: string;
+  proposed_version: string;
+  change_kind: ProviderVersionChangeKind;
+  openapi_url: string;
+  openapi_sha256: string;
+  image_digest: string;
+  cosign_bundle: Record<string, unknown>;
+  sbom_ref: string | null;
+  release_notes_ref: string | null;
+  status: ProviderVersionUpdateStatus;
+  review_notes_ref: string | null;
+  submitted_at: string | null;
+  reviewed_at: string | null;
+  record_version: number;
+  metadata: Record<string, unknown>;
+  scope_source: ProviderDashboardScopeSource;
+  created_at: string;
+  updated_at: string;
+}
+
+export type ProviderMonthlyRevenueShareBatchStatus =
+  | "draft"
+  | "reviewed"
+  | "approved"
+  | "exported"
+  | "cancelled";
+
+export interface ProviderMonthlyRevenueShareCurrencyTotal {
+  currency: string;
+  entry_count: number;
+  provider_count: number;
+  gross_amount: string;
+  provider_revenue_amount: string;
+  platform_revenue_amount: string;
+  pending_payout_amount: string;
+  held_payout_amount: string;
+}
+
+export interface ProviderMonthlyRevenueShareBatchResponse {
+  id: string;
+  tenant_id: string | null;
+  batch_id: string;
+  period_month: string;
+  status: ProviderMonthlyRevenueShareBatchStatus;
+  calculated_at: string;
+  entry_count: number;
+  provider_count: number;
+  currency_totals: ProviderMonthlyRevenueShareCurrencyTotal[];
+  provider_summaries: Array<Record<string, unknown>>;
+  policy_ratio_summaries: Array<Record<string, unknown>>;
+  excluded_entries: Array<Record<string, unknown>>;
+  source_entry_ids: string[];
+  calculation_checksum: string;
+  notes_ref: string | null;
+  approved_by_ref: string | null;
+  record_version: number;
+  scope_source: ProviderDashboardScopeSource;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProviderConsoleBaseFilters {
+  tenantId?: string;
+  from?: string;
+  to?: string;
+}
+
+export interface ProviderApplicationListFilters {
+  tenantId?: string;
+  requestedProviderId?: string;
+  status?: ProviderApplicationStatus;
+}
+
+export interface ProviderRevenuePayoutDashboardFilters extends ProviderConsoleBaseFilters {
+  periodMonth?: string;
+  status?: ProviderRevenuePayoutStatus;
+  kAlgo?: string;
+  currency?: string;
+}
+
+export interface ProviderVersionUpdateListFilters {
+  tenantId?: string;
+  requestedProviderId?: string;
+  status?: ProviderVersionUpdateStatus;
+  changeKind?: ProviderVersionChangeKind;
+}
+
+export interface ProviderMonthlyBatchListFilters {
+  tenantId?: string;
+  periodMonth?: string;
+  status?: ProviderMonthlyRevenueShareBatchStatus;
+  currency?: string;
+}
+
+function appendOptional(params: URLSearchParams, key: string, value: string | undefined): void {
+  if (value && value.trim() !== "") {
+    params.set(key, value.trim());
+  }
+}
+
+function providerConsolePath(path: string, params: URLSearchParams): string {
+  const qs = params.toString();
+  return qs ? `${path}?${qs}` : path;
+}
+
+function providerConsoleHeaders(jwtAccess: string): HeadersInit {
+  return { Authorization: `Bearer ${jwtAccess}` };
+}
+
+export async function listProviderApplications(
+  jwtAccess: string,
+  filters: ProviderApplicationListFilters = {},
+): Promise<ProviderApplicationResponse[]> {
+  const params = new URLSearchParams();
+  appendOptional(params, "tenant_id", filters.tenantId);
+  appendOptional(params, "requested_provider_id", filters.requestedProviderId);
+  appendOptional(params, "status", filters.status);
+  return request<ProviderApplicationResponse[]>(
+    providerConsolePath("/v1/provider-applications", params),
+    { headers: providerConsoleHeaders(jwtAccess) },
+    CAPABILITY_REGISTRY_URL,
+  );
+}
+
+export async function getProviderRouteShareDashboard(
+  jwtAccess: string,
+  providerId: string,
+  filters: ProviderConsoleBaseFilters = {},
+): Promise<ProviderRouteShareDashboardResponse> {
+  const params = new URLSearchParams();
+  appendOptional(params, "tenant_id", filters.tenantId);
+  appendOptional(params, "from", filters.from);
+  appendOptional(params, "to", filters.to);
+  return request<ProviderRouteShareDashboardResponse>(
+    providerConsolePath(
+      `/v1/providers/${encodeURIComponent(providerId)}/route-share-dashboard`,
+      params,
+    ),
+    { headers: providerConsoleHeaders(jwtAccess) },
+    CAPABILITY_REGISTRY_URL,
+  );
+}
+
+export async function getProviderKpiDashboard(
+  jwtAccess: string,
+  providerId: string,
+  filters: ProviderConsoleBaseFilters = {},
+): Promise<ProviderKpiDashboardResponse> {
+  const params = new URLSearchParams();
+  appendOptional(params, "tenant_id", filters.tenantId);
+  appendOptional(params, "from", filters.from);
+  appendOptional(params, "to", filters.to);
+  return request<ProviderKpiDashboardResponse>(
+    providerConsolePath(
+      `/v1/providers/${encodeURIComponent(providerId)}/kpi-dashboard`,
+      params,
+    ),
+    { headers: providerConsoleHeaders(jwtAccess) },
+    CAPABILITY_REGISTRY_URL,
+  );
+}
+
+export async function getProviderRevenuePayoutDashboard(
+  jwtAccess: string,
+  providerId: string,
+  filters: ProviderRevenuePayoutDashboardFilters = {},
+): Promise<ProviderRevenuePayoutDashboardResponse> {
+  const params = new URLSearchParams();
+  appendOptional(params, "tenant_id", filters.tenantId);
+  appendOptional(params, "from", filters.from);
+  appendOptional(params, "to", filters.to);
+  appendOptional(params, "period_month", filters.periodMonth);
+  appendOptional(params, "status", filters.status);
+  appendOptional(params, "k_algo", filters.kAlgo);
+  appendOptional(params, "currency", filters.currency);
+  return request<ProviderRevenuePayoutDashboardResponse>(
+    providerConsolePath(
+      `/v1/providers/${encodeURIComponent(providerId)}/revenue-payout-dashboard`,
+      params,
+    ),
+    { headers: providerConsoleHeaders(jwtAccess) },
+    CAPABILITY_REGISTRY_URL,
+  );
+}
+
+export async function listProviderVersionUpdates(
+  jwtAccess: string,
+  applicationId: string,
+  filters: ProviderVersionUpdateListFilters = {},
+): Promise<ProviderVersionUpdateResponse[]> {
+  const params = new URLSearchParams();
+  appendOptional(params, "tenant_id", filters.tenantId);
+  appendOptional(params, "requested_provider_id", filters.requestedProviderId);
+  appendOptional(params, "status", filters.status);
+  appendOptional(params, "change_kind", filters.changeKind);
+  return request<ProviderVersionUpdateResponse[]>(
+    providerConsolePath(
+      `/v1/provider-applications/${encodeURIComponent(applicationId)}/version-updates`,
+      params,
+    ),
+    { headers: providerConsoleHeaders(jwtAccess) },
+    CAPABILITY_REGISTRY_URL,
+  );
+}
+
+export async function listProviderMonthlyRevenueShareBatches(
+  jwtAccess: string,
+  filters: ProviderMonthlyBatchListFilters = {},
+): Promise<ProviderMonthlyRevenueShareBatchResponse[]> {
+  const params = new URLSearchParams();
+  appendOptional(params, "tenant_id", filters.tenantId);
+  appendOptional(params, "period_month", filters.periodMonth);
+  appendOptional(params, "status", filters.status);
+  appendOptional(params, "currency", filters.currency);
+  return request<ProviderMonthlyRevenueShareBatchResponse[]>(
+    providerConsolePath("/v1/revenue-share/monthly-batches", params),
+    { headers: providerConsoleHeaders(jwtAccess) },
+    CAPABILITY_REGISTRY_URL,
   );
 }
