@@ -671,6 +671,144 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_provider_application_evaluations_tenant_eva
 CREATE INDEX IF NOT EXISTS idx_provider_application_evaluations_application
     ON provider_application_evaluation_requests(application_row_id, status);
 
+-- Story 7.B.7: Provider version update request contract.
+-- Review-ready artifact references only; no live catalog, rollout, or routing mutation.
+
+CREATE TABLE IF NOT EXISTS provider_version_update_requests (
+    id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id               UUID NULL,
+    application_row_id      UUID NOT NULL REFERENCES provider_applications(id) ON DELETE CASCADE,
+    application_id          VARCHAR(64) NOT NULL,
+    version_update_id       VARCHAR(64) NOT NULL,
+    requested_provider_id   VARCHAR(64) NOT NULL,
+    current_version         VARCHAR(64) NOT NULL,
+    proposed_version        VARCHAR(64) NOT NULL,
+    change_kind             VARCHAR(16) NOT NULL,
+    openapi_url             TEXT NOT NULL,
+    openapi_sha256          VARCHAR(64) NOT NULL,
+    image_digest            TEXT NOT NULL,
+    cosign_bundle           JSONB NOT NULL DEFAULT '{}'::jsonb,
+    sbom_ref                TEXT NULL,
+    release_notes_ref       TEXT NULL,
+    status                  VARCHAR(32) NOT NULL DEFAULT 'draft',
+    review_notes_ref        TEXT NULL,
+    submitted_at            TIMESTAMPTZ NULL,
+    reviewed_at             TIMESTAMPTZ NULL,
+    record_version          INTEGER NOT NULL DEFAULT 1,
+    metadata                JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at              TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE provider_version_update_requests
+    ADD COLUMN IF NOT EXISTS tenant_id UUID NULL,
+    ADD COLUMN IF NOT EXISTS sbom_ref TEXT NULL,
+    ADD COLUMN IF NOT EXISTS release_notes_ref TEXT NULL,
+    ADD COLUMN IF NOT EXISTS review_notes_ref TEXT NULL,
+    ADD COLUMN IF NOT EXISTS submitted_at TIMESTAMPTZ NULL,
+    ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMPTZ NULL,
+    ADD COLUMN IF NOT EXISTS record_version INTEGER NOT NULL DEFAULT 1,
+    ADD COLUMN IF NOT EXISTS metadata JSONB NOT NULL DEFAULT '{}'::jsonb;
+
+ALTER TABLE provider_version_update_requests
+    DROP CONSTRAINT IF EXISTS ck_provider_version_updates_application_id;
+ALTER TABLE provider_version_update_requests
+    ADD CONSTRAINT ck_provider_version_updates_application_id
+    CHECK (application_id ~ '^[a-z0-9][a-z0-9-]{0,63}$');
+
+ALTER TABLE provider_version_update_requests
+    DROP CONSTRAINT IF EXISTS ck_provider_version_updates_update_id;
+ALTER TABLE provider_version_update_requests
+    ADD CONSTRAINT ck_provider_version_updates_update_id
+    CHECK (version_update_id ~ '^[a-z0-9][a-z0-9-]{0,63}$');
+
+ALTER TABLE provider_version_update_requests
+    DROP CONSTRAINT IF EXISTS ck_provider_version_updates_requested_provider_id;
+ALTER TABLE provider_version_update_requests
+    ADD CONSTRAINT ck_provider_version_updates_requested_provider_id
+    CHECK (requested_provider_id ~ '^[a-z0-9][a-z0-9-]{0,63}$');
+
+ALTER TABLE provider_version_update_requests
+    DROP CONSTRAINT IF EXISTS ck_provider_version_updates_current_version;
+ALTER TABLE provider_version_update_requests
+    ADD CONSTRAINT ck_provider_version_updates_current_version
+    CHECK (current_version ~ '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$');
+
+ALTER TABLE provider_version_update_requests
+    DROP CONSTRAINT IF EXISTS ck_provider_version_updates_proposed_version;
+ALTER TABLE provider_version_update_requests
+    ADD CONSTRAINT ck_provider_version_updates_proposed_version
+    CHECK (proposed_version ~ '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$');
+
+ALTER TABLE provider_version_update_requests
+    DROP CONSTRAINT IF EXISTS ck_provider_version_updates_change_kind;
+ALTER TABLE provider_version_update_requests
+    ADD CONSTRAINT ck_provider_version_updates_change_kind
+    CHECK (change_kind IN ('patch', 'minor', 'major'));
+
+ALTER TABLE provider_version_update_requests
+    DROP CONSTRAINT IF EXISTS ck_provider_version_updates_openapi_url;
+ALTER TABLE provider_version_update_requests
+    ADD CONSTRAINT ck_provider_version_updates_openapi_url
+    CHECK (openapi_url ~ '^https?://');
+
+ALTER TABLE provider_version_update_requests
+    DROP CONSTRAINT IF EXISTS ck_provider_version_updates_openapi_sha256;
+ALTER TABLE provider_version_update_requests
+    ADD CONSTRAINT ck_provider_version_updates_openapi_sha256
+    CHECK (openapi_sha256 ~ '^[0-9A-Fa-f]{64}$');
+
+ALTER TABLE provider_version_update_requests
+    DROP CONSTRAINT IF EXISTS ck_provider_version_updates_image_digest;
+ALTER TABLE provider_version_update_requests
+    ADD CONSTRAINT ck_provider_version_updates_image_digest
+    CHECK (image_digest ~ 'sha256:[0-9A-Fa-f]{64}');
+
+ALTER TABLE provider_version_update_requests
+    DROP CONSTRAINT IF EXISTS ck_provider_version_updates_reference_refs;
+ALTER TABLE provider_version_update_requests
+    ADD CONSTRAINT ck_provider_version_updates_reference_refs
+    CHECK (
+        (sbom_ref IS NULL OR sbom_ref ~ '^(s3|oss|fixture|benchmark|repro)://')
+        AND (release_notes_ref IS NULL OR release_notes_ref ~ '^(s3|oss|fixture|benchmark|repro)://')
+        AND (review_notes_ref IS NULL OR review_notes_ref ~ '^(s3|oss|fixture|benchmark|repro)://')
+    );
+
+ALTER TABLE provider_version_update_requests
+    DROP CONSTRAINT IF EXISTS ck_provider_version_updates_status;
+ALTER TABLE provider_version_update_requests
+    ADD CONSTRAINT ck_provider_version_updates_status
+    CHECK (status IN ('draft', 'submitted', 'under_review', 'approved', 'rejected', 'cancelled'));
+
+ALTER TABLE provider_version_update_requests
+    DROP CONSTRAINT IF EXISTS ck_provider_version_updates_record_version;
+ALTER TABLE provider_version_update_requests
+    ADD CONSTRAINT ck_provider_version_updates_record_version
+    CHECK (record_version >= 1);
+
+ALTER TABLE provider_version_update_requests
+    DROP CONSTRAINT IF EXISTS ck_provider_version_updates_cosign_bundle_object;
+ALTER TABLE provider_version_update_requests
+    ADD CONSTRAINT ck_provider_version_updates_cosign_bundle_object
+    CHECK (jsonb_typeof(cosign_bundle) = 'object');
+
+ALTER TABLE provider_version_update_requests
+    DROP CONSTRAINT IF EXISTS ck_provider_version_updates_metadata_object;
+ALTER TABLE provider_version_update_requests
+    ADD CONSTRAINT ck_provider_version_updates_metadata_object
+    CHECK (jsonb_typeof(metadata) = 'object');
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_provider_version_updates_global_update_id
+    ON provider_version_update_requests(application_row_id, version_update_id)
+    WHERE tenant_id IS NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_provider_version_updates_tenant_update_id
+    ON provider_version_update_requests(tenant_id, application_row_id, version_update_id)
+    WHERE tenant_id IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_provider_version_updates_application
+    ON provider_version_update_requests(application_row_id, status, change_kind);
+
 -- Story 7.B.2: Provider shadow validation contract and promotion gate.
 -- Contract/evidence records only; no provider execution, worker queue, or traffic rollout.
 

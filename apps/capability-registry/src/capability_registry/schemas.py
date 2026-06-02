@@ -27,6 +27,15 @@ RevenueShareHookStatus = Literal["reserved", "captured", "voided"]
 ProviderRevenuePayoutEntryStatus = Literal["pending", "held", "paid", "voided"]
 ProviderApplicationStatus = Literal["draft", "submitted"]
 ProviderEvaluationStatus = Literal["requested", "queued", "cancelled"]
+ProviderVersionChangeKind = Literal["patch", "minor", "major"]
+ProviderVersionUpdateStatus = Literal[
+    "draft",
+    "submitted",
+    "under_review",
+    "approved",
+    "rejected",
+    "cancelled",
+]
 ProviderShadowRunStatus = Literal["draft", "running", "passed", "failed", "cancelled"]
 ProviderShadowRunUpsertStatus = Literal["draft", "running", "cancelled"]
 ProviderShadowCoverageClass = Literal[
@@ -52,6 +61,7 @@ _EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 _REF_PATTERN = re.compile(r"^(s3|oss|fixture|benchmark|repro)://")
 _SHA256_PATTERN = re.compile(r"^[0-9a-fA-F]{64}$")
 _DIGEST_PATTERN = re.compile(r"sha256:[0-9a-fA-F]{64}")
+_SEMVER_PATTERN = re.compile(r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$")
 _TAG_PATTERN = re.compile(r"^[a-z0-9][a-z0-9_-]{0,63}$")
 _RATIO_QUANT = Decimal("0.000001")
 _MONEY_QUANT = Decimal("0.0001")
@@ -694,6 +704,199 @@ class ProviderEvaluationResponse(BaseModel):
     report_ref: str | None = None
     metadata: dict[str, Any]
     scope_source: ScopeSource
+    created_at: datetime
+    updated_at: datetime
+
+
+def _parse_semver(value: str, *, field_name: str) -> tuple[int, int, int]:
+    match = _SEMVER_PATTERN.match(value)
+    if not match:
+        raise ValueError(f"{field_name} must be strict MAJOR.MINOR.PATCH semver")
+    return (int(match.group(1)), int(match.group(2)), int(match.group(3)))
+
+
+def _validate_version_delta(
+    *,
+    current_version: str,
+    proposed_version: str,
+    change_kind: str,
+) -> None:
+    current = _parse_semver(current_version, field_name="current_version")
+    proposed = _parse_semver(proposed_version, field_name="proposed_version")
+    if proposed <= current:
+        raise ValueError("proposed_version must be greater than current_version")
+    current_major, current_minor, current_patch = current
+    proposed_major, proposed_minor, proposed_patch = proposed
+    if change_kind == "patch":
+        valid = (
+            proposed_major == current_major
+            and proposed_minor == current_minor
+            and proposed_patch > current_patch
+        )
+    elif change_kind == "minor":
+        valid = (
+            proposed_major == current_major
+            and proposed_minor > current_minor
+            and proposed_patch == 0
+        )
+    elif change_kind == "major":
+        valid = proposed_major > current_major and proposed_minor == 0 and proposed_patch == 0
+    else:
+        valid = False
+    if not valid:
+        raise ValueError("change_kind does not match current_version/proposed_version delta")
+
+
+class ProviderVersionUpdateUpsertRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    tenant_id: uuid.UUID | None = None
+    application_id: str | None = Field(default=None, pattern=_ID_PATTERN)
+    version_update_id: str | None = Field(default=None, pattern=_ID_PATTERN)
+    current_version: str = Field(..., min_length=5, max_length=64)
+    proposed_version: str = Field(..., min_length=5, max_length=64)
+    change_kind: ProviderVersionChangeKind
+    openapi_url: str = Field(..., min_length=1)
+    openapi_sha256: str = Field(..., pattern=r"^[0-9a-fA-F]{64}$")
+    image_digest: str = Field(..., min_length=1)
+    cosign_bundle: dict[str, Any] = Field(default_factory=dict)
+    sbom_ref: str | None = None
+    release_notes_ref: str | None = None
+    status: Literal["draft", "submitted"] = "draft"
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="before")
+    @classmethod
+    def reject_derived_fields(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            forbidden = {
+                "requested_provider_id",
+                "review_notes_ref",
+                "submitted_at",
+                "reviewed_at",
+                "record_version",
+                "created_at",
+                "updated_at",
+            }
+            present = sorted(forbidden.intersection(data))
+            if present:
+                raise ValueError(f"version update derived fields are not allowed: {present}")
+        return data
+
+    @field_validator("current_version", "proposed_version")
+    @classmethod
+    def validate_semver(cls, value: str) -> str:
+        _parse_semver(value, field_name="version")
+        return value
+
+    @field_validator("openapi_url")
+    @classmethod
+    def validate_openapi_url(cls, value: str) -> str:
+        return str(_validate_http_url(value, field_name="openapi_url"))
+
+    @field_validator("image_digest")
+    @classmethod
+    def validate_image_digest(cls, value: str) -> str:
+        if not _DIGEST_PATTERN.search(value):
+            raise ValueError("image_digest must include sha256:<64 hex>")
+        return value
+
+    @field_validator("sbom_ref", "release_notes_ref")
+    @classmethod
+    def validate_optional_ref(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return _validate_reference(value, field_name="reference")
+
+    @field_validator("cosign_bundle", "metadata")
+    @classmethod
+    def validate_reference_metadata(cls, value: dict[str, Any]) -> dict[str, Any]:
+        _reject_forbidden_reference_fields(value)
+        return value
+
+    @model_validator(mode="after")
+    def validate_change_kind(self) -> ProviderVersionUpdateUpsertRequest:
+        _validate_version_delta(
+            current_version=self.current_version,
+            proposed_version=self.proposed_version,
+            change_kind=self.change_kind,
+        )
+        return self
+
+
+class ProviderVersionUpdateStatusPatchRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    status: ProviderVersionUpdateStatus
+    review_notes_ref: str | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="before")
+    @classmethod
+    def reject_artifact_or_derived_fields(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            forbidden = {
+                "application_id",
+                "version_update_id",
+                "requested_provider_id",
+                "current_version",
+                "proposed_version",
+                "change_kind",
+                "openapi_url",
+                "openapi_sha256",
+                "image_digest",
+                "cosign_bundle",
+                "sbom_ref",
+                "release_notes_ref",
+                "submitted_at",
+                "reviewed_at",
+                "record_version",
+                "created_at",
+                "updated_at",
+            }
+            present = sorted(forbidden.intersection(data))
+            if present:
+                raise ValueError(f"version update status fields are not allowed: {present}")
+        return data
+
+    @field_validator("review_notes_ref")
+    @classmethod
+    def validate_review_notes_ref(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return _validate_reference(value, field_name="review_notes_ref")
+
+    @field_validator("metadata")
+    @classmethod
+    def validate_status_metadata(cls, value: dict[str, Any]) -> dict[str, Any]:
+        _reject_forbidden_reference_fields(value)
+        return value
+
+
+class ProviderVersionUpdateResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: uuid.UUID
+    tenant_id: uuid.UUID | None = None
+    application_id: str = Field(..., pattern=_ID_PATTERN)
+    version_update_id: str = Field(..., pattern=_ID_PATTERN)
+    requested_provider_id: str = Field(..., pattern=_ID_PATTERN)
+    current_version: str
+    proposed_version: str
+    change_kind: ProviderVersionChangeKind
+    openapi_url: str
+    openapi_sha256: str = Field(..., pattern=r"^[0-9a-fA-F]{64}$")
+    image_digest: str
+    cosign_bundle: dict[str, Any]
+    sbom_ref: str | None = None
+    release_notes_ref: str | None = None
+    status: ProviderVersionUpdateStatus
+    review_notes_ref: str | None = None
+    submitted_at: datetime | None = None
+    reviewed_at: datetime | None = None
+    record_version: int = Field(..., ge=1)
+    metadata: dict[str, Any]
+    scope_source: ProviderDashboardScopeSource
     created_at: datetime
     updated_at: datetime
 

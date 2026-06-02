@@ -91,6 +91,7 @@ async def clean_tables(engine: AsyncEngine) -> AsyncIterator[None]:
             text(
                 "TRUNCATE provider_gradient_rollouts, "
                 "provider_shadow_validation_samples, provider_shadow_validation_runs, "
+                "provider_version_update_requests, "
                 "provider_application_evaluation_requests, provider_applications, "
                 "provider_revenue_payout_entries, "
                 "revenue_share_hooks, revenue_share_policies, "
@@ -279,6 +280,24 @@ def rollout_payload(**overrides: Any) -> dict[str, Any]:
 def rollout_action_payload(**overrides: Any) -> dict[str, Any]:
     payload: dict[str, Any] = {
         "reason_ref": "oss://provider-rollouts/app-professor-lu/run-001/reason.json",
+        "metadata": {"source": "test"},
+    }
+    payload.update(overrides)
+    return payload
+
+
+def version_update_payload(**overrides: Any) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "current_version": "1.2.3",
+        "proposed_version": "1.2.4",
+        "change_kind": "patch",
+        "openapi_url": "https://lab.example.edu/openapi-v1.2.4.json",
+        "openapi_sha256": SHA,
+        "image_digest": DIGEST,
+        "cosign_bundle": {"bundle_ref": "oss://provider-versions/app-professor-lu/cosign.json"},
+        "sbom_ref": "oss://provider-versions/app-professor-lu/sbom.spdx.json",
+        "release_notes_ref": "oss://provider-versions/app-professor-lu/release-notes.md",
+        "status": "draft",
         "metadata": {"source": "test"},
     }
     payload.update(overrides)
@@ -1619,6 +1638,368 @@ def test_provider_application_openapi_omits_unsafe_fields() -> None:
         properties = set(schema.get("properties", {}))
         if name != "ProviderEvaluationResponse":
             assert properties.isdisjoint(forbidden_terms)
+
+
+async def test_provider_version_update_lifecycle_etag_and_no_catalog_side_effect(
+    client: AsyncClient,
+    engine: AsyncEngine,
+) -> None:
+    await client.put(
+        "/v1/providers/highs",
+        json=provider_payload(),
+    )
+    await client.put(
+        "/v1/capabilities/highs-lp",
+        json=capability_payload(),
+    )
+    app_resp = await client.put(
+        "/v1/provider-applications/app-professor-lu",
+        json=provider_application_payload(status="submitted"),
+    )
+    assert app_resp.status_code == 200, app_resp.text
+
+    create = await client.put(
+        "/v1/provider-applications/app-professor-lu/version-updates/update-001",
+        json=version_update_payload(),
+    )
+    assert create.status_code == 200, create.text
+    body = create.json()
+    assert body["version_update_id"] == "update-001"
+    assert body["requested_provider_id"] == "professor-lu"
+    assert body["record_version"] == 1
+    assert body["scope_source"] == "global"
+    assert create.headers["etag"] == '"update-001:1"'
+
+    missing_if_match = await client.put(
+        "/v1/provider-applications/app-professor-lu/version-updates/update-001",
+        json=version_update_payload(metadata={"source": "changed"}),
+    )
+    assert missing_if_match.status_code == 428
+
+    mismatch = await client.put(
+        "/v1/provider-applications/app-professor-lu/version-updates/update-001",
+        json=version_update_payload(metadata={"source": "changed"}),
+        headers={"If-Match": '"update-001:999"'},
+    )
+    assert mismatch.status_code == 412
+
+    draft_update = await client.put(
+        "/v1/provider-applications/app-professor-lu/version-updates/update-001",
+        json=version_update_payload(metadata={"source": "changed"}),
+        headers={"If-Match": create.headers["etag"]},
+    )
+    assert draft_update.status_code == 200, draft_update.text
+    assert draft_update.json()["record_version"] == 2
+    assert draft_update.headers["etag"] == '"update-001:2"'
+
+    submitted = await client.patch(
+        "/v1/provider-applications/app-professor-lu/version-updates/update-001/status",
+        json={"status": "submitted", "metadata": {"review": "queued"}},
+        headers={"If-Match": draft_update.headers["etag"]},
+    )
+    assert submitted.status_code == 200, submitted.text
+    assert submitted.json()["submitted_at"] is not None
+    assert submitted.json()["record_version"] == 3
+
+    immutable = await client.put(
+        "/v1/provider-applications/app-professor-lu/version-updates/update-001",
+        json=version_update_payload(proposed_version="1.2.5"),
+        headers={"If-Match": submitted.headers["etag"]},
+    )
+    assert immutable.status_code == 422
+
+    under_review = await client.patch(
+        "/v1/provider-applications/app-professor-lu/version-updates/update-001/status",
+        json={"status": "under_review", "metadata": {"review": "started"}},
+        headers={"If-Match": submitted.headers["etag"]},
+    )
+    assert under_review.status_code == 200, under_review.text
+
+    missing_review_note = await client.patch(
+        "/v1/provider-applications/app-professor-lu/version-updates/update-001/status",
+        json={"status": "approved", "metadata": {"review": "approved"}},
+        headers={"If-Match": under_review.headers["etag"]},
+    )
+    assert missing_review_note.status_code == 422
+
+    approved = await client.patch(
+        "/v1/provider-applications/app-professor-lu/version-updates/update-001/status",
+        json={
+            "status": "approved",
+            "review_notes_ref": "oss://provider-versions/app-professor-lu/review.md",
+            "metadata": {"review": "approved"},
+        },
+        headers={"If-Match": under_review.headers["etag"]},
+    )
+    assert approved.status_code == 200, approved.text
+    assert approved.json()["reviewed_at"] is not None
+    assert approved.json()["record_version"] == 5
+
+    terminal_change = await client.patch(
+        "/v1/provider-applications/app-professor-lu/version-updates/update-001/status",
+        json={"status": "cancelled", "metadata": {"review": "cancel"}},
+        headers={"If-Match": approved.headers["etag"]},
+    )
+    assert terminal_change.status_code == 422
+
+    get_resp = await client.get(
+        "/v1/provider-applications/app-professor-lu/version-updates/update-001"
+    )
+    assert get_resp.status_code == 200, get_resp.text
+    assert get_resp.headers["etag"] == approved.headers["etag"]
+
+    listed = await client.get(
+        "/v1/provider-applications/app-professor-lu/version-updates"
+        "?status=approved&change_kind=patch&requested_provider_id=professor-lu"
+    )
+    assert listed.status_code == 200, listed.text
+    assert [item["version_update_id"] for item in listed.json()] == ["update-001"]
+
+    maker = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
+    async with maker() as session:
+        provider_count = (
+            await session.execute(text("SELECT COUNT(*) FROM capability_providers"))
+        ).scalar_one()
+        capability_version = (
+            await session.execute(
+                text("SELECT model_version FROM capabilities WHERE k_algo = 'highs-lp'")
+            )
+        ).scalar_one()
+        rollout_count = (
+            await session.execute(text("SELECT COUNT(*) FROM provider_gradient_rollouts"))
+        ).scalar_one()
+    assert provider_count == 1
+    assert capability_version == "1.7.0"
+    assert rollout_count == 0
+
+
+async def test_provider_version_update_validation_tenant_scope_and_auth(
+    client: AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    tenant_id = str(uuid.uuid4())
+    draft_app = await client.put(
+        "/v1/provider-applications/app-draft",
+        json=provider_application_payload(),
+    )
+    assert draft_app.status_code == 200, draft_app.text
+    draft_update = await client.put(
+        "/v1/provider-applications/app-draft/version-updates/update-001",
+        json=version_update_payload(),
+    )
+    assert draft_update.status_code == 422
+
+    tenant_app = await client.put(
+        "/v1/provider-applications/app-tenant",
+        json=provider_application_payload(
+            tenant_id=tenant_id,
+            requested_provider_id="tenant-provider",
+            status="submitted",
+        ),
+    )
+    assert tenant_app.status_code == 200, tenant_app.text
+
+    global_attempt = await client.put(
+        "/v1/provider-applications/app-tenant/version-updates/update-001",
+        json=version_update_payload(),
+    )
+    assert global_attempt.status_code == 404
+
+    tenant_update = await client.put(
+        "/v1/provider-applications/app-tenant/version-updates/update-001",
+        json=version_update_payload(tenant_id=tenant_id),
+    )
+    assert tenant_update.status_code == 200, tenant_update.text
+    assert tenant_update.json()["scope_source"] == "tenant"
+
+    semver_cases = [
+        version_update_payload(current_version="1.2.3", proposed_version="1.2.3"),
+        version_update_payload(current_version="1.2.3", proposed_version="1.2.2"),
+        version_update_payload(
+            current_version="1.2.3", proposed_version="1.3.1", change_kind="minor"
+        ),
+        version_update_payload(
+            current_version="1.2.3", proposed_version="2.1.0", change_kind="major"
+        ),
+        version_update_payload(current_version="1.2", proposed_version="1.2.4"),
+    ]
+    for index, payload in enumerate(semver_cases, start=1):
+        response = await client.put(
+            f"/v1/provider-applications/app-tenant/version-updates/bad-{index}",
+            json={**payload, "tenant_id": tenant_id},
+        )
+        assert response.status_code == 422
+
+    forbidden_requested_provider = await client.put(
+        "/v1/provider-applications/app-tenant/version-updates/bad-requested-provider",
+        json={**version_update_payload(tenant_id=tenant_id), "requested_provider_id": "raw"},
+    )
+    assert forbidden_requested_provider.status_code == 422
+
+    forbidden_metadata = await client.put(
+        "/v1/provider-applications/app-tenant/version-updates/bad-secret",
+        json=version_update_payload(
+            tenant_id=tenant_id,
+            metadata={"nested": {"registryPassword": "raw"}},
+        ),
+    )
+    assert forbidden_metadata.status_code == 422
+
+    forbidden_ref = await client.put(
+        "/v1/provider-applications/app-tenant/version-updates/bad-ref",
+        json=version_update_payload(tenant_id=tenant_id, release_notes_ref="inline release notes"),
+    )
+    assert forbidden_ref.status_code == 422
+
+    monkeypatch.setattr(
+        "capability_registry.routes.settings.internal_secret",
+        SecretStr("internal-test-secret"),
+    )
+    missing_auth = await client.put(
+        "/v1/provider-applications/app-tenant/version-updates/auth-blocked",
+        json=version_update_payload(tenant_id=tenant_id),
+    )
+    assert missing_auth.status_code == 401
+
+    ok_auth = await client.put(
+        "/v1/provider-applications/app-tenant/version-updates/auth-ok",
+        json=version_update_payload(tenant_id=tenant_id),
+        headers={"X-Internal-Service-Auth": "internal-test-secret"},
+    )
+    assert ok_auth.status_code == 200, ok_auth.text
+
+
+async def test_provider_version_update_fails_closed_on_stored_drift(
+    client: AsyncClient,
+    engine: AsyncEngine,
+) -> None:
+    app_resp = await client.put(
+        "/v1/provider-applications/app-professor-lu",
+        json=provider_application_payload(status="submitted"),
+    )
+    assert app_resp.status_code == 200, app_resp.text
+    created = await client.put(
+        "/v1/provider-applications/app-professor-lu/version-updates/update-drift",
+        json=version_update_payload(),
+    )
+    assert created.status_code == 200, created.text
+
+    maker = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
+    async with maker() as session:
+        await session.execute(
+            text(
+                "ALTER TABLE provider_version_update_requests "
+                "DROP CONSTRAINT ck_provider_version_updates_status"
+            )
+        )
+        await session.execute(
+            text(
+                "UPDATE provider_version_update_requests "
+                "SET status = 'mystery' WHERE version_update_id = 'update-drift'"
+            )
+        )
+        await session.commit()
+
+    status_drift = await client.get(
+        "/v1/provider-applications/app-professor-lu/version-updates/update-drift"
+    )
+    assert status_drift.status_code == 409
+    assert "status drift" in status_drift.text
+
+    async with maker() as session:
+        await session.execute(
+            text(
+                "UPDATE provider_version_update_requests "
+                "SET status = 'draft', requested_provider_id = 'other-provider' "
+                "WHERE version_update_id = 'update-drift'"
+            )
+        )
+        await session.execute(
+            text(
+                "ALTER TABLE provider_version_update_requests "
+                "ADD CONSTRAINT ck_provider_version_updates_status "
+                "CHECK (status IN ('draft', 'submitted', 'under_review', 'approved', 'rejected', 'cancelled'))"
+            )
+        )
+        await session.commit()
+
+    provider_drift = await client.get(
+        "/v1/provider-applications/app-professor-lu/version-updates/update-drift"
+    )
+    assert provider_drift.status_code == 409
+    assert "requested_provider_id drift" in provider_drift.text
+
+    async with maker() as session:
+        await session.execute(
+            text(
+                "UPDATE provider_version_update_requests "
+                "SET requested_provider_id = 'professor-lu', "
+                'metadata = \'{"nested": {"accessToken": "raw"}}\'::jsonb '
+                "WHERE version_update_id = 'update-drift'"
+            )
+        )
+        await session.commit()
+
+    unsafe_metadata = await client.get(
+        "/v1/provider-applications/app-professor-lu/version-updates/update-drift"
+    )
+    assert unsafe_metadata.status_code == 409
+    assert "unsafe metadata drift" in unsafe_metadata.text
+
+
+def test_provider_version_update_openapi_contract_is_safe() -> None:
+    spec = json.loads(OPENAPI_PATH.read_text(encoding="utf-8"))
+    version_schemas = {
+        name: schema
+        for name, schema in spec["components"]["schemas"].items()
+        if name.startswith("ProviderVersion")
+    }
+    assert version_schemas
+    forbidden_terms = {
+        "api_key",
+        "password",
+        "client_secret",
+        "access_token",
+        "refresh_token",
+        "registry_password",
+        "docker_password",
+        "bank_account",
+        "tax_id",
+        "raw_dataset",
+        "raw_request",
+        "raw_response",
+        "provider_request",
+        "provider_response",
+        "routing_payload",
+        "customer_payload",
+        "payout_status",
+        "settlement_id",
+    }
+    upsert_properties = set(
+        version_schemas["ProviderVersionUpdateUpsertRequest"].get("properties", {})
+    )
+    patch_properties = set(
+        version_schemas["ProviderVersionUpdateStatusPatchRequest"].get("properties", {})
+    )
+    assert "requested_provider_id" not in upsert_properties
+    assert "record_version" not in upsert_properties
+    assert "submitted_at" not in upsert_properties
+    assert "reviewed_at" not in upsert_properties
+    assert "current_version" not in patch_properties
+    assert "record_version" not in patch_properties
+    assert "submitted_at" not in patch_properties
+    assert "reviewed_at" not in patch_properties
+    for schema in version_schemas.values():
+        properties = set(schema.get("properties", {}))
+        assert properties.isdisjoint(forbidden_terms)
+
+    endpoint = spec["paths"][
+        "/v1/provider-applications/{application_id}/version-updates/{version_update_id}"
+    ]["put"]
+    parameters = {parameter["name"]: parameter for parameter in endpoint["parameters"]}
+    assert {"application_id", "version_update_id", "If-Match", "X-Internal-Service-Auth"}.issubset(
+        set(parameters)
+    )
 
 
 async def _create_submitted_application_and_evaluation(
