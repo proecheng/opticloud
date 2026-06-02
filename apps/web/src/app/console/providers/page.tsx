@@ -291,6 +291,12 @@ export default function ProviderConsolePage(): JSX.Element {
             >
               账单
             </Link>
+            <Link
+              href="/console/audit-logs"
+              className="text-muted-foreground hover:text-foreground"
+            >
+              审计日志
+            </Link>
           </nav>
         </div>
       </header>

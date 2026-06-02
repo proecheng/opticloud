@@ -704,6 +704,59 @@ export async function putNotificationPreferences(
   );
 }
 
+// ===== User audit logs (Story 8.A.5) =====
+
+export interface UserAuditLogItem {
+  id: string;
+  actor: string;
+  action: string;
+  resource_type: string | null;
+  resource_id: string | null;
+  metadata: Record<string, unknown>;
+  ip_address: string | null;
+  user_agent: string | null;
+  created_at: string;
+}
+
+export interface UserAuditLogsResponse {
+  items: UserAuditLogItem[];
+  next_cursor: string | null;
+  limit: number;
+  from: string;
+  to: string;
+}
+
+export interface UserAuditLogFilters {
+  from?: string | null;
+  to?: string | null;
+  limit?: number | null;
+  cursor?: string | null;
+}
+
+function appendNonEmpty(params: URLSearchParams, key: string, value: string | null | undefined): void {
+  const trimmed = value?.trim();
+  if (trimmed) params.set(key, trimmed);
+}
+
+export async function listMyAuditLogs(
+  jwtAccess: string,
+  filters: UserAuditLogFilters = {},
+): Promise<UserAuditLogsResponse> {
+  const params = new URLSearchParams();
+  appendNonEmpty(params, "from", filters.from);
+  appendNonEmpty(params, "to", filters.to);
+  if (filters.limit !== undefined && filters.limit !== null) {
+    params.set("limit", String(filters.limit));
+  }
+  appendNonEmpty(params, "cursor", filters.cursor);
+  const qs = params.toString();
+  return request<UserAuditLogsResponse>(
+    qs ? `/v1/me/audit-logs?${qs}` : "/v1/me/audit-logs",
+    { headers: { Authorization: `Bearer ${jwtAccess}` } },
+    AUTH_SERVICE_URL,
+  );
+}
+
 // ===== Data exports (Story 5.C.5 — PIPL self-service portal) =====
 
 export type DataExportFormat = "json" | "csv";
