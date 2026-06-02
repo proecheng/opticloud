@@ -201,6 +201,8 @@ GPT-5 Codex
 - Whitespace gate after review fixes: `git diff --check` -> passed.
 - Full web regression after review fixes: `pnpm --filter @opticloud/web test` -> 179 passed.
 - Story and sprint status moved to `code-review` after local review and gates; final `done` remains gated on GitHub CI, PR merge, remote branch cleanup, and local `main` sync.
+- GitHub PR #145 first CI run failed in e2e build because `apps/web/src/app/status/page.tsx` exported non-Next page field `StatusPageView`.
+- CI fix moved `StatusPageView` to `apps/web/src/app/status/StatusPageView.tsx`; reran focused status tests, typecheck, diff-check, and `pnpm -C apps/web build` successfully before pushing the fix.
 
 ### Completion Notes List
 
@@ -217,6 +219,7 @@ GPT-5 Codex
 - `apps/web/src/lib/status-page.test.ts`
 - `apps/web/src/app/status/page.tsx`
 - `apps/web/src/app/status/page.test.tsx`
+- `apps/web/src/app/status/StatusPageView.tsx`
 - `apps/web/src/app/status/rss.xml/route.ts`
 - `apps/web/src/app/status/rss.xml/route.test.ts`
 - `apps/web/src/app/page.tsx`
@@ -231,6 +234,7 @@ GPT-5 Codex
 - 2026-06-02 - Implemented public status model, `/status`, `/status/rss.xml`, homepage navigation, and focused tests.
 - 2026-06-02 - Completed post-implementation code review, fixed 2 patch findings, and reran local gates.
 - 2026-06-02 - Story moved to code-review pending GitHub sync.
+- 2026-06-02 - Fixed CI Next build export issue by moving `StatusPageView` out of `page.tsx`; local Next build passed.
 
 ## Post-Implementation Code Review
 

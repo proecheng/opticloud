@@ -21,7 +21,8 @@ vi.mock("next/link", () => ({
 
 import { PUBLIC_STATUS_MODEL } from "@/lib/status-page";
 
-import StatusPage, { StatusPageView } from "./page";
+import { StatusPageView } from "./StatusPageView";
+import StatusPage from "./page";
 
 describe("StatusPage", () => {
   beforeEach(() => {
