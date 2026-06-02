@@ -4,7 +4,7 @@ baseline_commit: 629a24b961fa76f6de51694a31e83fa8e88fd403
 epic_num: 7
 story_num: B.6
 epic_name: Provider Marketplace v2
-status: in-progress
+status: done
 priority: High
 type: provider revenue and pending-payout read projection
 created_by: bmad-create-story
@@ -29,7 +29,7 @@ sources:
 
 # Story 7.B.6 - Provider Revenue + Pending Payout
 
-Status: in-progress
+Status: done
 
 ## Story
 
@@ -143,8 +143,8 @@ Epic 7.B 已完成 Provider 申请、shadow validation、gradient rollout、rout
   - [x] Run post-implementation code review and fix findings。
   - [x] Record code review findings and fixes in `Post-Implementation Code Review`。
   - [x] Run local gates after fixes。
-  - [ ] Commit, push, create PR, wait for CI, merge, delete remote branch, and sync local `main`。
-  - [ ] Mark story and sprint status `done` only after merge/sync。
+  - [x] Commit, push, create PR, wait for CI, merge, delete remote branch, and sync local `main`。
+  - [x] Mark story and sprint status `done` only after merge/sync。
 
 ## Dev Notes
 
@@ -219,6 +219,10 @@ GPT-5 Codex
 - OpenAPI gates: `uv run python scripts/generate_openapi.py` and `uv run python scripts/check_openapi_drift.py` -> passed。
 - Whitespace gate: `git diff --check` -> passed。
 - Post-review focused payout tests and type/lint/format gates passed after fixes。
+- GitHub PR: #141 (`https://github.com/proecheng/opticloud/pull/141`) passed CI and merged to `main`。
+- Merge commit: `33f1694b24393352d25d9eaba7999b4a6a460211`。
+- Remote branch cleanup: `codex/7-b-6-revenue-payout` deleted after merge and confirmed by `git fetch --prune origin`。
+- Local main sync: current branch is `main` and `git status --short --branch` shows `main...origin/main` clean。
 
 ### Completion Notes List
 
@@ -229,7 +233,7 @@ GPT-5 Codex
 - Added `GET /v1/providers/{provider_id}/revenue-payout-dashboard` with exact tenant scope, filters, status counts, currency totals, period summaries, stable entry rows, and read-only/no-metadata behavior。
 - Added tests for amount calculation, status transitions, forbidden unsafe fields, tenant exact scope, write auth, dashboard totals/filters/empty state/no side effects, stored drift 409, and OpenAPI aliases/unsafe-field absence。
 - Post-implementation review findings fixed: payout response scope now uses the provider dashboard scope type, list/dashboard validation batches hook/policy references instead of N+1 queries, and payout upsert handles unique-index races with deterministic conflict/idempotency recovery。
-- Local implementation gates passed; story remains `in-progress` pending GitHub PR/CI/merge/branch cleanup/local main sync。
+- GitHub sync completed: PR #141 passed CI including `ci`, `e2e`, and `image-build`; merged to `main` at `33f1694b24393352d25d9eaba7999b4a6a460211`; remote branch `codex/7-b-6-revenue-payout` was deleted; local `main` is synced with `origin/main`。
 
 ### File List
 
@@ -247,7 +251,8 @@ GPT-5 Codex
 - 2026-06-02 - Story created for Provider Revenue + Pending Payout read projection。
 - 2026-06-02 - Completed 3 pre-implementation adversarial review rounds; story marked ready for development。
 - 2026-06-02 - Implementation started; story and sprint status moved to in-progress。
-- 2026-06-02 - Implemented Provider Revenue + Pending Payout projection, post-review fixes, tests, OpenAPI update, and local gates; story remains in-progress pending GitHub sync。
+- 2026-06-02 - Implemented Provider Revenue + Pending Payout projection, post-review fixes, tests, OpenAPI update, and local gates; PR #141 created。
+- 2026-06-02 - PR #141 passed GitHub CI, merged to `main` at `33f1694b24393352d25d9eaba7999b4a6a460211`, remote branch was deleted, local `main` synced, and story marked done。
 
 ## Pre-Implementation Adversarial Reviews
 
