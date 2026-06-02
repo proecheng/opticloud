@@ -1272,6 +1272,78 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
+      "IncidentFanoutRequest": {
+        "properties": {
+          "incident_id": {
+            "maxLength": 96,
+            "minLength": 5,
+            "pattern": "^inc-[A-Za-z0-9][A-Za-z0-9_.:-]{1,94}$",
+            "title": "Incident Id",
+            "type": "string"
+          },
+          "severity": {
+            "enum": [
+              "minor",
+              "major",
+              "critical"
+            ],
+            "title": "Severity",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "investigating",
+              "identified",
+              "monitoring",
+              "resolved"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "incident_id",
+          "title",
+          "severity",
+          "status"
+        ],
+        "title": "IncidentFanoutRequest",
+        "type": "object"
+      },
+      "IncidentFanoutResponse": {
+        "properties": {
+          "created_requests": {
+            "title": "Created Requests",
+            "type": "integer"
+          },
+          "eligible_subscribers": {
+            "title": "Eligible Subscribers",
+            "type": "integer"
+          },
+          "incident_id": {
+            "title": "Incident Id",
+            "type": "string"
+          },
+          "status_url": {
+            "title": "Status Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "incident_id",
+          "eligible_subscribers",
+          "created_requests",
+          "status_url"
+        ],
+        "title": "IncidentFanoutResponse",
+        "type": "object"
+      },
       "LoginRequest": {
         "description": "POST /v1/auth/login body — phone + email + 2 OTP codes.",
         "properties": {
@@ -1351,7 +1423,8 @@
           "event_type": {
             "enum": [
               "billing.budget.alerted",
-              "billing.budget.paused"
+              "billing.budget.paused",
+              "status.incident.published"
             ],
             "title": "Event Type",
             "type": "string"
@@ -1406,7 +1479,8 @@
           "event_type": {
             "enum": [
               "billing.budget.alerted",
-              "billing.budget.paused"
+              "billing.budget.paused",
+              "status.incident.published"
             ],
             "title": "Event Type",
             "type": "string"
@@ -1469,8 +1543,8 @@
             "items": {
               "$ref": "#/components/schemas/NotificationPreferenceItem"
             },
-            "maxItems": 2,
-            "minItems": 2,
+            "maxItems": 3,
+            "minItems": 3,
             "title": "Items",
             "type": "array"
           }
@@ -2143,6 +2217,65 @@
           }
         },
         "summary": "List all risk rules + enabled state (FR A5 ops convenience)",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/v1/admin/status/incidents/fanout": {
+      "post": {
+        "operationId": "admin_fanout_status_incident_v1_admin_status_incidents_fanout_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-admin-secret",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Admin-Secret"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IncidentFanoutRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IncidentFanoutResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Fan out public incident notification requests",
         "tags": [
           "admin"
         ]

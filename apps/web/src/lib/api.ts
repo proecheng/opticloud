@@ -648,7 +648,8 @@ export async function requestAccountDeletion(
 
 export type NotificationPreferenceEventType =
   | "billing.budget.alerted"
-  | "billing.budget.paused";
+  | "billing.budget.paused"
+  | "status.incident.published";
 
 export type NotificationPreferenceChannel = "email" | "webhook" | "in_app";
 

@@ -12,10 +12,15 @@ from urllib.parse import urlsplit
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
 
 PHONE_PATTERN = re.compile(r"^\+\d{6,15}$")  # E.164 international format
-NotificationEventType = Literal["billing.budget.alerted", "billing.budget.paused"]
+NotificationEventType = Literal[
+    "billing.budget.alerted",
+    "billing.budget.paused",
+    "status.incident.published",
+]
 SUPPORTED_NOTIFICATION_EVENTS: tuple[NotificationEventType, ...] = (
     "billing.budget.alerted",
     "billing.budget.paused",
+    "status.incident.published",
 )
 NOTIFICATION_CHANNEL_ORDER: tuple[Literal["email", "webhook", "in_app"], ...] = (
     "email",
@@ -233,6 +238,14 @@ def notification_channels(
     return [channel for channel in NOTIFICATION_CHANNEL_ORDER if enabled[channel]]
 
 
+def notification_event_defaults(
+    event_type: str,
+) -> tuple[bool, bool, bool]:
+    if event_type == "status.incident.published":
+        return False, False, False
+    return True, False, True
+
+
 class NotificationPreferenceItem(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -252,6 +265,11 @@ class NotificationPreferenceItem(BaseModel):
 
     @model_validator(mode="after")
     def validate_webhook_contract(self) -> NotificationPreferenceItem:
+        if self.event_type == "status.incident.published":
+            if "email" not in self.model_fields_set:
+                self.email = False
+            if "in_app" not in self.model_fields_set:
+                self.in_app = False
         if self.webhook_url is not None:
             self.webhook_url = _validate_webhook_url(self.webhook_url)
         if self.webhook:

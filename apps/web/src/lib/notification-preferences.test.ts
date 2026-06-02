@@ -25,6 +25,15 @@ const preferences = {
       webhook_url_configured: true,
       channels: ["email", "webhook"],
     },
+    {
+      event_type: "status.incident.published",
+      email: false,
+      webhook: false,
+      in_app: false,
+      webhook_url: null,
+      webhook_url_configured: false,
+      channels: [],
+    },
   ],
 };
 
@@ -43,7 +52,7 @@ describe("notification preferences API client", () => {
 
     const result = await getNotificationPreferences("jwt-test");
 
-    expect(result.items).toHaveLength(2);
+    expect(result.items).toHaveLength(3);
     const [url, init] = fetchMock.mock.calls[0]!;
     expect(url).toBe("http://localhost:8001/v1/auth/notification-preferences");
     expect(new Headers(init?.headers).get("Authorization")).toBe("Bearer jwt-test");
@@ -72,6 +81,13 @@ describe("notification preferences API client", () => {
           webhook: true,
           in_app: false,
           webhook_url: "https://hooks.example.com/opticloud",
+        },
+        {
+          event_type: "status.incident.published" as const,
+          email: true,
+          webhook: false,
+          in_app: true,
+          webhook_url: null,
         },
       ],
     };
@@ -121,6 +137,13 @@ describe("notification preferences API client", () => {
             webhook: false,
             in_app: true,
             webhook_url: null,
+          },
+          {
+            event_type: "status.incident.published",
+            email: false,
+            webhook: true,
+            in_app: true,
+            webhook_url: "http://localhost/hook",
           },
         ],
       }),

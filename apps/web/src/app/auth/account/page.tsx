@@ -25,9 +25,27 @@ import {
 const NOTIFICATION_EVENTS: Array<{
   event_type: NotificationPreferenceEventType;
   label: string;
+  defaultEmail: boolean;
+  defaultInApp: boolean;
 }> = [
-  { event_type: "billing.budget.alerted", label: "预算达到提醒阈值" },
-  { event_type: "billing.budget.paused", label: "预算自动暂停扣费" },
+  {
+    event_type: "billing.budget.alerted",
+    label: "预算达到提醒阈值",
+    defaultEmail: true,
+    defaultInApp: true,
+  },
+  {
+    event_type: "billing.budget.paused",
+    label: "预算自动暂停扣费",
+    defaultEmail: true,
+    defaultInApp: true,
+  },
+  {
+    event_type: "status.incident.published",
+    label: "公开 incident 发布",
+    defaultEmail: false,
+    defaultInApp: false,
+  },
 ];
 
 type NotificationPreferenceFormItem = {
@@ -47,11 +65,11 @@ function formatDate(value: string | null): string {
 }
 
 function defaultNotificationPreferenceForm(): NotificationPreferenceFormItem[] {
-  return NOTIFICATION_EVENTS.map(({ event_type }) => ({
+  return NOTIFICATION_EVENTS.map(({ event_type, defaultEmail, defaultInApp }) => ({
     event_type,
-    email: true,
+    email: defaultEmail,
     webhook: false,
-    in_app: true,
+    in_app: defaultInApp,
     webhook_url: "",
   }));
 }
@@ -60,13 +78,13 @@ function preferencesToForm(
   response: NotificationPreferencesResponse,
 ): NotificationPreferenceFormItem[] {
   const byEvent = new Map(response.items.map((item) => [item.event_type, item]));
-  return NOTIFICATION_EVENTS.map(({ event_type }) => {
+  return NOTIFICATION_EVENTS.map(({ event_type, defaultEmail, defaultInApp }) => {
     const item = byEvent.get(event_type);
     return {
       event_type,
-      email: item?.email ?? true,
+      email: item?.email ?? defaultEmail,
       webhook: item?.webhook ?? false,
-      in_app: item?.in_app ?? true,
+      in_app: item?.in_app ?? defaultInApp,
       webhook_url: item?.webhook_url ?? "",
     };
   });
@@ -472,11 +490,14 @@ export default function AccountPage(): JSX.Element {
         )}
 
         {jwt && !loading && (
-          <section className="mt-6 rounded-md border border-border bg-background p-6">
+          <section
+            id="notification-preferences"
+            className="mt-6 rounded-md border border-border bg-background p-6"
+          >
             <div className="mb-5 border-b border-border pb-5">
               <h2 className="text-lg font-semibold">通知偏好</h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                按预算事件选择邮件、Webhook 或站内通知渠道。
+                按预算和公开 incident 事件选择邮件、Webhook 或站内通知渠道。
               </p>
             </div>
 

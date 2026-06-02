@@ -60,6 +60,7 @@ from auth_service.schemas import (
     SignupRequest,
     SignupResponse,
     notification_channels,
+    notification_event_defaults,
 )
 
 _log = structlog.get_logger("auth_service.routes")
@@ -719,9 +720,10 @@ def _notification_preference_response_item(
     event_type: str,
     preference: NotificationPreference | None,
 ) -> NotificationPreferenceResponseItem:
-    email = preference.email_enabled if preference is not None else True
-    webhook = preference.webhook_enabled if preference is not None else False
-    in_app = preference.in_app_enabled if preference is not None else True
+    default_email, default_webhook, default_in_app = notification_event_defaults(event_type)
+    email = preference.email_enabled if preference is not None else default_email
+    webhook = preference.webhook_enabled if preference is not None else default_webhook
+    in_app = preference.in_app_enabled if preference is not None else default_in_app
     webhook_url = preference.webhook_url if preference is not None else None
     return NotificationPreferenceResponseItem(
         event_type=event_type,  # type: ignore[arg-type]

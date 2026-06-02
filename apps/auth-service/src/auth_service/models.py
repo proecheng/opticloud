@@ -61,12 +61,16 @@ class User(Base):
 
 
 class NotificationPreference(Base):
-    """Story 5.D.6 — per-user notification channels for supported billing events."""
+    """Per-user notification channels for supported billing and incident events."""
 
     __tablename__ = "notification_preferences"
     __table_args__ = (
         CheckConstraint(
-            "event_type IN ('billing.budget.alerted', 'billing.budget.paused')",
+            "event_type IN ("
+            "'billing.budget.alerted', "
+            "'billing.budget.paused', "
+            "'status.incident.published'"
+            ")",
             name="ck_notification_preferences_event_type",
         ),
         CheckConstraint(
@@ -98,6 +102,61 @@ class NotificationPreference(Base):
     webhook_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     in_app_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     webhook_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class StatusIncidentNotificationRequest(Base):
+    """Story 8.A.2 — idempotent incident notification request fan-out."""
+
+    __tablename__ = "status_incident_notification_requests"
+    __table_args__ = (
+        CheckConstraint(
+            "incident_id ~ '^inc-[A-Za-z0-9][A-Za-z0-9_.:-]{1,94}$'",
+            name="ck_status_incident_notification_requests_incident_id",
+        ),
+        CheckConstraint(
+            "severity IN ('minor', 'major', 'critical')",
+            name="ck_status_incident_notification_requests_severity",
+        ),
+        CheckConstraint(
+            "incident_status IN ('investigating', 'identified', 'monitoring', 'resolved')",
+            name="ck_status_incident_notification_requests_status",
+        ),
+        CheckConstraint(
+            "channels <@ ARRAY['email', 'webhook', 'in_app']::text[]",
+            name="ck_status_incident_notification_requests_channels",
+        ),
+        Index(
+            "idx_status_incident_notification_requests_incident_user",
+            "incident_id",
+            "user_id",
+            unique=True,
+        ),
+        Index(
+            "idx_status_incident_notification_requests_user_created",
+            "user_id",
+            "created_at",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()
+    )
+    incident_id: Mapped[str] = mapped_column(String(96), nullable=False)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    status_url: Mapped[str] = mapped_column(Text, nullable=False)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    severity: Mapped[str] = mapped_column(String(16), nullable=False)
+    incident_status: Mapped[str] = mapped_column(String(32), nullable=False)
+    channels: Mapped[list[str]] = mapped_column(ARRAY(Text), nullable=False, default=list)
+    webhook_url_configured: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

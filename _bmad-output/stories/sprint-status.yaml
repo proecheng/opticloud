@@ -237,7 +237,7 @@ development_status:
   epic-8-c: backlog
 
   8-a-1-public-status-page: done               # 2026-06-02 - Public status page shipped; PR #145 passed CI, merged to main, remote branch deleted, local main synced
-  8-a-2-incident-subscribe: backlog
+  8-a-2-incident-subscribe: code-review
   8-a-3-24h-postmortem: backlog                # FR O2
   8-a-4-user-audit-logs: backlog               # FR O3
   8-a-5-audit-log-table: backlog
