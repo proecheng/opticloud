@@ -4,7 +4,7 @@ baseline_commit: 61abd7cdfb2d75188d6d4bd6ac0fde94209fe08e
 epic_num: 7
 story_num: B.9
 epic_name: Provider Marketplace v2
-status: code-review
+status: done
 priority: High
 type: Provider Console Tier 3 read-only aggregate surface
 created_by: bmad-create-story
@@ -28,7 +28,7 @@ sources:
 
 # Story 7.B.9 - Provider Console Tier 3
 
-Status: code-review
+Status: done
 
 ## Story
 
@@ -116,12 +116,12 @@ Status: code-review
   - [x] Add `/console/providers` link to existing Console navigation.
   - [x] Verify no new dependencies and layout stays utilitarian/dense.
 
-- [ ] T4: Review, gates, and GitHub sync (AC: 25-28)
+- [x] T4: Review, gates, and GitHub sync (AC: 25-28)
   - [x] Run post-implementation code review and fix findings.
   - [x] Record code review findings and fixes in `Post-Implementation Code Review`.
   - [x] Run local gates after fixes.
-  - [ ] Commit, push, create PR, wait for CI, merge, delete remote branch, and sync local `main`.
-  - [ ] Mark story and sprint status `done` only after merge/sync.
+  - [x] Commit, push, create PR, wait for CI, merge, delete remote branch, and sync local `main`.
+  - [x] Mark story and sprint status `done` only after merge/sync.
 
 ## Dev Notes
 
@@ -192,6 +192,8 @@ GPT-5 Codex
 - Whitespace gate after review fixes: `git diff --check` -> passed.
 - Post-implementation code review found 3 patch findings: implicit CNY filtering from period-only UI input, missing revenue `period_summaries` display, and monthly checksum prefix display instead of suffix.
 - Story and sprint status moved to `code-review` after local review and gates; final `done` remains gated on GitHub CI, PR merge, remote branch cleanup, and local `main` sync.
+- GitHub PR #144 passed checks including `changes`, `lint`, `ts-typecheck`, `e2e`, `matrix-detect`, `build-and-sbom (auth-service)`, and `gtm-toolkit-validation`.
+- PR #144 squash-merged to `main` at merge commit `53007d5ff9d30b0513d7aecab58532766c9ee4cb`; remote feature branch deleted; local `main` synced to `origin/main`.
 
 ### Completion Notes List
 
@@ -201,7 +203,7 @@ GPT-5 Codex
 - Added `/console/providers` read-only aggregate page with explicit provider/tenant/application/month filters, JWT login gate, safe field rendering, partial-failure handling, and empty/loading/error states.
 - Added Provider Console discoverability from the existing billing invoices Console navigation.
 - Post-review fixes removed implicit CNY filtering, added revenue period-summary rendering, and changed monthly checksum display to a suffix.
-- Local web tests, typecheck, and diff check pass; GitHub sync remains pending.
+- GitHub sync completed: PR #144 passed CI, merged, remote branch deleted, local `main` synced, and story/sprint status marked done.
 
 ### File List
 
@@ -220,6 +222,7 @@ GPT-5 Codex
 - 2026-06-02 - Implementation started; story and sprint status moved to in-progress.
 - 2026-06-02 - Implemented Provider Console API client, `/console/providers` page, navigation entry, and focused tests.
 - 2026-06-02 - Completed post-implementation code review, fixed 3 patch findings, and reran local gates; story moved to code-review pending GitHub sync.
+- 2026-06-02 - PR #144 passed GitHub CI, merged to main, remote branch deleted, local main synced; story marked done.
 
 ## Pre-Implementation Adversarial Reviews
 
@@ -303,4 +306,4 @@ Revisions applied:
 
 ### Outcome
 
-Approved after fixes. Focused tests, full web regression tests, typecheck, and whitespace gate all pass. Final story completion remains pending GitHub CI, PR merge, remote branch deletion, and local `main` sync.
+Approved after fixes. Focused tests, full web regression tests, typecheck, whitespace gate, GitHub CI, PR merge, remote branch deletion, and local `main` sync all completed.
