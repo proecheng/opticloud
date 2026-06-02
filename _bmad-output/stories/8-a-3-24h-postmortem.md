@@ -4,7 +4,7 @@ baseline_commit: 58555637f9eb10bae71f431b37e1c9932827afc2
 epic_num: 8
 story_num: A.3
 epic_name: Public Status + Audit + Vuln Response
-status: code-review
+status: done
 priority: High
 type: Public P0 postmortem detail page
 created_by: bmad-create-story
@@ -24,7 +24,7 @@ sources:
 
 # Story 8.A.3 - 24h Postmortem
 
-Status: code-review
+Status: done
 
 ## Story
 
@@ -106,14 +106,14 @@ Story 8.A.1 已交付公开 `/status`、RSS 和 typed public status model。Stor
   - [x] Preserve RSS route behavior except for shared model type compatibility.
   - [x] Add status page tests for P0 link discoverability and non-P0 no-link behavior.
 
-- [ ] T4: Review, gates, and GitHub sync (AC: 24-28)
+- [x] T4: Review, gates, and GitHub sync (AC: 24-28)
   - [x] Confirm `apps/web/package.json` has no dependency change.
   - [x] Run focused tests before broader gates.
   - [x] Run post-implementation code review and fix findings.
   - [x] Record review findings and fixes in this story.
   - [x] Run local gates.
-  - [ ] Commit, push, create PR, wait for CI, merge, delete remote branch, and sync local `main`.
-  - [ ] Mark story and sprint status `done` only after merge/sync.
+  - [x] Commit, push, create PR, wait for CI, merge, delete remote branch, and sync local `main`.
+  - [x] Mark story and sprint status `done` only after merge/sync.
 
 ## Dev Notes
 
@@ -197,6 +197,7 @@ GPT-5 Codex
 - Final type gate: `pnpm --filter @opticloud/web typecheck` -> passed after rerun. One parallel attempt failed because `next build` concurrently regenerated `.next/types`; rerunning typecheck after build completed passed.
 - Final diff-check: `git diff --check` -> passed.
 - Story and sprint status moved to `code-review` after local gates; final `done` remains gated on GitHub CI, PR merge, remote branch cleanup, and local `main` sync.
+- GitHub sync: PR #147 passed checks including `changes`, `lint`, `ts-typecheck`, `e2e`, `matrix-detect`, `build-and-sbom (auth-service)`, and `gtm-toolkit-validation`; PR squash-merged to `main` at `cd55510750e99f0cf9cba134eeb477f1455afa36`; remote branch `codex/8-a-3-24h-postmortem` was deleted; local `main` is synced to `origin/main`.
 
 ### Completion Notes List
 
@@ -204,6 +205,7 @@ GPT-5 Codex
 - Completed 3 pre-implementation adversarial review rounds and revised the story after each round.
 - Implemented shared public P0 postmortem model, SLA and Mermaid helpers, public dynamic postmortem page, accessible timeline, follow-up actions, and `/status` link gating.
 - Post-implementation code review completed; patched exact 24h SLA due validation.
+- GitHub sync completed: PR #147 passed CI, merged, remote branch deleted, local `main` synced, and story/sprint status marked done.
 
 ### File List
 
@@ -225,6 +227,7 @@ GPT-5 Codex
 - 2026-06-02 - Implemented public P0 postmortem model, `/status/incidents/[incidentId]`, Mermaid source generation, accessible timeline, status-page postmortem links, focused tests, and typecheck.
 - 2026-06-02 - Completed post-implementation code review; fixed exact 24h SLA due validation and reran focused tests/typecheck.
 - 2026-06-02 - Final focused tests, full web tests, Next build, typecheck, and diff-check passed; story moved to code-review pending GitHub sync.
+- 2026-06-02 - PR #147 passed GitHub CI, merged to main, remote branch deleted, local main synced; story marked done.
 
 ## Post-Implementation Code Review
 
