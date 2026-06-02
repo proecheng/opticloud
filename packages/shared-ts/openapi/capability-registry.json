@@ -1586,6 +1586,631 @@
         "title": "ProviderResponse",
         "type": "object"
       },
+      "ProviderRevenuePayoutCurrencyTotal": {
+        "additionalProperties": false,
+        "properties": {
+          "currency": {
+            "pattern": "^[A-Z]{3}$",
+            "title": "Currency",
+            "type": "string"
+          },
+          "entry_count": {
+            "minimum": 0.0,
+            "title": "Entry Count",
+            "type": "integer"
+          },
+          "gross_amount": {
+            "title": "Gross Amount",
+            "type": "string"
+          },
+          "held_payout_amount": {
+            "title": "Held Payout Amount",
+            "type": "string"
+          },
+          "paid_amount": {
+            "title": "Paid Amount",
+            "type": "string"
+          },
+          "pending_payout_amount": {
+            "title": "Pending Payout Amount",
+            "type": "string"
+          },
+          "platform_revenue_amount": {
+            "title": "Platform Revenue Amount",
+            "type": "string"
+          },
+          "provider_revenue_amount": {
+            "title": "Provider Revenue Amount",
+            "type": "string"
+          },
+          "voided_gross_amount": {
+            "title": "Voided Gross Amount",
+            "type": "string"
+          }
+        },
+        "required": [
+          "currency",
+          "entry_count",
+          "gross_amount",
+          "provider_revenue_amount",
+          "platform_revenue_amount",
+          "pending_payout_amount",
+          "held_payout_amount",
+          "paid_amount",
+          "voided_gross_amount"
+        ],
+        "title": "ProviderRevenuePayoutCurrencyTotal",
+        "type": "object"
+      },
+      "ProviderRevenuePayoutDashboardResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "currency": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Z]{3}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currency"
+          },
+          "currency_totals": {
+            "items": {
+              "$ref": "#/components/schemas/ProviderRevenuePayoutCurrencyTotal"
+            },
+            "title": "Currency Totals",
+            "type": "array"
+          },
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/ProviderRevenuePayoutEntryRow"
+            },
+            "title": "Entries",
+            "type": "array"
+          },
+          "from_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "From At"
+          },
+          "k_algo": {
+            "anyOf": [
+              {
+                "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "K Algo"
+          },
+          "period_month": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Period Month"
+          },
+          "period_summaries": {
+            "items": {
+              "$ref": "#/components/schemas/ProviderRevenuePayoutPeriodSummary"
+            },
+            "title": "Period Summaries",
+            "type": "array"
+          },
+          "provider_id": {
+            "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+            "title": "Provider Id",
+            "type": "string"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "enum": [
+                  "pending",
+                  "held",
+                  "paid",
+                  "voided"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "status_counts": {
+            "$ref": "#/components/schemas/ProviderRevenuePayoutStatusCounts"
+          },
+          "tenant_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tenant Id"
+          },
+          "to_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "To At"
+          },
+          "total_entries": {
+            "minimum": 0.0,
+            "title": "Total Entries",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "provider_id",
+          "status_counts",
+          "total_entries",
+          "currency_totals",
+          "period_summaries",
+          "entries"
+        ],
+        "title": "ProviderRevenuePayoutDashboardResponse",
+        "type": "object"
+      },
+      "ProviderRevenuePayoutEntryResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "currency": {
+            "pattern": "^[A-Z]{3}$",
+            "title": "Currency",
+            "type": "string"
+          },
+          "entry_id": {
+            "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+            "title": "Entry Id",
+            "type": "string"
+          },
+          "gross_amount": {
+            "title": "Gross Amount",
+            "type": "string"
+          },
+          "hook_id": {
+            "format": "uuid",
+            "title": "Hook Id",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "k_algo": {
+            "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+            "title": "K Algo",
+            "type": "string"
+          },
+          "period_month": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$",
+            "title": "Period Month",
+            "type": "string"
+          },
+          "platform_revenue_amount": {
+            "title": "Platform Revenue Amount",
+            "type": "string"
+          },
+          "platform_share_ratio": {
+            "title": "Platform Share Ratio",
+            "type": "string"
+          },
+          "policy_id": {
+            "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+            "title": "Policy Id",
+            "type": "string"
+          },
+          "provider_id": {
+            "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+            "title": "Provider Id",
+            "type": "string"
+          },
+          "provider_revenue_amount": {
+            "title": "Provider Revenue Amount",
+            "type": "string"
+          },
+          "provider_share_ratio": {
+            "title": "Provider Share Ratio",
+            "type": "string"
+          },
+          "recognized_at": {
+            "format": "date-time",
+            "title": "Recognized At",
+            "type": "string"
+          },
+          "scope_source": {
+            "enum": [
+              "global",
+              "tenant"
+            ],
+            "title": "Scope Source",
+            "type": "string"
+          },
+          "source_event_id": {
+            "format": "uuid",
+            "title": "Source Event Id",
+            "type": "string"
+          },
+          "source_service": {
+            "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+            "title": "Source Service",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "pending",
+              "held",
+              "paid",
+              "voided"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "tenant_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tenant Id"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "entry_id",
+          "hook_id",
+          "provider_id",
+          "k_algo",
+          "policy_id",
+          "source_service",
+          "source_event_id",
+          "period_month",
+          "currency",
+          "gross_amount",
+          "provider_share_ratio",
+          "platform_share_ratio",
+          "provider_revenue_amount",
+          "platform_revenue_amount",
+          "status",
+          "recognized_at",
+          "scope_source",
+          "id",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ProviderRevenuePayoutEntryResponse",
+        "type": "object"
+      },
+      "ProviderRevenuePayoutEntryRow": {
+        "additionalProperties": false,
+        "properties": {
+          "currency": {
+            "pattern": "^[A-Z]{3}$",
+            "title": "Currency",
+            "type": "string"
+          },
+          "entry_id": {
+            "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+            "title": "Entry Id",
+            "type": "string"
+          },
+          "gross_amount": {
+            "title": "Gross Amount",
+            "type": "string"
+          },
+          "hook_id": {
+            "format": "uuid",
+            "title": "Hook Id",
+            "type": "string"
+          },
+          "k_algo": {
+            "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+            "title": "K Algo",
+            "type": "string"
+          },
+          "period_month": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$",
+            "title": "Period Month",
+            "type": "string"
+          },
+          "platform_revenue_amount": {
+            "title": "Platform Revenue Amount",
+            "type": "string"
+          },
+          "platform_share_ratio": {
+            "title": "Platform Share Ratio",
+            "type": "string"
+          },
+          "policy_id": {
+            "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+            "title": "Policy Id",
+            "type": "string"
+          },
+          "provider_id": {
+            "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+            "title": "Provider Id",
+            "type": "string"
+          },
+          "provider_revenue_amount": {
+            "title": "Provider Revenue Amount",
+            "type": "string"
+          },
+          "provider_share_ratio": {
+            "title": "Provider Share Ratio",
+            "type": "string"
+          },
+          "recognized_at": {
+            "format": "date-time",
+            "title": "Recognized At",
+            "type": "string"
+          },
+          "scope_source": {
+            "enum": [
+              "global",
+              "tenant"
+            ],
+            "title": "Scope Source",
+            "type": "string"
+          },
+          "source_event_id": {
+            "format": "uuid",
+            "title": "Source Event Id",
+            "type": "string"
+          },
+          "source_service": {
+            "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+            "title": "Source Service",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "pending",
+              "held",
+              "paid",
+              "voided"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "entry_id",
+          "hook_id",
+          "provider_id",
+          "k_algo",
+          "policy_id",
+          "source_service",
+          "source_event_id",
+          "period_month",
+          "currency",
+          "gross_amount",
+          "provider_share_ratio",
+          "platform_share_ratio",
+          "provider_revenue_amount",
+          "platform_revenue_amount",
+          "status",
+          "recognized_at",
+          "scope_source"
+        ],
+        "title": "ProviderRevenuePayoutEntryRow",
+        "type": "object"
+      },
+      "ProviderRevenuePayoutEntryUpsertRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "currency": {
+            "default": "CNY",
+            "pattern": "^[A-Z]{3}$",
+            "title": "Currency",
+            "type": "string"
+          },
+          "entry_id": {
+            "anyOf": [
+              {
+                "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entry Id"
+          },
+          "gross_amount": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,8}|(?=[\\d.]{1,13}0*$)\\d{0,8}\\.\\d{0,4}0*$)",
+                "type": "string"
+              }
+            ],
+            "title": "Gross Amount"
+          },
+          "hook_id": {
+            "format": "uuid",
+            "title": "Hook Id",
+            "type": "string"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "recognized_at": {
+            "format": "date-time",
+            "title": "Recognized At",
+            "type": "string"
+          },
+          "status": {
+            "default": "pending",
+            "enum": [
+              "pending",
+              "held",
+              "paid",
+              "voided"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "tenant_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tenant Id"
+          }
+        },
+        "required": [
+          "hook_id",
+          "gross_amount",
+          "recognized_at"
+        ],
+        "title": "ProviderRevenuePayoutEntryUpsertRequest",
+        "type": "object"
+      },
+      "ProviderRevenuePayoutPeriodSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "currency": {
+            "pattern": "^[A-Z]{3}$",
+            "title": "Currency",
+            "type": "string"
+          },
+          "entry_count": {
+            "minimum": 0.0,
+            "title": "Entry Count",
+            "type": "integer"
+          },
+          "gross_amount": {
+            "title": "Gross Amount",
+            "type": "string"
+          },
+          "held_payout_amount": {
+            "title": "Held Payout Amount",
+            "type": "string"
+          },
+          "paid_amount": {
+            "title": "Paid Amount",
+            "type": "string"
+          },
+          "pending_payout_amount": {
+            "title": "Pending Payout Amount",
+            "type": "string"
+          },
+          "period_month": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$",
+            "title": "Period Month",
+            "type": "string"
+          },
+          "platform_revenue_amount": {
+            "title": "Platform Revenue Amount",
+            "type": "string"
+          },
+          "provider_revenue_amount": {
+            "title": "Provider Revenue Amount",
+            "type": "string"
+          },
+          "voided_gross_amount": {
+            "title": "Voided Gross Amount",
+            "type": "string"
+          }
+        },
+        "required": [
+          "currency",
+          "entry_count",
+          "gross_amount",
+          "provider_revenue_amount",
+          "platform_revenue_amount",
+          "pending_payout_amount",
+          "held_payout_amount",
+          "paid_amount",
+          "voided_gross_amount",
+          "period_month"
+        ],
+        "title": "ProviderRevenuePayoutPeriodSummary",
+        "type": "object"
+      },
+      "ProviderRevenuePayoutStatusCounts": {
+        "additionalProperties": false,
+        "properties": {
+          "held": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Held",
+            "type": "integer"
+          },
+          "paid": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Paid",
+            "type": "integer"
+          },
+          "pending": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Pending",
+            "type": "integer"
+          },
+          "voided": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Voided",
+            "type": "integer"
+          }
+        },
+        "title": "ProviderRevenuePayoutStatusCounts",
+        "type": "object"
+      },
       "ProviderRolloutActionRequest": {
         "additionalProperties": false,
         "properties": {
@@ -6045,6 +6670,173 @@
         ]
       }
     },
+    "/v1/providers/{provider_id}/revenue-payout-dashboard": {
+      "get": {
+        "operationId": "get_provider_revenue_payout_dashboard_v1_providers__provider_id__revenue_payout_dashboard_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "provider_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+              "title": "Provider Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "tenant_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tenant Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "To"
+            }
+          },
+          {
+            "in": "query",
+            "name": "period_month",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Period Month"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "pending",
+                    "held",
+                    "paid",
+                    "voided"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "k_algo",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "K Algo"
+            }
+          },
+          {
+            "in": "query",
+            "name": "currency",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^[A-Z]{3}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Currency"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderRevenuePayoutDashboardResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Provider Revenue Payout Dashboard",
+        "tags": [
+          "provider-revenue-payout-dashboard"
+        ]
+      }
+    },
     "/v1/providers/{provider_id}/route-share-dashboard": {
       "get": {
         "operationId": "get_provider_route_share_dashboard_v1_providers__provider_id__route_share_dashboard_get",
@@ -6384,6 +7176,260 @@
           }
         },
         "summary": "Get Revenue Share Hook",
+        "tags": [
+          "revenue-share"
+        ]
+      }
+    },
+    "/v1/revenue-share/payout-entries": {
+      "get": {
+        "operationId": "list_provider_revenue_payout_entries_v1_revenue_share_payout_entries_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "tenant_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tenant Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "provider_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Provider Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "period_month",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Period Month"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "pending",
+                    "held",
+                    "paid",
+                    "voided"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "currency",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^[A-Z]{3}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Currency"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ProviderRevenuePayoutEntryResponse"
+                  },
+                  "title": "Response List Provider Revenue Payout Entries V1 Revenue Share Payout Entries Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Provider Revenue Payout Entries",
+        "tags": [
+          "revenue-share"
+        ]
+      }
+    },
+    "/v1/revenue-share/payout-entries/{entry_id}": {
+      "get": {
+        "operationId": "get_provider_revenue_payout_entry_v1_revenue_share_payout_entries__entry_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "entry_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+              "title": "Entry Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "tenant_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tenant Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderRevenuePayoutEntryResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Provider Revenue Payout Entry",
+        "tags": [
+          "revenue-share"
+        ]
+      },
+      "put": {
+        "operationId": "upsert_provider_revenue_payout_entry_v1_revenue_share_payout_entries__entry_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "entry_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+              "title": "Entry Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Internal-Service-Auth",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Internal-Service-Auth"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProviderRevenuePayoutEntryUpsertRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderRevenuePayoutEntryResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Upsert Provider Revenue Payout Entry",
         "tags": [
           "revenue-share"
         ]

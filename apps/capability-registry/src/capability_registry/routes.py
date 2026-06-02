@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import re
 import secrets
 import uuid
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
 from math import ceil
@@ -11,7 +13,7 @@ from typing import Annotated, Any, Protocol, cast
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Path, Query, status
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
-from sqlalchemy import delete, select
+from sqlalchemy import delete, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.elements import ColumnElement
@@ -28,6 +30,7 @@ from capability_registry.models import (
     ProviderApplicationEvaluationRequest,
     ProviderGradientRollout,
     ProviderOAuthFlow,
+    ProviderRevenuePayoutEntry,
     ProviderShadowValidationRun,
     ProviderShadowValidationSample,
     RevenueShareHook,
@@ -42,6 +45,7 @@ from capability_registry.schemas import (
     ProviderApplicationResponse,
     ProviderApplicationStatus,
     ProviderApplicationUpsertRequest,
+    ProviderDashboardScopeSource,
     ProviderEvaluationResponse,
     ProviderEvaluationStatus,
     ProviderEvaluationUpsertRequest,
@@ -52,6 +56,14 @@ from capability_registry.schemas import (
     ProviderKpiRunStatusCounts,
     ProviderKpiTimelinePoint,
     ProviderResponse,
+    ProviderRevenuePayoutCurrencyTotal,
+    ProviderRevenuePayoutDashboardResponse,
+    ProviderRevenuePayoutEntryResponse,
+    ProviderRevenuePayoutEntryRow,
+    ProviderRevenuePayoutEntryStatus,
+    ProviderRevenuePayoutEntryUpsertRequest,
+    ProviderRevenuePayoutPeriodSummary,
+    ProviderRevenuePayoutStatusCounts,
     ProviderRolloutActionRequest,
     ProviderRolloutResponse,
     ProviderRolloutStage,
@@ -76,6 +88,9 @@ from capability_registry.schemas import (
     RevenueSharePolicyResponse,
     RevenueSharePolicyUpsertRequest,
     ScopeSource,
+    normalize_money,
+    platform_revenue_amount,
+    provider_revenue_amount,
 )
 
 router = APIRouter(prefix="/v1")
@@ -96,6 +111,19 @@ _SHADOW_MAX_AVERAGE_DEVIATION = Decimal("0.020000")
 _SHADOW_MAX_P95_LATENCY_RATIO = Decimal("1.500000")
 _ROLLOUT_STAGES: tuple[ProviderRolloutStage, ...] = (0, 5, 50, 100)
 _RATIO_QUANT = Decimal("0.000001")
+_MONEY_QUANT = Decimal("0.0001")
+_PAYOUT_ENTRY_STATUSES: tuple[ProviderRevenuePayoutEntryStatus, ...] = (
+    "pending",
+    "held",
+    "paid",
+    "voided",
+)
+
+
+@dataclass(frozen=True)
+class PayoutEntryReferences:
+    hooks_by_id: dict[uuid.UUID, RevenueShareHook]
+    policies_by_scope_and_id: dict[tuple[uuid.UUID | None, str], RevenueSharePolicy]
 
 
 class CacheBackend(Protocol):
@@ -932,6 +960,440 @@ async def _load_revenue_hook_by_source_event(
     ).scalar_one_or_none()
 
 
+async def _load_revenue_hook_by_id_exact_scope(
+    session: AsyncSession,
+    *,
+    hook_id: uuid.UUID,
+    tenant_id: uuid.UUID | None,
+) -> RevenueShareHook | None:
+    return (
+        await session.execute(
+            select(RevenueShareHook).where(
+                RevenueShareHook.id == hook_id,
+                (
+                    RevenueShareHook.tenant_id.is_(None)
+                    if tenant_id is None
+                    else RevenueShareHook.tenant_id == tenant_id
+                ),
+            )
+        )
+    ).scalar_one_or_none()
+
+
+async def _load_payout_entry_row(
+    session: AsyncSession,
+    *,
+    entry_id: str,
+    tenant_id: uuid.UUID | None,
+) -> ProviderRevenuePayoutEntry | None:
+    return (
+        await session.execute(
+            select(ProviderRevenuePayoutEntry).where(
+                ProviderRevenuePayoutEntry.entry_id == entry_id,
+                (
+                    ProviderRevenuePayoutEntry.tenant_id.is_(None)
+                    if tenant_id is None
+                    else ProviderRevenuePayoutEntry.tenant_id == tenant_id
+                ),
+            )
+        )
+    ).scalar_one_or_none()
+
+
+async def _load_payout_entry_by_hook(
+    session: AsyncSession,
+    *,
+    hook_id: uuid.UUID,
+) -> ProviderRevenuePayoutEntry | None:
+    return (
+        await session.execute(
+            select(ProviderRevenuePayoutEntry).where(
+                ProviderRevenuePayoutEntry.hook_row_id == hook_id
+            )
+        )
+    ).scalar_one_or_none()
+
+
+def _payout_conflict(detail: str) -> HTTPException:
+    return HTTPException(status_code=status.HTTP_409_CONFLICT, detail=detail)
+
+
+def _coerce_payout_status(value: str) -> ProviderRevenuePayoutEntryStatus:
+    if value not in _PAYOUT_ENTRY_STATUSES:
+        raise _payout_conflict("payout entry status drift")
+    return value
+
+
+def _validate_period_month(value: str) -> None:
+    if re.fullmatch(r"^[0-9]{4}-(0[1-9]|1[0-2])$", value) is None:
+        raise _payout_conflict("period_month drift")
+
+
+def _validate_currency(value: str) -> None:
+    if re.fullmatch(r"^[A-Z]{3}$", value) is None:
+        raise _payout_conflict("currency drift")
+
+
+def _validate_payout_path_id(value: str, *, field_name: str) -> None:
+    if re.fullmatch(_PATH_ID_PATTERN, value) is None:
+        raise _payout_conflict(f"{field_name} drift")
+
+
+def _validate_payout_source_service(value: str) -> None:
+    if re.fullmatch(r"^[a-z0-9][a-z0-9-]{0,63}$", value) is None:
+        raise _payout_conflict("source_service drift")
+
+
+def _coerce_money(value: Decimal, *, field_name: str) -> Decimal:
+    if value < 0:
+        raise _payout_conflict(f"{field_name} drift")
+    return value.quantize(_MONEY_QUANT)
+
+
+def _coerce_ratio(value: Decimal, *, field_name: str) -> Decimal:
+    if value < 0 or value > 1:
+        raise _payout_conflict(f"{field_name} drift")
+    return value.quantize(_RATIO_QUANT)
+
+
+def _require_payout_aware_datetime(value: datetime, *, field_name: str) -> None:
+    if value.tzinfo is None or value.utcoffset() is None:
+        raise _payout_conflict(f"{field_name} must be timezone-aware")
+
+
+def _validate_payout_entry_matches_hook(
+    row: ProviderRevenuePayoutEntry,
+    hook: RevenueShareHook,
+) -> None:
+    if row.tenant_id != hook.tenant_id:
+        raise _payout_conflict("payout entry tenant scope drift")
+    expected = {
+        "provider_id": hook.provider_id,
+        "k_algo": hook.k_algo,
+        "policy_id": hook.policy_id,
+        "source_service": hook.source_service,
+        "source_event_id": hook.source_event_id,
+        "period_month": hook.period_month,
+    }
+    actual = {
+        "provider_id": row.provider_id,
+        "k_algo": row.k_algo,
+        "policy_id": row.policy_id,
+        "source_service": row.source_service,
+        "source_event_id": row.source_event_id,
+        "period_month": row.period_month,
+    }
+    changed = sorted(key for key, value in expected.items() if actual[key] != value)
+    if changed:
+        raise _payout_conflict(f"payout entry hook drift: {', '.join(changed)}")
+
+
+async def _load_payout_entry_references(
+    session: AsyncSession,
+    rows: list[ProviderRevenuePayoutEntry],
+) -> PayoutEntryReferences:
+    if not rows:
+        return PayoutEntryReferences(hooks_by_id={}, policies_by_scope_and_id={})
+
+    hook_ids = {row.hook_row_id for row in rows}
+    hooks = list(
+        (
+            await session.execute(select(RevenueShareHook).where(RevenueShareHook.id.in_(hook_ids)))
+        ).scalars()
+    )
+
+    policy_ids = {row.policy_id for row in rows}
+    tenant_ids = {row.tenant_id for row in rows if row.tenant_id is not None}
+    policy_scope_condition: ColumnElement[bool]
+    if tenant_ids:
+        policy_scope_condition = or_(
+            RevenueSharePolicy.tenant_id.is_(None),
+            RevenueSharePolicy.tenant_id.in_(tenant_ids),
+        )
+    else:
+        policy_scope_condition = RevenueSharePolicy.tenant_id.is_(None)
+    policies = list(
+        (
+            await session.execute(
+                select(RevenueSharePolicy).where(
+                    RevenueSharePolicy.policy_id.in_(policy_ids),
+                    policy_scope_condition,
+                )
+            )
+        ).scalars()
+    )
+    return PayoutEntryReferences(
+        hooks_by_id={hook.id: hook for hook in hooks},
+        policies_by_scope_and_id={
+            (policy.tenant_id, policy.policy_id): policy for policy in policies
+        },
+    )
+
+
+def _validate_payout_policy_snapshot(
+    row: ProviderRevenuePayoutEntry,
+    references: PayoutEntryReferences,
+) -> None:
+    policy = references.policies_by_scope_and_id.get((row.tenant_id, row.policy_id))
+    if policy is None and row.tenant_id is not None:
+        policy = references.policies_by_scope_and_id.get((None, row.policy_id))
+    if policy is None:
+        raise _payout_conflict("payout entry policy drift")
+    platform_ratio = _coerce_ratio(row.platform_share_ratio, field_name="platform_share_ratio")
+    provider_ratio = _coerce_ratio(row.provider_share_ratio, field_name="provider_share_ratio")
+    if platform_ratio + provider_ratio != Decimal("1.000000"):
+        raise _payout_conflict("payout entry ratio drift")
+    policy_platform_ratio = _coerce_ratio(
+        policy.platform_share_ratio,
+        field_name="policy platform_share_ratio",
+    )
+    policy_provider_ratio = _coerce_ratio(
+        policy.provider_share_ratio,
+        field_name="policy provider_share_ratio",
+    )
+    if policy_platform_ratio + policy_provider_ratio != Decimal("1.000000"):
+        raise _payout_conflict("payout entry policy ratio drift")
+
+
+def _validate_payout_entry(
+    row: ProviderRevenuePayoutEntry,
+    references: PayoutEntryReferences,
+) -> None:
+    _coerce_payout_status(row.status)
+    _validate_payout_path_id(row.entry_id, field_name="entry_id")
+    _validate_payout_path_id(row.provider_id, field_name="provider_id")
+    _validate_payout_path_id(row.k_algo, field_name="k_algo")
+    _validate_payout_path_id(row.policy_id, field_name="policy_id")
+    _validate_payout_source_service(row.source_service)
+    _validate_period_month(row.period_month)
+    _validate_currency(row.currency)
+    _coerce_money(row.gross_amount, field_name="gross_amount")
+    _coerce_ratio(row.platform_share_ratio, field_name="platform_share_ratio")
+    _coerce_ratio(row.provider_share_ratio, field_name="provider_share_ratio")
+    _require_payout_aware_datetime(row.recognized_at, field_name="recognized_at")
+    hook = references.hooks_by_id.get(row.hook_row_id)
+    if hook is None:
+        raise _payout_conflict("payout entry hook drift")
+    _validate_payout_entry_matches_hook(row, hook)
+    _validate_payout_policy_snapshot(row, references)
+
+
+def _payout_amounts(row: ProviderRevenuePayoutEntry) -> tuple[Decimal, Decimal]:
+    gross = normalize_money(row.gross_amount)
+    provider_amount = provider_revenue_amount(gross, row.provider_share_ratio)
+    platform_amount = platform_revenue_amount(gross, provider_amount)
+    return provider_amount, platform_amount
+
+
+def _payout_scope_source(
+    row_tenant_id: uuid.UUID | None,
+    requested_tenant_id: uuid.UUID | None,
+) -> ProviderDashboardScopeSource:
+    source = _scope_source(row_tenant_id, requested_tenant_id)
+    if source == "global_fallback":
+        raise _payout_conflict("payout dashboard cannot use global fallback scope")
+    return source
+
+
+def _validated_payout_entry_response(
+    row: ProviderRevenuePayoutEntry,
+    references: PayoutEntryReferences,
+    *,
+    requested_tenant_id: uuid.UUID | None,
+) -> ProviderRevenuePayoutEntryResponse:
+    _validate_payout_entry(row, references)
+    provider_amount, platform_amount = _payout_amounts(row)
+    return ProviderRevenuePayoutEntryResponse(
+        id=row.id,
+        tenant_id=row.tenant_id,
+        entry_id=row.entry_id,
+        hook_id=row.hook_row_id,
+        provider_id=row.provider_id,
+        k_algo=row.k_algo,
+        policy_id=row.policy_id,
+        source_service=row.source_service,
+        source_event_id=row.source_event_id,
+        period_month=row.period_month,
+        currency=row.currency,
+        gross_amount=normalize_money(row.gross_amount),
+        provider_share_ratio=row.provider_share_ratio,
+        platform_share_ratio=row.platform_share_ratio,
+        provider_revenue_amount=provider_amount,
+        platform_revenue_amount=platform_amount,
+        status=_coerce_payout_status(row.status),
+        recognized_at=row.recognized_at,
+        scope_source=_payout_scope_source(row.tenant_id, requested_tenant_id),
+        created_at=row.created_at,
+        updated_at=row.updated_at,
+    )
+
+
+async def _payout_entry_response(
+    session: AsyncSession,
+    row: ProviderRevenuePayoutEntry,
+    *,
+    requested_tenant_id: uuid.UUID | None,
+) -> ProviderRevenuePayoutEntryResponse:
+    references = await _load_payout_entry_references(session, [row])
+    return _validated_payout_entry_response(
+        row,
+        references,
+        requested_tenant_id=requested_tenant_id,
+    )
+
+
+def _payout_entry_row_from_response(
+    response: ProviderRevenuePayoutEntryResponse,
+) -> ProviderRevenuePayoutEntryRow:
+    return ProviderRevenuePayoutEntryRow(
+        entry_id=response.entry_id,
+        hook_id=response.hook_id,
+        provider_id=response.provider_id,
+        k_algo=response.k_algo,
+        policy_id=response.policy_id,
+        source_service=response.source_service,
+        source_event_id=response.source_event_id,
+        period_month=response.period_month,
+        currency=response.currency,
+        gross_amount=response.gross_amount,
+        provider_share_ratio=response.provider_share_ratio,
+        platform_share_ratio=response.platform_share_ratio,
+        provider_revenue_amount=response.provider_revenue_amount,
+        platform_revenue_amount=response.platform_revenue_amount,
+        status=response.status,
+        recognized_at=response.recognized_at,
+        scope_source=response.scope_source,
+    )
+
+
+def _assert_payout_entry_material_unchanged(
+    row: ProviderRevenuePayoutEntry,
+    body: ProviderRevenuePayoutEntryUpsertRequest,
+) -> None:
+    existing = {
+        "hook_id": row.hook_row_id,
+        "gross_amount": normalize_money(row.gross_amount),
+        "currency": row.currency,
+        "recognized_at": row.recognized_at,
+    }
+    incoming = {
+        "hook_id": body.hook_id,
+        "gross_amount": body.gross_amount,
+        "currency": body.currency,
+        "recognized_at": body.recognized_at,
+    }
+    changed = sorted(key for key, value in incoming.items() if existing[key] != value)
+    if changed:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"payout entry material fields are immutable: {', '.join(changed)}",
+        )
+
+
+def _assert_payout_status_transition(
+    current_status: str,
+    next_status: ProviderRevenuePayoutEntryStatus,
+) -> None:
+    current = _coerce_payout_status(current_status)
+    if current == next_status:
+        return
+    allowed = {
+        "pending": {"held", "paid", "voided"},
+        "held": {"pending", "paid", "voided"},
+        "paid": set(),
+        "voided": set(),
+    }
+    if next_status not in allowed[current]:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"invalid payout entry status transition: {current} -> {next_status}",
+        )
+
+
+def _empty_payout_status_counts() -> ProviderRevenuePayoutStatusCounts:
+    return ProviderRevenuePayoutStatusCounts(pending=0, held=0, paid=0, voided=0)
+
+
+def _payout_status_counts(
+    rows: list[ProviderRevenuePayoutEntryRow],
+) -> ProviderRevenuePayoutStatusCounts:
+    counts = dict.fromkeys(_PAYOUT_ENTRY_STATUSES, 0)
+    for row in rows:
+        counts[row.status] += 1
+    return ProviderRevenuePayoutStatusCounts(**counts)
+
+
+def _empty_payout_amounts() -> dict[str, Decimal]:
+    return {
+        "gross_amount": Decimal("0.0000"),
+        "provider_revenue_amount": Decimal("0.0000"),
+        "platform_revenue_amount": Decimal("0.0000"),
+        "pending_payout_amount": Decimal("0.0000"),
+        "held_payout_amount": Decimal("0.0000"),
+        "paid_amount": Decimal("0.0000"),
+        "voided_gross_amount": Decimal("0.0000"),
+    }
+
+
+def _add_payout_amounts(
+    totals: dict[str, Decimal],
+    row: ProviderRevenuePayoutEntryRow,
+) -> None:
+    gross = normalize_money(row.gross_amount)
+    provider_amount = normalize_money(row.provider_revenue_amount)
+    platform_amount = normalize_money(row.platform_revenue_amount)
+    if row.status == "voided":
+        totals["voided_gross_amount"] += gross
+        return
+    totals["gross_amount"] += gross
+    totals["provider_revenue_amount"] += provider_amount
+    totals["platform_revenue_amount"] += platform_amount
+    if row.status == "pending":
+        totals["pending_payout_amount"] += provider_amount
+    elif row.status == "held":
+        totals["held_payout_amount"] += provider_amount
+    elif row.status == "paid":
+        totals["paid_amount"] += provider_amount
+
+
+def _payout_currency_totals(
+    rows: list[ProviderRevenuePayoutEntryRow],
+) -> list[ProviderRevenuePayoutCurrencyTotal]:
+    grouped: dict[str, tuple[int, dict[str, Decimal]]] = {}
+    for row in rows:
+        count, totals = grouped.setdefault(row.currency, (0, _empty_payout_amounts()))
+        _add_payout_amounts(totals, row)
+        grouped[row.currency] = (count + 1, totals)
+    return [
+        ProviderRevenuePayoutCurrencyTotal(
+            currency=currency,
+            entry_count=count,
+            **totals,
+        )
+        for currency, (count, totals) in sorted(grouped.items())
+    ]
+
+
+def _payout_period_summaries(
+    rows: list[ProviderRevenuePayoutEntryRow],
+) -> list[ProviderRevenuePayoutPeriodSummary]:
+    grouped: dict[tuple[str, str], tuple[int, dict[str, Decimal]]] = {}
+    for row in rows:
+        key = (row.period_month, row.currency)
+        count, totals = grouped.setdefault(key, (0, _empty_payout_amounts()))
+        _add_payout_amounts(totals, row)
+        grouped[key] = (count + 1, totals)
+    return [
+        ProviderRevenuePayoutPeriodSummary(
+            period_month=period_month,
+            currency=currency,
+            entry_count=count,
+            **totals,
+        )
+        for (period_month, currency), (count, totals) in sorted(grouped.items())
+    ]
+
+
 async def _load_provider_application_row(
     session: AsyncSession,
     *,
@@ -1225,6 +1687,184 @@ async def list_revenue_share_hooks(
         )
     ).scalars()
     return [await _revenue_hook_response(row, requested_tenant_id=tenant_id) for row in rows]
+
+
+@router.put(
+    "/revenue-share/payout-entries/{entry_id}",
+    response_model=ProviderRevenuePayoutEntryResponse,
+    tags=["revenue-share"],
+)
+async def upsert_provider_revenue_payout_entry(
+    entry_id: Annotated[str, Path(pattern=_PATH_ID_PATTERN)],
+    body: ProviderRevenuePayoutEntryUpsertRequest,
+    x_internal_service_auth: str | None = Header(default=None, alias="X-Internal-Service-Auth"),
+    session: AsyncSession = Depends(get_session),
+) -> ProviderRevenuePayoutEntryResponse:
+    _require_write_auth(x_internal_service_auth)
+    _assert_path_id(body.entry_id, entry_id, "entry_id")
+    row = await _load_payout_entry_row(
+        session,
+        entry_id=entry_id,
+        tenant_id=body.tenant_id,
+    )
+    now = datetime.now(UTC)
+    if row is not None:
+        references = await _load_payout_entry_references(session, [row])
+        _validate_payout_entry(row, references)
+        _assert_payout_entry_material_unchanged(row, body)
+        _assert_payout_status_transition(row.status, body.status)
+        row.status = body.status
+        row.entry_metadata = body.metadata
+        row.updated_at = now
+        await session.flush()
+        return await _payout_entry_response(
+            session,
+            row,
+            requested_tenant_id=body.tenant_id,
+        )
+
+    hook = await _load_revenue_hook_by_id_exact_scope(
+        session,
+        hook_id=body.hook_id,
+        tenant_id=body.tenant_id,
+    )
+    if hook is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="hook not found"
+        )
+    existing_for_hook = await _load_payout_entry_by_hook(session, hook_id=body.hook_id)
+    if existing_for_hook is not None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="payout entry already exists for hook",
+        )
+    policy = await _load_revenue_policy_row(
+        session,
+        policy_id=hook.policy_id,
+        tenant_id=hook.tenant_id,
+        allow_global_fallback=hook.tenant_id is not None,
+    )
+    if policy is None:
+        raise _payout_conflict("policy not found for payout entry")
+    platform_ratio = _coerce_ratio(policy.platform_share_ratio, field_name="platform_share_ratio")
+    provider_ratio = _coerce_ratio(policy.provider_share_ratio, field_name="provider_share_ratio")
+    if platform_ratio + provider_ratio != Decimal("1.000000"):
+        raise _payout_conflict("policy ratio drift")
+    row = ProviderRevenuePayoutEntry(
+        tenant_id=body.tenant_id,
+        entry_id=entry_id,
+        hook_row_id=hook.id,
+        provider_id=hook.provider_id,
+        k_algo=hook.k_algo,
+        policy_id=hook.policy_id,
+        source_service=hook.source_service,
+        source_event_id=hook.source_event_id,
+        period_month=hook.period_month,
+        currency=body.currency,
+        gross_amount=body.gross_amount,
+        platform_share_ratio=platform_ratio,
+        provider_share_ratio=provider_ratio,
+        status=body.status,
+        recognized_at=body.recognized_at,
+        entry_metadata=body.metadata,
+        created_at=now,
+        updated_at=now,
+    )
+    try:
+        async with session.begin_nested():
+            session.add(row)
+            await session.flush()
+    except IntegrityError as exc:
+        existing = await _load_payout_entry_row(
+            session,
+            entry_id=entry_id,
+            tenant_id=body.tenant_id,
+        )
+        if existing is not None:
+            references = await _load_payout_entry_references(session, [existing])
+            _validate_payout_entry(existing, references)
+            _assert_payout_entry_material_unchanged(existing, body)
+            _assert_payout_status_transition(existing.status, body.status)
+            existing.status = body.status
+            existing.entry_metadata = body.metadata
+            existing.updated_at = now
+            await session.flush()
+            return await _payout_entry_response(
+                session,
+                existing,
+                requested_tenant_id=body.tenant_id,
+            )
+        existing_for_hook = await _load_payout_entry_by_hook(session, hook_id=body.hook_id)
+        if existing_for_hook is not None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="payout entry already exists for hook",
+            ) from exc
+        raise
+    return await _payout_entry_response(session, row, requested_tenant_id=body.tenant_id)
+
+
+@router.get(
+    "/revenue-share/payout-entries/{entry_id}",
+    response_model=ProviderRevenuePayoutEntryResponse,
+    tags=["revenue-share"],
+)
+async def get_provider_revenue_payout_entry(
+    entry_id: Annotated[str, Path(pattern=_PATH_ID_PATTERN)],
+    tenant_id: uuid.UUID | None = Query(default=None),
+    session: AsyncSession = Depends(get_session),
+) -> ProviderRevenuePayoutEntryResponse:
+    row = await _load_payout_entry_row(session, entry_id=entry_id, tenant_id=tenant_id)
+    if row is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="payout entry not found")
+    return await _payout_entry_response(session, row, requested_tenant_id=tenant_id)
+
+
+@router.get(
+    "/revenue-share/payout-entries",
+    response_model=list[ProviderRevenuePayoutEntryResponse],
+    tags=["revenue-share"],
+)
+async def list_provider_revenue_payout_entries(
+    tenant_id: uuid.UUID | None = Query(default=None),
+    provider_id: Annotated[str | None, Query(pattern=_PATH_ID_PATTERN)] = None,
+    period_month: Annotated[str | None, Query(pattern=r"^[0-9]{4}-(0[1-9]|1[0-2])$")] = None,
+    status_filter: ProviderRevenuePayoutEntryStatus | None = Query(default=None, alias="status"),
+    currency: Annotated[str | None, Query(pattern=r"^[A-Z]{3}$")] = None,
+    session: AsyncSession = Depends(get_session),
+) -> list[ProviderRevenuePayoutEntryResponse]:
+    conditions: list[ColumnElement[bool]] = [
+        (
+            ProviderRevenuePayoutEntry.tenant_id.is_(None)
+            if tenant_id is None
+            else ProviderRevenuePayoutEntry.tenant_id == tenant_id
+        )
+    ]
+    if provider_id is not None:
+        conditions.append(ProviderRevenuePayoutEntry.provider_id == provider_id)
+    if period_month is not None:
+        conditions.append(ProviderRevenuePayoutEntry.period_month == period_month)
+    if status_filter is not None:
+        conditions.append(ProviderRevenuePayoutEntry.status == status_filter)
+    if currency is not None:
+        conditions.append(ProviderRevenuePayoutEntry.currency == currency)
+    rows = list(
+        (
+            await session.execute(
+                select(ProviderRevenuePayoutEntry)
+                .where(*conditions)
+                .order_by(
+                    ProviderRevenuePayoutEntry.recognized_at.desc(),
+                    ProviderRevenuePayoutEntry.entry_id,
+                )
+            )
+        ).scalars()
+    )
+    references = await _load_payout_entry_references(session, rows)
+    return [
+        _validated_payout_entry_response(row, references, requested_tenant_id=tenant_id)
+        for row in rows
+    ]
 
 
 @router.put(
@@ -3277,6 +3917,88 @@ async def get_provider_kpi_dashboard(
         rollout_summary=_kpi_rollout_summary(rollout_rows, requested_tenant_id=tenant_id),
         run_metrics=run_metrics,
         timeline=timeline,
+    )
+
+
+@router.get(
+    "/providers/{provider_id}/revenue-payout-dashboard",
+    response_model=ProviderRevenuePayoutDashboardResponse,
+    tags=["provider-revenue-payout-dashboard"],
+)
+async def get_provider_revenue_payout_dashboard(
+    provider_id: Annotated[str, Path(pattern=_PATH_ID_PATTERN)],
+    tenant_id: uuid.UUID | None = Query(default=None),
+    from_at: datetime | None = Query(default=None, alias="from"),
+    to_at: datetime | None = Query(default=None, alias="to"),
+    period_month: Annotated[str | None, Query(pattern=r"^[0-9]{4}-(0[1-9]|1[0-2])$")] = None,
+    status_filter: ProviderRevenuePayoutEntryStatus | None = Query(default=None, alias="status"),
+    k_algo: Annotated[str | None, Query(pattern=_PATH_ID_PATTERN)] = None,
+    currency: Annotated[str | None, Query(pattern=r"^[A-Z]{3}$")] = None,
+    session: AsyncSession = Depends(get_session),
+) -> ProviderRevenuePayoutDashboardResponse:
+    if from_at is not None:
+        _require_aware_datetime(from_at, field_name="from")
+    if to_at is not None:
+        _require_aware_datetime(to_at, field_name="to")
+    if from_at is not None and to_at is not None and from_at > to_at:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="from must be before or equal to to",
+        )
+
+    conditions: list[ColumnElement[bool]] = [
+        ProviderRevenuePayoutEntry.provider_id == provider_id,
+        (
+            ProviderRevenuePayoutEntry.tenant_id.is_(None)
+            if tenant_id is None
+            else ProviderRevenuePayoutEntry.tenant_id == tenant_id
+        ),
+    ]
+    if period_month is not None:
+        conditions.append(ProviderRevenuePayoutEntry.period_month == period_month)
+    if status_filter is not None:
+        conditions.append(ProviderRevenuePayoutEntry.status == status_filter)
+    if k_algo is not None:
+        conditions.append(ProviderRevenuePayoutEntry.k_algo == k_algo)
+    if currency is not None:
+        conditions.append(ProviderRevenuePayoutEntry.currency == currency)
+    if from_at is not None:
+        conditions.append(ProviderRevenuePayoutEntry.recognized_at >= from_at)
+    if to_at is not None:
+        conditions.append(ProviderRevenuePayoutEntry.recognized_at <= to_at)
+
+    payout_rows = list(
+        (
+            await session.execute(
+                select(ProviderRevenuePayoutEntry)
+                .where(*conditions)
+                .order_by(
+                    ProviderRevenuePayoutEntry.recognized_at.desc(),
+                    ProviderRevenuePayoutEntry.entry_id,
+                )
+            )
+        ).scalars()
+    )
+    references = await _load_payout_entry_references(session, payout_rows)
+    responses = [
+        _validated_payout_entry_response(row, references, requested_tenant_id=tenant_id)
+        for row in payout_rows
+    ]
+    rows = [_payout_entry_row_from_response(response) for response in responses]
+    return ProviderRevenuePayoutDashboardResponse(
+        provider_id=provider_id,
+        tenant_id=tenant_id,
+        from_at=from_at,
+        to_at=to_at,
+        period_month=period_month,
+        status=status_filter,
+        k_algo=k_algo,
+        currency=currency,
+        status_counts=_payout_status_counts(rows),
+        total_entries=len(rows),
+        currency_totals=_payout_currency_totals(rows),
+        period_summaries=_payout_period_summaries(rows),
+        entries=rows,
     )
 
 

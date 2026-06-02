@@ -269,6 +269,69 @@ class RevenueShareHook(Base):
     )
 
 
+class ProviderRevenuePayoutEntry(Base):
+    """Provider revenue/pending-payout read projection entry.
+
+    The gross amount is supplied by an internal producer, while provider and
+    platform amounts are derived from policy ratio snapshots at read time.
+    """
+
+    __tablename__ = "provider_revenue_payout_entries"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()
+    )
+    tenant_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    entry_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    hook_row_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    provider_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    k_algo: Mapped[str] = mapped_column(String(64), nullable=False)
+    policy_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    source_service: Mapped[str] = mapped_column(String(64), nullable=False)
+    source_event_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    period_month: Mapped[str] = mapped_column(String(7), nullable=False)
+    currency: Mapped[str] = mapped_column(String(3), nullable=False, default="CNY")
+    gross_amount: Mapped[Decimal] = mapped_column(Numeric(12, 4), nullable=False)
+    platform_share_ratio: Mapped[Decimal] = mapped_column(Numeric(7, 6), nullable=False)
+    provider_share_ratio: Mapped[Decimal] = mapped_column(Numeric(7, 6), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="pending")
+    recognized_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    entry_metadata: Mapped[dict[str, Any]] = mapped_column(
+        "metadata", JSONB, nullable=False, default=dict
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    __table_args__ = (
+        Index(
+            "uq_provider_revenue_payout_entries_global_entry_id",
+            "entry_id",
+            unique=True,
+            postgresql_where=text("tenant_id IS NULL"),
+        ),
+        Index(
+            "uq_provider_revenue_payout_entries_tenant_entry_id",
+            "tenant_id",
+            "entry_id",
+            unique=True,
+            postgresql_where=text("tenant_id IS NOT NULL"),
+        ),
+        Index("uq_provider_revenue_payout_entries_hook", "hook_row_id", unique=True),
+        Index(
+            "idx_provider_revenue_payout_entries_dashboard",
+            "tenant_id",
+            "provider_id",
+            "period_month",
+            "status",
+            "currency",
+        ),
+    )
+
+
 class ProviderApplication(Base):
     """Provider Marketplace v2 application intake record.
 

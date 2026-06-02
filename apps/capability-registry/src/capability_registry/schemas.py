@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 import uuid
 from datetime import datetime
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 from typing import Any, Literal
 
 from pydantic import (
@@ -24,6 +24,7 @@ CapabilityStatus = Literal["v1", "v1_late", "v2", "audited", "shadow"]
 OAuthFlowStatus = Literal["draft", "configured", "disabled"]
 RevenueSharePolicyStatus = Literal["reserved", "active", "deprecated"]
 RevenueShareHookStatus = Literal["reserved", "captured", "voided"]
+ProviderRevenuePayoutEntryStatus = Literal["pending", "held", "paid", "voided"]
 ProviderApplicationStatus = Literal["draft", "submitted"]
 ProviderEvaluationStatus = Literal["requested", "queued", "cancelled"]
 ProviderShadowRunStatus = Literal["draft", "running", "passed", "failed", "cancelled"]
@@ -53,6 +54,7 @@ _SHA256_PATTERN = re.compile(r"^[0-9a-fA-F]{64}$")
 _DIGEST_PATTERN = re.compile(r"sha256:[0-9a-fA-F]{64}")
 _TAG_PATTERN = re.compile(r"^[a-z0-9][a-z0-9_-]{0,63}$")
 _RATIO_QUANT = Decimal("0.000001")
+_MONEY_QUANT = Decimal("0.0001")
 _FORBIDDEN_REFERENCE_FIELDS = {
     "api_key",
     "bank_account",
@@ -83,12 +85,19 @@ _FORBIDDEN_REVENUE_SHARE_FIELDS = _FORBIDDEN_REFERENCE_FIELDS | {
     "provider_amount",
     "platform_amount",
     "payout_status",
+    "provider_revenue_amount",
     "paid_at",
+    "pending_payout_amount",
+    "platform_revenue_amount",
     "settlement_id",
     "payment_account",
     "payment_ref",
     "raw_billing_payload",
 }
+
+_FORBIDDEN_REVENUE_SHARE_MARKERS = tuple(
+    key.replace("_", "") for key in _FORBIDDEN_REVENUE_SHARE_FIELDS
+)
 
 
 def normalize_tag(value: str) -> str:
@@ -256,7 +265,7 @@ class OAuthFlowResponse(OAuthFlowUpsertRequest):
 
 def _reject_forbidden_revenue_share_fields(data: Any) -> None:
     if isinstance(data, dict):
-        present = sorted(key for key in data if str(key).lower() in _FORBIDDEN_REVENUE_SHARE_FIELDS)
+        present = sorted(key for key in data if _is_forbidden_revenue_share_key(str(key)))
         if present:
             raise ValueError(f"computed payout or credential fields are not allowed: {present}")
         for value in data.values():
@@ -312,6 +321,14 @@ def _is_forbidden_reference_key(key: str) -> bool:
     )
 
 
+def _is_forbidden_revenue_share_key(key: str) -> bool:
+    normalized = re.sub(r"[^a-z0-9]+", "_", key.strip().lower()).strip("_")
+    compact = normalized.replace("_", "")
+    if normalized in _FORBIDDEN_REVENUE_SHARE_FIELDS:
+        return True
+    return compact in _FORBIDDEN_REVENUE_SHARE_MARKERS or _is_forbidden_reference_key(key)
+
+
 def _validate_http_url(value: str | None, *, field_name: str) -> str | None:
     if value is not None and not _HTTP_URL_PATTERN.match(value):
         raise ValueError(f"{field_name} must start with http:// or https://")
@@ -333,6 +350,20 @@ def _normalize_ratio(value: Decimal) -> Decimal:
     if value < 0 or value > 1:
         raise ValueError("ratio must be between 0 and 1")
     return value.quantize(_RATIO_QUANT)
+
+
+def normalize_money(value: Decimal) -> Decimal:
+    if value < 0:
+        raise ValueError("amount must be non-negative")
+    return value.quantize(_MONEY_QUANT, rounding=ROUND_HALF_UP)
+
+
+def provider_revenue_amount(gross_amount: Decimal, provider_share_ratio: Decimal) -> Decimal:
+    return normalize_money(gross_amount * provider_share_ratio)
+
+
+def platform_revenue_amount(gross_amount: Decimal, provider_amount: Decimal) -> Decimal:
+    return normalize_money(gross_amount - provider_amount)
 
 
 class RevenueSharePolicyUpsertRequest(BaseModel):
@@ -412,6 +443,135 @@ class RevenueShareHookResponse(RevenueShareHookCreateRequest):
     id: uuid.UUID
     scope_source: ScopeSource
     created_at: datetime
+
+
+class ProviderRevenuePayoutEntryUpsertRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    tenant_id: uuid.UUID | None = None
+    entry_id: str | None = Field(default=None, pattern=_ID_PATTERN)
+    hook_id: uuid.UUID
+    gross_amount: Decimal = Field(..., max_digits=12, decimal_places=4)
+    currency: str = Field(default="CNY", pattern=r"^[A-Z]{3}$")
+    recognized_at: datetime
+    status: ProviderRevenuePayoutEntryStatus = "pending"
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="before")
+    @classmethod
+    def reject_payout_fields(cls, data: Any) -> Any:
+        _reject_forbidden_revenue_share_fields(data)
+        return data
+
+    @field_validator("gross_amount")
+    @classmethod
+    def validate_gross_amount(cls, value: Decimal) -> Decimal:
+        return normalize_money(value)
+
+    @field_validator("recognized_at")
+    @classmethod
+    def validate_recognized_at(cls, value: datetime) -> datetime:
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("recognized_at must be timezone-aware")
+        return value
+
+
+class ProviderRevenuePayoutEntryRow(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    entry_id: str = Field(..., pattern=_ID_PATTERN)
+    hook_id: uuid.UUID
+    provider_id: str = Field(..., pattern=_ID_PATTERN)
+    k_algo: str = Field(..., pattern=_ID_PATTERN)
+    policy_id: str = Field(..., pattern=_ID_PATTERN)
+    source_service: str = Field(..., pattern=_SOURCE_SERVICE_PATTERN)
+    source_event_id: uuid.UUID
+    period_month: str = Field(..., pattern=_PERIOD_MONTH_PATTERN)
+    currency: str = Field(..., pattern=r"^[A-Z]{3}$")
+    gross_amount: Decimal = Field(..., ge=0)
+    provider_share_ratio: Decimal = Field(..., ge=0, le=1)
+    platform_share_ratio: Decimal = Field(..., ge=0, le=1)
+    provider_revenue_amount: Decimal = Field(..., ge=0)
+    platform_revenue_amount: Decimal = Field(..., ge=0)
+    status: ProviderRevenuePayoutEntryStatus
+    recognized_at: datetime
+    scope_source: ProviderDashboardScopeSource
+
+    @field_serializer(
+        "gross_amount",
+        "provider_revenue_amount",
+        "platform_revenue_amount",
+    )
+    def serialize_money(self, value: Decimal) -> str:
+        return f"{value.quantize(_MONEY_QUANT, rounding=ROUND_HALF_UP):.4f}"
+
+    @field_serializer("provider_share_ratio", "platform_share_ratio")
+    def serialize_ratio(self, value: Decimal) -> str:
+        return f"{value.quantize(_RATIO_QUANT):.6f}"
+
+
+class ProviderRevenuePayoutEntryResponse(ProviderRevenuePayoutEntryRow):
+    id: uuid.UUID
+    tenant_id: uuid.UUID | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class ProviderRevenuePayoutStatusCounts(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    pending: int = Field(default=0, ge=0)
+    held: int = Field(default=0, ge=0)
+    paid: int = Field(default=0, ge=0)
+    voided: int = Field(default=0, ge=0)
+
+
+class ProviderRevenuePayoutCurrencyTotal(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    currency: str = Field(..., pattern=r"^[A-Z]{3}$")
+    entry_count: int = Field(..., ge=0)
+    gross_amount: Decimal = Field(..., ge=0)
+    provider_revenue_amount: Decimal = Field(..., ge=0)
+    platform_revenue_amount: Decimal = Field(..., ge=0)
+    pending_payout_amount: Decimal = Field(..., ge=0)
+    held_payout_amount: Decimal = Field(..., ge=0)
+    paid_amount: Decimal = Field(..., ge=0)
+    voided_gross_amount: Decimal = Field(..., ge=0)
+
+    @field_serializer(
+        "gross_amount",
+        "provider_revenue_amount",
+        "platform_revenue_amount",
+        "pending_payout_amount",
+        "held_payout_amount",
+        "paid_amount",
+        "voided_gross_amount",
+    )
+    def serialize_money(self, value: Decimal) -> str:
+        return f"{value.quantize(_MONEY_QUANT, rounding=ROUND_HALF_UP):.4f}"
+
+
+class ProviderRevenuePayoutPeriodSummary(ProviderRevenuePayoutCurrencyTotal):
+    period_month: str = Field(..., pattern=_PERIOD_MONTH_PATTERN)
+
+
+class ProviderRevenuePayoutDashboardResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    provider_id: str = Field(..., pattern=_ID_PATTERN)
+    tenant_id: uuid.UUID | None = None
+    from_at: datetime | None = None
+    to_at: datetime | None = None
+    period_month: str | None = Field(default=None, pattern=_PERIOD_MONTH_PATTERN)
+    status: ProviderRevenuePayoutEntryStatus | None = None
+    k_algo: str | None = Field(default=None, pattern=_ID_PATTERN)
+    currency: str | None = Field(default=None, pattern=r"^[A-Z]{3}$")
+    status_counts: ProviderRevenuePayoutStatusCounts
+    total_entries: int = Field(..., ge=0)
+    currency_totals: list[ProviderRevenuePayoutCurrencyTotal]
+    period_summaries: list[ProviderRevenuePayoutPeriodSummary]
+    entries: list[ProviderRevenuePayoutEntryRow]
 
 
 class ProviderApplicationUpsertRequest(BaseModel):
