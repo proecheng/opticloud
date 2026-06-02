@@ -228,7 +228,7 @@ development_status:
   7-b-5-provider-kpi-dashboard: done
   7-b-6-revenue-payout: done
   7-b-7-version-management: done
-  7-b-8-monthly-revenue-share: in-progress
+  7-b-8-monthly-revenue-share: done             # 2026-06-02 - monthly revenue-share batch contract shipped; PR #143 passed CI, merged to main, remote branch deleted, local main synced
   7-b-9-provider-console-tier3: backlog
 
   # ===== Epic 8.A/B/C: Observability & Compliance (22 stories) =====

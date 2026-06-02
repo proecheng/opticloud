@@ -4,7 +4,7 @@ baseline_commit: c4b61f1005f8eeee97a5b5fb59d41f4884ec49ab
 epic_num: 7
 story_num: B.8
 epic_name: Provider Marketplace v2
-status: in-progress
+status: done
 priority: High
 type: provider monthly revenue-share calculation batch contract
 created_by: bmad-create-story
@@ -26,7 +26,7 @@ sources:
 
 # Story 7.B.8 - Monthly Revenue Share
 
-Status: in-progress
+Status: done
 
 ## Story
 
@@ -132,12 +132,12 @@ Epic 7.B 已完成 Provider application/evaluation intake、shadow validation、
   - [x] Cover OpenAPI unsafe-field absence and monthly batch route parameters.
   - [x] Regenerate checked-in OpenAPI and run drift check.
 
-- [ ] T5: Review, gates, and GitHub sync (AC: 41-42)
+- [x] T5: Review, gates, and GitHub sync (AC: 41-42)
   - [x] Run post-implementation code review and fix findings.
   - [x] Record code review findings and fixes in `Post-Implementation Code Review`.
   - [x] Run local gates after fixes.
-  - [ ] Commit, push, create PR, wait for CI, merge, delete remote branch, and sync local `main`.
-  - [ ] Mark story and sprint status `done` only after merge/sync.
+  - [x] Commit, push, create PR, wait for CI, merge, delete remote branch, and sync local `main`.
+  - [x] Mark story and sprint status `done` only after merge/sync.
 
 ## Dev Notes
 
@@ -223,6 +223,8 @@ GPT-5 Codex
 - Post-review lint/format gates: `uv run ruff check apps/capability-registry` and `uv run ruff format --check apps/capability-registry` -> passed.
 - Post-review OpenAPI gates: `uv run python scripts/generate_openapi.py` and `uv run python scripts/check_openapi_drift.py` -> passed.
 - Post-review whitespace gate: `git diff --check` -> passed.
+- GitHub PR #143 created for `codex/7-b-8-monthly-revenue-share`; GitHub checks passed including capability-registry-test, mypy, lint, openapi-drift, ts-typecheck, and e2e.
+- PR #143 squash-merged to `main` at merge commit `e2b28241d44da1366ee0b5bd84292aef5cf0823c`; remote feature branch deleted; local `main` synced to `origin/main`.
 
 ### Completion Notes List
 
@@ -232,6 +234,7 @@ GPT-5 Codex
 - Added monthly batch upsert/read/list/status APIs with exact tenant scope, pending/held inclusion, paid/voided exclusions, canonical checksum, idempotent draft recalculation, non-draft immutability, ETag/If-Match status locking, and no payout-entry side effects.
 - Added tests for calculation totals, provider/currency/policy summaries, exact tenant scope, auth, draft recalculation, status lifecycle, ETag handling, stored drift exclusions/fail-closed behavior, no side effects, and OpenAPI contract safety.
 - Post-review fixes added conflict validation for duplicate-create races, optional metadata preservation plus terminal status immutability on PATCH, and source-entry immutable field drift validation while preserving historical reads after later payout status changes.
+- GitHub sync completed: PR #143 passed CI, merged, remote branch deleted, local `main` synced, and story/sprint status marked done.
 
 ### File List
 
@@ -252,6 +255,7 @@ GPT-5 Codex
 - 2026-06-02 - Clarified monthly batch `batch_id` uniqueness to avoid ambiguous GET/PATCH path reads.
 - 2026-06-02 - Implemented Provider Monthly Revenue Share calculation batch contract, tests, OpenAPI update, and local gates; pending post-implementation review.
 - 2026-06-02 - Completed post-implementation code review, fixed 3 patch findings, added regression coverage, and reran local gates; pending GitHub sync.
+- 2026-06-02 - PR #143 passed GitHub CI, merged to main, remote branch deleted, local main synced; story marked done.
 
 ## Pre-Implementation Adversarial Reviews
 
