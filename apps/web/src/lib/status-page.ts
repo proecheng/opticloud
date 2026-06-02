@@ -25,6 +25,41 @@ export interface PublicIncident {
   started_at: string;
   resolved_at: string | null;
   affected_component_ids: string[];
+  postmortem?: PublicPostmortem;
+}
+
+export type PublicPostmortemFollowUpStatus = "todo" | "in_progress" | "done";
+
+export interface PublicPostmortemTimelineEvent {
+  id: string;
+  occurred_at: string;
+  label: string;
+  description: string;
+}
+
+export interface PublicPostmortemFollowUp {
+  id: string;
+  title: string;
+  owner: string;
+  status: PublicPostmortemFollowUpStatus;
+}
+
+export interface PublicPostmortemSections {
+  what_happened: string;
+  impact: string;
+  detection: string;
+  mitigation: string;
+  root_cause: string;
+}
+
+export interface PublicPostmortem {
+  public_url_path: string;
+  p0_declared_at: string;
+  publish_due_at: string;
+  published_at: string;
+  sections: PublicPostmortemSections;
+  timeline: PublicPostmortemTimelineEvent[];
+  follow_ups: PublicPostmortemFollowUp[];
 }
 
 export interface PublicStatusModel {
@@ -39,6 +74,8 @@ const STATUS_RANK: Record<PublicComponentStatus, number> = {
   partial_outage: 2,
   major_outage: 3,
 };
+
+const POSTMORTEM_SLA_MS = 24 * 60 * 60 * 1000;
 
 export const STATUS_LABELS: Record<PublicComponentStatus, string> = {
   operational: "Operational",
@@ -102,6 +139,87 @@ export const PUBLIC_STATUS_MODEL: PublicStatusModel = {
   ],
   incidents: [
     {
+      id: "inc-2026-05-28-deepseek-provider-fallback",
+      title: "DeepSeek provider outage and emergency fallback",
+      severity: "critical",
+      status: "resolved",
+      summary:
+        "DeepSeek-backed natural-language flows degraded, and the incident fallback path was activated while the provider recovered.",
+      started_at: "2026-05-28T19:12:00Z",
+      resolved_at: "2026-05-28T22:45:00Z",
+      affected_component_ids: ["chat"],
+      postmortem: {
+        public_url_path: "/status/incidents/inc-2026-05-28-deepseek-provider-fallback",
+        p0_declared_at: "2026-05-28T19:14:00Z",
+        publish_due_at: "2026-05-29T19:14:00Z",
+        published_at: "2026-05-29T18:02:00Z",
+        sections: {
+          what_happened:
+            "Provider health checks detected sustained DeepSeek degradation. OptiCloud declared a P0 for the affected natural-language path and activated the emergency fallback workflow.",
+          impact:
+            "A subset of Chat and NL-assisted optimization preparation requests saw elevated latency or failed attempts while the fallback path was being confirmed.",
+          detection:
+            "The incident was detected through provider health monitoring and confirmed by SRE review of public-safe service indicators.",
+          mitigation:
+            "SRE shifted affected NL flows to the Qwen-Max incident fallback path, kept the public status record updated, and monitored recovery until DeepSeek health stabilized.",
+          root_cause:
+            "The proximate cause was upstream provider unavailability. Internal routing and fallback evidence did not show data loss or billing ledger inconsistency.",
+        },
+        timeline: [
+          {
+            id: "incident-started",
+            occurred_at: "2026-05-28T19:12:00Z",
+            label: "Incident started",
+            description: "DeepSeek-backed NL requests began showing elevated failures.",
+          },
+          {
+            id: "provider-health-failed",
+            occurred_at: "2026-05-28T19:12:20Z",
+            label: "Provider health failed",
+            description: "Provider health checks marked the DeepSeek path failed.",
+          },
+          {
+            id: "p0-declared",
+            occurred_at: "2026-05-28T19:14:00Z",
+            label: "P0 declared",
+            description: "SRE declared a P0 provider incident.",
+          },
+          {
+            id: "fallback-confirmed",
+            occurred_at: "2026-05-28T19:17:30Z",
+            label: "Fallback confirmed",
+            description: "Qwen-Max incident fallback was confirmed for affected flows.",
+          },
+          {
+            id: "status-monitoring",
+            occurred_at: "2026-05-28T22:45:00Z",
+            label: "Resolved",
+            description: "DeepSeek health stabilized and the incident moved to resolved.",
+          },
+          {
+            id: "postmortem-published",
+            occurred_at: "2026-05-29T18:02:00Z",
+            label: "Postmortem published",
+            description: "Public P0 postmortem published within the 24h SLA.",
+          },
+        ],
+        follow_ups: [
+          {
+            id: "j3-evidence-archive",
+            title: "Attach redacted provider-health and fallback evidence to the incident archive",
+            owner: "SRE",
+            status: "in_progress",
+          },
+          {
+            id: "compensation-review",
+            title: "Review compensation eligibility for confirmed affected accounts",
+            owner: "Billing",
+            status: "todo",
+          },
+        ],
+      },
+    },
+    {
       id: "inc-2026-06-02-solver-latency",
       title: "Solver queue latency above target",
       severity: "minor",
@@ -150,6 +268,63 @@ export function componentLabelsForIncident(
     return components.find((component) => component.id === id)?.label ?? id;
   });
   return labels.join(", ");
+}
+
+export function getOrderedPostmortemTimeline(
+  incident: PublicIncident,
+): PublicPostmortemTimelineEvent[] {
+  return [...(incident.postmortem?.timeline ?? [])].sort((left, right) => {
+    return Date.parse(left.occurred_at) - Date.parse(right.occurred_at);
+  });
+}
+
+export function getPublishedP0Postmortem(
+  model: PublicStatusModel,
+  incidentId: string,
+): PublicIncident | null {
+  const incident = model.incidents.find((candidate) => candidate.id === incidentId);
+  if (!incident || incident.severity !== "critical" || !incident.postmortem) {
+    return null;
+  }
+  if (incident.postmortem.public_url_path !== `/status/incidents/${incident.id}`) {
+    return null;
+  }
+  return incident;
+}
+
+export function isPostmortemDueExactly24h(incident: PublicIncident): boolean {
+  if (!incident.postmortem) return false;
+  const declared = Date.parse(incident.postmortem.p0_declared_at);
+  const due = Date.parse(incident.postmortem.publish_due_at);
+  if (Number.isNaN(declared) || Number.isNaN(due)) return false;
+  return due - declared === POSTMORTEM_SLA_MS;
+}
+
+export function isPostmortemPublishedWithinSla(incident: PublicIncident): boolean {
+  if (!incident.postmortem) return false;
+  if (!isPostmortemDueExactly24h(incident)) return false;
+  return (
+    Date.parse(incident.postmortem.published_at) <=
+    Date.parse(incident.postmortem.publish_due_at)
+  );
+}
+
+function sanitizeMermaidLabel(value: string): string {
+  return value
+    .replace(/[\r\n]+/g, " ")
+    .replace(/[<>"'[\]{}()|:;`]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export function buildPostmortemMermaidTimeline(incident: PublicIncident): string {
+  const events = getOrderedPostmortemTimeline(incident).map((event) => {
+    const timestamp = new Date(event.occurred_at).toISOString().replace(".000Z", "Z");
+    const label = sanitizeMermaidLabel(event.label);
+    const description = sanitizeMermaidLabel(event.description);
+    return `  ${timestamp} : ${label} - ${description}`;
+  });
+  return ["timeline", ...events].join("\n");
 }
 
 export function escapeXml(value: string): string {

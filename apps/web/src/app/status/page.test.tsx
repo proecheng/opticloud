@@ -75,6 +75,13 @@ describe("StatusPage", () => {
     expect(screen.getAllByText("Solver queue latency above target").length).toBeGreaterThanOrEqual(
       2,
     );
+    expect(screen.getByRole("link", { name: "Read postmortem" }).getAttribute("href")).toBe(
+      "/status/incidents/inc-2026-05-28-deepseek-provider-fallback",
+    );
+    const solverIncident = document.getElementById("inc-2026-06-02-solver-latency");
+    expect(
+      solverIncident?.querySelector('a[href^="/status/incidents/"]'),
+    ).toBeNull();
   });
 
   it("renders an explicit empty state when incident history is empty", () => {

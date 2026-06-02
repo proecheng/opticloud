@@ -5,6 +5,7 @@ import { EmptyState, StatusCard } from "@opticloud/ui";
 import {
   componentLabelsForIncident,
   deriveOverallStatus,
+  getPublishedP0Postmortem,
   getOrderedIncidents,
   INCIDENT_STATUS_LABELS,
   STATUS_LABELS,
@@ -183,6 +184,14 @@ export function StatusPageView({ model }: { model: PublicStatusModel }): JSX.Ele
                         </dd>
                       </div>
                     </dl>
+                    {getPublishedP0Postmortem(model, incident.id) ? (
+                      <Link
+                        href={`/status/incidents/${incident.id}`}
+                        className="mt-4 inline-block rounded-md border border-border px-3 py-2 text-sm font-medium text-primary hover:bg-muted"
+                      >
+                        Read postmortem
+                      </Link>
+                    ) : null}
                   </article>
                 ))}
               </div>
