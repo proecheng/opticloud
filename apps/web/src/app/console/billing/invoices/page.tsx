@@ -351,6 +351,12 @@ export default function BillingInvoicesPage(): JSX.Element {
               Providers
             </Link>
             <Link
+              href="/console/audit-logs"
+              className="text-muted-foreground hover:text-foreground"
+            >
+              审计日志
+            </Link>
+            <Link
               href="/console/billing/invoices"
               className="font-medium text-foreground hover:text-primary"
             >

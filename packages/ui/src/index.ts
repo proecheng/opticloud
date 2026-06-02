@@ -124,4 +124,12 @@ export type {
   BudgetAlertStatus,
 } from "./components/BudgetAlertCard";
 
+export { AuditLogTable } from "./components/AuditLogTable";
+export type {
+  AuditLogMetadata,
+  AuditLogTableItem,
+  AuditLogTableProps,
+  AuditLogTimeRange,
+} from "./components/AuditLogTable";
+
 export const UI_VERSION = "0.0.1";
