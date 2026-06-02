@@ -66,7 +66,12 @@ describe("StatusPage", () => {
     ).toEqual(["/status/rss.xml", "/status/rss.xml"]);
     expect(screen.getByText("Email notifications")).toBeTruthy();
     expect(screen.getByText("Webhook callbacks")).toBeTruthy();
-    expect(screen.getAllByText(/follow-up authenticated subscription flow/i)).toHaveLength(2);
+    expect(screen.getByRole("link", { name: "Manage incident subscriptions" }).getAttribute("href")).toBe(
+      "/auth/account#notification-preferences",
+    );
+    expect(screen.getByText(/Authenticated users can opt in to incident email/i)).toBeTruthy();
+    expect(screen.getByText(/Signed callback delivery, retry, and secret rotation are not active/i)).toBeTruthy();
+    expect(screen.queryByText(/delivery is active/i)).toBeNull();
     expect(screen.getAllByText("Solver queue latency above target").length).toBeGreaterThanOrEqual(
       2,
     );

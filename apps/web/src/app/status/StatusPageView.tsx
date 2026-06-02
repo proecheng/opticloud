@@ -229,15 +229,21 @@ export function StatusPageView({ model }: { model: PublicStatusModel }): JSX.Ele
               <div>
                 <div className="font-medium">Email notifications</div>
                 <p className="mt-1 text-muted-foreground">
-                  Managed incident delivery is handled by the follow-up authenticated
-                  subscription flow.
+                  Authenticated users can opt in to incident email notifications from account
+                  settings.
                 </p>
+                <Link
+                  href="/auth/account#notification-preferences"
+                  className="mt-2 inline-block text-primary hover:underline"
+                >
+                  Manage incident subscriptions
+                </Link>
               </div>
               <div>
                 <div className="font-medium">Webhook callbacks</div>
                 <p className="mt-1 text-muted-foreground">
-                  Signed callback delivery, retry, and secret management belong to the
-                  follow-up authenticated subscription flow.
+                  Signed callback delivery, retry, and secret rotation are not active in this
+                  v1 subscription contract.
                 </p>
               </div>
             </div>

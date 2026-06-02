@@ -72,6 +72,15 @@ const defaultPreferences = {
       webhook_url_configured: false,
       channels: ["email", "in_app"],
     },
+    {
+      event_type: "status.incident.published",
+      email: false,
+      webhook: false,
+      in_app: false,
+      webhook_url: null,
+      webhook_url_configured: false,
+      channels: [],
+    },
   ],
 };
 
@@ -94,6 +103,15 @@ const savedPreferences = {
       webhook_url: "https://hooks.example.com/opticloud",
       webhook_url_configured: true,
       channels: ["email", "webhook"],
+    },
+    {
+      event_type: "status.incident.published",
+      email: true,
+      webhook: false,
+      in_app: true,
+      webhook_url: null,
+      webhook_url_configured: false,
+      channels: ["email", "in_app"],
     },
   ],
 };
@@ -134,6 +152,7 @@ describe("AccountPage notification preferences", () => {
     expect(await screen.findByText("账户删除")).toBeTruthy();
     expect(await screen.findByText("通知偏好")).toBeTruthy();
     expect(screen.getByText("预算达到提醒阈值")).toBeTruthy();
+    expect(screen.getByText("公开 incident 发布")).toBeTruthy();
     expect(mocks.getAccountDeletionStatus).toHaveBeenCalledWith("jwt-test");
     expect(mocks.listAccountMergeProposals).toHaveBeenCalledWith("jwt-test");
     expect(mocks.getNotificationPreferences).toHaveBeenCalledWith("jwt-test");
@@ -150,6 +169,7 @@ describe("AccountPage notification preferences", () => {
     const fields = within(section).getAllByRole("group");
     const alerted = fields[0]!;
     const paused = fields[1]!;
+    const incident = fields[2]!;
 
     fireEvent.click(within(alerted).getByLabelText("邮件"));
     fireEvent.click(within(paused).getByLabelText("站内"));
@@ -157,6 +177,8 @@ describe("AccountPage notification preferences", () => {
     fireEvent.change(within(paused).getByLabelText("Webhook URL"), {
       target: { value: "https://hooks.example.com/opticloud" },
     });
+    fireEvent.click(within(incident).getByLabelText("邮件"));
+    fireEvent.click(within(incident).getByLabelText("站内"));
     fireEvent.click(within(section).getByRole("button", { name: "保存通知偏好" }));
 
     await waitFor(() => {
@@ -176,6 +198,13 @@ describe("AccountPage notification preferences", () => {
             in_app: false,
             webhook_url: "https://hooks.example.com/opticloud",
           },
+          {
+            event_type: "status.incident.published",
+            email: true,
+            webhook: false,
+            in_app: true,
+            webhook_url: null,
+          },
         ],
       });
     });
@@ -183,6 +212,7 @@ describe("AccountPage notification preferences", () => {
       "https://hooks.example.com/opticloud",
     );
     expect(within(section).getByText(/预算自动暂停扣费=邮件、Webhook/)).toBeTruthy();
+    expect(within(section).getByText(/公开 incident 发布=邮件、站内/)).toBeTruthy();
   });
 
   it("preserves edited form values when preference save fails", async () => {

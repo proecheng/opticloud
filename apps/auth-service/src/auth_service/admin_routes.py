@@ -12,18 +12,27 @@ from __future__ import annotations
 import secrets
 import uuid
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Literal
 
 import structlog
 from fastapi import APIRouter, Depends, Header, HTTPException, status
 from pydantic import BaseModel, Field
-from sqlalchemy import select, update
+from sqlalchemy import select, text, update
+from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.engine import RowMapping
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from auth_service import account_merge, risk
 from auth_service.config import settings
 from auth_service.db import get_session
-from auth_service.models import AuditLog, RiskFlag, RiskRule, User
+from auth_service.models import (
+    AuditLog,
+    OutboxEvent,
+    RiskFlag,
+    RiskRule,
+    StatusIncidentNotificationRequest,
+    User,
+)
 from auth_service.schemas import AccountMergeAdminReviewRequest, AccountMergeProposalResponse
 
 _log = structlog.get_logger("auth_service.admin")
@@ -83,6 +92,37 @@ class RiskRuleItem(BaseModel):
     description: str
     enabled: bool
     created_at: datetime
+
+
+IncidentSeverity = Literal["minor", "major", "critical"]
+IncidentStatus = Literal["investigating", "identified", "monitoring", "resolved"]
+IncidentChannel = Literal["email", "webhook", "in_app"]
+INCIDENT_CHANNEL_ORDER: tuple[IncidentChannel, ...] = ("email", "webhook", "in_app")
+
+
+class IncidentFanoutRequest(BaseModel):
+    incident_id: str = Field(
+        ..., min_length=5, max_length=96, pattern=r"^inc-[A-Za-z0-9][A-Za-z0-9_.:-]{1,94}$"
+    )
+    title: str = Field(..., min_length=1, max_length=255)
+    severity: IncidentSeverity
+    status: IncidentStatus
+
+
+class IncidentFanoutResponse(BaseModel):
+    incident_id: str
+    eligible_subscribers: int
+    created_requests: int
+    status_url: str
+
+
+def _incident_channels(row: RowMapping) -> list[IncidentChannel]:
+    enabled = {
+        "email": bool(row["email_enabled"]),
+        "webhook": bool(row["webhook_enabled"]),
+        "in_app": bool(row["in_app_enabled"]),
+    }
+    return [channel for channel in INCIDENT_CHANNEL_ORDER if enabled[channel]]
 
 
 # ===== Endpoints =====
@@ -264,6 +304,111 @@ async def admin_list_risk_rules(
         )
         for r in rules
     ]
+
+
+@admin_router.post(
+    "/status/incidents/fanout",
+    response_model=IncidentFanoutResponse,
+    summary="Fan out public incident notification requests",
+)
+async def admin_fanout_status_incident(
+    body: IncidentFanoutRequest,
+    _auth: None = Depends(require_admin_secret),
+    session: AsyncSession = Depends(get_session),
+) -> IncidentFanoutResponse:
+    status_url = f"/status#{body.incident_id}"
+    rows = (
+        (
+            await session.execute(
+                text(
+                    """
+                    SELECT np.user_id,
+                           np.email_enabled,
+                           np.webhook_enabled,
+                           np.in_app_enabled,
+                           np.webhook_url
+                      FROM notification_preferences np
+                      JOIN users u ON u.id = np.user_id
+                     WHERE np.event_type = 'status.incident.published'
+                       AND u.deleted_at IS NULL
+                       AND u.merged_at IS NULL
+                       AND u.is_frozen = FALSE
+                       AND (
+                           np.email_enabled = TRUE
+                           OR np.webhook_enabled = TRUE
+                           OR np.in_app_enabled = TRUE
+                       )
+                    """
+                )
+            )
+        )
+        .mappings()
+        .all()
+    )
+    created = 0
+    for row in rows:
+        channels = _incident_channels(row)
+        if not channels:
+            continue
+        webhook_url_configured = bool(row["webhook_enabled"] and row["webhook_url"])
+        insert_stmt = (
+            pg_insert(StatusIncidentNotificationRequest)
+            .values(
+                incident_id=body.incident_id,
+                user_id=row["user_id"],
+                status_url=status_url,
+                title=body.title,
+                severity=body.severity,
+                incident_status=body.status,
+                channels=channels,
+                webhook_url_configured=webhook_url_configured,
+                updated_at=datetime.now(UTC),
+            )
+            .on_conflict_do_nothing(
+                index_elements=["incident_id", "user_id"],
+            )
+            .returning(StatusIncidentNotificationRequest.id)
+        )
+        request_id = (await session.execute(insert_stmt)).scalar_one_or_none()
+        if request_id is None:
+            continue
+        payload = {
+            "incident_id": body.incident_id,
+            "status_url": status_url,
+            "title": body.title,
+            "severity": body.severity,
+            "status": body.status,
+            "channels": channels,
+            "webhook_url_configured": webhook_url_configured,
+            "user_id": str(row["user_id"]),
+            "notification_request_id": str(request_id),
+        }
+        session.add(
+            OutboxEvent(
+                aggregate_type="status_incident_notification_request",
+                aggregate_id=request_id,
+                event_type="status.incident.notification_requested",
+                event_version=1,
+                payload=payload,
+                headers={},
+                occurred_at=datetime.now(UTC),
+            )
+        )
+        created += 1
+
+    await session.commit()
+    _log.info(
+        "admin.status.incident.fanout",
+        incident_id=body.incident_id,
+        eligible_subscribers=len(rows),
+        created_requests=created,
+    )
+    return IncidentFanoutResponse(
+        incident_id=body.incident_id,
+        eligible_subscribers=len(rows),
+        created_requests=created,
+        status_url=status_url,
+    )
 
 
 @admin_router.get(
