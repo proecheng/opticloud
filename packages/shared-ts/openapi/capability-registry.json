@@ -1459,6 +1459,496 @@
         "title": "ProviderKpiTimelinePoint",
         "type": "object"
       },
+      "ProviderMonthlyRevenueShareBatchResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "approved_by_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approved By Ref"
+          },
+          "batch_id": {
+            "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+            "title": "Batch Id",
+            "type": "string"
+          },
+          "calculated_at": {
+            "format": "date-time",
+            "title": "Calculated At",
+            "type": "string"
+          },
+          "calculation_checksum": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Calculation Checksum",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "currency_totals": {
+            "items": {
+              "$ref": "#/components/schemas/ProviderMonthlyRevenueShareCurrencyTotal"
+            },
+            "title": "Currency Totals",
+            "type": "array"
+          },
+          "entry_count": {
+            "minimum": 0.0,
+            "title": "Entry Count",
+            "type": "integer"
+          },
+          "excluded_entries": {
+            "items": {
+              "$ref": "#/components/schemas/ProviderMonthlyRevenueShareExcludedEntry"
+            },
+            "title": "Excluded Entries",
+            "type": "array"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "notes_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes Ref"
+          },
+          "period_month": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$",
+            "title": "Period Month",
+            "type": "string"
+          },
+          "policy_ratio_summaries": {
+            "items": {
+              "$ref": "#/components/schemas/ProviderMonthlyRevenueSharePolicyRatioSummary"
+            },
+            "title": "Policy Ratio Summaries",
+            "type": "array"
+          },
+          "provider_count": {
+            "minimum": 0.0,
+            "title": "Provider Count",
+            "type": "integer"
+          },
+          "provider_summaries": {
+            "items": {
+              "$ref": "#/components/schemas/ProviderMonthlyRevenueShareProviderSummary"
+            },
+            "title": "Provider Summaries",
+            "type": "array"
+          },
+          "record_version": {
+            "minimum": 1.0,
+            "title": "Record Version",
+            "type": "integer"
+          },
+          "scope_source": {
+            "enum": [
+              "global",
+              "tenant"
+            ],
+            "title": "Scope Source",
+            "type": "string"
+          },
+          "source_entry_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Source Entry Ids",
+            "type": "array"
+          },
+          "status": {
+            "enum": [
+              "draft",
+              "reviewed",
+              "approved",
+              "exported",
+              "cancelled"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "tenant_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tenant Id"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "batch_id",
+          "period_month",
+          "status",
+          "calculated_at",
+          "entry_count",
+          "provider_count",
+          "currency_totals",
+          "provider_summaries",
+          "policy_ratio_summaries",
+          "excluded_entries",
+          "source_entry_ids",
+          "calculation_checksum",
+          "record_version",
+          "scope_source",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ProviderMonthlyRevenueShareBatchResponse",
+        "type": "object"
+      },
+      "ProviderMonthlyRevenueShareBatchStatusPatchRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "approved_by_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approved By Ref"
+          },
+          "metadata": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metadata"
+          },
+          "notes_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes Ref"
+          },
+          "status": {
+            "enum": [
+              "draft",
+              "reviewed",
+              "approved",
+              "exported",
+              "cancelled"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "ProviderMonthlyRevenueShareBatchStatusPatchRequest",
+        "type": "object"
+      },
+      "ProviderMonthlyRevenueShareBatchUpsertRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "allow_drift_exclusions": {
+            "default": false,
+            "title": "Allow Drift Exclusions",
+            "type": "boolean"
+          },
+          "batch_id": {
+            "anyOf": [
+              {
+                "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Batch Id"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "notes_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes Ref"
+          },
+          "period_month": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$",
+            "title": "Period Month",
+            "type": "string"
+          },
+          "tenant_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tenant Id"
+          }
+        },
+        "required": [
+          "period_month"
+        ],
+        "title": "ProviderMonthlyRevenueShareBatchUpsertRequest",
+        "type": "object"
+      },
+      "ProviderMonthlyRevenueShareCurrencyTotal": {
+        "additionalProperties": false,
+        "properties": {
+          "currency": {
+            "pattern": "^[A-Z]{3}$",
+            "title": "Currency",
+            "type": "string"
+          },
+          "entry_count": {
+            "minimum": 0.0,
+            "title": "Entry Count",
+            "type": "integer"
+          },
+          "gross_amount": {
+            "title": "Gross Amount",
+            "type": "string"
+          },
+          "held_payout_amount": {
+            "title": "Held Payout Amount",
+            "type": "string"
+          },
+          "pending_payout_amount": {
+            "title": "Pending Payout Amount",
+            "type": "string"
+          },
+          "platform_revenue_amount": {
+            "title": "Platform Revenue Amount",
+            "type": "string"
+          },
+          "provider_count": {
+            "minimum": 0.0,
+            "title": "Provider Count",
+            "type": "integer"
+          },
+          "provider_revenue_amount": {
+            "title": "Provider Revenue Amount",
+            "type": "string"
+          }
+        },
+        "required": [
+          "currency",
+          "entry_count",
+          "provider_count",
+          "gross_amount",
+          "provider_revenue_amount",
+          "platform_revenue_amount",
+          "pending_payout_amount",
+          "held_payout_amount"
+        ],
+        "title": "ProviderMonthlyRevenueShareCurrencyTotal",
+        "type": "object"
+      },
+      "ProviderMonthlyRevenueShareExcludedEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "entry_id": {
+            "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+            "title": "Entry Id",
+            "type": "string"
+          },
+          "reason": {
+            "enum": [
+              "paid",
+              "voided",
+              "stored_drift",
+              "unsupported_status"
+            ],
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "entry_id",
+          "reason"
+        ],
+        "title": "ProviderMonthlyRevenueShareExcludedEntry",
+        "type": "object"
+      },
+      "ProviderMonthlyRevenueSharePolicyRatioSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "currency": {
+            "pattern": "^[A-Z]{3}$",
+            "title": "Currency",
+            "type": "string"
+          },
+          "entry_count": {
+            "minimum": 0.0,
+            "title": "Entry Count",
+            "type": "integer"
+          },
+          "gross_amount": {
+            "title": "Gross Amount",
+            "type": "string"
+          },
+          "platform_revenue_amount": {
+            "title": "Platform Revenue Amount",
+            "type": "string"
+          },
+          "platform_share_ratio": {
+            "title": "Platform Share Ratio",
+            "type": "string"
+          },
+          "policy_id": {
+            "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+            "title": "Policy Id",
+            "type": "string"
+          },
+          "provider_revenue_amount": {
+            "title": "Provider Revenue Amount",
+            "type": "string"
+          },
+          "provider_share_ratio": {
+            "title": "Provider Share Ratio",
+            "type": "string"
+          }
+        },
+        "required": [
+          "policy_id",
+          "provider_share_ratio",
+          "platform_share_ratio",
+          "currency",
+          "entry_count",
+          "gross_amount",
+          "provider_revenue_amount",
+          "platform_revenue_amount"
+        ],
+        "title": "ProviderMonthlyRevenueSharePolicyRatioSummary",
+        "type": "object"
+      },
+      "ProviderMonthlyRevenueShareProviderSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "currency": {
+            "pattern": "^[A-Z]{3}$",
+            "title": "Currency",
+            "type": "string"
+          },
+          "entry_count": {
+            "minimum": 0.0,
+            "title": "Entry Count",
+            "type": "integer"
+          },
+          "entry_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Entry Ids",
+            "type": "array"
+          },
+          "gross_amount": {
+            "title": "Gross Amount",
+            "type": "string"
+          },
+          "held_entry_count": {
+            "minimum": 0.0,
+            "title": "Held Entry Count",
+            "type": "integer"
+          },
+          "held_payout_amount": {
+            "title": "Held Payout Amount",
+            "type": "string"
+          },
+          "pending_entry_count": {
+            "minimum": 0.0,
+            "title": "Pending Entry Count",
+            "type": "integer"
+          },
+          "pending_payout_amount": {
+            "title": "Pending Payout Amount",
+            "type": "string"
+          },
+          "platform_revenue_amount": {
+            "title": "Platform Revenue Amount",
+            "type": "string"
+          },
+          "provider_id": {
+            "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+            "title": "Provider Id",
+            "type": "string"
+          },
+          "provider_revenue_amount": {
+            "title": "Provider Revenue Amount",
+            "type": "string"
+          },
+          "scope_source": {
+            "enum": [
+              "global",
+              "tenant"
+            ],
+            "title": "Scope Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider_id",
+          "currency",
+          "entry_count",
+          "pending_entry_count",
+          "held_entry_count",
+          "gross_amount",
+          "provider_revenue_amount",
+          "platform_revenue_amount",
+          "pending_payout_amount",
+          "held_payout_amount",
+          "entry_ids",
+          "scope_source"
+        ],
+        "title": "ProviderMonthlyRevenueShareProviderSummary",
+        "type": "object"
+      },
       "ProviderResponse": {
         "additionalProperties": false,
         "properties": {
@@ -7933,6 +8423,346 @@
           }
         },
         "summary": "Get Revenue Share Hook",
+        "tags": [
+          "revenue-share"
+        ]
+      }
+    },
+    "/v1/revenue-share/monthly-batches": {
+      "get": {
+        "operationId": "list_provider_monthly_revenue_share_batches_v1_revenue_share_monthly_batches_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "tenant_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tenant Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "period_month",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Period Month"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "draft",
+                    "reviewed",
+                    "approved",
+                    "exported",
+                    "cancelled"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "currency",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^[A-Z]{3}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Currency"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ProviderMonthlyRevenueShareBatchResponse"
+                  },
+                  "title": "Response List Provider Monthly Revenue Share Batches V1 Revenue Share Monthly Batches Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Provider Monthly Revenue Share Batches",
+        "tags": [
+          "revenue-share"
+        ]
+      }
+    },
+    "/v1/revenue-share/monthly-batches/{batch_id}": {
+      "get": {
+        "operationId": "get_provider_monthly_revenue_share_batch_v1_revenue_share_monthly_batches__batch_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "batch_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+              "title": "Batch Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "tenant_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tenant Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderMonthlyRevenueShareBatchResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Provider Monthly Revenue Share Batch",
+        "tags": [
+          "revenue-share"
+        ]
+      },
+      "put": {
+        "operationId": "upsert_provider_monthly_revenue_share_batch_v1_revenue_share_monthly_batches__batch_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "batch_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+              "title": "Batch Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Internal-Service-Auth",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Internal-Service-Auth"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProviderMonthlyRevenueShareBatchUpsertRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderMonthlyRevenueShareBatchResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Upsert Provider Monthly Revenue Share Batch",
+        "tags": [
+          "revenue-share"
+        ]
+      }
+    },
+    "/v1/revenue-share/monthly-batches/{batch_id}/status": {
+      "patch": {
+        "operationId": "patch_provider_monthly_revenue_share_batch_status_v1_revenue_share_monthly_batches__batch_id__status_patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "batch_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+              "title": "Batch Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "tenant_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tenant Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Internal-Service-Auth",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Internal-Service-Auth"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProviderMonthlyRevenueShareBatchStatusPatchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderMonthlyRevenueShareBatchResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Patch Provider Monthly Revenue Share Batch Status",
         "tags": [
           "revenue-share"
         ]

@@ -452,6 +452,93 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_provider_revenue_payout_entries_hook
 CREATE INDEX IF NOT EXISTS idx_provider_revenue_payout_entries_dashboard
     ON provider_revenue_payout_entries(tenant_id, provider_id, period_month, status, currency);
 
+-- Story 7.B.8: provider monthly revenue-share calculation batches.
+-- Calculation snapshot only; no payment settlement or payout entry mutation.
+
+CREATE TABLE IF NOT EXISTS provider_monthly_revenue_share_batches (
+    id                          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id                   UUID NULL,
+    batch_id                    VARCHAR(64) NOT NULL,
+    period_month                CHAR(7) NOT NULL,
+    status                      VARCHAR(32) NOT NULL DEFAULT 'draft',
+    calculated_at               TIMESTAMPTZ NOT NULL,
+    entry_count                 INTEGER NOT NULL DEFAULT 0,
+    provider_count              INTEGER NOT NULL DEFAULT 0,
+    currency_totals             JSONB NOT NULL DEFAULT '[]'::jsonb,
+    provider_summaries          JSONB NOT NULL DEFAULT '[]'::jsonb,
+    policy_ratio_summaries      JSONB NOT NULL DEFAULT '[]'::jsonb,
+    excluded_entries            JSONB NOT NULL DEFAULT '[]'::jsonb,
+    source_entry_ids            JSONB NOT NULL DEFAULT '[]'::jsonb,
+    calculation_checksum        VARCHAR(64) NOT NULL,
+    notes_ref                   TEXT NULL,
+    approved_by_ref             TEXT NULL,
+    metadata                    JSONB NOT NULL DEFAULT '{}'::jsonb,
+    record_version              INTEGER NOT NULL DEFAULT 1,
+    created_at                  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at                  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE provider_monthly_revenue_share_batches
+    ADD COLUMN IF NOT EXISTS tenant_id UUID NULL,
+    ADD COLUMN IF NOT EXISTS notes_ref TEXT NULL,
+    ADD COLUMN IF NOT EXISTS approved_by_ref TEXT NULL,
+    ADD COLUMN IF NOT EXISTS metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+    ADD COLUMN IF NOT EXISTS record_version INTEGER NOT NULL DEFAULT 1,
+    ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
+ALTER TABLE provider_monthly_revenue_share_batches
+    DROP CONSTRAINT IF EXISTS ck_provider_monthly_revenue_share_batches_batch_id;
+ALTER TABLE provider_monthly_revenue_share_batches
+    ADD CONSTRAINT ck_provider_monthly_revenue_share_batches_batch_id
+    CHECK (batch_id ~ '^[a-z0-9][a-z0-9-]{0,63}$');
+
+ALTER TABLE provider_monthly_revenue_share_batches
+    DROP CONSTRAINT IF EXISTS ck_provider_monthly_revenue_share_batches_period_month;
+ALTER TABLE provider_monthly_revenue_share_batches
+    ADD CONSTRAINT ck_provider_monthly_revenue_share_batches_period_month
+    CHECK (period_month ~ '^[0-9]{4}-(0[1-9]|1[0-2])$');
+
+ALTER TABLE provider_monthly_revenue_share_batches
+    DROP CONSTRAINT IF EXISTS ck_provider_monthly_revenue_share_batches_status;
+ALTER TABLE provider_monthly_revenue_share_batches
+    ADD CONSTRAINT ck_provider_monthly_revenue_share_batches_status
+    CHECK (status IN ('draft', 'reviewed', 'approved', 'exported', 'cancelled'));
+
+ALTER TABLE provider_monthly_revenue_share_batches
+    DROP CONSTRAINT IF EXISTS ck_provider_monthly_revenue_share_batches_counts;
+ALTER TABLE provider_monthly_revenue_share_batches
+    ADD CONSTRAINT ck_provider_monthly_revenue_share_batches_counts
+    CHECK (entry_count >= 0 AND provider_count >= 0 AND record_version >= 1);
+
+ALTER TABLE provider_monthly_revenue_share_batches
+    DROP CONSTRAINT IF EXISTS ck_provider_monthly_revenue_share_batches_checksum;
+ALTER TABLE provider_monthly_revenue_share_batches
+    ADD CONSTRAINT ck_provider_monthly_revenue_share_batches_checksum
+    CHECK (calculation_checksum ~ '^[0-9a-f]{64}$');
+
+ALTER TABLE provider_monthly_revenue_share_batches
+    DROP CONSTRAINT IF EXISTS ck_provider_monthly_revenue_share_batches_json_arrays;
+ALTER TABLE provider_monthly_revenue_share_batches
+    ADD CONSTRAINT ck_provider_monthly_revenue_share_batches_json_arrays
+    CHECK (
+        jsonb_typeof(currency_totals) = 'array'
+        AND jsonb_typeof(provider_summaries) = 'array'
+        AND jsonb_typeof(policy_ratio_summaries) = 'array'
+        AND jsonb_typeof(excluded_entries) = 'array'
+        AND jsonb_typeof(source_entry_ids) = 'array'
+    );
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_provider_monthly_revenue_share_batches_global_batch_id
+    ON provider_monthly_revenue_share_batches(batch_id)
+    WHERE tenant_id IS NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_provider_monthly_revenue_share_batches_tenant_batch_id
+    ON provider_monthly_revenue_share_batches(tenant_id, batch_id)
+    WHERE tenant_id IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_provider_monthly_revenue_share_batches_list
+    ON provider_monthly_revenue_share_batches(tenant_id, period_month, status, calculated_at);
+
 -- Story 7.B.1: Provider Apply v2 intake contract.
 -- Intake-only application/evaluation records; no provider catalog mutation or worker execution.
 

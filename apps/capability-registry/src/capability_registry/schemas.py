@@ -25,6 +25,12 @@ OAuthFlowStatus = Literal["draft", "configured", "disabled"]
 RevenueSharePolicyStatus = Literal["reserved", "active", "deprecated"]
 RevenueShareHookStatus = Literal["reserved", "captured", "voided"]
 ProviderRevenuePayoutEntryStatus = Literal["pending", "held", "paid", "voided"]
+ProviderMonthlyRevenueShareBatchStatus = Literal[
+    "draft", "reviewed", "approved", "exported", "cancelled"
+]
+ProviderMonthlyRevenueShareExcludedReason = Literal[
+    "paid", "voided", "stored_drift", "unsupported_status"
+]
 ProviderApplicationStatus = Literal["draft", "submitted"]
 ProviderEvaluationStatus = Literal["requested", "queued", "cancelled"]
 ProviderVersionChangeKind = Literal["patch", "minor", "major"]
@@ -103,6 +109,15 @@ _FORBIDDEN_REVENUE_SHARE_FIELDS = _FORBIDDEN_REFERENCE_FIELDS | {
     "payment_account",
     "payment_ref",
     "raw_billing_payload",
+    "calculated_at",
+    "calculation_checksum",
+    "record_version",
+    "currency_totals",
+    "provider_summaries",
+    "policy_ratio_summaries",
+    "excluded_entries",
+    "source_entry_ids",
+    "approved_by",
 }
 
 _FORBIDDEN_REVENUE_SHARE_MARKERS = tuple(
@@ -582,6 +597,159 @@ class ProviderRevenuePayoutDashboardResponse(BaseModel):
     currency_totals: list[ProviderRevenuePayoutCurrencyTotal]
     period_summaries: list[ProviderRevenuePayoutPeriodSummary]
     entries: list[ProviderRevenuePayoutEntryRow]
+
+
+class ProviderMonthlyRevenueShareBatchUpsertRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    tenant_id: uuid.UUID | None = None
+    batch_id: str | None = Field(default=None, pattern=_ID_PATTERN)
+    period_month: str = Field(..., pattern=_PERIOD_MONTH_PATTERN)
+    notes_ref: str | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    allow_drift_exclusions: bool = False
+
+    @model_validator(mode="before")
+    @classmethod
+    def reject_owned_fields(cls, data: Any) -> Any:
+        _reject_forbidden_revenue_share_fields(data)
+        return data
+
+    @field_validator("notes_ref")
+    @classmethod
+    def validate_notes_ref(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return _validate_reference(value, field_name="notes_ref")
+
+
+class ProviderMonthlyRevenueShareBatchStatusPatchRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    status: ProviderMonthlyRevenueShareBatchStatus
+    approved_by_ref: str | None = None
+    notes_ref: str | None = None
+    metadata: dict[str, Any] | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def reject_owned_fields(cls, data: Any) -> Any:
+        _reject_forbidden_revenue_share_fields(data)
+        return data
+
+    @field_validator("approved_by_ref", "notes_ref")
+    @classmethod
+    def validate_refs(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return _validate_reference(value, field_name="reference")
+
+
+class ProviderMonthlyRevenueShareProviderSummary(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    provider_id: str = Field(..., pattern=_ID_PATTERN)
+    currency: str = Field(..., pattern=r"^[A-Z]{3}$")
+    entry_count: int = Field(..., ge=0)
+    pending_entry_count: int = Field(..., ge=0)
+    held_entry_count: int = Field(..., ge=0)
+    gross_amount: Decimal = Field(..., ge=0)
+    provider_revenue_amount: Decimal = Field(..., ge=0)
+    platform_revenue_amount: Decimal = Field(..., ge=0)
+    pending_payout_amount: Decimal = Field(..., ge=0)
+    held_payout_amount: Decimal = Field(..., ge=0)
+    entry_ids: list[str]
+    scope_source: ProviderDashboardScopeSource
+
+    @field_serializer(
+        "gross_amount",
+        "provider_revenue_amount",
+        "platform_revenue_amount",
+        "pending_payout_amount",
+        "held_payout_amount",
+    )
+    def serialize_money(self, value: Decimal) -> str:
+        return f"{value.quantize(_MONEY_QUANT, rounding=ROUND_HALF_UP):.4f}"
+
+
+class ProviderMonthlyRevenueShareCurrencyTotal(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    currency: str = Field(..., pattern=r"^[A-Z]{3}$")
+    entry_count: int = Field(..., ge=0)
+    provider_count: int = Field(..., ge=0)
+    gross_amount: Decimal = Field(..., ge=0)
+    provider_revenue_amount: Decimal = Field(..., ge=0)
+    platform_revenue_amount: Decimal = Field(..., ge=0)
+    pending_payout_amount: Decimal = Field(..., ge=0)
+    held_payout_amount: Decimal = Field(..., ge=0)
+
+    @field_serializer(
+        "gross_amount",
+        "provider_revenue_amount",
+        "platform_revenue_amount",
+        "pending_payout_amount",
+        "held_payout_amount",
+    )
+    def serialize_money(self, value: Decimal) -> str:
+        return f"{value.quantize(_MONEY_QUANT, rounding=ROUND_HALF_UP):.4f}"
+
+
+class ProviderMonthlyRevenueSharePolicyRatioSummary(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    policy_id: str = Field(..., pattern=_ID_PATTERN)
+    provider_share_ratio: Decimal = Field(..., ge=0, le=1)
+    platform_share_ratio: Decimal = Field(..., ge=0, le=1)
+    currency: str = Field(..., pattern=r"^[A-Z]{3}$")
+    entry_count: int = Field(..., ge=0)
+    gross_amount: Decimal = Field(..., ge=0)
+    provider_revenue_amount: Decimal = Field(..., ge=0)
+    platform_revenue_amount: Decimal = Field(..., ge=0)
+
+    @field_serializer("provider_share_ratio", "platform_share_ratio")
+    def serialize_ratio(self, value: Decimal) -> str:
+        return f"{value.quantize(_RATIO_QUANT):.6f}"
+
+    @field_serializer(
+        "gross_amount",
+        "provider_revenue_amount",
+        "platform_revenue_amount",
+    )
+    def serialize_money(self, value: Decimal) -> str:
+        return f"{value.quantize(_MONEY_QUANT, rounding=ROUND_HALF_UP):.4f}"
+
+
+class ProviderMonthlyRevenueShareExcludedEntry(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    entry_id: str = Field(..., pattern=_ID_PATTERN)
+    reason: ProviderMonthlyRevenueShareExcludedReason
+
+
+class ProviderMonthlyRevenueShareBatchResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: uuid.UUID
+    tenant_id: uuid.UUID | None = None
+    batch_id: str = Field(..., pattern=_ID_PATTERN)
+    period_month: str = Field(..., pattern=_PERIOD_MONTH_PATTERN)
+    status: ProviderMonthlyRevenueShareBatchStatus
+    calculated_at: datetime
+    entry_count: int = Field(..., ge=0)
+    provider_count: int = Field(..., ge=0)
+    currency_totals: list[ProviderMonthlyRevenueShareCurrencyTotal]
+    provider_summaries: list[ProviderMonthlyRevenueShareProviderSummary]
+    policy_ratio_summaries: list[ProviderMonthlyRevenueSharePolicyRatioSummary]
+    excluded_entries: list[ProviderMonthlyRevenueShareExcludedEntry]
+    source_entry_ids: list[str]
+    calculation_checksum: str = Field(..., pattern=r"^[0-9a-f]{64}$")
+    notes_ref: str | None = None
+    approved_by_ref: str | None = None
+    record_version: int = Field(..., ge=1)
+    scope_source: ProviderDashboardScopeSource
+    created_at: datetime
+    updated_at: datetime
 
 
 class ProviderApplicationUpsertRequest(BaseModel):

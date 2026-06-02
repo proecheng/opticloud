@@ -332,6 +332,76 @@ class ProviderRevenuePayoutEntry(Base):
     )
 
 
+class ProviderMonthlyRevenueShareBatch(Base):
+    """Monthly provider revenue-share calculation snapshot.
+
+    This is an auditable calculation batch only. It does not settle payment,
+    mutate payout entry state, or create external transfer artifacts.
+    """
+
+    __tablename__ = "provider_monthly_revenue_share_batches"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()
+    )
+    tenant_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    batch_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    period_month: Mapped[str] = mapped_column(String(7), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="draft")
+    calculated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    entry_count: Mapped[int] = mapped_column(nullable=False, default=0)
+    provider_count: Mapped[int] = mapped_column(nullable=False, default=0)
+    currency_totals: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSONB, nullable=False, default=list
+    )
+    provider_summaries: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSONB, nullable=False, default=list
+    )
+    policy_ratio_summaries: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSONB, nullable=False, default=list
+    )
+    excluded_entries: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSONB, nullable=False, default=list
+    )
+    source_entry_ids: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
+    calculation_checksum: Mapped[str] = mapped_column(String(64), nullable=False)
+    notes_ref: Mapped[str | None] = mapped_column(Text, nullable=True)
+    approved_by_ref: Mapped[str | None] = mapped_column(Text, nullable=True)
+    batch_metadata: Mapped[dict[str, Any]] = mapped_column(
+        "metadata", JSONB, nullable=False, default=dict
+    )
+    record_version: Mapped[int] = mapped_column(nullable=False, default=1)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    __table_args__ = (
+        Index(
+            "uq_provider_monthly_revenue_share_batches_global_batch_id",
+            "batch_id",
+            unique=True,
+            postgresql_where=text("tenant_id IS NULL"),
+        ),
+        Index(
+            "uq_provider_monthly_revenue_share_batches_tenant_batch_id",
+            "tenant_id",
+            "batch_id",
+            unique=True,
+            postgresql_where=text("tenant_id IS NOT NULL"),
+        ),
+        Index(
+            "idx_provider_monthly_revenue_share_batches_list",
+            "tenant_id",
+            "period_month",
+            "status",
+            "calculated_at",
+        ),
+    )
+
+
 class ProviderApplication(Base):
     """Provider Marketplace v2 application intake record.
 

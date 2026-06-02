@@ -93,6 +93,7 @@ async def clean_tables(engine: AsyncEngine) -> AsyncIterator[None]:
                 "provider_shadow_validation_samples, provider_shadow_validation_runs, "
                 "provider_version_update_requests, "
                 "provider_application_evaluation_requests, provider_applications, "
+                "provider_monthly_revenue_share_batches, "
                 "provider_revenue_payout_entries, "
                 "revenue_share_hooks, revenue_share_policies, "
                 "provider_oauth_flows, capability_tags, capabilities, "
@@ -199,6 +200,16 @@ def payout_entry_payload(**overrides: Any) -> dict[str, Any]:
         "currency": "CNY",
         "recognized_at": "2026-06-15T12:00:00Z",
         "status": "pending",
+        "metadata": {"source": "test"},
+    }
+    payload.update(overrides)
+    return payload
+
+
+def monthly_batch_payload(**overrides: Any) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "period_month": "2026-06",
+        "notes_ref": "oss://monthly-revenue-share/2026-06/notes.json",
         "metadata": {"source": "test"},
     }
     payload.update(overrides)
@@ -1182,6 +1193,497 @@ async def test_provider_revenue_payout_dashboard_fails_closed_on_stored_drift(
     assert "hook drift" in hook_drift.text
 
 
+async def test_provider_monthly_revenue_share_batch_calculation_lifecycle_and_no_side_effects(
+    client: AsyncClient,
+    engine: AsyncEngine,
+) -> None:
+    hook_one = await _create_revenue_share_hook(client, source_event_id=str(uuid.uuid4()))
+    hook_two = await client.post(
+        "/v1/revenue-share/hooks",
+        json=hook_payload(source_event_id=str(uuid.uuid4()), period_month="2026-06"),
+    )
+    assert hook_two.status_code == 200, hook_two.text
+    hook_paid = await client.post(
+        "/v1/revenue-share/hooks",
+        json=hook_payload(source_event_id=str(uuid.uuid4()), period_month="2026-06"),
+    )
+    assert hook_paid.status_code == 200, hook_paid.text
+    hook_voided = await client.post(
+        "/v1/revenue-share/hooks",
+        json=hook_payload(source_event_id=str(uuid.uuid4()), period_month="2026-06"),
+    )
+    assert hook_voided.status_code == 200, hook_voided.text
+
+    pending = await client.put(
+        "/v1/revenue-share/payout-entries/monthly-pending",
+        json=payout_entry_payload(hook_id=hook_one["id"], gross_amount="100.0000"),
+    )
+    held = await client.put(
+        "/v1/revenue-share/payout-entries/monthly-held",
+        json=payout_entry_payload(
+            hook_id=hook_two.json()["id"],
+            gross_amount="50.0000",
+            status="held",
+        ),
+    )
+    paid = await client.put(
+        "/v1/revenue-share/payout-entries/monthly-paid",
+        json=payout_entry_payload(
+            hook_id=hook_paid.json()["id"],
+            gross_amount="25.0000",
+            status="paid",
+        ),
+    )
+    voided = await client.put(
+        "/v1/revenue-share/payout-entries/monthly-voided",
+        json=payout_entry_payload(
+            hook_id=hook_voided.json()["id"],
+            gross_amount="10.0000",
+            status="voided",
+        ),
+    )
+    assert pending.status_code == 200, pending.text
+    assert held.status_code == 200, held.text
+    assert paid.status_code == 200, paid.text
+    assert voided.status_code == 200, voided.text
+
+    maker = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
+    async with maker() as session:
+        before_rows = (
+            (
+                await session.execute(
+                    text(
+                        "SELECT entry_id, status, gross_amount FROM provider_revenue_payout_entries "
+                        "ORDER BY entry_id"
+                    )
+                )
+            )
+            .mappings()
+            .all()
+        )
+
+    create = await client.put(
+        "/v1/revenue-share/monthly-batches/batch-2026-06",
+        json=monthly_batch_payload(),
+    )
+    assert create.status_code == 200, create.text
+    body = create.json()
+    assert body["batch_id"] == "batch-2026-06"
+    assert body["status"] == "draft"
+    assert body["entry_count"] == 2
+    assert body["provider_count"] == 1
+    assert body["source_entry_ids"] == ["monthly-held", "monthly-pending"]
+    assert body["currency_totals"] == [
+        {
+            "currency": "CNY",
+            "entry_count": 2,
+            "provider_count": 1,
+            "gross_amount": "150.0000",
+            "provider_revenue_amount": "60.0000",
+            "platform_revenue_amount": "90.0000",
+            "pending_payout_amount": "40.0000",
+            "held_payout_amount": "20.0000",
+        }
+    ]
+    assert body["provider_summaries"] == [
+        {
+            "provider_id": "highs",
+            "currency": "CNY",
+            "entry_count": 2,
+            "pending_entry_count": 1,
+            "held_entry_count": 1,
+            "gross_amount": "150.0000",
+            "provider_revenue_amount": "60.0000",
+            "platform_revenue_amount": "90.0000",
+            "pending_payout_amount": "40.0000",
+            "held_payout_amount": "20.0000",
+            "entry_ids": ["monthly-held", "monthly-pending"],
+            "scope_source": "global",
+        }
+    ]
+    assert body["policy_ratio_summaries"] == [
+        {
+            "policy_id": "external-default",
+            "provider_share_ratio": "0.400000",
+            "platform_share_ratio": "0.600000",
+            "currency": "CNY",
+            "entry_count": 2,
+            "gross_amount": "150.0000",
+            "provider_revenue_amount": "60.0000",
+            "platform_revenue_amount": "90.0000",
+        }
+    ]
+    assert body["excluded_entries"] == [
+        {"entry_id": "monthly-paid", "reason": "paid"},
+        {"entry_id": "monthly-voided", "reason": "voided"},
+    ]
+    assert len(body["calculation_checksum"]) == 64
+    assert create.headers["etag"] == '"batch-2026-06:1"'
+    assert "metadata" not in json.dumps(body)
+    assert "settlement_id" not in json.dumps(body)
+
+    replay = await client.put(
+        "/v1/revenue-share/monthly-batches/batch-2026-06",
+        json=monthly_batch_payload(),
+    )
+    assert replay.status_code == 200, replay.text
+    assert replay.json()["calculation_checksum"] == body["calculation_checksum"]
+    assert replay.json()["record_version"] == 1
+
+    listed = await client.get(
+        "/v1/revenue-share/monthly-batches",
+        params={"period_month": "2026-06", "status": "draft", "currency": "CNY"},
+    )
+    assert listed.status_code == 200, listed.text
+    assert [item["batch_id"] for item in listed.json()] == ["batch-2026-06"]
+
+    missing_if_match = await client.patch(
+        "/v1/revenue-share/monthly-batches/batch-2026-06/status",
+        json={"status": "reviewed", "metadata": {}},
+    )
+    assert missing_if_match.status_code == 428
+
+    mismatch = await client.patch(
+        "/v1/revenue-share/monthly-batches/batch-2026-06/status",
+        json={"status": "reviewed", "metadata": {}},
+        headers={"If-Match": '"batch-2026-06:999"'},
+    )
+    assert mismatch.status_code == 412
+
+    reviewed = await client.patch(
+        "/v1/revenue-share/monthly-batches/batch-2026-06/status",
+        json={"status": "reviewed"},
+        headers={"If-Match": create.headers["etag"]},
+    )
+    assert reviewed.status_code == 200, reviewed.text
+    assert reviewed.json()["status"] == "reviewed"
+    assert reviewed.headers["etag"] == '"batch-2026-06:2"'
+    async with maker() as session:
+        stored_metadata = (
+            await session.execute(
+                text(
+                    "SELECT metadata FROM provider_monthly_revenue_share_batches "
+                    "WHERE batch_id = 'batch-2026-06'"
+                )
+            )
+        ).scalar_one()
+    assert stored_metadata == {"source": "test"}
+
+    approved_missing_ref = await client.patch(
+        "/v1/revenue-share/monthly-batches/batch-2026-06/status",
+        json={"status": "approved"},
+        headers={"If-Match": reviewed.headers["etag"]},
+    )
+    assert approved_missing_ref.status_code == 422
+
+    approved = await client.patch(
+        "/v1/revenue-share/monthly-batches/batch-2026-06/status",
+        json={
+            "status": "approved",
+            "approved_by_ref": "oss://monthly-revenue-share/2026-06/approval.json",
+        },
+        headers={"If-Match": reviewed.headers["etag"]},
+    )
+    assert approved.status_code == 200, approved.text
+    assert approved.json()["approved_by_ref"].startswith("oss://")
+
+    exported = await client.patch(
+        "/v1/revenue-share/monthly-batches/batch-2026-06/status",
+        json={"status": "exported"},
+        headers={"If-Match": approved.headers["etag"]},
+    )
+    assert exported.status_code == 200, exported.text
+    assert exported.json()["status"] == "exported"
+    terminal_metadata_change = await client.patch(
+        "/v1/revenue-share/monthly-batches/batch-2026-06/status",
+        json={"status": "exported", "metadata": {"source": "changed"}},
+        headers={"If-Match": exported.headers["etag"]},
+    )
+    assert terminal_metadata_change.status_code == 422
+    terminal_replay = await client.patch(
+        "/v1/revenue-share/monthly-batches/batch-2026-06/status",
+        json={"status": "exported"},
+        headers={"If-Match": exported.headers["etag"]},
+    )
+    assert terminal_replay.status_code == 200, terminal_replay.text
+    assert terminal_replay.json()["record_version"] == exported.json()["record_version"]
+
+    rerun_locked = await client.put(
+        "/v1/revenue-share/monthly-batches/batch-2026-06",
+        json=monthly_batch_payload(notes_ref="oss://monthly-revenue-share/changed.json"),
+    )
+    assert rerun_locked.status_code == 422
+
+    async with maker() as session:
+        after_rows = (
+            (
+                await session.execute(
+                    text(
+                        "SELECT entry_id, status, gross_amount FROM provider_revenue_payout_entries "
+                        "ORDER BY entry_id"
+                    )
+                )
+            )
+            .mappings()
+            .all()
+        )
+    assert before_rows == after_rows
+
+
+async def test_provider_monthly_revenue_share_batch_tenant_scope_auth_and_recalculation(
+    client: AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    tenant_id = str(uuid.uuid4())
+    await client.put(
+        "/v1/providers/highs",
+        json=provider_payload(tenant_id=tenant_id, kind="external"),
+    )
+    await client.put(
+        "/v1/capabilities/highs-lp",
+        json=capability_payload(tenant_id=tenant_id),
+    )
+    await client.put("/v1/revenue-share/policies/external-default", json=policy_payload())
+    tenant_hook = await client.post(
+        "/v1/revenue-share/hooks",
+        json=hook_payload(tenant_id=tenant_id),
+    )
+    assert tenant_hook.status_code == 200, tenant_hook.text
+    tenant_entry = await client.put(
+        "/v1/revenue-share/payout-entries/tenant-monthly-entry",
+        json=payout_entry_payload(tenant_id=tenant_id, hook_id=tenant_hook.json()["id"]),
+    )
+    assert tenant_entry.status_code == 200, tenant_entry.text
+
+    global_empty = await client.put(
+        "/v1/revenue-share/monthly-batches/global-empty-2026-06",
+        json=monthly_batch_payload(),
+    )
+    assert global_empty.status_code == 200, global_empty.text
+    assert global_empty.json()["entry_count"] == 0
+
+    tenant_batch = await client.put(
+        "/v1/revenue-share/monthly-batches/tenant-batch-2026-06",
+        json=monthly_batch_payload(tenant_id=tenant_id),
+    )
+    assert tenant_batch.status_code == 200, tenant_batch.text
+    assert tenant_batch.json()["tenant_id"] == tenant_id
+    assert tenant_batch.json()["entry_count"] == 1
+    assert tenant_batch.json()["scope_source"] == "tenant"
+
+    tenant_list = await client.get(
+        "/v1/revenue-share/monthly-batches",
+        params={"tenant_id": tenant_id},
+    )
+    assert tenant_list.status_code == 200, tenant_list.text
+    assert [item["batch_id"] for item in tenant_list.json()] == ["tenant-batch-2026-06"]
+
+    new_hook = await client.post(
+        "/v1/revenue-share/hooks",
+        json=hook_payload(tenant_id=tenant_id, source_event_id=str(uuid.uuid4())),
+    )
+    assert new_hook.status_code == 200, new_hook.text
+    new_entry = await client.put(
+        "/v1/revenue-share/payout-entries/tenant-monthly-entry-2",
+        json=payout_entry_payload(tenant_id=tenant_id, hook_id=new_hook.json()["id"]),
+    )
+    assert new_entry.status_code == 200, new_entry.text
+    recalculated = await client.put(
+        "/v1/revenue-share/monthly-batches/tenant-batch-2026-06",
+        json=monthly_batch_payload(tenant_id=tenant_id),
+    )
+    assert recalculated.status_code == 200, recalculated.text
+    assert recalculated.json()["entry_count"] == 2
+    assert recalculated.json()["record_version"] == 2
+
+    monkeypatch.setattr(
+        "capability_registry.routes.settings.internal_secret",
+        SecretStr("internal-test-secret"),
+    )
+    blocked_create = await client.put(
+        "/v1/revenue-share/monthly-batches/auth-blocked",
+        json=monthly_batch_payload(tenant_id=tenant_id),
+    )
+    assert blocked_create.status_code == 401
+    blocked_patch = await client.patch(
+        "/v1/revenue-share/monthly-batches/tenant-batch-2026-06/status",
+        params={"tenant_id": tenant_id},
+        json={"status": "reviewed", "metadata": {}},
+        headers={"If-Match": recalculated.headers["etag"]},
+    )
+    assert blocked_patch.status_code == 401
+
+
+async def test_provider_monthly_revenue_share_batch_fails_closed_on_stored_drift(
+    client: AsyncClient,
+    engine: AsyncEngine,
+) -> None:
+    hook = await _create_revenue_share_hook(client)
+    create_entry = await client.put(
+        "/v1/revenue-share/payout-entries/monthly-drift-entry",
+        json=payout_entry_payload(hook_id=hook["id"]),
+    )
+    assert create_entry.status_code == 200, create_entry.text
+
+    maker = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
+    async with maker() as session:
+        await session.execute(
+            text(
+                "ALTER TABLE provider_revenue_payout_entries "
+                "DROP CONSTRAINT ck_provider_revenue_payout_entries_status"
+            )
+        )
+        await session.execute(
+            text(
+                """
+                UPDATE provider_revenue_payout_entries
+                SET status = 'manual-drift'
+                WHERE entry_id = 'monthly-drift-entry'
+                """
+            )
+        )
+        await session.commit()
+
+    failed = await client.put(
+        "/v1/revenue-share/monthly-batches/drift-fails",
+        json=monthly_batch_payload(),
+    )
+    assert failed.status_code == 409
+    assert "status" in failed.text
+
+    excluded = await client.put(
+        "/v1/revenue-share/monthly-batches/drift-excluded",
+        json=monthly_batch_payload(allow_drift_exclusions=True),
+    )
+    assert excluded.status_code == 200, excluded.text
+    assert excluded.json()["entry_count"] == 0
+    assert excluded.json()["excluded_entries"] == [
+        {"entry_id": "monthly-drift-entry", "reason": "stored_drift"}
+    ]
+    assert "manual-drift" not in excluded.text
+
+    async with maker() as session:
+        await session.execute(
+            text(
+                """
+                UPDATE provider_revenue_payout_entries
+                SET status = 'pending'
+                WHERE entry_id = 'monthly-drift-entry'
+                """
+            )
+        )
+        await session.execute(
+            text(
+                """
+                ALTER TABLE provider_revenue_payout_entries
+                ADD CONSTRAINT ck_provider_revenue_payout_entries_status
+                CHECK (status IN ('pending', 'held', 'paid', 'voided'))
+                """
+            )
+        )
+        await session.execute(
+            text(
+                """
+                UPDATE provider_monthly_revenue_share_batches
+                SET excluded_entries = '[{"entry_id": "monthly-drift-entry", "reason": "raw"}]'::jsonb
+                WHERE batch_id = 'drift-excluded'
+                """
+            )
+        )
+        await session.commit()
+
+    batch_drift = await client.get("/v1/revenue-share/monthly-batches/drift-excluded")
+    assert batch_drift.status_code == 409
+    assert "snapshot drift" in batch_drift.text
+
+
+async def test_provider_monthly_revenue_share_batch_validates_source_immutable_fields(
+    client: AsyncClient,
+    engine: AsyncEngine,
+) -> None:
+    hook = await _create_revenue_share_hook(client)
+    entry = await client.put(
+        "/v1/revenue-share/payout-entries/monthly-source-entry",
+        json=payout_entry_payload(hook_id=hook["id"], gross_amount="100.0000"),
+    )
+    assert entry.status_code == 200, entry.text
+    batch = await client.put(
+        "/v1/revenue-share/monthly-batches/source-check-2026-06",
+        json=monthly_batch_payload(),
+    )
+    assert batch.status_code == 200, batch.text
+    reviewed = await client.patch(
+        "/v1/revenue-share/monthly-batches/source-check-2026-06/status",
+        json={"status": "reviewed"},
+        headers={"If-Match": batch.headers["etag"]},
+    )
+    assert reviewed.status_code == 200, reviewed.text
+
+    paid_entry = await client.put(
+        "/v1/revenue-share/payout-entries/monthly-source-entry",
+        json=payout_entry_payload(
+            hook_id=hook["id"],
+            gross_amount="100.0000",
+            status="paid",
+        ),
+    )
+    assert paid_entry.status_code == 200, paid_entry.text
+    status_changed_read = await client.get("/v1/revenue-share/monthly-batches/source-check-2026-06")
+    assert status_changed_read.status_code == 200, status_changed_read.text
+    assert status_changed_read.json()["source_entry_ids"] == ["monthly-source-entry"]
+
+    maker = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
+    async with maker() as session:
+        await session.execute(
+            text(
+                """
+                UPDATE provider_revenue_payout_entries
+                SET gross_amount = 101.0000
+                WHERE entry_id = 'monthly-source-entry'
+                """
+            )
+        )
+        await session.commit()
+
+    amount_drift = await client.get("/v1/revenue-share/monthly-batches/source-check-2026-06")
+    assert amount_drift.status_code == 409
+    assert "source drift" in amount_drift.text
+
+
+async def test_provider_monthly_revenue_share_batch_create_race_rejects_mismatched_row(
+    client: AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    existing = await client.put(
+        "/v1/revenue-share/monthly-batches/race-batch-2026-06",
+        json=monthly_batch_payload(),
+    )
+    assert existing.status_code == 200, existing.text
+
+    original_load = registry_routes._load_monthly_batch_row
+    calls = 0
+
+    async def fake_load_monthly_batch_row(*args: Any, **kwargs: Any) -> Any:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return None
+        return await original_load(*args, **kwargs)
+
+    async def fake_flush(self: AsyncSession, objects: Any | None = None) -> None:
+        raise IntegrityError("INSERT provider_monthly_revenue_share_batches", {}, Exception())
+
+    monkeypatch.setattr(registry_routes, "_load_monthly_batch_row", fake_load_monthly_batch_row)
+    monkeypatch.setattr(AsyncSession, "flush", fake_flush)
+
+    conflict = await client.put(
+        "/v1/revenue-share/monthly-batches/race-batch-2026-06",
+        json=monthly_batch_payload(period_month="2026-07"),
+    )
+    assert conflict.status_code == 409
+    assert "period_month mismatch" in conflict.text
+
+
 def test_revenue_share_openapi_omits_unsafe_fields() -> None:
     spec = json.loads(OPENAPI_PATH.read_text(encoding="utf-8"))
     revenue_schemas = {
@@ -1264,6 +1766,84 @@ def test_provider_revenue_payout_openapi_contract_is_safe() -> None:
         "k_algo",
         "currency",
     }.issubset(set(parameters))
+
+
+def test_provider_monthly_revenue_share_openapi_contract_is_safe() -> None:
+    spec = json.loads(OPENAPI_PATH.read_text(encoding="utf-8"))
+    monthly_schemas = {
+        name: schema
+        for name, schema in spec["components"]["schemas"].items()
+        if name.startswith("ProviderMonthlyRevenueShare")
+    }
+    assert monthly_schemas
+    unsafe_terms = {
+        "metadata",
+        "payout_status",
+        "paid_at",
+        "settlement_id",
+        "bank_account",
+        "tax_id",
+        "access_token",
+        "refresh_token",
+        "client_secret",
+        "raw_billing_payload",
+        "raw_request",
+        "raw_response",
+        "provider_request",
+        "provider_response",
+        "routing_payload",
+        "customer_payload",
+        "email",
+        "phone",
+        "payment_ref",
+        "payment_account",
+    }
+    for schema_name, schema in monthly_schemas.items():
+        properties = set(schema.get("properties", {}))
+        if schema_name in {
+            "ProviderMonthlyRevenueShareBatchUpsertRequest",
+            "ProviderMonthlyRevenueShareBatchStatusPatchRequest",
+        }:
+            properties.discard("metadata")
+        assert properties.isdisjoint(unsafe_terms)
+
+    request_props = set(
+        monthly_schemas["ProviderMonthlyRevenueShareBatchUpsertRequest"].get("properties", {})
+    )
+    assert {
+        "currency_totals",
+        "provider_summaries",
+        "policy_ratio_summaries",
+        "excluded_entries",
+        "source_entry_ids",
+        "calculated_at",
+        "calculation_checksum",
+        "record_version",
+    }.isdisjoint(request_props)
+    status_props = set(
+        monthly_schemas["ProviderMonthlyRevenueShareBatchStatusPatchRequest"].get("properties", {})
+    )
+    assert {
+        "currency_totals",
+        "provider_summaries",
+        "source_entry_ids",
+        "calculation_checksum",
+        "record_version",
+    }.isdisjoint(status_props)
+
+    put_endpoint = spec["paths"]["/v1/revenue-share/monthly-batches/{batch_id}"]["put"]
+    put_parameters = {parameter["name"]: parameter for parameter in put_endpoint["parameters"]}
+    assert {"batch_id", "X-Internal-Service-Auth"}.issubset(set(put_parameters))
+
+    patch_endpoint = spec["paths"]["/v1/revenue-share/monthly-batches/{batch_id}/status"]["patch"]
+    patch_parameters = {parameter["name"]: parameter for parameter in patch_endpoint["parameters"]}
+    assert {"batch_id", "tenant_id", "If-Match", "X-Internal-Service-Auth"}.issubset(
+        set(patch_parameters)
+    )
+
+    list_endpoint = spec["paths"]["/v1/revenue-share/monthly-batches"]["get"]
+    list_parameters = {parameter["name"]: parameter for parameter in list_endpoint["parameters"]}
+    assert {"tenant_id", "period_month", "status", "currency"}.issubset(set(list_parameters))
 
 
 async def test_provider_application_upsert_read_submit_and_no_catalog_side_effect(

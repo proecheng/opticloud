@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 import re
 import secrets
 import uuid
@@ -29,6 +31,7 @@ from capability_registry.models import (
     ProviderApplication,
     ProviderApplicationEvaluationRequest,
     ProviderGradientRollout,
+    ProviderMonthlyRevenueShareBatch,
     ProviderOAuthFlow,
     ProviderRevenuePayoutEntry,
     ProviderShadowValidationRun,
@@ -56,6 +59,14 @@ from capability_registry.schemas import (
     ProviderKpiRunMetric,
     ProviderKpiRunStatusCounts,
     ProviderKpiTimelinePoint,
+    ProviderMonthlyRevenueShareBatchResponse,
+    ProviderMonthlyRevenueShareBatchStatus,
+    ProviderMonthlyRevenueShareBatchStatusPatchRequest,
+    ProviderMonthlyRevenueShareBatchUpsertRequest,
+    ProviderMonthlyRevenueShareCurrencyTotal,
+    ProviderMonthlyRevenueShareExcludedEntry,
+    ProviderMonthlyRevenueSharePolicyRatioSummary,
+    ProviderMonthlyRevenueShareProviderSummary,
     ProviderResponse,
     ProviderRevenuePayoutCurrencyTotal,
     ProviderRevenuePayoutDashboardResponse,
@@ -125,6 +136,14 @@ _PAYOUT_ENTRY_STATUSES: tuple[ProviderRevenuePayoutEntryStatus, ...] = (
     "paid",
     "voided",
 )
+_MONTHLY_BATCH_STATUSES: tuple[ProviderMonthlyRevenueShareBatchStatus, ...] = (
+    "draft",
+    "reviewed",
+    "approved",
+    "exported",
+    "cancelled",
+)
+_MONTHLY_INCLUDED_STATUSES = {"pending", "held"}
 
 
 @dataclass(frozen=True)
@@ -1401,6 +1420,630 @@ def _payout_period_summaries(
     ]
 
 
+def _monthly_conflict(detail: str) -> HTTPException:
+    return HTTPException(status_code=status.HTTP_409_CONFLICT, detail=detail)
+
+
+def _coerce_monthly_status(value: str) -> ProviderMonthlyRevenueShareBatchStatus:
+    if value not in _MONTHLY_BATCH_STATUSES:
+        raise _monthly_conflict("monthly batch status drift")
+    return value
+
+
+def _validate_monthly_reference(value: str | None, *, field_name: str) -> None:
+    if value is not None and not re.match(r"^(s3|oss|fixture|benchmark|repro)://", value):
+        raise _monthly_conflict(f"{field_name} drift")
+
+
+def _ratio_string(value: Decimal) -> str:
+    return f"{value.quantize(_RATIO_QUANT):.6f}"
+
+
+def _monthly_empty_amounts() -> dict[str, Decimal]:
+    return {
+        "gross_amount": Decimal("0.0000"),
+        "provider_revenue_amount": Decimal("0.0000"),
+        "platform_revenue_amount": Decimal("0.0000"),
+        "pending_payout_amount": Decimal("0.0000"),
+        "held_payout_amount": Decimal("0.0000"),
+    }
+
+
+def _monthly_add_amounts(
+    totals: dict[str, Decimal],
+    row: ProviderRevenuePayoutEntryRow,
+) -> None:
+    gross = normalize_money(row.gross_amount)
+    provider_amount = normalize_money(row.provider_revenue_amount)
+    platform_amount = normalize_money(row.platform_revenue_amount)
+    totals["gross_amount"] += gross
+    totals["provider_revenue_amount"] += provider_amount
+    totals["platform_revenue_amount"] += platform_amount
+    if row.status == "pending":
+        totals["pending_payout_amount"] += provider_amount
+    elif row.status == "held":
+        totals["held_payout_amount"] += provider_amount
+
+
+def _monthly_provider_summaries(
+    rows: list[ProviderRevenuePayoutEntryRow],
+) -> list[ProviderMonthlyRevenueShareProviderSummary]:
+    grouped: dict[tuple[str, str], dict[str, Any]] = {}
+    for row in rows:
+        key = (row.provider_id, row.currency)
+        item = grouped.setdefault(
+            key,
+            {
+                "provider_id": row.provider_id,
+                "currency": row.currency,
+                "entry_count": 0,
+                "pending_entry_count": 0,
+                "held_entry_count": 0,
+                "entry_ids": [],
+                "scope_source": row.scope_source,
+                **_monthly_empty_amounts(),
+            },
+        )
+        item["entry_count"] += 1
+        if row.status == "pending":
+            item["pending_entry_count"] += 1
+        elif row.status == "held":
+            item["held_entry_count"] += 1
+        item["entry_ids"].append(row.entry_id)
+        _monthly_add_amounts(item, row)
+    summaries: list[ProviderMonthlyRevenueShareProviderSummary] = []
+    for item in grouped.values():
+        item["entry_ids"] = sorted(item["entry_ids"])
+        summaries.append(ProviderMonthlyRevenueShareProviderSummary(**item))
+    return sorted(summaries, key=lambda item: (item.provider_id, item.currency))
+
+
+def _monthly_currency_totals(
+    rows: list[ProviderRevenuePayoutEntryRow],
+) -> list[ProviderMonthlyRevenueShareCurrencyTotal]:
+    grouped: dict[str, dict[str, Any]] = {}
+    providers_by_currency: dict[str, set[str]] = {}
+    for row in rows:
+        item = grouped.setdefault(
+            row.currency,
+            {
+                "currency": row.currency,
+                "entry_count": 0,
+                "provider_count": 0,
+                **_monthly_empty_amounts(),
+            },
+        )
+        item["entry_count"] += 1
+        providers_by_currency.setdefault(row.currency, set()).add(row.provider_id)
+        _monthly_add_amounts(item, row)
+    totals: list[ProviderMonthlyRevenueShareCurrencyTotal] = []
+    for currency, item in grouped.items():
+        item["provider_count"] = len(providers_by_currency.get(currency, set()))
+        totals.append(ProviderMonthlyRevenueShareCurrencyTotal(**item))
+    return sorted(totals, key=lambda item: item.currency)
+
+
+def _monthly_policy_ratio_summaries(
+    rows: list[ProviderRevenuePayoutEntryRow],
+) -> list[ProviderMonthlyRevenueSharePolicyRatioSummary]:
+    grouped: dict[tuple[str, str, str, str], dict[str, Any]] = {}
+    for row in rows:
+        key = (
+            row.policy_id,
+            _ratio_string(row.provider_share_ratio),
+            _ratio_string(row.platform_share_ratio),
+            row.currency,
+        )
+        item = grouped.setdefault(
+            key,
+            {
+                "policy_id": row.policy_id,
+                "provider_share_ratio": row.provider_share_ratio,
+                "platform_share_ratio": row.platform_share_ratio,
+                "currency": row.currency,
+                "entry_count": 0,
+                "gross_amount": Decimal("0.0000"),
+                "provider_revenue_amount": Decimal("0.0000"),
+                "platform_revenue_amount": Decimal("0.0000"),
+            },
+        )
+        item["entry_count"] += 1
+        item["gross_amount"] += normalize_money(row.gross_amount)
+        item["provider_revenue_amount"] += normalize_money(row.provider_revenue_amount)
+        item["platform_revenue_amount"] += normalize_money(row.platform_revenue_amount)
+    summaries = [ProviderMonthlyRevenueSharePolicyRatioSummary(**item) for item in grouped.values()]
+    return sorted(
+        summaries,
+        key=lambda item: (
+            item.policy_id,
+            item.currency,
+            _ratio_string(item.provider_share_ratio),
+            _ratio_string(item.platform_share_ratio),
+        ),
+    )
+
+
+def _monthly_model_dump(item: Any) -> dict[str, Any]:
+    return cast(dict[str, Any], item.model_dump(mode="json"))
+
+
+def _monthly_checksum_payload(
+    *,
+    tenant_id: uuid.UUID | None,
+    period_month: str,
+    source_entry_ids: list[str],
+    provider_summaries: list[ProviderMonthlyRevenueShareProviderSummary],
+    currency_totals: list[ProviderMonthlyRevenueShareCurrencyTotal],
+    policy_ratio_summaries: list[ProviderMonthlyRevenueSharePolicyRatioSummary],
+    excluded_entries: list[ProviderMonthlyRevenueShareExcludedEntry],
+) -> dict[str, Any]:
+    return {
+        "tenant_id": str(tenant_id) if tenant_id is not None else None,
+        "period_month": period_month,
+        "source_entry_ids": source_entry_ids,
+        "provider_summaries": [_monthly_model_dump(item) for item in provider_summaries],
+        "currency_totals": [_monthly_model_dump(item) for item in currency_totals],
+        "policy_ratio_summaries": [_monthly_model_dump(item) for item in policy_ratio_summaries],
+        "excluded_entries": [_monthly_model_dump(item) for item in excluded_entries],
+    }
+
+
+def _monthly_checksum(payload: dict[str, Any]) -> str:
+    canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+async def _calculate_monthly_batch_snapshot(
+    session: AsyncSession,
+    *,
+    tenant_id: uuid.UUID | None,
+    period_month: str,
+    allow_drift_exclusions: bool,
+) -> dict[str, Any]:
+    rows = list(
+        (
+            await session.execute(
+                select(ProviderRevenuePayoutEntry)
+                .where(
+                    ProviderRevenuePayoutEntry.period_month == period_month,
+                    (
+                        ProviderRevenuePayoutEntry.tenant_id.is_(None)
+                        if tenant_id is None
+                        else ProviderRevenuePayoutEntry.tenant_id == tenant_id
+                    ),
+                )
+                .order_by(ProviderRevenuePayoutEntry.entry_id)
+            )
+        ).scalars()
+    )
+    references = await _load_payout_entry_references(session, rows)
+    included_rows: list[ProviderRevenuePayoutEntryRow] = []
+    excluded_entries: list[ProviderMonthlyRevenueShareExcludedEntry] = []
+    for row in rows:
+        try:
+            response = _validated_payout_entry_response(
+                row, references, requested_tenant_id=tenant_id
+            )
+        except HTTPException:
+            if not allow_drift_exclusions:
+                raise
+            excluded_entries.append(
+                ProviderMonthlyRevenueShareExcludedEntry(
+                    entry_id=row.entry_id,
+                    reason="stored_drift",
+                )
+            )
+            continue
+        if response.status in _MONTHLY_INCLUDED_STATUSES:
+            included_rows.append(_payout_entry_row_from_response(response))
+        elif response.status in {"paid", "voided"}:
+            excluded_entries.append(
+                ProviderMonthlyRevenueShareExcludedEntry(
+                    entry_id=response.entry_id,
+                    reason=cast(Any, response.status),
+                )
+            )
+        else:
+            excluded_entries.append(
+                ProviderMonthlyRevenueShareExcludedEntry(
+                    entry_id=response.entry_id,
+                    reason="unsupported_status",
+                )
+            )
+    included_rows.sort(key=lambda item: item.entry_id)
+    excluded_entries.sort(key=lambda item: (item.entry_id, item.reason))
+    source_entry_ids = [row.entry_id for row in included_rows]
+    provider_summaries = _monthly_provider_summaries(included_rows)
+    currency_totals = _monthly_currency_totals(included_rows)
+    policy_ratio_summaries = _monthly_policy_ratio_summaries(included_rows)
+    checksum_payload = _monthly_checksum_payload(
+        tenant_id=tenant_id,
+        period_month=period_month,
+        source_entry_ids=source_entry_ids,
+        provider_summaries=provider_summaries,
+        currency_totals=currency_totals,
+        policy_ratio_summaries=policy_ratio_summaries,
+        excluded_entries=excluded_entries,
+    )
+    return {
+        "entry_count": len(included_rows),
+        "provider_count": len({row.provider_id for row in included_rows}),
+        "currency_totals": [_monthly_model_dump(item) for item in currency_totals],
+        "provider_summaries": [_monthly_model_dump(item) for item in provider_summaries],
+        "policy_ratio_summaries": [_monthly_model_dump(item) for item in policy_ratio_summaries],
+        "excluded_entries": [_monthly_model_dump(item) for item in excluded_entries],
+        "source_entry_ids": source_entry_ids,
+        "calculation_checksum": _monthly_checksum(checksum_payload),
+    }
+
+
+async def _load_monthly_batch_row(
+    session: AsyncSession,
+    *,
+    batch_id: str,
+    tenant_id: uuid.UUID | None,
+) -> ProviderMonthlyRevenueShareBatch | None:
+    return (
+        await session.execute(
+            select(ProviderMonthlyRevenueShareBatch).where(
+                ProviderMonthlyRevenueShareBatch.batch_id == batch_id,
+                (
+                    ProviderMonthlyRevenueShareBatch.tenant_id.is_(None)
+                    if tenant_id is None
+                    else ProviderMonthlyRevenueShareBatch.tenant_id == tenant_id
+                ),
+            )
+        )
+    ).scalar_one_or_none()
+
+
+async def _lock_monthly_batch_row(
+    session: AsyncSession,
+    row: ProviderMonthlyRevenueShareBatch,
+) -> ProviderMonthlyRevenueShareBatch:
+    return (
+        await session.execute(
+            select(ProviderMonthlyRevenueShareBatch)
+            .where(ProviderMonthlyRevenueShareBatch.id == row.id)
+            .with_for_update()
+        )
+    ).scalar_one()
+
+
+def _validate_monthly_batch_json(row: ProviderMonthlyRevenueShareBatch) -> None:
+    if not re.match(_PATH_ID_PATTERN, row.batch_id):
+        raise _monthly_conflict("batch_id drift")
+    _validate_period_month(row.period_month)
+    _coerce_monthly_status(row.status)
+    if row.record_version < 1:
+        raise _monthly_conflict("record_version drift")
+    if not re.match(r"^[0-9a-f]{64}$", row.calculation_checksum):
+        raise _monthly_conflict("calculation_checksum drift")
+    if row.calculated_at.tzinfo is None or row.calculated_at.utcoffset() is None:
+        raise _monthly_conflict("calculated_at must be timezone-aware")
+    if row.created_at.tzinfo is None or row.created_at.utcoffset() is None:
+        raise _monthly_conflict("created_at must be timezone-aware")
+    if row.updated_at.tzinfo is None or row.updated_at.utcoffset() is None:
+        raise _monthly_conflict("updated_at must be timezone-aware")
+    _validate_monthly_reference(row.notes_ref, field_name="notes_ref")
+    _validate_monthly_reference(row.approved_by_ref, field_name="approved_by_ref")
+    if not isinstance(row.batch_metadata, dict):
+        raise _monthly_conflict("metadata drift")
+    for field_name in (
+        "currency_totals",
+        "provider_summaries",
+        "policy_ratio_summaries",
+        "excluded_entries",
+        "source_entry_ids",
+    ):
+        if not isinstance(getattr(row, field_name), list):
+            raise _monthly_conflict(f"{field_name} drift")
+
+
+async def _validate_monthly_batch_source_entries(
+    session: AsyncSession,
+    row: ProviderMonthlyRevenueShareBatch,
+    *,
+    source_entry_ids: list[str],
+    provider_summaries: list[ProviderMonthlyRevenueShareProviderSummary],
+    currency_totals: list[ProviderMonthlyRevenueShareCurrencyTotal],
+    policy_ratio_summaries: list[ProviderMonthlyRevenueSharePolicyRatioSummary],
+) -> None:
+    if not source_entry_ids:
+        if provider_summaries or currency_totals or policy_ratio_summaries:
+            raise _monthly_conflict("monthly batch empty source drift")
+        return
+    for entry_id in source_entry_ids:
+        _validate_payout_path_id(entry_id, field_name="source_entry_id")
+    payout_rows = list(
+        (
+            await session.execute(
+                select(ProviderRevenuePayoutEntry)
+                .where(
+                    ProviderRevenuePayoutEntry.entry_id.in_(source_entry_ids),
+                    (
+                        ProviderRevenuePayoutEntry.tenant_id.is_(None)
+                        if row.tenant_id is None
+                        else ProviderRevenuePayoutEntry.tenant_id == row.tenant_id
+                    ),
+                )
+                .order_by(ProviderRevenuePayoutEntry.entry_id)
+            )
+        ).scalars()
+    )
+    if {item.entry_id for item in payout_rows} != set(source_entry_ids):
+        raise _monthly_conflict("monthly batch source entry drift")
+    references = await _load_payout_entry_references(session, payout_rows)
+    validated_rows: list[ProviderRevenuePayoutEntryRow] = []
+    for payout_row in payout_rows:
+        response = _validated_payout_entry_response(
+            payout_row,
+            references,
+            requested_tenant_id=row.tenant_id,
+        )
+        if response.period_month != row.period_month:
+            raise _monthly_conflict("monthly batch source period drift")
+        validated_rows.append(_payout_entry_row_from_response(response))
+    validated_rows.sort(key=lambda item: item.entry_id)
+    if [item.entry_id for item in validated_rows] != source_entry_ids:
+        raise _monthly_conflict("monthly batch source entry drift")
+    actual_provider_summaries = [
+        {
+            "provider_id": item.provider_id,
+            "currency": item.currency,
+            "entry_count": item.entry_count,
+            "gross_amount": item.gross_amount,
+            "provider_revenue_amount": item.provider_revenue_amount,
+            "platform_revenue_amount": item.platform_revenue_amount,
+            "entry_ids": item.entry_ids,
+            "scope_source": item.scope_source,
+        }
+        for item in _monthly_provider_summaries(validated_rows)
+    ]
+    stored_provider_summaries = [
+        {
+            "provider_id": item.provider_id,
+            "currency": item.currency,
+            "entry_count": item.entry_count,
+            "gross_amount": item.gross_amount,
+            "provider_revenue_amount": item.provider_revenue_amount,
+            "platform_revenue_amount": item.platform_revenue_amount,
+            "entry_ids": item.entry_ids,
+            "scope_source": item.scope_source,
+        }
+        for item in provider_summaries
+    ]
+    if actual_provider_summaries != stored_provider_summaries:
+        raise _monthly_conflict("monthly batch provider summary source drift")
+    actual_currency_totals = [
+        {
+            "currency": item.currency,
+            "entry_count": item.entry_count,
+            "provider_count": item.provider_count,
+            "gross_amount": item.gross_amount,
+            "provider_revenue_amount": item.provider_revenue_amount,
+            "platform_revenue_amount": item.platform_revenue_amount,
+        }
+        for item in _monthly_currency_totals(validated_rows)
+    ]
+    stored_currency_totals = [
+        {
+            "currency": item.currency,
+            "entry_count": item.entry_count,
+            "provider_count": item.provider_count,
+            "gross_amount": item.gross_amount,
+            "provider_revenue_amount": item.provider_revenue_amount,
+            "platform_revenue_amount": item.platform_revenue_amount,
+        }
+        for item in currency_totals
+    ]
+    if actual_currency_totals != stored_currency_totals:
+        raise _monthly_conflict("monthly batch currency total source drift")
+    if _monthly_policy_ratio_summaries(validated_rows) != policy_ratio_summaries:
+        raise _monthly_conflict("monthly batch policy summary source drift")
+
+
+def _monthly_batch_response(
+    row: ProviderMonthlyRevenueShareBatch,
+    *,
+    requested_tenant_id: uuid.UUID | None,
+) -> ProviderMonthlyRevenueShareBatchResponse:
+    _validate_monthly_batch_json(row)
+    try:
+        currency_totals = [
+            ProviderMonthlyRevenueShareCurrencyTotal.model_validate(item)
+            for item in row.currency_totals
+        ]
+        provider_summaries = [
+            ProviderMonthlyRevenueShareProviderSummary.model_validate(item)
+            for item in row.provider_summaries
+        ]
+        policy_ratio_summaries = [
+            ProviderMonthlyRevenueSharePolicyRatioSummary.model_validate(item)
+            for item in row.policy_ratio_summaries
+        ]
+        excluded_entries = [
+            ProviderMonthlyRevenueShareExcludedEntry.model_validate(item)
+            for item in row.excluded_entries
+        ]
+        source_entry_ids = [str(item) for item in row.source_entry_ids]
+    except ValueError as exc:
+        raise _monthly_conflict("monthly batch snapshot drift") from exc
+    if source_entry_ids != sorted(source_entry_ids) or len(source_entry_ids) != len(
+        set(source_entry_ids)
+    ):
+        raise _monthly_conflict("source_entry_ids drift")
+    if excluded_entries != sorted(excluded_entries, key=lambda item: (item.entry_id, item.reason)):
+        raise _monthly_conflict("excluded_entries drift")
+    if provider_summaries != sorted(
+        provider_summaries, key=lambda item: (item.provider_id, item.currency)
+    ):
+        raise _monthly_conflict("provider_summaries drift")
+    if currency_totals != sorted(currency_totals, key=lambda item: item.currency):
+        raise _monthly_conflict("currency_totals drift")
+    if policy_ratio_summaries != sorted(
+        policy_ratio_summaries,
+        key=lambda item: (
+            item.policy_id,
+            item.currency,
+            _ratio_string(item.provider_share_ratio),
+            _ratio_string(item.platform_share_ratio),
+        ),
+    ):
+        raise _monthly_conflict("policy_ratio_summaries drift")
+    source_entry_ids = sorted(source_entry_ids)
+    if row.entry_count != len(source_entry_ids):
+        raise _monthly_conflict("entry_count drift")
+    if row.provider_count != len({item.provider_id for item in provider_summaries}):
+        raise _monthly_conflict("provider_count drift")
+    payload = _monthly_checksum_payload(
+        tenant_id=row.tenant_id,
+        period_month=row.period_month,
+        source_entry_ids=source_entry_ids,
+        provider_summaries=sorted(
+            provider_summaries, key=lambda item: (item.provider_id, item.currency)
+        ),
+        currency_totals=sorted(currency_totals, key=lambda item: item.currency),
+        policy_ratio_summaries=sorted(
+            policy_ratio_summaries,
+            key=lambda item: (
+                item.policy_id,
+                item.currency,
+                _ratio_string(item.provider_share_ratio),
+                _ratio_string(item.platform_share_ratio),
+            ),
+        ),
+        excluded_entries=sorted(excluded_entries, key=lambda item: (item.entry_id, item.reason)),
+    )
+    if _monthly_checksum(payload) != row.calculation_checksum:
+        raise _monthly_conflict("calculation_checksum drift")
+    return ProviderMonthlyRevenueShareBatchResponse(
+        id=row.id,
+        tenant_id=row.tenant_id,
+        batch_id=row.batch_id,
+        period_month=row.period_month,
+        status=_coerce_monthly_status(row.status),
+        calculated_at=row.calculated_at,
+        entry_count=row.entry_count,
+        provider_count=row.provider_count,
+        currency_totals=currency_totals,
+        provider_summaries=provider_summaries,
+        policy_ratio_summaries=policy_ratio_summaries,
+        excluded_entries=excluded_entries,
+        source_entry_ids=source_entry_ids,
+        calculation_checksum=row.calculation_checksum,
+        notes_ref=row.notes_ref,
+        approved_by_ref=row.approved_by_ref,
+        record_version=row.record_version,
+        scope_source=_payout_scope_source(row.tenant_id, requested_tenant_id),
+        created_at=row.created_at,
+        updated_at=row.updated_at,
+    )
+
+
+async def _monthly_batch_response_with_source_validation(
+    session: AsyncSession,
+    row: ProviderMonthlyRevenueShareBatch,
+    *,
+    requested_tenant_id: uuid.UUID | None,
+) -> ProviderMonthlyRevenueShareBatchResponse:
+    body = _monthly_batch_response(row, requested_tenant_id=requested_tenant_id)
+    await _validate_monthly_batch_source_entries(
+        session,
+        row,
+        source_entry_ids=body.source_entry_ids,
+        provider_summaries=body.provider_summaries,
+        currency_totals=body.currency_totals,
+        policy_ratio_summaries=body.policy_ratio_summaries,
+    )
+    return body
+
+
+def _monthly_etag(row: ProviderMonthlyRevenueShareBatch) -> str:
+    return f'"{row.batch_id}:{row.record_version}"'
+
+
+def _set_monthly_etag(response: Response, row: ProviderMonthlyRevenueShareBatch) -> None:
+    response.headers["ETag"] = _monthly_etag(row)
+
+
+def _require_matching_monthly_etag(
+    *,
+    if_match: str | None,
+    row: ProviderMonthlyRevenueShareBatch,
+) -> None:
+    if if_match is None:
+        raise HTTPException(
+            status_code=status.HTTP_428_PRECONDITION_REQUIRED,
+            detail="If-Match header required",
+        )
+    if if_match != _monthly_etag(row):
+        raise HTTPException(
+            status_code=status.HTTP_412_PRECONDITION_FAILED,
+            detail="If-Match header does not match current resource version",
+        )
+
+
+def _assert_monthly_status_transition(
+    current_status: str,
+    next_status: ProviderMonthlyRevenueShareBatchStatus,
+    *,
+    approved_by_ref: str | None,
+) -> bool:
+    current = _coerce_monthly_status(current_status)
+    if current == next_status:
+        return False
+    allowed = {
+        "draft": {"reviewed", "cancelled"},
+        "reviewed": {"approved", "cancelled"},
+        "approved": {"exported", "cancelled"},
+        "exported": set(),
+        "cancelled": set(),
+    }
+    if next_status not in allowed[current]:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"invalid monthly batch status transition: {current} -> {next_status}",
+        )
+    if next_status in {"approved", "exported"} and approved_by_ref is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="approved_by_ref is required for approved/exported monthly batches",
+        )
+    return True
+
+
+def _assert_terminal_monthly_patch_idempotent(
+    row: ProviderMonthlyRevenueShareBatch,
+    body: ProviderMonthlyRevenueShareBatchStatusPatchRequest,
+) -> None:
+    if row.status not in {"exported", "cancelled"}:
+        return
+    if (
+        body.status != row.status
+        or (body.notes_ref is not None and body.notes_ref != row.notes_ref)
+        or (body.approved_by_ref is not None and body.approved_by_ref != row.approved_by_ref)
+        or (body.metadata is not None and body.metadata != row.batch_metadata)
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"{row.status} monthly batch is immutable",
+        )
+
+
+def _assert_monthly_batch_matches_request(
+    row: ProviderMonthlyRevenueShareBatch,
+    body: ProviderMonthlyRevenueShareBatchUpsertRequest,
+    snapshot: dict[str, Any],
+) -> None:
+    if row.period_month != body.period_month:
+        raise _monthly_conflict("monthly batch create conflict: period_month mismatch")
+    if row.calculation_checksum != snapshot["calculation_checksum"]:
+        raise _monthly_conflict("monthly batch create conflict: checksum mismatch")
+    if row.notes_ref != body.notes_ref or row.batch_metadata != body.metadata:
+        raise _monthly_conflict("monthly batch create conflict: metadata mismatch")
+
+
 async def _load_provider_application_row(
     session: AsyncSession,
     *,
@@ -2180,6 +2823,240 @@ async def list_provider_revenue_payout_entries(
         _validated_payout_entry_response(row, references, requested_tenant_id=tenant_id)
         for row in rows
     ]
+
+
+@router.put(
+    "/revenue-share/monthly-batches/{batch_id}",
+    response_model=ProviderMonthlyRevenueShareBatchResponse,
+    tags=["revenue-share"],
+)
+async def upsert_provider_monthly_revenue_share_batch(
+    batch_id: Annotated[str, Path(pattern=_PATH_ID_PATTERN)],
+    body: ProviderMonthlyRevenueShareBatchUpsertRequest,
+    response: Response,
+    x_internal_service_auth: str | None = Header(default=None, alias="X-Internal-Service-Auth"),
+    session: AsyncSession = Depends(get_session),
+) -> ProviderMonthlyRevenueShareBatchResponse:
+    _require_write_auth(x_internal_service_auth)
+    _assert_path_id(body.batch_id, batch_id, "batch_id")
+    snapshot = await _calculate_monthly_batch_snapshot(
+        session,
+        tenant_id=body.tenant_id,
+        period_month=body.period_month,
+        allow_drift_exclusions=body.allow_drift_exclusions,
+    )
+    now = datetime.now(UTC)
+    row = await _load_monthly_batch_row(session, batch_id=batch_id, tenant_id=body.tenant_id)
+    if row is None:
+        row = ProviderMonthlyRevenueShareBatch(
+            tenant_id=body.tenant_id,
+            batch_id=batch_id,
+            period_month=body.period_month,
+            status="draft",
+            calculated_at=now,
+            notes_ref=body.notes_ref,
+            batch_metadata=body.metadata,
+            record_version=1,
+            created_at=now,
+            updated_at=now,
+            **snapshot,
+        )
+        try:
+            async with session.begin_nested():
+                session.add(row)
+                await session.flush()
+        except IntegrityError as exc:
+            existing = await _load_monthly_batch_row(
+                session,
+                batch_id=batch_id,
+                tenant_id=body.tenant_id,
+            )
+            if existing is None:
+                raise _monthly_conflict("monthly batch create conflict") from exc
+            _assert_monthly_batch_matches_request(existing, body, snapshot)
+            response_body = await _monthly_batch_response_with_source_validation(
+                session,
+                existing,
+                requested_tenant_id=body.tenant_id,
+            )
+            _set_monthly_etag(response, existing)
+            return response_body
+    else:
+        row = await _lock_monthly_batch_row(session, row)
+        _validate_monthly_batch_json(row)
+        if row.period_month != body.period_month:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="period_month is immutable for monthly batch",
+            )
+        changed_snapshot = row.calculation_checksum != snapshot["calculation_checksum"]
+        if row.status != "draft":
+            if changed_snapshot:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail="non-draft monthly batch snapshot is immutable",
+                )
+            if row.notes_ref != body.notes_ref or row.batch_metadata != body.metadata:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail="non-draft monthly batch metadata is immutable",
+                )
+        elif (
+            changed_snapshot
+            or row.notes_ref != body.notes_ref
+            or row.batch_metadata != body.metadata
+        ):
+            row.entry_count = snapshot["entry_count"]
+            row.provider_count = snapshot["provider_count"]
+            row.currency_totals = snapshot["currency_totals"]
+            row.provider_summaries = snapshot["provider_summaries"]
+            row.policy_ratio_summaries = snapshot["policy_ratio_summaries"]
+            row.excluded_entries = snapshot["excluded_entries"]
+            row.source_entry_ids = snapshot["source_entry_ids"]
+            row.calculation_checksum = snapshot["calculation_checksum"]
+            row.notes_ref = body.notes_ref
+            row.batch_metadata = body.metadata
+            row.calculated_at = now
+            row.updated_at = now
+            row.record_version += 1
+            await session.flush()
+    response_body = await _monthly_batch_response_with_source_validation(
+        session,
+        row,
+        requested_tenant_id=body.tenant_id,
+    )
+    _set_monthly_etag(response, row)
+    return response_body
+
+
+@router.get(
+    "/revenue-share/monthly-batches/{batch_id}",
+    response_model=ProviderMonthlyRevenueShareBatchResponse,
+    tags=["revenue-share"],
+)
+async def get_provider_monthly_revenue_share_batch(
+    batch_id: Annotated[str, Path(pattern=_PATH_ID_PATTERN)],
+    response: Response,
+    tenant_id: uuid.UUID | None = Query(default=None),
+    session: AsyncSession = Depends(get_session),
+) -> ProviderMonthlyRevenueShareBatchResponse:
+    row = await _load_monthly_batch_row(session, batch_id=batch_id, tenant_id=tenant_id)
+    if row is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="monthly batch not found")
+    body = await _monthly_batch_response_with_source_validation(
+        session,
+        row,
+        requested_tenant_id=tenant_id,
+    )
+    _set_monthly_etag(response, row)
+    return body
+
+
+@router.get(
+    "/revenue-share/monthly-batches",
+    response_model=list[ProviderMonthlyRevenueShareBatchResponse],
+    tags=["revenue-share"],
+)
+async def list_provider_monthly_revenue_share_batches(
+    tenant_id: uuid.UUID | None = Query(default=None),
+    period_month: Annotated[str | None, Query(pattern=r"^[0-9]{4}-(0[1-9]|1[0-2])$")] = None,
+    status_filter: ProviderMonthlyRevenueShareBatchStatus | None = Query(
+        default=None,
+        alias="status",
+    ),
+    currency: Annotated[str | None, Query(pattern=r"^[A-Z]{3}$")] = None,
+    session: AsyncSession = Depends(get_session),
+) -> list[ProviderMonthlyRevenueShareBatchResponse]:
+    conditions: list[ColumnElement[bool]] = [
+        (
+            ProviderMonthlyRevenueShareBatch.tenant_id.is_(None)
+            if tenant_id is None
+            else ProviderMonthlyRevenueShareBatch.tenant_id == tenant_id
+        )
+    ]
+    if period_month is not None:
+        conditions.append(ProviderMonthlyRevenueShareBatch.period_month == period_month)
+    if status_filter is not None:
+        conditions.append(ProviderMonthlyRevenueShareBatch.status == status_filter)
+    rows = list(
+        (
+            await session.execute(
+                select(ProviderMonthlyRevenueShareBatch)
+                .where(*conditions)
+                .order_by(
+                    ProviderMonthlyRevenueShareBatch.period_month.desc(),
+                    ProviderMonthlyRevenueShareBatch.calculated_at.desc(),
+                    ProviderMonthlyRevenueShareBatch.batch_id,
+                )
+            )
+        ).scalars()
+    )
+    responses = [
+        await _monthly_batch_response_with_source_validation(
+            session,
+            row,
+            requested_tenant_id=tenant_id,
+        )
+        for row in rows
+    ]
+    if currency is not None:
+        responses = [
+            item
+            for item in responses
+            if any(total.currency == currency for total in item.currency_totals)
+        ]
+    return responses
+
+
+@router.patch(
+    "/revenue-share/monthly-batches/{batch_id}/status",
+    response_model=ProviderMonthlyRevenueShareBatchResponse,
+    tags=["revenue-share"],
+)
+async def patch_provider_monthly_revenue_share_batch_status(
+    batch_id: Annotated[str, Path(pattern=_PATH_ID_PATTERN)],
+    body: ProviderMonthlyRevenueShareBatchStatusPatchRequest,
+    response: Response,
+    tenant_id: uuid.UUID | None = Query(default=None),
+    if_match: str | None = Header(default=None, alias="If-Match"),
+    x_internal_service_auth: str | None = Header(default=None, alias="X-Internal-Service-Auth"),
+    session: AsyncSession = Depends(get_session),
+) -> ProviderMonthlyRevenueShareBatchResponse:
+    _require_write_auth(x_internal_service_auth)
+    row = await _load_monthly_batch_row(session, batch_id=batch_id, tenant_id=tenant_id)
+    if row is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="monthly batch not found")
+    row = await _lock_monthly_batch_row(session, row)
+    _require_matching_monthly_etag(if_match=if_match, row=row)
+    _assert_terminal_monthly_patch_idempotent(row, body)
+    transitioned = _assert_monthly_status_transition(
+        row.status,
+        body.status,
+        approved_by_ref=body.approved_by_ref or row.approved_by_ref,
+    )
+    changed_refs = (
+        (body.notes_ref is not None and body.notes_ref != row.notes_ref)
+        or (body.approved_by_ref is not None and body.approved_by_ref != row.approved_by_ref)
+        or (body.metadata is not None and body.metadata != row.batch_metadata)
+    )
+    if transitioned or changed_refs:
+        row.status = body.status
+        if body.notes_ref is not None:
+            row.notes_ref = body.notes_ref
+        if body.approved_by_ref is not None:
+            row.approved_by_ref = body.approved_by_ref
+        if body.metadata is not None:
+            row.batch_metadata = body.metadata
+        row.updated_at = datetime.now(UTC)
+        row.record_version += 1
+        await session.flush()
+    body_response = await _monthly_batch_response_with_source_validation(
+        session,
+        row,
+        requested_tenant_id=tenant_id,
+    )
+    _set_monthly_etag(response, row)
+    return body_response
 
 
 @router.put(
