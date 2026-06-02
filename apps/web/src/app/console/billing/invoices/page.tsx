@@ -347,6 +347,9 @@ export default function BillingInvoicesPage(): JSX.Element {
             >
               数据导出
             </Link>
+            <Link href="/console/providers" className="text-muted-foreground hover:text-foreground">
+              Providers
+            </Link>
             <Link
               href="/console/billing/invoices"
               className="font-medium text-foreground hover:text-primary"
