@@ -4,7 +4,7 @@ baseline_commit: 1244d34c79718b2a206336b1aef0116932ccb335
 epic_num: 8
 story_num: A.4
 epic_name: Public Status + Audit + Vuln Response
-status: code-review
+status: done
 priority: High
 type: User audit log query endpoint
 created_by: bmad-create-story
@@ -25,7 +25,7 @@ sources:
 
 # Story 8.A.4 - 用户审计日志查询
 
-Status: code-review
+Status: done
 
 ## Story
 
@@ -134,8 +134,8 @@ FR O3 要求用户能查看 own activity audit logs。Architecture C3 定义 v1 
   - [x] Run auth-service regression subset/full suite as feasible.
   - [x] Run OpenAPI drift check and `git diff --check`.
   - [x] Run post-implementation code review, fix findings, and record result.
-  - [ ] Commit, push, create PR, wait for CI, merge, delete remote branch, sync local `main`.
-  - [ ] Mark story and sprint status `done` only after merge/sync.
+  - [x] Commit, push, create PR, wait for CI, merge, delete remote branch, sync local `main`.
+  - [x] Mark story and sprint status `done` only after merge/sync.
 
 ## Dev Notes
 
@@ -225,7 +225,8 @@ GPT-5 Codex
 - OpenAPI drift after review fix: `uv run python scripts/check_openapi_drift.py` -> passed.
 - Final auth-service suite: `uv run pytest apps/auth-service/tests` -> 107 passed.
 - Final diff-check: `git diff --check` -> passed.
-- Story and sprint status moved to `code-review` after local gates and post-implementation review; final `done` remains gated on GitHub CI, PR merge, remote branch cleanup, and local `main` sync.
+- Story and sprint status moved to `code-review` after local gates and post-implementation review; final `done` remained gated on GitHub CI, PR merge, remote branch cleanup, and local `main` sync.
+- GitHub sync: PR #148 passed checks including `changes`, `lint`, `auth-service-test`, `mypy`, `openapi-drift`, `contract-test`, `ts-typecheck`, `e2e`, `matrix-detect`, and `build-and-sbom (auth-service)`; PR squash-merged to `main` at `4cee871dedfb3de2b51e1b3bbe0e94086f2c257b`; remote branch `codex/8-a-4-user-audit-logs` was deleted; local `main` is synced to `origin/main`.
 
 ### Completion Notes List
 
@@ -237,6 +238,7 @@ GPT-5 Codex
 - Implemented authenticated `GET /v1/me/audit-logs` in auth-service with own-user scoping, strict UTC time windows, signed/bound cursor pagination, metadata redaction, and generated OpenAPI contract.
 - Added focused audit log route tests for auth, isolation, time filters, limits, pagination, cursor drift/user binding, redaction, and inactive accounts.
 - Completed post-implementation code review; fixed cursor user binding and safe metadata over-redaction.
+- GitHub sync completed: PR #148 passed CI, merged, remote branch deleted, local `main` synced, and story/sprint status marked done.
 
 ### File List
 
@@ -257,6 +259,7 @@ GPT-5 Codex
 - 2026-06-02 - Implementation started; story and sprint status moved to in-progress.
 - 2026-06-02 - Implemented `/v1/me/audit-logs`, audit response schemas, signed cursor helpers, metadata redaction, focused tests, and OpenAPI contract.
 - 2026-06-02 - Completed post-implementation code review; fixed cursor user binding and safe metadata key over-redaction; local gates passed and story moved to code-review pending GitHub sync.
+- 2026-06-02 - PR #148 passed GitHub CI, merged to main, remote branch deleted, local main synced; story marked done.
 
 ## Post-Implementation Code Review
 
