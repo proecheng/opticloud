@@ -4,7 +4,7 @@ baseline_commit: 3c10beace3cc3839aba62a221250b9bd5c44a125
 epic_num: 8
 story_num: A.5
 epic_name: Public Status + Audit + Vuln Response
-status: code-review
+status: done
 priority: High
 type: UI audit log table and Console history page
 created_by: bmad-create-story
@@ -24,7 +24,7 @@ sources:
 
 # Story 8.A.5 - AuditLogTable Component
 
-Status: code-review
+Status: done
 
 ## Story
 
@@ -126,15 +126,15 @@ Story 8.A.4 已交付后端契约：`GET /v1/me/audit-logs` 在 `auth-service` �
   - [x] Add Console navigation link to “审计日志” while preserving existing links.
   - [x] Add `page.test.tsx` covering auth, loading/data/error/empty/filter/pagination/nav/storage behavior.
 
-- [ ] T4: Gates, review, and GitHub sync (AC: 36-38)
+- [x] T4: Gates, review, and GitHub sync (AC: 36-38)
   - [x] Run focused UI tests and a11y tests.
   - [x] Run UI typecheck.
   - [x] Run focused Web tests.
   - [x] Run Web typecheck.
   - [x] Run `git diff --check`.
   - [x] Run post-implementation adversarial code review and apply fixes.
-  - [ ] Commit, push, create PR, wait for CI, merge, delete remote branch, sync local `main`.
-  - [ ] Mark story and sprint status `done` only after merge/sync.
+  - [x] Commit, push, create PR, wait for CI, merge, delete remote branch, sync local `main`.
+  - [x] Mark story and sprint status `done` only after merge/sync.
 
 ## Dev Notes
 
@@ -218,6 +218,7 @@ GPT-5 Codex
 - Pre-review local gates: UI focused tests/a11y -> 8 passed; UI typecheck -> passed; Web focused tests -> 9 passed; Web typecheck initially failed because `UserAuditLogItem.ip_address`/`user_agent` were incorrectly optional vs OpenAPI required nullable fields; fixed and reran -> passed; `git diff --check` -> passed.
 - Post-implementation code review found 1 patch finding: stale initial audit-log response could overwrite a newer time-filter response. Fixed with request sequence guard and regression test.
 - Final local gates after review fix: UI focused tests/a11y -> 8 passed; UI typecheck -> passed; Web focused tests -> 10 passed; Web typecheck -> passed; `git diff --check` -> passed.
+- GitHub sync: PR #149 passed checks including `changes`, `lint`, `ts-typecheck`, `e2e`, `chromatic`, `matrix-detect`, `gtm-toolkit-validation`, and `build-and-sbom (auth-service)`; PR squash-merged to `main` at `482eb5d0fe3cbd3e10d51305da9df0ecdacc6e2d`; remote branch `codex/8-a-5-audit-log-table` was deleted; local `main` is synced to `origin/main`.
 
 ### Completion Notes List
 
@@ -230,6 +231,7 @@ GPT-5 Codex
 - Added `listMyAuditLogs` Web API helper with typed 8.A.4 response contract, Authorization header, query param filtering, and focused tests.
 - Added `/console/audit-logs` page with JWT session auth, server time filters, opaque cursor pagination, error/empty/loading states, storage safety test, and Console nav entries on existing Console pages.
 - Completed post-implementation code review; fixed stale response overwrite risk with latest-request sequencing.
+- GitHub sync completed: PR #149 passed CI, merged, remote branch deleted, local `main` synced, and story/sprint status marked done.
 
 ### File List
 
@@ -259,6 +261,7 @@ GPT-5 Codex
 - 2026-06-02 - Implementation started; story and sprint status moved to in-progress.
 - 2026-06-02 - Implemented AuditLogTable, Web API helper, Console audit logs page, Console nav entries, focused tests, and a11y coverage.
 - 2026-06-02 - Completed post-implementation code review; fixed stale request overwrite; local gates passed and story moved to code-review pending GitHub sync.
+- 2026-06-02 - PR #149 passed GitHub CI, merged to main, remote branch deleted, local main synced; story marked done.
 
 ## Post-Implementation Code Review
 
