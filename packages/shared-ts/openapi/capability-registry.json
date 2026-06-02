@@ -1021,6 +1021,444 @@
         "title": "ProviderEvaluationUpsertRequest",
         "type": "object"
       },
+      "ProviderKpiAggregateMetrics": {
+        "additionalProperties": false,
+        "properties": {
+          "average_deviation_ratio": {
+            "title": "Average Deviation Ratio",
+            "type": "string"
+          },
+          "baseline_p95_latency_ms": {
+            "minimum": 0.0,
+            "title": "Baseline P95 Latency Ms",
+            "type": "integer"
+          },
+          "failed_count": {
+            "minimum": 0.0,
+            "title": "Failed Count",
+            "type": "integer"
+          },
+          "p95_latency_ratio": {
+            "title": "P95 Latency Ratio",
+            "type": "string"
+          },
+          "provider_error_count": {
+            "minimum": 0.0,
+            "title": "Provider Error Count",
+            "type": "integer"
+          },
+          "provider_p95_latency_ms": {
+            "minimum": 0.0,
+            "title": "Provider P95 Latency Ms",
+            "type": "integer"
+          },
+          "sample_count": {
+            "minimum": 0.0,
+            "title": "Sample Count",
+            "type": "integer"
+          },
+          "success_count": {
+            "minimum": 0.0,
+            "title": "Success Count",
+            "type": "integer"
+          },
+          "success_rate": {
+            "title": "Success Rate",
+            "type": "string"
+          },
+          "timeout_count": {
+            "minimum": 0.0,
+            "title": "Timeout Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "sample_count",
+          "success_count",
+          "failed_count",
+          "timeout_count",
+          "provider_error_count",
+          "success_rate",
+          "average_deviation_ratio",
+          "provider_p95_latency_ms",
+          "baseline_p95_latency_ms",
+          "p95_latency_ratio"
+        ],
+        "title": "ProviderKpiAggregateMetrics",
+        "type": "object"
+      },
+      "ProviderKpiDashboardResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "aggregate": {
+            "$ref": "#/components/schemas/ProviderKpiAggregateMetrics"
+          },
+          "from_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "From At"
+          },
+          "provider_id": {
+            "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+            "title": "Provider Id",
+            "type": "string"
+          },
+          "rollout_summary": {
+            "$ref": "#/components/schemas/ProviderKpiRolloutSummary"
+          },
+          "run_metrics": {
+            "items": {
+              "$ref": "#/components/schemas/ProviderKpiRunMetric"
+            },
+            "title": "Run Metrics",
+            "type": "array"
+          },
+          "run_status_counts": {
+            "$ref": "#/components/schemas/ProviderKpiRunStatusCounts"
+          },
+          "tenant_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tenant Id"
+          },
+          "timeline": {
+            "items": {
+              "$ref": "#/components/schemas/ProviderKpiTimelinePoint"
+            },
+            "title": "Timeline",
+            "type": "array"
+          },
+          "to_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "To At"
+          },
+          "total_runs": {
+            "minimum": 0.0,
+            "title": "Total Runs",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "provider_id",
+          "run_status_counts",
+          "total_runs",
+          "aggregate",
+          "rollout_summary",
+          "run_metrics",
+          "timeline"
+        ],
+        "title": "ProviderKpiDashboardResponse",
+        "type": "object"
+      },
+      "ProviderKpiRolloutSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "highest_current_stage_percent": {
+            "enum": [
+              0,
+              5,
+              50,
+              100
+            ],
+            "title": "Highest Current Stage Percent",
+            "type": "integer"
+          },
+          "status_counts": {
+            "$ref": "#/components/schemas/ProviderRouteShareStatusCounts"
+          },
+          "total_rollouts": {
+            "minimum": 0.0,
+            "title": "Total Rollouts",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total_rollouts",
+          "highest_current_stage_percent",
+          "status_counts"
+        ],
+        "title": "ProviderKpiRolloutSummary",
+        "type": "object"
+      },
+      "ProviderKpiRunMetric": {
+        "additionalProperties": false,
+        "properties": {
+          "application_id": {
+            "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+            "title": "Application Id",
+            "type": "string"
+          },
+          "baseline_provider_id": {
+            "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+            "title": "Baseline Provider Id",
+            "type": "string"
+          },
+          "benchmark_suite": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$",
+            "title": "Benchmark Suite",
+            "type": "string"
+          },
+          "coverage_class_counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "propertyNames": {
+              "enum": [
+                "platform_standard",
+                "provider_supplied",
+                "adversarial",
+                "desensitized_real"
+              ]
+            },
+            "title": "Coverage Class Counts",
+            "type": "object"
+          },
+          "coverage_classes": {
+            "items": {
+              "enum": [
+                "platform_standard",
+                "provider_supplied",
+                "adversarial",
+                "desensitized_real"
+              ],
+              "type": "string"
+            },
+            "title": "Coverage Classes",
+            "type": "array"
+          },
+          "ended_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ended At"
+          },
+          "evaluation_id": {
+            "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+            "title": "Evaluation Id",
+            "type": "string"
+          },
+          "metrics": {
+            "$ref": "#/components/schemas/ProviderKpiAggregateMetrics"
+          },
+          "observed_from": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observed From"
+          },
+          "observed_to": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observed To"
+          },
+          "provider_id": {
+            "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+            "title": "Provider Id",
+            "type": "string"
+          },
+          "run_id": {
+            "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+            "title": "Run Id",
+            "type": "string"
+          },
+          "scope_source": {
+            "enum": [
+              "global",
+              "tenant"
+            ],
+            "title": "Scope Source",
+            "type": "string"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "status": {
+            "enum": [
+              "draft",
+              "running",
+              "passed",
+              "failed",
+              "cancelled"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "threshold_violations": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Threshold Violations",
+            "type": "array"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "application_id",
+          "evaluation_id",
+          "run_id",
+          "provider_id",
+          "baseline_provider_id",
+          "benchmark_suite",
+          "status",
+          "updated_at",
+          "coverage_classes",
+          "coverage_class_counts",
+          "threshold_violations",
+          "metrics",
+          "scope_source"
+        ],
+        "title": "ProviderKpiRunMetric",
+        "type": "object"
+      },
+      "ProviderKpiRunStatusCounts": {
+        "additionalProperties": false,
+        "properties": {
+          "cancelled": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Cancelled",
+            "type": "integer"
+          },
+          "draft": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Draft",
+            "type": "integer"
+          },
+          "failed": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Failed",
+            "type": "integer"
+          },
+          "passed": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Passed",
+            "type": "integer"
+          },
+          "running": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Running",
+            "type": "integer"
+          }
+        },
+        "title": "ProviderKpiRunStatusCounts",
+        "type": "object"
+      },
+      "ProviderKpiTimelinePoint": {
+        "additionalProperties": false,
+        "properties": {
+          "application_id": {
+            "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+            "title": "Application Id",
+            "type": "string"
+          },
+          "benchmark_suite": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$",
+            "title": "Benchmark Suite",
+            "type": "string"
+          },
+          "bucket_start": {
+            "format": "date-time",
+            "title": "Bucket Start",
+            "type": "string"
+          },
+          "evaluation_id": {
+            "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+            "title": "Evaluation Id",
+            "type": "string"
+          },
+          "metrics": {
+            "$ref": "#/components/schemas/ProviderKpiAggregateMetrics"
+          },
+          "provider_id": {
+            "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+            "title": "Provider Id",
+            "type": "string"
+          },
+          "run_id": {
+            "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+            "title": "Run Id",
+            "type": "string"
+          },
+          "scope_source": {
+            "enum": [
+              "global",
+              "tenant"
+            ],
+            "title": "Scope Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "application_id",
+          "evaluation_id",
+          "run_id",
+          "provider_id",
+          "benchmark_suite",
+          "bucket_start",
+          "metrics",
+          "scope_source"
+        ],
+        "title": "ProviderKpiTimelinePoint",
+        "type": "object"
+      },
       "ProviderResponse": {
         "additionalProperties": false,
         "properties": {
@@ -5302,6 +5740,140 @@
         "summary": "Upsert Provider",
         "tags": [
           "providers"
+        ]
+      }
+    },
+    "/v1/providers/{provider_id}/kpi-dashboard": {
+      "get": {
+        "operationId": "get_provider_kpi_dashboard_v1_providers__provider_id__kpi_dashboard_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "provider_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+              "title": "Provider Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "tenant_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tenant Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "To"
+            }
+          },
+          {
+            "in": "query",
+            "name": "run_status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "draft",
+                    "running",
+                    "passed",
+                    "failed",
+                    "cancelled"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Run Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "benchmark_suite",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Benchmark Suite"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderKpiDashboardResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Provider Kpi Dashboard",
+        "tags": [
+          "provider-kpi-dashboard"
         ]
       }
     },

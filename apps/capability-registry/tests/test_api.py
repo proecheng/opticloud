@@ -271,6 +271,16 @@ def rollout_action_payload(**overrides: Any) -> dict[str, Any]:
     return payload
 
 
+def assert_json_key_absent(value: Any, key: str) -> None:
+    if isinstance(value, dict):
+        assert key not in value
+        for item in value.values():
+            assert_json_key_absent(item, key)
+    elif isinstance(value, list):
+        for item in value:
+            assert_json_key_absent(item, key)
+
+
 async def test_provider_upsert_read_cache_and_invalidation(
     client: AsyncClient,
     engine: AsyncEngine,
@@ -1617,10 +1627,14 @@ async def _create_passed_shadow_run(
     evaluation_id: str = "eval-001",
     run_id: str = "run-001",
     requested_provider_id: str = "professor-lu",
+    tenant_id: str | None = None,
 ) -> dict[str, Any]:
+    query = f"?tenant_id={tenant_id}" if tenant_id is not None else ""
+    body_tenant = {"tenant_id": tenant_id} if tenant_id is not None else {}
     app_resp = await client.put(
         f"/v1/provider-applications/{application_id}",
         json=provider_application_payload(
+            **body_tenant,
             requested_provider_id=requested_provider_id,
             status="submitted",
         ),
@@ -1628,13 +1642,13 @@ async def _create_passed_shadow_run(
     assert app_resp.status_code == 200, app_resp.text
     eval_resp = await client.put(
         f"/v1/provider-applications/{application_id}/evaluation-requests/{evaluation_id}",
-        json=provider_evaluation_payload(evaluation_id=evaluation_id),
+        json=provider_evaluation_payload(**body_tenant, evaluation_id=evaluation_id),
     )
     assert eval_resp.status_code == 200, eval_resp.text
     run_resp = await client.put(
         f"/v1/provider-applications/{application_id}/evaluation-requests/{evaluation_id}"
         f"/shadow-runs/{run_id}",
-        json=shadow_run_payload(),
+        json=shadow_run_payload(**body_tenant),
     )
     assert run_resp.status_code == 200, run_resp.text
     base_time = datetime(2026, 6, 1, tzinfo=UTC)
@@ -1649,6 +1663,7 @@ async def _create_passed_shadow_run(
             f"/v1/provider-applications/{application_id}/evaluation-requests/{evaluation_id}"
             f"/shadow-runs/{run_id}/samples/sample-{index:03d}",
             json=shadow_sample_payload(
+                **body_tenant,
                 coverage_class=coverage_classes[index % len(coverage_classes)],
                 case_ref=f"fixture://provider-shadow/case-{index:03d}",
                 observed_at=(base_time + timedelta(days=index % 15)).isoformat(),
@@ -1657,7 +1672,7 @@ async def _create_passed_shadow_run(
         assert response.status_code == 200, response.text
     finalize = await client.post(
         f"/v1/provider-applications/{application_id}/evaluation-requests/{evaluation_id}"
-        f"/shadow-runs/{run_id}/finalize"
+        f"/shadow-runs/{run_id}/finalize{query}"
     )
     assert finalize.status_code == 200, finalize.text
     assert finalize.json()["status"] == "passed"
@@ -2265,6 +2280,490 @@ async def test_provider_route_share_dashboard_fails_closed_on_stage_history_drif
     drifted = await client.get("/v1/providers/professor-lu-drift/route-share-dashboard")
     assert drifted.status_code == 409
     assert "stage_percent" in drifted.text
+
+
+async def test_provider_kpi_dashboard_projection_filters_timeline_and_no_side_effects(
+    client: AsyncClient,
+    engine: AsyncEngine,
+) -> None:
+    await _create_passed_shadow_run(
+        client,
+        application_id="app-kpi",
+        requested_provider_id="professor-lu-kpi",
+    )
+    create = await client.put(
+        "/v1/provider-applications/app-kpi/evaluation-requests/eval-001"
+        "/shadow-runs/run-001/rollouts/rollout-001",
+        json=rollout_payload(),
+    )
+    assert create.status_code == 200, create.text
+    advance = await client.post(
+        "/v1/provider-applications/app-kpi/evaluation-requests/eval-001"
+        "/shadow-runs/run-001/rollouts/rollout-001/advance",
+        json=rollout_action_payload(target_stage_percent=5),
+    )
+    assert advance.status_code == 200, advance.text
+
+    maker = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
+    async with maker() as session:
+        await session.execute(
+            text(
+                """
+                UPDATE provider_shadow_validation_samples
+                SET provider_status_code = 500,
+                    provider_latency_ms = 300,
+                    baseline_latency_ms = 100,
+                    deviation_ratio = 0.010000
+                WHERE sample_id = 'sample-000'
+                """
+            )
+        )
+        await session.execute(
+            text(
+                """
+                UPDATE provider_shadow_validation_samples
+                SET timed_out = true,
+                    provider_latency_ms = 400,
+                    baseline_latency_ms = 100,
+                    deviation_ratio = 0.010000
+                WHERE sample_id = 'sample-015'
+                """
+            )
+        )
+        await session.execute(
+            text(
+                """
+                UPDATE provider_shadow_validation_samples
+                SET deviation_ratio = 0.050000,
+                    provider_latency_ms = 500,
+                    baseline_latency_ms = 100
+                WHERE sample_id = 'sample-030'
+                """
+            )
+        )
+        await session.execute(
+            text(
+                """
+                INSERT INTO provider_shadow_validation_runs (
+                    application_row_id, evaluation_row_id, application_id, evaluation_id,
+                    run_id, requested_provider_id, benchmark_suite, evaluation_sample_count,
+                    baseline_provider_id, status, started_at, ended_at, summary,
+                    evidence_refs, metadata, created_at, updated_at
+                )
+                SELECT
+                    application_row_id, evaluation_row_id, application_id, evaluation_id,
+                    'run-baseline-only', baseline_provider_id, benchmark_suite,
+                    evaluation_sample_count, baseline_provider_id, 'passed', started_at,
+                    ended_at, summary, '[]'::jsonb, '{}'::jsonb, created_at, updated_at
+                FROM provider_shadow_validation_runs
+                WHERE run_id = 'run-001'
+                """
+            )
+        )
+        before_rows = (
+            (
+                await session.execute(
+                    text(
+                        "SELECT run_id, status, summary FROM provider_shadow_validation_runs "
+                        "ORDER BY run_id"
+                    )
+                )
+            )
+            .mappings()
+            .all()
+        )
+        await session.commit()
+
+    response = await client.get("/v1/providers/professor-lu-kpi/kpi-dashboard")
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["provider_id"] == "professor-lu-kpi"
+    assert body["tenant_id"] is None
+    assert body["total_runs"] == 1
+    assert body["run_status_counts"] == {
+        "draft": 0,
+        "running": 0,
+        "passed": 1,
+        "failed": 0,
+        "cancelled": 0,
+    }
+    assert body["aggregate"]["sample_count"] == 500
+    assert body["aggregate"]["success_count"] == 497
+    assert body["aggregate"]["failed_count"] == 3
+    assert body["aggregate"]["timeout_count"] == 1
+    assert body["aggregate"]["provider_error_count"] == 1
+    assert body["aggregate"]["success_rate"] == "0.994000"
+    assert body["aggregate"]["provider_p95_latency_ms"] == 100
+    assert body["aggregate"]["baseline_p95_latency_ms"] == 100
+    assert body["aggregate"]["p95_latency_ratio"] == "1.000000"
+    assert body["rollout_summary"] == {
+        "total_rollouts": 1,
+        "highest_current_stage_percent": 5,
+        "status_counts": {
+            "draft": 0,
+            "active": 1,
+            "paused": 0,
+            "completed": 0,
+            "cancelled": 0,
+        },
+    }
+    assert [item["run_id"] for item in body["run_metrics"]] == ["run-001"]
+    run_metric = body["run_metrics"][0]
+    assert run_metric["provider_id"] == "professor-lu-kpi"
+    assert run_metric["baseline_provider_id"] == "highs"
+    assert run_metric["metrics"]["failed_count"] == 3
+    assert run_metric["threshold_violations"] == []
+    assert set(run_metric["coverage_class_counts"]) == {
+        "platform_standard",
+        "provider_supplied",
+        "adversarial",
+        "desensitized_real",
+    }
+    assert "run-baseline-only" not in json.dumps(body)
+    assert_json_key_absent(body, "summary")
+    assert "stage_history" not in json.dumps(body)
+    assert "shadow_summary_snapshot" not in json.dumps(body)
+    assert "evidence_refs" not in json.dumps(body)
+    assert "metadata" not in json.dumps(body)
+    assert {point["scope_source"] for point in body["timeline"]} == {"global"}
+
+    windowed = await client.get(
+        "/v1/providers/professor-lu-kpi/kpi-dashboard",
+        params={
+            "from": "2026-06-01T00:00:00Z",
+            "to": "2026-06-01T23:59:59Z",
+            "run_status": "passed",
+            "benchmark_suite": "lp_standard_500",
+        },
+    )
+    assert windowed.status_code == 200, windowed.text
+    windowed_body = windowed.json()
+    assert windowed_body["total_runs"] == 1
+    assert windowed_body["run_status_counts"]["passed"] == 1
+    assert windowed_body["rollout_summary"]["total_rollouts"] == 1
+    assert windowed_body["aggregate"]["sample_count"] == 34
+    assert windowed_body["aggregate"]["success_count"] == 31
+    assert len(windowed_body["timeline"]) == 1
+    assert windowed_body["timeline"][0]["bucket_start"] == "2026-06-01T00:00:00Z"
+
+    future = await client.get(
+        "/v1/providers/professor-lu-kpi/kpi-dashboard",
+        params={"from": "2999-01-01T00:00:00Z"},
+    )
+    assert future.status_code == 200, future.text
+    assert future.json()["total_runs"] == 1
+    assert future.json()["run_metrics"][0]["metrics"]["sample_count"] == 0
+    assert future.json()["aggregate"]["sample_count"] == 0
+    assert future.json()["timeline"] == []
+
+    empty = await client.get("/v1/providers/provider-with-no-shadow-runs/kpi-dashboard")
+    assert empty.status_code == 200, empty.text
+    assert empty.json()["run_status_counts"] == {
+        "draft": 0,
+        "running": 0,
+        "passed": 0,
+        "failed": 0,
+        "cancelled": 0,
+    }
+    assert empty.json()["aggregate"]["sample_count"] == 0
+    assert empty.json()["rollout_summary"]["highest_current_stage_percent"] == 0
+    assert empty.json()["run_metrics"] == []
+    assert empty.json()["timeline"] == []
+
+    async with maker() as session:
+        after_rows = (
+            (
+                await session.execute(
+                    text(
+                        "SELECT run_id, status, summary FROM provider_shadow_validation_runs "
+                        "ORDER BY run_id"
+                    )
+                )
+            )
+            .mappings()
+            .all()
+        )
+    assert before_rows == after_rows
+
+
+async def test_provider_kpi_dashboard_tenant_scope_and_query_validation(
+    client: AsyncClient,
+) -> None:
+    tenant_id = str(uuid.uuid4())
+    await _create_passed_shadow_run(
+        client,
+        application_id="app-kpi-global",
+        requested_provider_id="professor-lu-kpi-tenant",
+    )
+    await _create_passed_shadow_run(
+        client,
+        application_id="app-kpi-tenant",
+        requested_provider_id="professor-lu-kpi-tenant",
+        tenant_id=tenant_id,
+    )
+
+    global_dashboard = await client.get("/v1/providers/professor-lu-kpi-tenant/kpi-dashboard")
+    assert global_dashboard.status_code == 200, global_dashboard.text
+    assert global_dashboard.json()["tenant_id"] is None
+    assert global_dashboard.json()["total_runs"] == 1
+    assert global_dashboard.json()["run_metrics"][0]["application_id"] == "app-kpi-global"
+    assert global_dashboard.json()["run_metrics"][0]["scope_source"] == "global"
+
+    tenant_dashboard = await client.get(
+        "/v1/providers/professor-lu-kpi-tenant/kpi-dashboard",
+        params={"tenant_id": tenant_id},
+    )
+    assert tenant_dashboard.status_code == 200, tenant_dashboard.text
+    assert tenant_dashboard.json()["tenant_id"] == tenant_id
+    assert tenant_dashboard.json()["total_runs"] == 1
+    assert tenant_dashboard.json()["run_metrics"][0]["application_id"] == "app-kpi-tenant"
+    assert tenant_dashboard.json()["run_metrics"][0]["scope_source"] == "tenant"
+    assert {point["scope_source"] for point in tenant_dashboard.json()["timeline"]} == {"tenant"}
+
+    reversed_window = await client.get(
+        "/v1/providers/professor-lu-kpi-tenant/kpi-dashboard",
+        params={"from": "2026-06-02T00:00:00Z", "to": "2026-06-01T00:00:00Z"},
+    )
+    assert reversed_window.status_code == 422
+
+    naive_window = await client.get(
+        "/v1/providers/professor-lu-kpi-tenant/kpi-dashboard",
+        params={"from": "2026-06-01T00:00:00"},
+    )
+    assert naive_window.status_code == 422
+
+    bad_benchmark = await client.get(
+        "/v1/providers/professor-lu-kpi-tenant/kpi-dashboard",
+        params={"benchmark_suite": "Bad Suite"},
+    )
+    assert bad_benchmark.status_code == 422
+
+
+async def test_provider_kpi_dashboard_fails_closed_on_stored_drift(
+    client: AsyncClient,
+    engine: AsyncEngine,
+) -> None:
+    await _create_passed_shadow_run(
+        client,
+        application_id="app-kpi-drift",
+        requested_provider_id="professor-lu-kpi-drift",
+    )
+    maker = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
+    async with maker() as session:
+        await session.execute(
+            text(
+                "ALTER TABLE provider_shadow_validation_runs "
+                "DROP CONSTRAINT ck_provider_shadow_runs_status"
+            )
+        )
+        await session.execute(
+            text(
+                """
+                UPDATE provider_shadow_validation_runs
+                SET status = 'manual-drift'
+                WHERE run_id = 'run-001'
+                """
+            )
+        )
+        await session.commit()
+
+    drifted_run = await client.get("/v1/providers/professor-lu-kpi-drift/kpi-dashboard")
+    assert drifted_run.status_code == 409
+    assert "status" in drifted_run.text
+
+    async with maker() as session:
+        await session.execute(
+            text(
+                """
+                UPDATE provider_shadow_validation_runs
+                SET status = 'passed'
+                WHERE run_id = 'run-001'
+                """
+            )
+        )
+        await session.execute(
+            text(
+                """
+                ALTER TABLE provider_shadow_validation_runs
+                ADD CONSTRAINT ck_provider_shadow_runs_status
+                CHECK (status IN ('draft', 'running', 'passed', 'failed', 'cancelled'))
+                """
+            )
+        )
+        await session.commit()
+
+    async with maker() as session:
+        await session.execute(
+            text(
+                "ALTER TABLE provider_shadow_validation_samples DROP CONSTRAINT ck_provider_shadow_samples_coverage_class"
+            )
+        )
+        await session.execute(
+            text(
+                """
+                UPDATE provider_shadow_validation_samples
+                SET coverage_class = 'unknown'
+                WHERE sample_id = 'sample-000'
+                """
+            )
+        )
+        await session.commit()
+
+    drifted_sample = await client.get("/v1/providers/professor-lu-kpi-drift/kpi-dashboard")
+    assert drifted_sample.status_code == 409
+    assert "coverage_class" in drifted_sample.text
+
+    async with maker() as session:
+        await session.execute(
+            text(
+                """
+                UPDATE provider_shadow_validation_samples
+                SET coverage_class = 'platform_standard'
+                WHERE sample_id = 'sample-000'
+                """
+            )
+        )
+        await session.execute(
+            text(
+                """
+                ALTER TABLE provider_shadow_validation_samples
+                ADD CONSTRAINT ck_provider_shadow_samples_coverage_class
+                CHECK (coverage_class IN (
+                    'platform_standard',
+                    'provider_supplied',
+                    'adversarial',
+                    'desensitized_real'
+                ))
+                """
+            )
+        )
+        await session.execute(
+            text(
+                """
+                UPDATE provider_shadow_validation_samples
+                SET tenant_id = gen_random_uuid()
+                WHERE sample_id = 'sample-001'
+                """
+            )
+        )
+        await session.commit()
+
+    tenant_mismatch = await client.get("/v1/providers/professor-lu-kpi-drift/kpi-dashboard")
+    assert tenant_mismatch.status_code == 409
+    assert "tenant scope" in tenant_mismatch.text
+
+    async with maker() as session:
+        await session.execute(
+            text(
+                """
+                UPDATE provider_shadow_validation_samples
+                SET tenant_id = NULL
+                WHERE sample_id = 'sample-001'
+                """
+            )
+        )
+        await session.execute(
+            text(
+                "ALTER TABLE provider_gradient_rollouts DROP CONSTRAINT ck_provider_gradient_rollouts_stage"
+            )
+        )
+        await session.execute(
+            text(
+                """
+                INSERT INTO provider_gradient_rollouts (
+                    application_row_id, evaluation_row_id, shadow_run_row_id,
+                    application_id, evaluation_id, run_id, rollout_id,
+                    requested_provider_id, baseline_provider_id, benchmark_suite,
+                    status, current_stage_percent, stage_history,
+                    shadow_summary_snapshot, evidence_refs, metadata,
+                    created_at, updated_at
+                )
+                SELECT
+                    application_row_id, evaluation_row_id, id,
+                    application_id, evaluation_id, run_id, 'rollout-drift',
+                    requested_provider_id, baseline_provider_id, benchmark_suite,
+                    'active', 75, '[]'::jsonb, summary, '[]'::jsonb, '{}'::jsonb,
+                    created_at, updated_at
+                FROM provider_shadow_validation_runs
+                WHERE run_id = 'run-001'
+                """
+            )
+        )
+        await session.commit()
+
+    rollout_drift = await client.get("/v1/providers/professor-lu-kpi-drift/kpi-dashboard")
+    assert rollout_drift.status_code == 409
+    assert "current_stage_percent" in rollout_drift.text
+
+    async with maker() as session:
+        await session.execute(
+            text(
+                """
+                UPDATE provider_gradient_rollouts
+                SET current_stage_percent = 5
+                WHERE rollout_id = 'rollout-drift'
+                """
+            )
+        )
+        await session.execute(
+            text(
+                """
+                ALTER TABLE provider_gradient_rollouts
+                ADD CONSTRAINT ck_provider_gradient_rollouts_stage
+                CHECK (current_stage_percent IN (0, 5, 50, 100))
+                """
+            )
+        )
+        await session.commit()
+
+
+def test_provider_kpi_dashboard_openapi_contract_is_safe() -> None:
+    spec = json.loads(OPENAPI_PATH.read_text(encoding="utf-8"))
+    dashboard_schemas = {
+        name: schema
+        for name, schema in spec["components"]["schemas"].items()
+        if name.startswith("ProviderKpi")
+    }
+    assert dashboard_schemas
+    forbidden_terms = {
+        "summary",
+        "stage_history",
+        "shadow_summary_snapshot",
+        "evidence_refs",
+        "metadata",
+        "reason_ref",
+        "api_key",
+        "password",
+        "client_secret",
+        "access_token",
+        "refresh_token",
+        "registry_password",
+        "docker_password",
+        "bank_account",
+        "tax_id",
+        "payout_status",
+        "settlement_id",
+        "raw_dataset",
+        "raw_request",
+        "raw_response",
+        "provider_request",
+        "provider_response",
+        "routing_payload",
+        "customer_payload",
+    }
+    for schema in dashboard_schemas.values():
+        properties = set(schema.get("properties", {}))
+        assert properties.isdisjoint(forbidden_terms)
+
+    for schema_name in ("ProviderKpiRunMetric", "ProviderKpiTimelinePoint"):
+        scope_enum = dashboard_schemas[schema_name]["properties"]["scope_source"]["enum"]
+        assert scope_enum == ["global", "tenant"]
+
+    endpoint = spec["paths"]["/v1/providers/{provider_id}/kpi-dashboard"]["get"]
+    parameters = {parameter["name"]: parameter for parameter in endpoint["parameters"]}
+    assert {"provider_id", "tenant_id", "from", "to", "run_status", "benchmark_suite"}.issubset(
+        set(parameters)
+    )
 
 
 def test_provider_rollout_openapi_omits_unsafe_fields() -> None:

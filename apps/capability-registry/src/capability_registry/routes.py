@@ -45,6 +45,12 @@ from capability_registry.schemas import (
     ProviderEvaluationResponse,
     ProviderEvaluationStatus,
     ProviderEvaluationUpsertRequest,
+    ProviderKpiAggregateMetrics,
+    ProviderKpiDashboardResponse,
+    ProviderKpiRolloutSummary,
+    ProviderKpiRunMetric,
+    ProviderKpiRunStatusCounts,
+    ProviderKpiTimelinePoint,
     ProviderResponse,
     ProviderRolloutActionRequest,
     ProviderRolloutResponse,
@@ -2156,6 +2162,248 @@ def _route_share_timeline_sort_key(
     )
 
 
+def _kpi_conflict(detail: str) -> HTTPException:
+    return HTTPException(status_code=status.HTTP_409_CONFLICT, detail=detail)
+
+
+def _coerce_kpi_run_status(value: Any) -> ProviderShadowRunStatus:
+    allowed: set[str] = {"draft", "running", "passed", "failed", "cancelled"}
+    if not isinstance(value, str) or value not in allowed:
+        raise _kpi_conflict("shadow run status is invalid")
+    return cast(ProviderShadowRunStatus, value)
+
+
+def _coerce_kpi_coverage_class(value: Any) -> ProviderShadowCoverageClass:
+    if not isinstance(value, str) or value not in _SHADOW_REQUIRED_COVERAGE_CLASSES:
+        raise _kpi_conflict("shadow sample coverage_class is invalid")
+    return value
+
+
+def _kpi_scope_source(
+    row_tenant_id: uuid.UUID | None,
+    requested_tenant_id: uuid.UUID | None,
+) -> ProviderRouteShareScopeSource:
+    source = _scope_source(row_tenant_id, requested_tenant_id)
+    if source == "global_fallback":
+        raise _kpi_conflict("provider KPI dashboard cannot use global fallback scope")
+    return source
+
+
+def _validate_kpi_sample(
+    sample: ProviderShadowValidationSample,
+    *,
+    run_tenant_id: uuid.UUID | None,
+) -> None:
+    _coerce_kpi_coverage_class(sample.coverage_class)
+    if sample.tenant_id != run_tenant_id:
+        raise _kpi_conflict("shadow sample tenant scope does not match run tenant scope")
+    if sample.observed_at.tzinfo is None or sample.observed_at.utcoffset() is None:
+        raise _kpi_conflict("shadow sample observed_at must be timezone-aware")
+    if not 100 <= sample.provider_status_code <= 599:
+        raise _kpi_conflict("shadow sample provider_status_code is invalid")
+    if sample.provider_latency_ms <= 0:
+        raise _kpi_conflict("shadow sample provider_latency_ms is invalid")
+    if sample.baseline_latency_ms <= 0:
+        raise _kpi_conflict("shadow sample baseline_latency_ms is invalid")
+    if sample.deviation_ratio < 0:
+        raise _kpi_conflict("shadow sample deviation_ratio is invalid")
+
+
+def _kpi_metrics(samples: list[ProviderShadowValidationSample]) -> ProviderKpiAggregateMetrics:
+    sample_count = len(samples)
+    success_count = sum(1 for sample in samples if _sample_passed(sample))
+    failed_count = sample_count - success_count
+    timeout_count = sum(1 for sample in samples if sample.timed_out)
+    provider_error_count = sum(
+        1 for sample in samples if not 200 <= sample.provider_status_code <= 299
+    )
+    average_deviation = (
+        (
+            sum((sample.deviation_ratio for sample in samples), Decimal("0.000000"))
+            / Decimal(sample_count)
+        ).quantize(_RATIO_QUANT)
+        if samples
+        else Decimal("0.000000")
+    )
+    provider_p95 = _nearest_rank_p95([sample.provider_latency_ms for sample in samples])
+    baseline_p95 = _nearest_rank_p95([sample.baseline_latency_ms for sample in samples])
+    p95_ratio = (
+        (Decimal(provider_p95) / Decimal(baseline_p95)).quantize(_RATIO_QUANT)
+        if baseline_p95 > 0
+        else Decimal("0.000000")
+    )
+    return ProviderKpiAggregateMetrics(
+        sample_count=sample_count,
+        success_count=success_count,
+        failed_count=failed_count,
+        timeout_count=timeout_count,
+        provider_error_count=provider_error_count,
+        success_rate=_decimal_ratio(success_count, sample_count),
+        average_deviation_ratio=average_deviation,
+        provider_p95_latency_ms=provider_p95,
+        baseline_p95_latency_ms=baseline_p95,
+        p95_latency_ratio=p95_ratio,
+    )
+
+
+def _kpi_coverage_counts(
+    samples: list[ProviderShadowValidationSample],
+) -> dict[ProviderShadowCoverageClass, int]:
+    counts: dict[ProviderShadowCoverageClass, int] = dict.fromkeys(
+        _SHADOW_REQUIRED_COVERAGE_CLASSES, 0
+    )
+    for sample in samples:
+        coverage_class = _coerce_kpi_coverage_class(sample.coverage_class)
+        counts[coverage_class] += 1
+    return counts
+
+
+def _kpi_observed_day_span(samples: list[ProviderShadowValidationSample]) -> int:
+    if not samples:
+        return 0
+    observed_dates = [sample.observed_at for sample in samples]
+    return (max(observed_dates) - min(observed_dates)).days
+
+
+def _kpi_threshold_violations(
+    metrics: ProviderKpiAggregateMetrics,
+    coverage_counts: dict[ProviderShadowCoverageClass, int],
+    *,
+    observed_day_span: int,
+) -> list[str]:
+    violations: list[str] = []
+    if metrics.sample_count != _SHADOW_MIN_SAMPLE_COUNT:
+        violations.append("sample_count_mismatch")
+    if observed_day_span < _SHADOW_MIN_OBSERVED_DAYS:
+        violations.append("observed_day_span_below_threshold")
+    if any(
+        coverage_counts.get(coverage_class, 0) < _SHADOW_MIN_SAMPLES_PER_COVERAGE_CLASS
+        for coverage_class in _SHADOW_REQUIRED_COVERAGE_CLASSES
+    ):
+        violations.append("coverage_class_missing")
+    if metrics.success_rate < _SHADOW_MIN_SUCCESS_RATE:
+        violations.append("success_rate_below_threshold")
+    if metrics.average_deviation_ratio > _SHADOW_MAX_AVERAGE_DEVIATION:
+        violations.append("average_deviation_above_threshold")
+    if (
+        metrics.baseline_p95_latency_ms <= 0
+        or metrics.p95_latency_ratio > _SHADOW_MAX_P95_LATENCY_RATIO
+    ):
+        violations.append("p95_latency_ratio_above_threshold")
+    return violations
+
+
+def _kpi_filter_samples_by_window(
+    samples: list[ProviderShadowValidationSample],
+    *,
+    from_at: datetime | None,
+    to_at: datetime | None,
+) -> list[ProviderShadowValidationSample]:
+    return [
+        sample
+        for sample in samples
+        if (from_at is None or sample.observed_at >= from_at)
+        and (to_at is None or sample.observed_at <= to_at)
+    ]
+
+
+def _kpi_run_metric(
+    run: ProviderShadowValidationRun,
+    samples: list[ProviderShadowValidationSample],
+    *,
+    requested_tenant_id: uuid.UUID | None,
+) -> ProviderKpiRunMetric:
+    run_status = _coerce_kpi_run_status(run.status)
+    coverage_counts = _kpi_coverage_counts(samples)
+    coverage_classes = [
+        coverage_class
+        for coverage_class in _SHADOW_REQUIRED_COVERAGE_CLASSES
+        if coverage_counts.get(coverage_class, 0) >= _SHADOW_MIN_SAMPLES_PER_COVERAGE_CLASS
+    ]
+    metrics = _kpi_metrics(samples)
+    observed_from = min((sample.observed_at for sample in samples), default=None)
+    observed_to = max((sample.observed_at for sample in samples), default=None)
+    return ProviderKpiRunMetric(
+        application_id=run.application_id,
+        evaluation_id=run.evaluation_id,
+        run_id=run.run_id,
+        provider_id=run.requested_provider_id,
+        baseline_provider_id=run.baseline_provider_id,
+        benchmark_suite=run.benchmark_suite,
+        status=run_status,
+        started_at=run.started_at,
+        ended_at=run.ended_at,
+        updated_at=run.updated_at,
+        observed_from=observed_from,
+        observed_to=observed_to,
+        coverage_classes=coverage_classes,
+        coverage_class_counts=coverage_counts,
+        threshold_violations=_kpi_threshold_violations(
+            metrics,
+            coverage_counts,
+            observed_day_span=_kpi_observed_day_span(samples),
+        ),
+        metrics=metrics,
+        scope_source=_kpi_scope_source(run.tenant_id, requested_tenant_id),
+    )
+
+
+def _kpi_bucket_start(observed_at: datetime) -> datetime:
+    return observed_at.astimezone(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
+
+
+def _kpi_timeline_points(
+    run: ProviderShadowValidationRun,
+    samples: list[ProviderShadowValidationSample],
+    *,
+    requested_tenant_id: uuid.UUID | None,
+) -> list[ProviderKpiTimelinePoint]:
+    buckets: dict[datetime, list[ProviderShadowValidationSample]] = {}
+    for sample in samples:
+        buckets.setdefault(_kpi_bucket_start(sample.observed_at), []).append(sample)
+    return [
+        ProviderKpiTimelinePoint(
+            application_id=run.application_id,
+            evaluation_id=run.evaluation_id,
+            run_id=run.run_id,
+            provider_id=run.requested_provider_id,
+            benchmark_suite=run.benchmark_suite,
+            bucket_start=bucket_start,
+            metrics=_kpi_metrics(bucket_samples),
+            scope_source=_kpi_scope_source(run.tenant_id, requested_tenant_id),
+        )
+        for bucket_start, bucket_samples in sorted(buckets.items(), key=lambda item: item[0])
+    ]
+
+
+def _kpi_run_status_counts(
+    runs: list[ProviderShadowValidationRun],
+) -> ProviderKpiRunStatusCounts:
+    counts = dict.fromkeys(("draft", "running", "passed", "failed", "cancelled"), 0)
+    for run in runs:
+        counts[_coerce_kpi_run_status(run.status)] += 1
+    return ProviderKpiRunStatusCounts(**counts)
+
+
+def _kpi_rollout_summary(
+    rows: list[ProviderGradientRollout],
+    *,
+    requested_tenant_id: uuid.UUID | None,
+) -> ProviderKpiRolloutSummary:
+    current_rollouts = [
+        _route_share_current_rollout(row, requested_tenant_id=requested_tenant_id) for row in rows
+    ]
+    highest_stage = max(
+        (rollout.current_stage_percent for rollout in current_rollouts),
+        default=0,
+    )
+    return ProviderKpiRolloutSummary(
+        total_rollouts=len(rows),
+        highest_current_stage_percent=cast(ProviderRolloutStage, highest_stage),
+        status_counts=_route_share_status_counts(rows),
+    )
+
+
 def _material_shadow_run_values(body: ProviderShadowRunUpsertRequest) -> dict[str, Any]:
     return {
         "baseline_provider_id": body.baseline_provider_id,
@@ -2883,6 +3131,151 @@ async def get_provider_route_share_dashboard(
         total_rollouts=len(rows),
         highest_current_stage_percent=cast(ProviderRolloutStage, highest_stage),
         current_rollouts=current_rollouts,
+        timeline=timeline,
+    )
+
+
+@router.get(
+    "/providers/{provider_id}/kpi-dashboard",
+    response_model=ProviderKpiDashboardResponse,
+    tags=["provider-kpi-dashboard"],
+)
+async def get_provider_kpi_dashboard(
+    provider_id: Annotated[str, Path(pattern=_PATH_ID_PATTERN)],
+    tenant_id: uuid.UUID | None = Query(default=None),
+    from_at: datetime | None = Query(default=None, alias="from"),
+    to_at: datetime | None = Query(default=None, alias="to"),
+    run_status: ProviderShadowRunStatus | None = Query(default=None),
+    benchmark_suite: str | None = Query(
+        default=None,
+        pattern=r"^[a-z0-9][a-z0-9_-]{0,63}$",
+    ),
+    session: AsyncSession = Depends(get_session),
+) -> ProviderKpiDashboardResponse:
+    if from_at is not None:
+        _require_aware_datetime(from_at, field_name="from")
+    if to_at is not None:
+        _require_aware_datetime(to_at, field_name="to")
+    if from_at is not None and to_at is not None and from_at > to_at:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="from must be before or equal to to",
+        )
+
+    run_conditions: list[ColumnElement[bool]] = [
+        ProviderShadowValidationRun.requested_provider_id == provider_id,
+        (
+            ProviderShadowValidationRun.tenant_id.is_(None)
+            if tenant_id is None
+            else ProviderShadowValidationRun.tenant_id == tenant_id
+        ),
+    ]
+    if run_status is not None:
+        run_conditions.append(ProviderShadowValidationRun.status == run_status)
+    if benchmark_suite is not None:
+        run_conditions.append(ProviderShadowValidationRun.benchmark_suite == benchmark_suite)
+
+    runs = list(
+        (
+            await session.execute(
+                select(ProviderShadowValidationRun)
+                .where(*run_conditions)
+                .order_by(
+                    ProviderShadowValidationRun.application_id,
+                    ProviderShadowValidationRun.evaluation_id,
+                    ProviderShadowValidationRun.run_id,
+                )
+            )
+        ).scalars()
+    )
+
+    raw_run_samples: dict[str, list[ProviderShadowValidationSample]] = {
+        str(run.id): [] for run in runs
+    }
+    for run in runs:
+        _coerce_kpi_run_status(run.status)
+    if runs:
+        run_tenant_ids = {str(run.id): run.tenant_id for run in runs}
+        all_samples = list(
+            (
+                await session.execute(
+                    select(ProviderShadowValidationSample)
+                    .where(ProviderShadowValidationSample.run_row_id.in_([run.id for run in runs]))
+                    .order_by(
+                        ProviderShadowValidationSample.run_row_id,
+                        ProviderShadowValidationSample.observed_at,
+                        ProviderShadowValidationSample.sample_id,
+                    )
+                )
+            ).scalars()
+        )
+        for sample in all_samples:
+            run_key = str(sample.run_row_id)
+            if run_key not in run_tenant_ids:
+                raise _kpi_conflict("shadow sample does not belong to a selected run")
+            run_tenant_id = run_tenant_ids[run_key]
+            _validate_kpi_sample(sample, run_tenant_id=run_tenant_id)
+            raw_run_samples[run_key].append(sample)
+    run_samples: dict[uuid.UUID, list[ProviderShadowValidationSample]] = {}
+    for run in runs:
+        run_samples[run.id] = _kpi_filter_samples_by_window(
+            raw_run_samples[str(run.id)], from_at=from_at, to_at=to_at
+        )
+
+    run_metrics = [
+        _kpi_run_metric(run, run_samples[run.id], requested_tenant_id=tenant_id) for run in runs
+    ]
+    run_metrics.sort(key=lambda item: (item.application_id, item.evaluation_id, item.run_id))
+    timeline = [
+        point
+        for run in runs
+        for point in _kpi_timeline_points(
+            run,
+            run_samples[run.id],
+            requested_tenant_id=tenant_id,
+        )
+    ]
+    timeline.sort(
+        key=lambda item: (item.bucket_start, item.application_id, item.evaluation_id, item.run_id)
+    )
+    aggregate_samples = [sample for samples in run_samples.values() for sample in samples]
+
+    rollout_rows: list[ProviderGradientRollout] = []
+    if runs:
+        rollout_conditions: list[ColumnElement[bool]] = [
+            ProviderGradientRollout.requested_provider_id == provider_id,
+            ProviderGradientRollout.shadow_run_row_id.in_([run.id for run in runs]),
+            (
+                ProviderGradientRollout.tenant_id.is_(None)
+                if tenant_id is None
+                else ProviderGradientRollout.tenant_id == tenant_id
+            ),
+        ]
+        rollout_rows = list(
+            (
+                await session.execute(
+                    select(ProviderGradientRollout)
+                    .where(*rollout_conditions)
+                    .order_by(
+                        ProviderGradientRollout.application_id,
+                        ProviderGradientRollout.evaluation_id,
+                        ProviderGradientRollout.run_id,
+                        ProviderGradientRollout.rollout_id,
+                    )
+                )
+            ).scalars()
+        )
+
+    return ProviderKpiDashboardResponse(
+        provider_id=provider_id,
+        tenant_id=tenant_id,
+        from_at=from_at,
+        to_at=to_at,
+        run_status_counts=_kpi_run_status_counts(runs),
+        total_runs=len(runs),
+        aggregate=_kpi_metrics(aggregate_samples),
+        rollout_summary=_kpi_rollout_summary(rollout_rows, requested_tenant_id=tenant_id),
+        run_metrics=run_metrics,
         timeline=timeline,
     )
 
