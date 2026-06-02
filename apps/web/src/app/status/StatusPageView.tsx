@@ -66,6 +66,9 @@ export function StatusPageView({ model }: { model: PublicStatusModel }): JSX.Ele
             <Link href="/status" className="font-medium text-foreground hover:text-primary">
               Status
             </Link>
+            <Link href="/security" className="text-muted-foreground hover:text-foreground">
+              Security
+            </Link>
             <Link
               href="/auth/signup"
               className="min-h-touch rounded-md bg-primary px-4 py-2 text-primary-foreground hover:bg-primary-600"

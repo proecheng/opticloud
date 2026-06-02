@@ -12,12 +12,12 @@ export default function LandingPage(): JSX.Element {
     <main className="flex min-h-screen flex-col">
       {/* Header */}
       <header className="border-b border-border bg-background">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-6 py-4">
           <div className="flex items-center gap-2">
             <div className="h-8 w-8 rounded bg-primary" />
             <span className="font-semibold text-lg">OptiCloud</span>
           </div>
-          <nav className="flex items-center gap-4 text-sm">
+          <nav className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
             <Link
               href="/algorithms"
               className="text-muted-foreground hover:text-foreground"
@@ -38,6 +38,9 @@ export default function LandingPage(): JSX.Element {
             </Link>
             <Link href="/status" className="text-muted-foreground hover:text-foreground">
               {common("nav.status")}
+            </Link>
+            <Link href="/security" className="text-muted-foreground hover:text-foreground">
+              {common("nav.security")}
             </Link>
             <Link
               href="/auth/signup"
