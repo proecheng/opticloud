@@ -176,6 +176,35 @@ class DataExportStatusResponse(BaseModel):
     last_error: str | None = None
 
 
+# ===== Story 8.A.4: user audit log query =====
+
+
+class AuditLogItem(BaseModel):
+    """User-safe audit log item for FR O3 self-service history."""
+
+    id: uuid.UUID
+    actor: str
+    action: str
+    resource_type: str | None
+    resource_id: uuid.UUID | None
+    metadata: dict[str, object]
+    ip_address: str | None = None
+    user_agent: str | None = None
+    created_at: datetime
+
+
+class UserAuditLogsResponse(BaseModel):
+    """Cursor-paginated self-service audit log response."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    items: list[AuditLogItem]
+    next_cursor: str | None = None
+    limit: int
+    from_: datetime = Field(alias="from")
+    to: datetime
+
+
 # ===== Story 5.D.6: notification preferences =====
 
 

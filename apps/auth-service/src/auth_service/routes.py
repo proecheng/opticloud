@@ -5,15 +5,34 @@ FR A1 / A2 implementation (Story 0.6 + 1.2).
 
 from __future__ import annotations
 
+import base64
+import hashlib
+import hmac
+import json
+import re
 import secrets
 import uuid
+from binascii import Error as BinasciiError
+from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
+from ipaddress import IPv4Address, IPv6Address
 from typing import Literal
 
 import structlog
-from fastapi import APIRouter, Body, Depends, Header, HTTPException, Request, Response, status
+from fastapi import (
+    APIRouter,
+    Body,
+    Depends,
+    Header,
+    HTTPException,
+    Query,
+    Request,
+    Response,
+    status,
+)
 from fastapi.responses import JSONResponse
-from sqlalchemy import and_, select, text, update
+from sqlalchemy import and_, or_, select, text, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -46,6 +65,7 @@ from auth_service.schemas import (
     APIKeyCreateResponse,
     APIKeyGeoAnomalyWarning,
     APIKeyListItem,
+    AuditLogItem,
     DataExportCreateRequest,
     DataExportStatusResponse,
     GuardianConsentPendingResponse,
@@ -59,6 +79,7 @@ from auth_service.schemas import (
     OTPRequestResponse,
     SignupRequest,
     SignupResponse,
+    UserAuditLogsResponse,
     notification_channels,
     notification_event_defaults,
 )
@@ -66,6 +87,27 @@ from auth_service.schemas import (
 _log = structlog.get_logger("auth_service.routes")
 
 router = APIRouter(prefix="/v1/auth", tags=["auth"])
+me_router = APIRouter(prefix="/v1/me", tags=["me"])
+
+_AUDIT_LOG_DEFAULT_WINDOW_DAYS = 30
+_AUDIT_LOG_DEFAULT_LIMIT = 50
+_AUDIT_LOG_MAX_LIMIT = 100
+_AUDIT_LOG_CURSOR_VERSION = 1
+_AUDIT_LOG_CURSOR_SIGNATURE_BYTES = 32
+_AUDIT_SAFE_METADATA_KEYS = {"webhook_url_configured"}
+_AUDIT_SECRET_KEY_RE = re.compile(
+    r"(api[_-]?key|key[_-]?hash|token(?:[_-]?hash)?|tracking[_-]?token|"
+    r"guardian[_-]?consent[_-]?token|authorization|jwt|password|pepper|otp|"
+    r"secret|cookie|webhook(?:[_-]?url)?|provider[_-]?(?:payload|request|response)|"
+    r"raw[_-]?(?:request|response|payload|body))",
+    re.IGNORECASE,
+)
+_AUDIT_SECRET_VALUE_RE = re.compile(
+    r"(Bearer\s+[A-Za-z0-9._~+/=-]+|sk-[A-Za-z0-9._~+/=-]+|"
+    r"\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b|"
+    r"secret-[A-Za-z0-9._~+/=-]+)",
+    re.IGNORECASE,
+)
 
 
 def _deletion_status_value(status: str) -> Literal["scheduled", "completed"]:
@@ -606,6 +648,328 @@ async def _resolve_active_user_from_jwt(
     user_id = await _resolve_user_from_jwt(authorization)
     await _require_active_user(session, user_id)
     return user_id
+
+
+def _audit_log_cursor_secret() -> bytes:
+    material = f"{settings.api_key_hmac_pepper_dev}:audit-log-cursor:v1"
+    return hashlib.sha256(material.encode("utf-8")).digest()
+
+
+def _audit_log_time_key(value: datetime) -> str:
+    return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
+
+
+def _parse_audit_log_time(value: str, field_name: str) -> datetime:
+    raw = value.strip()
+    if not raw:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"{field_name} must be a timezone-aware ISO 8601 datetime",
+        )
+    try:
+        parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"{field_name} must be a timezone-aware ISO 8601 datetime",
+        ) from e
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"{field_name} must include a timezone offset",
+        )
+    return parsed.astimezone(UTC)
+
+
+def _cursor_payload_bytes(payload: dict[str, object]) -> bytes:
+    return json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+
+
+def _encode_audit_log_cursor(
+    *,
+    user_id: uuid.UUID,
+    created_at: datetime,
+    row_id: uuid.UUID,
+    from_dt: datetime,
+    to_dt: datetime,
+    limit: int,
+) -> str:
+    payload: dict[str, object] = {
+        "v": _AUDIT_LOG_CURSOR_VERSION,
+        "user_id": str(user_id),
+        "created_at": _audit_log_time_key(created_at),
+        "id": str(row_id),
+        "from": _audit_log_time_key(from_dt),
+        "to": _audit_log_time_key(to_dt),
+        "limit": limit,
+    }
+    body = _cursor_payload_bytes(payload)
+    signature = hmac.new(_audit_log_cursor_secret(), body, hashlib.sha256).digest()
+    token = signature + body
+    return base64.urlsafe_b64encode(token).decode("ascii").rstrip("=")
+
+
+def _decode_audit_log_cursor(cursor: str) -> dict[str, object]:
+    padding = "=" * (-len(cursor) % 4)
+    try:
+        raw = base64.urlsafe_b64decode((cursor + padding).encode("ascii"))
+    except (BinasciiError, UnicodeEncodeError) as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="invalid audit log cursor",
+        ) from e
+    if len(raw) <= _AUDIT_LOG_CURSOR_SIGNATURE_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="invalid audit log cursor",
+        )
+    signature = raw[:_AUDIT_LOG_CURSOR_SIGNATURE_BYTES]
+    body = raw[_AUDIT_LOG_CURSOR_SIGNATURE_BYTES:]
+    expected = hmac.new(_audit_log_cursor_secret(), body, hashlib.sha256).digest()
+    if not hmac.compare_digest(signature, expected):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="invalid audit log cursor",
+        )
+    try:
+        payload = json.loads(body.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="invalid audit log cursor",
+        ) from e
+    if not isinstance(payload, dict) or payload.get("v") != _AUDIT_LOG_CURSOR_VERSION:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="unsupported audit log cursor",
+        )
+    return payload
+
+
+def _cursor_str(payload: dict[str, object], key: str) -> str:
+    value = payload.get(key)
+    if not isinstance(value, str) or not value:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="invalid audit log cursor",
+        )
+    return value
+
+
+def _cursor_int(payload: dict[str, object], key: str) -> int:
+    value = payload.get(key)
+    if not isinstance(value, int):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="invalid audit log cursor",
+        )
+    return value
+
+
+def _resolve_audit_log_window_and_cursor(
+    *,
+    user_id: uuid.UUID,
+    from_param: str | None,
+    to_param: str | None,
+    limit_param: int | None,
+    cursor: str | None,
+    now: datetime | None = None,
+) -> tuple[datetime, datetime, int, tuple[datetime, uuid.UUID] | None]:
+    cursor_anchor: tuple[datetime, uuid.UUID] | None = None
+    cursor_payload = _decode_audit_log_cursor(cursor) if cursor else None
+
+    if cursor_payload is not None:
+        try:
+            cursor_user_id = uuid.UUID(_cursor_str(cursor_payload, "user_id"))
+        except ValueError as e:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="invalid audit log cursor",
+            ) from e
+        if cursor_user_id != user_id:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="audit log cursor does not belong to the current user",
+            )
+        cursor_from = _parse_audit_log_time(_cursor_str(cursor_payload, "from"), "cursor.from")
+        cursor_to = _parse_audit_log_time(_cursor_str(cursor_payload, "to"), "cursor.to")
+        cursor_limit = _cursor_int(cursor_payload, "limit")
+        from_dt = (
+            _parse_audit_log_time(from_param, "from") if from_param is not None else cursor_from
+        )
+        to_dt = _parse_audit_log_time(to_param, "to") if to_param is not None else cursor_to
+        limit = limit_param if limit_param is not None else cursor_limit
+        if (
+            _audit_log_time_key(from_dt) != _audit_log_time_key(cursor_from)
+            or _audit_log_time_key(to_dt) != _audit_log_time_key(cursor_to)
+            or limit != cursor_limit
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="cursor parameters must match the original audit log query",
+            )
+        cursor_created_at = _parse_audit_log_time(
+            _cursor_str(cursor_payload, "created_at"), "cursor.created_at"
+        )
+        try:
+            cursor_id = uuid.UUID(_cursor_str(cursor_payload, "id"))
+        except ValueError as e:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="invalid audit log cursor",
+            ) from e
+        cursor_anchor = (cursor_created_at, cursor_id)
+    else:
+        current = (now or datetime.now(UTC)).astimezone(UTC)
+        to_dt = _parse_audit_log_time(to_param, "to") if to_param is not None else current
+        from_dt = (
+            _parse_audit_log_time(from_param, "from")
+            if from_param is not None
+            else to_dt - timedelta(days=_AUDIT_LOG_DEFAULT_WINDOW_DAYS)
+        )
+        limit = limit_param if limit_param is not None else _AUDIT_LOG_DEFAULT_LIMIT
+
+    if limit < 1 or limit > _AUDIT_LOG_MAX_LIMIT:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"limit must be between 1 and {_AUDIT_LOG_MAX_LIMIT}",
+        )
+    if from_dt > to_dt:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="from must be earlier than or equal to to",
+        )
+    return from_dt, to_dt, limit, cursor_anchor
+
+
+def _audit_to_jsonable(value: object) -> object:
+    if isinstance(value, datetime):
+        return _audit_log_time_key(value)
+    if isinstance(value, uuid.UUID):
+        return str(value)
+    if isinstance(value, Decimal):
+        return str(value)
+    if isinstance(value, IPv4Address | IPv6Address):
+        return str(value)
+    if isinstance(value, Mapping):
+        return {str(k): _audit_to_jsonable(v) for k, v in value.items()}
+    if isinstance(value, list | tuple):
+        return [_audit_to_jsonable(v) for v in value]
+    if value is None or isinstance(value, bool | int | float | str):
+        return value
+    return str(value)
+
+
+def _sanitize_audit_metadata(value: object) -> object:
+    if isinstance(value, Mapping):
+        sanitized: dict[str, object] = {}
+        for raw_key, raw_value in value.items():
+            key = str(raw_key)
+            if key.lower() not in _AUDIT_SAFE_METADATA_KEYS and _AUDIT_SECRET_KEY_RE.search(key):
+                sanitized[key] = "[REDACTED]"
+            else:
+                sanitized[key] = _sanitize_audit_metadata(raw_value)
+        return sanitized
+    if isinstance(value, list | tuple):
+        return [_sanitize_audit_metadata(v) for v in value]
+    if isinstance(value, str):
+        return _AUDIT_SECRET_VALUE_RE.sub("[REDACTED]", value)
+    return _audit_to_jsonable(value)
+
+
+def _audit_log_item(row: AuditLog) -> AuditLogItem:
+    metadata = _sanitize_audit_metadata(row.audit_metadata or {})
+    if not isinstance(metadata, dict):
+        metadata = {}
+    return AuditLogItem(
+        id=row.id,
+        actor=row.actor,
+        action=row.action,
+        resource_type=row.resource_type,
+        resource_id=row.resource_id,
+        metadata=metadata,
+        ip_address=str(row.ip_address) if row.ip_address is not None else None,
+        user_agent=row.user_agent,
+        created_at=row.created_at,
+    )
+
+
+@me_router.get(
+    "/audit-logs",
+    response_model=UserAuditLogsResponse,
+    summary="查询当前用户审计日志",
+    description=(
+        "FR O3: returns only the authenticated user's audit_logs rows with UTC time "
+        "filtering, bounded cursor pagination, and metadata redaction."
+    ),
+)
+async def list_my_audit_logs(
+    request: Request,
+    from_param: str | None = Query(default=None, alias="from"),
+    to_param: str | None = Query(default=None, alias="to"),
+    limit: int | None = Query(default=None, ge=1, le=_AUDIT_LOG_MAX_LIMIT),
+    cursor: str | None = Query(default=None),
+    authorization: str | None = Header(default=None),
+    session: AsyncSession = Depends(get_session),
+) -> UserAuditLogsResponse:
+    if "user_id" in request.query_params:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="user_id query parameter is not supported",
+        )
+
+    user_id = await _resolve_active_user_from_jwt(authorization, session)
+    from_dt, to_dt, resolved_limit, cursor_anchor = _resolve_audit_log_window_and_cursor(
+        user_id=user_id,
+        from_param=from_param,
+        to_param=to_param,
+        limit_param=limit,
+        cursor=cursor,
+    )
+
+    conditions = [
+        AuditLog.user_id == user_id,
+        AuditLog.created_at >= from_dt,
+        AuditLog.created_at <= to_dt,
+    ]
+    if cursor_anchor is not None:
+        cursor_created_at, cursor_id = cursor_anchor
+        conditions.append(
+            or_(
+                AuditLog.created_at < cursor_created_at,
+                and_(AuditLog.created_at == cursor_created_at, AuditLog.id < cursor_id),
+            )
+        )
+
+    result = await session.execute(
+        select(AuditLog)
+        .where(*conditions)
+        .order_by(AuditLog.created_at.desc(), AuditLog.id.desc())
+        .limit(resolved_limit + 1)
+    )
+    rows = list(result.scalars().all())
+    visible_rows = rows[:resolved_limit]
+    next_cursor = None
+    if len(rows) > resolved_limit and visible_rows:
+        last = visible_rows[-1]
+        next_cursor = _encode_audit_log_cursor(
+            user_id=user_id,
+            created_at=last.created_at,
+            row_id=last.id,
+            from_dt=from_dt,
+            to_dt=to_dt,
+            limit=resolved_limit,
+        )
+
+    return UserAuditLogsResponse.model_validate(
+        {
+            "items": [_audit_log_item(row) for row in visible_rows],
+            "next_cursor": next_cursor,
+            "limit": resolved_limit,
+            "from": from_dt,
+            "to": to_dt,
+        }
+    )
 
 
 @router.post(

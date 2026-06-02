@@ -239,7 +239,7 @@ development_status:
   8-a-1-public-status-page: done               # 2026-06-02 - Public status page shipped; PR #145 passed CI, merged to main, remote branch deleted, local main synced
   8-a-2-incident-subscribe: done              # 2026-06-02 - Incident subscription fanout shipped; PR #146 passed CI, merged to main, remote branch deleted, local main synced
   8-a-3-24h-postmortem: done                   # 2026-06-02 - public P0 postmortem page shipped; PR #147 passed CI, merged to main, remote branch deleted, local main synced
-  8-a-4-user-audit-logs: backlog               # FR O3
+  8-a-4-user-audit-logs: code-review           # FR O3
   8-a-5-audit-log-table: backlog
   8-a-6-vuln-submission: backlog               # FR O4
   8-a-7-j9-whitehat-vertical-slice: backlog
