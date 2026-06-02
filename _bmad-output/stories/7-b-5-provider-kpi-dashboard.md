@@ -4,7 +4,7 @@ baseline_commit: d348126b4cbb80a8b4fef91b148ce606426a6ef3
 epic_num: 7
 story_num: B.5
 epic_name: Provider Marketplace v2
-status: review
+status: done
 priority: High
 type: provider KPI dashboard read projection
 created_by: bmad-create-story
@@ -25,7 +25,7 @@ sources:
 
 # Story 7.B.5 - Provider KPI Dashboard
 
-Status: review
+Status: done
 
 ## Story
 
@@ -119,12 +119,12 @@ Epic 7.B 已完成 Provider application/evaluation intake、shadow validation ga
   - [x] Add OpenAPI unsafe-field absence and query alias assertions。
   - [x] Regenerate checked-in OpenAPI and run drift check。
 
-- [ ] T4: Review, gates, and GitHub sync (AC: 36-37)
+- [x] T4: Review, gates, and GitHub sync (AC: 36-37)
   - [x] Run post-implementation code review and fix findings。
   - [x] Record code review findings and fixes in `Post-Implementation Code Review`。
   - [x] Run local gates after fixes。
-  - [ ] Commit, push, create PR, wait for CI, merge, delete remote branch, and sync local `main`。
-  - [ ] Mark story and sprint status `done` only after merge/sync。
+  - [x] Commit, push, create PR, wait for CI, merge, delete remote branch, and sync local `main`。
+  - [x] Mark story and sprint status `done` only after merge/sync。
 
 ## Dev Notes
 
@@ -209,6 +209,7 @@ GPT-5 Codex
 - Implemented shadow-sample KPI aggregation, per-run metrics, UTC daily timeline, rollout context summary, exact tenant scope, provider filter, and fail-closed 409 behavior for stored drift。
 - Added tests for metrics, time windows, empty states, tenant isolation, baseline-provider non-leakage, no side effects, drift handling, and OpenAPI unsafe-field protection。
 - Post-implementation review findings fixed: sample loading no longer uses N+1 queries, and rollout summary scope validation now uses the endpoint requested tenant scope。
+- GitHub sync completed: PR #140 passed CI including `ci`, `e2e`, and `image-build`; merged to `main` at `12ee512f46e4a059f20eec3afd23378aa76263dc`; remote branch `codex/7-b-5-provider-kpi-dashboard` was deleted; local `main` is synced with `origin/main`。
 
 ### File List
 
@@ -226,6 +227,7 @@ GPT-5 Codex
 - 2026-06-02 - Implementation started; story and sprint status moved to in-progress。
 - 2026-06-02 - Implemented Provider KPI Dashboard read projection, tests, and OpenAPI update; story moved to review pending post-implementation code review。
 - 2026-06-02 - Post-implementation code review completed; review findings fixed and local gates passed。
+- 2026-06-02 - PR #140 passed GitHub CI, merged to `main`, remote branch deleted, local `main` synced, and story marked done。
 
 ## Pre-Implementation Adversarial Reviews
 
