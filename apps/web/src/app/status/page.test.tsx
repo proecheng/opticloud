@@ -59,6 +59,9 @@ describe("StatusPage", () => {
     expect(within(nav).getByRole("link", { name: "Status" }).getAttribute("href")).toBe(
       "/status",
     );
+    expect(within(nav).getByRole("link", { name: "Security" }).getAttribute("href")).toBe(
+      "/security",
+    );
     expect(
       screen
         .getAllByRole("link", { name: "RSS feed" })
