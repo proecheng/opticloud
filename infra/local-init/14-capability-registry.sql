@@ -347,6 +347,111 @@ CREATE INDEX IF NOT EXISTS idx_revenue_share_hooks_lookup
 CREATE INDEX IF NOT EXISTS idx_revenue_share_hooks_policy_id
     ON revenue_share_hooks(policy_id);
 
+-- Story 7.B.6: provider revenue + pending payout read projection.
+-- Amounts are derived from hook + policy references; no external payout processing.
+
+CREATE TABLE IF NOT EXISTS provider_revenue_payout_entries (
+    id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id               UUID NULL,
+    entry_id                VARCHAR(64) NOT NULL,
+    hook_row_id             UUID NOT NULL REFERENCES revenue_share_hooks(id) ON DELETE CASCADE,
+    provider_id             VARCHAR(64) NOT NULL,
+    k_algo                  VARCHAR(64) NOT NULL,
+    policy_id               VARCHAR(64) NOT NULL,
+    source_service          VARCHAR(64) NOT NULL,
+    source_event_id         UUID NOT NULL,
+    period_month            CHAR(7) NOT NULL,
+    currency                CHAR(3) NOT NULL DEFAULT 'CNY',
+    gross_amount            NUMERIC(12, 4) NOT NULL,
+    platform_share_ratio    NUMERIC(7, 6) NOT NULL,
+    provider_share_ratio    NUMERIC(7, 6) NOT NULL,
+    status                  VARCHAR(32) NOT NULL DEFAULT 'pending',
+    recognized_at           TIMESTAMPTZ NOT NULL,
+    metadata                JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at              TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE provider_revenue_payout_entries
+    ADD COLUMN IF NOT EXISTS tenant_id UUID NULL,
+    ADD COLUMN IF NOT EXISTS metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+    ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
+ALTER TABLE provider_revenue_payout_entries
+    DROP CONSTRAINT IF EXISTS ck_provider_revenue_payout_entries_entry_id;
+ALTER TABLE provider_revenue_payout_entries
+    ADD CONSTRAINT ck_provider_revenue_payout_entries_entry_id
+    CHECK (entry_id ~ '^[a-z0-9][a-z0-9-]{0,63}$');
+
+ALTER TABLE provider_revenue_payout_entries
+    DROP CONSTRAINT IF EXISTS ck_provider_revenue_payout_entries_provider_id;
+ALTER TABLE provider_revenue_payout_entries
+    ADD CONSTRAINT ck_provider_revenue_payout_entries_provider_id
+    CHECK (provider_id ~ '^[a-z0-9][a-z0-9-]{0,63}$');
+
+ALTER TABLE provider_revenue_payout_entries
+    DROP CONSTRAINT IF EXISTS ck_provider_revenue_payout_entries_k_algo;
+ALTER TABLE provider_revenue_payout_entries
+    ADD CONSTRAINT ck_provider_revenue_payout_entries_k_algo
+    CHECK (k_algo ~ '^[a-z0-9][a-z0-9-]{0,63}$');
+
+ALTER TABLE provider_revenue_payout_entries
+    DROP CONSTRAINT IF EXISTS ck_provider_revenue_payout_entries_policy_id;
+ALTER TABLE provider_revenue_payout_entries
+    ADD CONSTRAINT ck_provider_revenue_payout_entries_policy_id
+    CHECK (policy_id ~ '^[a-z0-9][a-z0-9-]{0,63}$');
+
+ALTER TABLE provider_revenue_payout_entries
+    DROP CONSTRAINT IF EXISTS ck_provider_revenue_payout_entries_source_service;
+ALTER TABLE provider_revenue_payout_entries
+    ADD CONSTRAINT ck_provider_revenue_payout_entries_source_service
+    CHECK (source_service ~ '^[a-z0-9][a-z0-9-]{0,63}$');
+
+ALTER TABLE provider_revenue_payout_entries
+    DROP CONSTRAINT IF EXISTS ck_provider_revenue_payout_entries_period_month;
+ALTER TABLE provider_revenue_payout_entries
+    ADD CONSTRAINT ck_provider_revenue_payout_entries_period_month
+    CHECK (period_month ~ '^[0-9]{4}-(0[1-9]|1[0-2])$');
+
+ALTER TABLE provider_revenue_payout_entries
+    DROP CONSTRAINT IF EXISTS ck_provider_revenue_payout_entries_currency;
+ALTER TABLE provider_revenue_payout_entries
+    ADD CONSTRAINT ck_provider_revenue_payout_entries_currency
+    CHECK (currency ~ '^[A-Z]{3}$');
+
+ALTER TABLE provider_revenue_payout_entries
+    DROP CONSTRAINT IF EXISTS ck_provider_revenue_payout_entries_amounts;
+ALTER TABLE provider_revenue_payout_entries
+    ADD CONSTRAINT ck_provider_revenue_payout_entries_amounts
+    CHECK (
+        gross_amount >= 0
+        AND platform_share_ratio >= 0
+        AND platform_share_ratio <= 1
+        AND provider_share_ratio >= 0
+        AND provider_share_ratio <= 1
+        AND platform_share_ratio + provider_share_ratio = 1.000000
+    );
+
+ALTER TABLE provider_revenue_payout_entries
+    DROP CONSTRAINT IF EXISTS ck_provider_revenue_payout_entries_status;
+ALTER TABLE provider_revenue_payout_entries
+    ADD CONSTRAINT ck_provider_revenue_payout_entries_status
+    CHECK (status IN ('pending', 'held', 'paid', 'voided'));
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_provider_revenue_payout_entries_global_entry_id
+    ON provider_revenue_payout_entries(entry_id)
+    WHERE tenant_id IS NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_provider_revenue_payout_entries_tenant_entry_id
+    ON provider_revenue_payout_entries(tenant_id, entry_id)
+    WHERE tenant_id IS NOT NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_provider_revenue_payout_entries_hook
+    ON provider_revenue_payout_entries(hook_row_id);
+
+CREATE INDEX IF NOT EXISTS idx_provider_revenue_payout_entries_dashboard
+    ON provider_revenue_payout_entries(tenant_id, provider_id, period_month, status, currency);
+
 -- Story 7.B.1: Provider Apply v2 intake contract.
 -- Intake-only application/evaluation records; no provider catalog mutation or worker execution.
 

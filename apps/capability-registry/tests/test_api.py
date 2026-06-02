@@ -92,6 +92,7 @@ async def clean_tables(engine: AsyncEngine) -> AsyncIterator[None]:
                 "TRUNCATE provider_gradient_rollouts, "
                 "provider_shadow_validation_samples, provider_shadow_validation_runs, "
                 "provider_application_evaluation_requests, provider_applications, "
+                "provider_revenue_payout_entries, "
                 "revenue_share_hooks, revenue_share_policies, "
                 "provider_oauth_flows, capability_tags, capabilities, "
                 "capability_providers RESTART IDENTITY CASCADE"
@@ -184,6 +185,19 @@ def hook_payload(**overrides: Any) -> dict[str, Any]:
         "gross_amount_ref": "credit-ledger:gross:v1",
         "currency": "CNY",
         "status": "reserved",
+        "metadata": {"source": "test"},
+    }
+    payload.update(overrides)
+    return payload
+
+
+def payout_entry_payload(**overrides: Any) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "hook_id": str(uuid.uuid4()),
+        "gross_amount": "100.0000",
+        "currency": "CNY",
+        "recognized_at": "2026-06-15T12:00:00Z",
+        "status": "pending",
         "metadata": {"source": "test"},
     }
     payload.update(overrides)
@@ -762,6 +776,393 @@ async def test_revenue_share_write_protection_when_internal_secret_configured(
     assert ok_hook.status_code == 200, ok_hook.text
 
 
+async def _create_revenue_share_hook(
+    client: AsyncClient,
+    **hook_overrides: Any,
+) -> dict[str, Any]:
+    await client.put("/v1/providers/highs", json=provider_payload(kind="external"))
+    await client.put("/v1/capabilities/highs-lp", json=capability_payload())
+    await client.put("/v1/revenue-share/policies/external-default", json=policy_payload())
+    hook = await client.post(
+        "/v1/revenue-share/hooks",
+        json=hook_payload(**hook_overrides),
+    )
+    assert hook.status_code == 200, hook.text
+    return hook.json()
+
+
+async def test_provider_revenue_payout_entry_amounts_status_and_validation(
+    client: AsyncClient,
+    engine: AsyncEngine,
+) -> None:
+    hook = await _create_revenue_share_hook(client)
+
+    create = await client.put(
+        "/v1/revenue-share/payout-entries/entry-001",
+        json=payout_entry_payload(hook_id=hook["id"], gross_amount="123.4567"),
+    )
+    assert create.status_code == 200, create.text
+    body = create.json()
+    assert body["entry_id"] == "entry-001"
+    assert body["hook_id"] == hook["id"]
+    assert body["provider_id"] == "highs"
+    assert body["k_algo"] == "highs-lp"
+    assert body["period_month"] == "2026-06"
+    assert body["gross_amount"] == "123.4567"
+    assert body["provider_share_ratio"] == "0.400000"
+    assert body["platform_share_ratio"] == "0.600000"
+    assert body["provider_revenue_amount"] == "49.3827"
+    assert body["platform_revenue_amount"] == "74.0740"
+    assert body["status"] == "pending"
+    assert body["scope_source"] == "global"
+    assert "metadata" not in body
+
+    held = await client.put(
+        "/v1/revenue-share/payout-entries/entry-001",
+        json=payout_entry_payload(hook_id=hook["id"], gross_amount="123.4567", status="held"),
+    )
+    assert held.status_code == 200, held.text
+    assert held.json()["status"] == "held"
+
+    paid = await client.put(
+        "/v1/revenue-share/payout-entries/entry-001",
+        json=payout_entry_payload(hook_id=hook["id"], gross_amount="123.4567", status="paid"),
+    )
+    assert paid.status_code == 200, paid.text
+
+    invalid_terminal_transition = await client.put(
+        "/v1/revenue-share/payout-entries/entry-001",
+        json=payout_entry_payload(hook_id=hook["id"], gross_amount="123.4567", status="pending"),
+    )
+    assert invalid_terminal_transition.status_code == 422
+
+    changed_amount = await client.put(
+        "/v1/revenue-share/payout-entries/entry-001",
+        json=payout_entry_payload(hook_id=hook["id"], gross_amount="200.0000", status="paid"),
+    )
+    assert changed_amount.status_code == 422
+
+    forbidden = await client.put(
+        "/v1/revenue-share/payout-entries/entry-002",
+        json=payout_entry_payload(
+            hook_id=hook["id"],
+            providerAmount="49.3827",
+        ),
+    )
+    assert forbidden.status_code == 422
+
+    forbidden_metadata = await client.put(
+        "/v1/revenue-share/payout-entries/entry-002",
+        json=payout_entry_payload(
+            hook_id=hook["id"],
+            metadata={"nested": {"settlementId": "secret-settlement"}},
+        ),
+    )
+    assert forbidden_metadata.status_code == 422
+
+    duplicate_hook = await client.put(
+        "/v1/revenue-share/payout-entries/entry-002",
+        json=payout_entry_payload(hook_id=hook["id"]),
+    )
+    assert duplicate_hook.status_code == 422
+
+    maker = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
+    async with maker() as session:
+        with pytest.raises(IntegrityError):
+            await session.execute(
+                text(
+                    """
+                    INSERT INTO provider_revenue_payout_entries (
+                        entry_id, hook_row_id, provider_id, k_algo, policy_id,
+                        source_service, source_event_id, period_month, currency,
+                        gross_amount, platform_share_ratio, provider_share_ratio,
+                        status, recognized_at
+                    )
+                    SELECT
+                        'entry-001', id, provider_id, k_algo, policy_id,
+                        source_service, gen_random_uuid(), period_month, currency,
+                        1.0000, 0.600000, 0.400000, 'pending', NOW()
+                    FROM revenue_share_hooks
+                    WHERE id = :hook_id
+                    """
+                ),
+                {"hook_id": hook["id"]},
+            )
+            await session.commit()
+
+
+async def test_provider_revenue_payout_entry_tenant_exact_scope_and_auth(
+    client: AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    tenant_id = str(uuid.uuid4())
+    await client.put(
+        "/v1/providers/highs",
+        json=provider_payload(tenant_id=tenant_id, kind="external"),
+    )
+    await client.put(
+        "/v1/capabilities/highs-lp",
+        json=capability_payload(tenant_id=tenant_id),
+    )
+    await client.put("/v1/revenue-share/policies/external-default", json=policy_payload())
+    tenant_hook = await client.post(
+        "/v1/revenue-share/hooks",
+        json=hook_payload(tenant_id=tenant_id),
+    )
+    assert tenant_hook.status_code == 200, tenant_hook.text
+
+    global_scope_attempt = await client.put(
+        "/v1/revenue-share/payout-entries/tenant-entry",
+        json=payout_entry_payload(hook_id=tenant_hook.json()["id"]),
+    )
+    assert global_scope_attempt.status_code == 422
+
+    tenant_entry = await client.put(
+        "/v1/revenue-share/payout-entries/tenant-entry",
+        json=payout_entry_payload(tenant_id=tenant_id, hook_id=tenant_hook.json()["id"]),
+    )
+    assert tenant_entry.status_code == 200, tenant_entry.text
+    assert tenant_entry.json()["tenant_id"] == tenant_id
+    assert tenant_entry.json()["scope_source"] == "tenant"
+
+    global_list = await client.get("/v1/revenue-share/payout-entries")
+    assert global_list.status_code == 200, global_list.text
+    assert global_list.json() == []
+
+    tenant_list = await client.get(
+        "/v1/revenue-share/payout-entries",
+        params={"tenant_id": tenant_id},
+    )
+    assert tenant_list.status_code == 200, tenant_list.text
+    assert [item["entry_id"] for item in tenant_list.json()] == ["tenant-entry"]
+
+    monkeypatch.setattr(
+        "capability_registry.routes.settings.internal_secret",
+        SecretStr("internal-test-secret"),
+    )
+    blocked = await client.put(
+        "/v1/revenue-share/payout-entries/blocked-entry",
+        json=payout_entry_payload(tenant_id=tenant_id, hook_id=tenant_hook.json()["id"]),
+    )
+    assert blocked.status_code == 401
+
+
+async def test_provider_revenue_payout_dashboard_totals_filters_and_no_side_effects(
+    client: AsyncClient,
+    engine: AsyncEngine,
+) -> None:
+    hook_one = await _create_revenue_share_hook(client, source_event_id=str(uuid.uuid4()))
+    hook_two = await client.post(
+        "/v1/revenue-share/hooks",
+        json=hook_payload(source_event_id=str(uuid.uuid4()), period_month="2026-07"),
+    )
+    assert hook_two.status_code == 200, hook_two.text
+    hook_three = await client.post(
+        "/v1/revenue-share/hooks",
+        json=hook_payload(source_event_id=str(uuid.uuid4()), period_month="2026-07"),
+    )
+    assert hook_three.status_code == 200, hook_three.text
+    hook_other_provider = await client.post(
+        "/v1/revenue-share/hooks",
+        json=hook_payload(
+            provider_id="other-provider",
+            k_algo="other-capability",
+            source_event_id=str(uuid.uuid4()),
+        ),
+    )
+    assert hook_other_provider.status_code == 422
+
+    pending = await client.put(
+        "/v1/revenue-share/payout-entries/entry-pending",
+        json=payout_entry_payload(hook_id=hook_one["id"], gross_amount="100.0000"),
+    )
+    held = await client.put(
+        "/v1/revenue-share/payout-entries/entry-held",
+        json=payout_entry_payload(
+            hook_id=hook_two.json()["id"],
+            gross_amount="50.0000",
+            status="held",
+            recognized_at="2026-07-01T00:00:00Z",
+        ),
+    )
+    voided = await client.put(
+        "/v1/revenue-share/payout-entries/entry-voided",
+        json=payout_entry_payload(
+            hook_id=hook_three.json()["id"],
+            gross_amount="25.0000",
+            status="voided",
+            recognized_at="2026-07-02T00:00:00Z",
+        ),
+    )
+    assert pending.status_code == 200, pending.text
+    assert held.status_code == 200, held.text
+    assert voided.status_code == 200, voided.text
+
+    maker = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
+    async with maker() as session:
+        before_rows = (
+            (
+                await session.execute(
+                    text(
+                        "SELECT entry_id, status, gross_amount FROM provider_revenue_payout_entries "
+                        "ORDER BY entry_id"
+                    )
+                )
+            )
+            .mappings()
+            .all()
+        )
+
+    dashboard = await client.get("/v1/providers/highs/revenue-payout-dashboard")
+    assert dashboard.status_code == 200, dashboard.text
+    body = dashboard.json()
+    assert body["provider_id"] == "highs"
+    assert body["status_counts"] == {"pending": 1, "held": 1, "paid": 0, "voided": 1}
+    assert body["total_entries"] == 3
+    assert body["currency_totals"] == [
+        {
+            "currency": "CNY",
+            "entry_count": 3,
+            "gross_amount": "150.0000",
+            "provider_revenue_amount": "60.0000",
+            "platform_revenue_amount": "90.0000",
+            "pending_payout_amount": "40.0000",
+            "held_payout_amount": "20.0000",
+            "paid_amount": "0.0000",
+            "voided_gross_amount": "25.0000",
+        }
+    ]
+    assert [(item["period_month"], item["currency"]) for item in body["period_summaries"]] == [
+        ("2026-06", "CNY"),
+        ("2026-07", "CNY"),
+    ]
+    assert [item["entry_id"] for item in body["entries"]] == [
+        "entry-voided",
+        "entry-held",
+        "entry-pending",
+    ]
+    assert "metadata" not in json.dumps(body)
+    assert "settlement_id" not in json.dumps(body)
+
+    filtered = await client.get(
+        "/v1/providers/highs/revenue-payout-dashboard",
+        params={
+            "from": "2026-07-01T00:00:00Z",
+            "to": "2026-07-01T23:59:59Z",
+            "period_month": "2026-07",
+            "status": "held",
+            "k_algo": "highs-lp",
+            "currency": "CNY",
+        },
+    )
+    assert filtered.status_code == 200, filtered.text
+    assert filtered.json()["total_entries"] == 1
+    assert filtered.json()["entries"][0]["entry_id"] == "entry-held"
+
+    empty = await client.get("/v1/providers/no-revenue-provider/revenue-payout-dashboard")
+    assert empty.status_code == 200, empty.text
+    assert empty.json()["status_counts"] == {"pending": 0, "held": 0, "paid": 0, "voided": 0}
+    assert empty.json()["currency_totals"] == []
+    assert empty.json()["period_summaries"] == []
+    assert empty.json()["entries"] == []
+
+    reversed_window = await client.get(
+        "/v1/providers/highs/revenue-payout-dashboard",
+        params={"from": "2026-07-02T00:00:00Z", "to": "2026-07-01T00:00:00Z"},
+    )
+    assert reversed_window.status_code == 422
+
+    naive_window = await client.get(
+        "/v1/providers/highs/revenue-payout-dashboard",
+        params={"from": "2026-07-01T00:00:00"},
+    )
+    assert naive_window.status_code == 422
+
+    async with maker() as session:
+        after_rows = (
+            (
+                await session.execute(
+                    text(
+                        "SELECT entry_id, status, gross_amount FROM provider_revenue_payout_entries "
+                        "ORDER BY entry_id"
+                    )
+                )
+            )
+            .mappings()
+            .all()
+        )
+    assert before_rows == after_rows
+
+
+async def test_provider_revenue_payout_dashboard_fails_closed_on_stored_drift(
+    client: AsyncClient,
+    engine: AsyncEngine,
+) -> None:
+    hook = await _create_revenue_share_hook(client)
+    create = await client.put(
+        "/v1/revenue-share/payout-entries/entry-drift",
+        json=payout_entry_payload(hook_id=hook["id"]),
+    )
+    assert create.status_code == 200, create.text
+    maker = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
+
+    async with maker() as session:
+        await session.execute(
+            text(
+                "ALTER TABLE provider_revenue_payout_entries "
+                "DROP CONSTRAINT ck_provider_revenue_payout_entries_status"
+            )
+        )
+        await session.execute(
+            text(
+                """
+                UPDATE provider_revenue_payout_entries
+                SET status = 'manual-drift'
+                WHERE entry_id = 'entry-drift'
+                """
+            )
+        )
+        await session.commit()
+
+    status_drift = await client.get("/v1/providers/highs/revenue-payout-dashboard")
+    assert status_drift.status_code == 409
+    assert "status" in status_drift.text
+
+    async with maker() as session:
+        await session.execute(
+            text(
+                """
+                UPDATE provider_revenue_payout_entries
+                SET status = 'pending'
+                WHERE entry_id = 'entry-drift'
+                """
+            )
+        )
+        await session.execute(
+            text(
+                """
+                ALTER TABLE provider_revenue_payout_entries
+                ADD CONSTRAINT ck_provider_revenue_payout_entries_status
+                CHECK (status IN ('pending', 'held', 'paid', 'voided'))
+                """
+            )
+        )
+        await session.execute(
+            text(
+                """
+                UPDATE provider_revenue_payout_entries
+                SET provider_id = 'other-provider'
+                WHERE entry_id = 'entry-drift'
+                """
+            )
+        )
+        await session.commit()
+
+    hook_drift = await client.get("/v1/revenue-share/payout-entries/entry-drift")
+    assert hook_drift.status_code == 409
+    assert "hook drift" in hook_drift.text
+
+
 def test_revenue_share_openapi_omits_unsafe_fields() -> None:
     spec = json.loads(OPENAPI_PATH.read_text(encoding="utf-8"))
     revenue_schemas = {
@@ -785,6 +1186,65 @@ def test_revenue_share_openapi_omits_unsafe_fields() -> None:
     for schema in revenue_schemas.values():
         properties = set(schema.get("properties", {}))
         assert properties.isdisjoint(forbidden_terms)
+
+
+def test_provider_revenue_payout_openapi_contract_is_safe() -> None:
+    spec = json.loads(OPENAPI_PATH.read_text(encoding="utf-8"))
+    payout_schemas = {
+        name: schema
+        for name, schema in spec["components"]["schemas"].items()
+        if name.startswith("ProviderRevenuePayout")
+    }
+    assert payout_schemas
+    unsafe_terms = {
+        "metadata",
+        "payout_status",
+        "paid_at",
+        "settlement_id",
+        "bank_account",
+        "tax_id",
+        "access_token",
+        "refresh_token",
+        "client_secret",
+        "raw_billing_payload",
+        "raw_request",
+        "raw_response",
+        "provider_request",
+        "provider_response",
+        "routing_payload",
+        "customer_payload",
+        "email",
+        "phone",
+    }
+    for schema_name, schema in payout_schemas.items():
+        properties = set(schema.get("properties", {}))
+        if schema_name == "ProviderRevenuePayoutEntryUpsertRequest":
+            properties.discard("metadata")
+        assert properties.isdisjoint(unsafe_terms)
+
+    request_props = set(
+        payout_schemas["ProviderRevenuePayoutEntryUpsertRequest"].get("properties", {})
+    )
+    assert {
+        "provider_amount",
+        "platform_amount",
+        "provider_revenue_amount",
+        "platform_revenue_amount",
+        "pending_payout_amount",
+    }.isdisjoint(request_props)
+
+    endpoint = spec["paths"]["/v1/providers/{provider_id}/revenue-payout-dashboard"]["get"]
+    parameters = {parameter["name"]: parameter for parameter in endpoint["parameters"]}
+    assert {
+        "provider_id",
+        "tenant_id",
+        "from",
+        "to",
+        "period_month",
+        "status",
+        "k_algo",
+        "currency",
+    }.issubset(set(parameters))
 
 
 async def test_provider_application_upsert_read_submit_and_no_catalog_side_effect(
