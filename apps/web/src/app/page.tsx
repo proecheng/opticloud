@@ -36,6 +36,9 @@ export default function LandingPage(): JSX.Element {
             <Link href="/pricing" className="text-muted-foreground hover:text-foreground">
               {common("nav.pricing")}
             </Link>
+            <Link href="/status" className="text-muted-foreground hover:text-foreground">
+              {common("nav.status")}
+            </Link>
             <Link
               href="/auth/signup"
               className="min-h-touch rounded-md bg-primary px-4 py-2 text-primary-foreground hover:bg-primary-600"

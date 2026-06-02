@@ -232,11 +232,11 @@ development_status:
   7-b-9-provider-console-tier3: done             # 2026-06-02 - Provider Console Tier 3 shipped; PR #144 passed CI, merged to main, remote branch deleted, local main synced
 
   # ===== Epic 8.A/B/C: Observability & Compliance (22 stories) =====
-  epic-8-a: backlog
+  epic-8-a: in-progress
   epic-8-b: backlog
   epic-8-c: backlog
 
-  8-a-1-public-status-page: backlog            # FR O1
+  8-a-1-public-status-page: code-review        # FR O1
   8-a-2-incident-subscribe: backlog
   8-a-3-24h-postmortem: backlog                # FR O2
   8-a-4-user-audit-logs: backlog               # FR O3
