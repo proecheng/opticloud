@@ -217,6 +217,7 @@ GPT-5 Codex
 - 2026-06-03 - Full local validation passed: Python SDK tests, Node SDK tests, root `pnpm -r typecheck`, full pre-commit, `git diff --check`, and `pnpm install --lockfile-only --frozen-lockfile`.
 - 2026-06-03 - Full local `pnpm install --frozen-lockfile` confirmed the lockfile is up to date, then failed on Windows filesystem EPERM while renaming an existing `@swc/core` node_modules directory; PR CI's clean Linux runner remains the final full frozen-install gate.
 - 2026-06-03 - Post-implementation review found Python `find_constraint()` could throw on malformed preserved non-string `constraint`; fixed by ignoring non-string constraints and added regression coverage.
+- 2026-06-03 - PR CI blocker found outside SDK scope: `image-build` failed while `sigstore/cosign-installer@v3` attempted to download pinned `cosign v2.4.1`; updated the installer action to `v4.1.2` and removed the stale explicit cosign release pin.
 
 ### Completion Notes List
 
@@ -234,6 +235,7 @@ GPT-5 Codex
 ### File List
 
 - `.github/workflows/ci.yml`
+- `.github/workflows/image-build.yml`
 - `_bmad-output/stories/8-b-6-sdk-errors-preservation.md`
 - `_bmad-output/stories/sprint-status.yaml`
 - `packages/node-sdk/README.md`
