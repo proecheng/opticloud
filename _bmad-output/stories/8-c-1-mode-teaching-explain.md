@@ -3,7 +3,7 @@ story_key: 8-c-1-mode-teaching-explain
 epic_num: 8
 story_num: C.1
 epic_name: Teaching + Provider Routing + Legal + Algorithm Library
-status: code-review
+status: done
 baseline_commit: 11c106d49a61b667fcfe1386219754cf7623f70b
 priority: High
 type: FR O8 teaching mode
@@ -25,7 +25,7 @@ sources:
 
 # Story 8.C.1 - mode=teaching + 原理讲解
 
-Status: code-review
+Status: done
 
 ## Story
 
@@ -244,6 +244,7 @@ GPT-5 Codex
 - 2026-06-04 - Post-review validation passed: teaching/sync-async/backtest/billing regression tests (46 passed), web API client test (1 passed), web typecheck, solver ruff/format, solver mypy, error-message i18n gate, and `git diff --check`.
 - 2026-06-04 - GitHub PR CI failed only on `lint`: `ruff` flagged notebook `print` usage and `ruff-format`/`detect-secrets` exposed generated notebook cell-id risk.
 - 2026-06-04 - Fixed notebook lint by replacing `print` output with a deterministic final expression and short deterministic cell ids; local full pre-commit, teaching-mode tests and `git diff --check` passed.
+- 2026-06-04 - PR #161 passed GitHub CI, merged to `main`, remote branch deleted, and local `main` synced.
 
 ### Completion Notes List
 
@@ -308,3 +309,4 @@ Outcome: PASS after fixes.
 - 2026-06-04 - Implemented teaching mode API vertical slice and moved story to code-review after local validation.
 - 2026-06-04 - Completed post-implementation code review; fixed web async-mode type overexposure and stale error catalog constraint.
 - 2026-06-04 - Fixed GitHub lint failure in the teaching notebook and reran local lint/security gates.
+- 2026-06-04 - Marked story done after PR #161 merge/sync closure.
