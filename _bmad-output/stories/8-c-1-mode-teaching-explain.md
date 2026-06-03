@@ -242,6 +242,8 @@ GPT-5 Codex
 - 2026-06-04 - Local validation passed: teaching/sync-async/backtest/billing regression tests (46 passed), web API client test (1 passed), solver ruff/format, solver mypy, web typecheck, and `git diff --check`.
 - 2026-06-04 - Post-implementation adversarial code review completed in three layers; fixed web client async-mode type overexposure and stale invalid execution mode catalog constraint.
 - 2026-06-04 - Post-review validation passed: teaching/sync-async/backtest/billing regression tests (46 passed), web API client test (1 passed), web typecheck, solver ruff/format, solver mypy, error-message i18n gate, and `git diff --check`.
+- 2026-06-04 - GitHub PR CI failed only on `lint`: `ruff` flagged notebook `print` usage and `ruff-format`/`detect-secrets` exposed generated notebook cell-id risk.
+- 2026-06-04 - Fixed notebook lint by replacing `print` output with a deterministic final expression and short deterministic cell ids; local full pre-commit, teaching-mode tests and `git diff --check` passed.
 
 ### Completion Notes List
 
@@ -305,3 +307,4 @@ Outcome: PASS after fixes.
 - 2026-06-04 - Story status moved to in-progress after pre-implementation review closure.
 - 2026-06-04 - Implemented teaching mode API vertical slice and moved story to code-review after local validation.
 - 2026-06-04 - Completed post-implementation code review; fixed web async-mode type overexposure and stale error catalog constraint.
+- 2026-06-04 - Fixed GitHub lint failure in the teaching notebook and reran local lint/security gates.
