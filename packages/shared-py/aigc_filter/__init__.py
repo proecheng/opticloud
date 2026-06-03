@@ -138,22 +138,11 @@ def add_watermark(text: str, *, trace_id: str | None = None) -> str:
 def detect_watermark(text: str) -> WatermarkDetection:
     """Detect and decode module-created zero-width watermark metadata."""
 
-    payload = _extract_zero_width_payload(text)
-    if payload is None:
-        return WatermarkDetection(present=False)
-    try:
-        decoded = _decode_zero_width(payload)
-        raw = json.loads(decoded)
-    except (ValueError, json.JSONDecodeError, UnicodeDecodeError):
-        return WatermarkDetection(present=False)
-    if raw.get("provider") != PROVIDER_MARKER or not isinstance(raw.get("trace_id"), str):
-        return WatermarkDetection(present=False)
-    return WatermarkDetection(
-        present=True,
-        trace_id=raw["trace_id"],
-        module_version=str(raw.get("module_version", "")),
-        provider=raw["provider"],
-    )
+    for payload in _iter_zero_width_payloads_reverse(text):
+        detected = _detect_payload(payload)
+        if detected.present:
+            return detected
+    return WatermarkDetection(present=False)
 
 
 def is_internal_self_loop(context: Mapping[str, str]) -> bool:
@@ -224,15 +213,50 @@ def _encode_zero_width(metadata: Mapping[str, str]) -> str:
     return f"{_ZERO_WIDTH_START}{zw_payload}{_ZERO_WIDTH_END}"
 
 
-def _extract_zero_width_payload(text: str) -> str | None:
-    start = text.rfind(_ZERO_WIDTH_START)
-    end = text.rfind(_ZERO_WIDTH_END)
-    if start == -1 or end == -1 or end <= start:
-        return None
-    payload = text[start + 1 : end]
-    if not payload or any(char not in {_ZERO_WIDTH_ZERO, _ZERO_WIDTH_ONE} for char in payload):
-        return None
-    return payload
+def _iter_zero_width_payloads_reverse(text: str) -> tuple[str, ...]:
+    payloads: list[str] = []
+    cursor = len(text)
+    while cursor > 0:
+        end = text.rfind(_ZERO_WIDTH_END, 0, cursor)
+        if end == -1:
+            break
+        start = text.rfind(_ZERO_WIDTH_START, 0, end)
+        if start == -1:
+            cursor = end
+            continue
+        payload = text[start + 1 : end]
+        if payload and all(char in {_ZERO_WIDTH_ZERO, _ZERO_WIDTH_ONE} for char in payload):
+            payloads.append(payload)
+        cursor = start
+    return tuple(payloads)
+
+
+def _detect_payload(payload: str) -> WatermarkDetection:
+    try:
+        decoded = _decode_zero_width(payload)
+        raw = json.loads(decoded)
+    except (ValueError, json.JSONDecodeError, UnicodeDecodeError):
+        return WatermarkDetection(present=False)
+    if not isinstance(raw, dict):
+        return WatermarkDetection(present=False)
+    trace_id = raw.get("trace_id")
+    module_version = raw.get("module_version")
+    provider = raw.get("provider")
+    if (
+        not isinstance(trace_id, str)
+        or not trace_id
+        or not trace_id.startswith("trc_")
+        or not isinstance(module_version, str)
+        or not module_version
+        or provider != PROVIDER_MARKER
+    ):
+        return WatermarkDetection(present=False)
+    return WatermarkDetection(
+        present=True,
+        trace_id=trace_id,
+        module_version=module_version,
+        provider=provider,
+    )
 
 
 def _decode_zero_width(payload: str) -> str:
