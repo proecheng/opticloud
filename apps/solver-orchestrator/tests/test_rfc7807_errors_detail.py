@@ -149,7 +149,7 @@ def _assert_problem_shape(
 
 
 def test_error_catalog_has_required_locales_and_remediation_keys() -> None:
-    from solver_orchestrator.error_catalog import ERROR_CATALOG
+    from solver_orchestrator.error_catalog import ERROR_CATALOG, PLAN_UPGRADE_URL
 
     assert ERROR_CATALOG
     for key, entry in ERROR_CATALOG.items():
@@ -161,6 +161,8 @@ def test_error_catalog_has_required_locales_and_remediation_keys() -> None:
         assert entry.detail["zh-CN"]
         if 400 <= entry.status < 500:
             assert entry.next_action_url, key
+    assert ERROR_CATALOG["rate_limit_exceeded"].status == 429
+    assert ERROR_CATALOG["rate_limit_exceeded"].next_action_url == PLAN_UPGRADE_URL
 
 
 def test_error_response_code_does_not_serialize_next_action_key() -> None:

@@ -24,7 +24,7 @@ from typing import Any, Literal, cast
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from opticloud_shared.cost_telemetry import CostTelemetryEvent, CostUnit, record_cost_event
-from opticloud_shared.errors import ErrorDetail, rfc7807_error
+from opticloud_shared.errors import ErrorDetail
 from prometheus_client import Counter
 from pydantic import ValidationError
 from sqlalchemy import func, select, text
@@ -72,6 +72,11 @@ from billing_service.models import (
 )
 from billing_service.plans import PLANS, Plan, PlanCode, add_one_calendar_month, get_plan
 from billing_service.pricing import classify_warnings, compute_charge_amount
+from billing_service.problem_details import (
+    BILLING_BUDGET_URL,
+    TOPUP_NEXT_ACTION_URL,
+    billing_problem_response,
+)
 from billing_service.saga_orchestrator import SagaOrchestrator, hash_body
 from billing_service.schemas import (
     AutoRefundRequest,
@@ -126,16 +131,17 @@ def _problem_response(
     status_code: int,
     detail: str,
     errors: list[ErrorDetail] | None = None,
+    next_action_url: str | None = None,
+    type_uri: str = "about:blank",
 ) -> Response:
     """Typed wrapper around the shared RFC 7807 helper for strict mypy."""
-    return cast(
-        Response,
-        rfc7807_error(
-            title=title,
-            status_code=status_code,
-            detail=detail,
-            errors=errors,
-        ),
+    return billing_problem_response(
+        title=title,
+        status_code=status_code,
+        detail=detail,
+        errors=errors,
+        next_action_url=next_action_url,
+        type_uri=type_uri,
     )
 
 
@@ -1862,6 +1868,7 @@ async def create_charge(
             title="Monthly Budget Paused",
             status_code=status.HTTP_409_CONFLICT,
             detail="monthly budget has been reached; increase or disable the budget to resume charges",
+            next_action_url=BILLING_BUDGET_URL,
             errors=[
                 ErrorDetail(
                     field_path="billing.budget",
@@ -1879,15 +1886,17 @@ async def create_charge(
     if body.amount > balance_before:
         await session.commit()
         return _problem_response(
-            title="Insufficient balance",
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            title="Insufficient Credits",
+            status_code=status.HTTP_402_PAYMENT_REQUIRED,
             detail=f"Required: ¥{body.amount}, available: ¥{balance_before}",
+            next_action_url=TOPUP_NEXT_ACTION_URL,
+            type_uri="https://api.opticloud.cn/errors/insufficient_credits",
             errors=[
                 ErrorDetail(
                     field_path="body.amount",
                     value=str(body.amount),
                     constraint="amount > balance",
-                    remediation_hint_key="errors.422.insufficient_balance",
+                    remediation_hint_key="errors.402.topup",
                 )
             ],
         )

@@ -353,7 +353,11 @@ async def test_unsuccessful_charge_create_does_not_cache_response_body(
         headers={**auth_headers, "Idempotency-Key": insufficient_key},
     )
 
-    assert insufficient.status_code == 422, insufficient.text
+    assert insufficient.status_code == 402, insufficient.text
+    assert insufficient.json()["next_action_url"] == (
+        "https://console.opticloud.cn/topup?suggested_amount=10"
+    )
+    assert insufficient.json()["errors"][0]["remediation_hint_key"] == "errors.402.topup"
     assert await _stored_response_body(session, insufficient_key) is None
 
     _, token_for = token_factory

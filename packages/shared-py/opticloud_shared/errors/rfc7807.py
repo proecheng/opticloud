@@ -30,6 +30,7 @@ def rfc7807_error(
     detail: str,
     errors: list[ErrorDetail] | None = None,
     next_action: str | None = None,
+    next_action_url: str | None = None,
     request_id: str | None = None,
     type_uri: str = "about:blank",
 ) -> JSONResponse:
@@ -40,7 +41,8 @@ def rfc7807_error(
         status_code: HTTP status
         detail: longer human-readable explanation
         errors: optional per-field error list
-        next_action: optional URL for user remediation (FR O7)
+        next_action: deprecated compatibility alias for next_action_url
+        next_action_url: optional URL for user remediation (FR O7)
         request_id: optional trace correlation id
         type_uri: optional URI identifying the error class
     """
@@ -52,8 +54,9 @@ def rfc7807_error(
     }
     if errors:
         body["errors"] = [e.model_dump(exclude_none=True) for e in errors]
-    if next_action:
-        body["next_action"] = next_action
+    resolved_next_action_url = next_action_url or next_action
+    if resolved_next_action_url:
+        body["next_action_url"] = resolved_next_action_url
     if request_id:
         body["request_id"] = request_id
 
