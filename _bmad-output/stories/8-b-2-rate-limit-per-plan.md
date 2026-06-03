@@ -3,7 +3,7 @@ story_key: 8-b-2-rate-limit-per-plan
 epic_num: 8
 story_num: B.2
 epic_name: AIGC Filter + Rate Limit + Error Codes RFC 7807
-status: code-review
+status: done
 baseline_commit: c01afdddb2a9eb88ed9437e103e6cd029c1acddf
 priority: High
 type: rate limit enforcement
@@ -23,7 +23,7 @@ sources:
 
 # Story 8.B.2 - Rate limit per plan + 429
 
-Status: code-review
+Status: done
 
 ## Story
 
@@ -166,10 +166,10 @@ Architecture D9 指定 Redis 7+ sliding-window-counter + Lua，key prefix 使用
   - [x] Add green implementation tests.
   - [x] Run focused and package gates.
 
-- [ ] T6: Review and GitHub sync (AC: 8)
+- [x] T6: Review and GitHub sync (AC: 8)
   - [x] Complete post-implementation review and fix findings.
-  - [ ] Commit, push, create PR, wait CI, merge, delete remote branch, sync local main.
-  - [ ] After merge/sync, mark story/sprint status done and push status-sync commit.
+  - [x] Commit, push, create PR, wait CI, merge, delete remote branch, sync local main.
+  - [x] After merge/sync, mark story/sprint status done and push status-sync commit.
 
 ## Dev Notes
 
@@ -225,6 +225,7 @@ GPT-5 Codex
 - 2026-06-03 - Post-implementation review found fixed-window drift and incomplete 503 catalog mapping; both were fixed before local gates.
 - 2026-06-03 - Post-review evidence was strengthened for all plan drift fields, Starter/Pro/Team active plan resolution, and dual-window atomic no-write-on-deny behavior.
 - 2026-06-03 - Story and sprint status moved to `code-review`; final `done` remains gated on PR merge, remote branch deletion, and local `main` sync.
+- 2026-06-03 - PR #153 passed GitHub CI, squash-merged to `main`, remote branch `codex/8-b-2-rate-limit-per-plan` was removed, and local `main` is synced to `origin/main`.
 
 ### Completion Notes List
 
@@ -233,6 +234,7 @@ GPT-5 Codex
 - Added 429 `rate_limit_exceeded` and 503 `rate_limit_unavailable` RFC7807 catalog entries; 429 includes `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`, `Retry-After`, non-empty `errors[]`, and plan upgrade URL without leaking Redis keys or user ids.
 - Added rate-limit tests for plan drift, active/canceled/expired plan resolution, sliding-window boundary/reset behavior, Redis unavailable fail-closed behavior, route side-effect closure, and job-template/write-path coverage.
 - Local gates passed: `uv run pytest apps/solver-orchestrator/tests/test_rate_limit.py -q` (12 passed), full solver tests (313 passed), `uv run ruff check apps/solver-orchestrator`, `uv run ruff format --check apps/solver-orchestrator`, solver mypy with PYTHONPATH, and `git diff --check`.
+- GitHub closure passed: PR #153 CI green, merged to `main`, remote story branch deleted/pruned, local `main` clean and synced before marking this story done.
 
 ### Post-Implementation Code Review
 
@@ -269,6 +271,7 @@ Residual boundaries:
 - 2026-06-03 - Story created for 8.B.2 rate limit per plan + 429.
 - 2026-06-03 - Implementation started; story and sprint status moved to in-progress.
 - 2026-06-03 - Implemented plan-aware Redis sliding-window limiter, 429/503 RFC7807 support, authenticated write-path enforcement, tests, and post-review fixes; story moved to code-review pending GitHub sync.
+- 2026-06-03 - PR #153 passed CI, merged, remote branch removed, local main synced; story and sprint status marked done for status sync.
 
 ## Pre-Implementation Adversarial Reviews
 

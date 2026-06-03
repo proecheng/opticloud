@@ -245,7 +245,7 @@ development_status:
   8-a-7-j9-whitehat-vertical-slice: done                  # 2026-06-03 - J9 whitehat disclosure vertical slice shipped; PR #151 passed CI, merged to main, remote branch deleted, local main synced
 
   8-b-1-aigc-filter-invoke: done               # 2026-06-03 - AIGC watermark evidence closure shipped; PR #152 passed CI, merged to main, remote branch deleted, local main synced
-  8-b-2-rate-limit-per-plan: code-review       # FR O6
+  8-b-2-rate-limit-per-plan: done              # 2026-06-03 - Plan-aware Redis rate limiting shipped; PR #153 passed CI, merged to main, remote branch deleted, local main synced
   8-b-3-errors-next-action-url: backlog        # FR O7
   8-b-4-rfc7807-error-panel: backlog
   8-b-5-error-i18n-eslint: backlog             # FG1.3
