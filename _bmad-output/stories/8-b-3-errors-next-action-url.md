@@ -3,7 +3,7 @@ story_key: 8-b-3-errors-next-action-url
 epic_num: 8
 story_num: B.3
 epic_name: AIGC Filter + Rate Limit + Error Codes RFC 7807
-status: code-review
+status: done
 baseline_commit: 6d1b9c33eeedfa1cdf1dfe3d1ec52bb0a37dd457
 priority: High
 type: error contract closure
@@ -25,7 +25,7 @@ sources:
 
 # Story 8.B.3 - 4xx/402/429 errors[] + next_action_url
 
-Status: code-review
+Status: done
 
 ## Story
 
@@ -176,8 +176,8 @@ FR O7 要求系统对 `4xx/402/429` 返回 `next_action_url`；FG1.3 要求 `err
 
 - [ ] T6: Review and GitHub sync (AC: 7)
   - [x] Complete post-implementation code review and fix findings.
-  - [ ] Commit, push, create PR, wait CI, merge, delete remote branch, sync local main.
-  - [ ] After merge/sync, mark story/sprint status done and push status-sync commit.
+  - [x] Commit, push, create PR, wait CI, merge, delete remote branch, sync local main.
+  - [x] After merge/sync, mark story/sprint status done and push status-sync commit.
 
 ## Dev Notes
 
@@ -226,6 +226,7 @@ GPT-5 Codex
 - 2026-06-03 - Implemented shared `next_action_url` support with deprecated `next_action` compatibility, billing RFC7807 helper/default next-action mapping, billing 402 insufficient credits response, and FastAPI HTTPException/request-validation problem handlers.
 - 2026-06-03 - Post-implementation review found FastAPI request validation errors were still default 422 JSON; fixed with `RequestValidationError` handler and missing `Idempotency-Key` problem-details test.
 - 2026-06-03 - Local gates passed; story and sprint status moved to `code-review`. Final `done` remains gated on PR merge, remote branch deletion, and local `main` sync.
+- 2026-06-03 - PR #154 passed GitHub CI, squash-merged to `main`, remote branch `codex/8-b-3-errors-next-action-url` was removed/pruned, and local `main` is synced to `origin/main`.
 
 ### Completion Notes List
 
@@ -235,6 +236,7 @@ GPT-5 Codex
 - Billing HTTPException and request validation paths now return `application/problem+json` with non-empty `errors[]` and `next_action_url`.
 - Solver RFC7807 tests now pin the 429 rate-limit next-action URL to the plan-upgrade URL.
 - Local gates passed: shared-py focused tests (10 passed), billing focused tests (42 passed), solver RFC7807 tests (9 passed), ruff check/format-check, mypy for touched shared/billing modules, and `git diff --check`.
+- GitHub closure passed: PR #154 CI green, merged to `main`, remote story branch deleted/pruned, local `main` clean and synced before marking this story done.
 
 ### Post-Implementation Code Review
 
@@ -270,6 +272,7 @@ Residual boundaries:
 - 2026-06-03 - Story created for 8.B.3 4xx/402/429 errors[] + next_action_url.
 - 2026-06-03 - Implementation started; story and sprint status moved to in-progress.
 - 2026-06-03 - Implementation completed with shared helper, billing 402/topup, billing problem handlers, solver guard, tests, and post-review fix; story moved to code-review pending GitHub sync.
+- 2026-06-03 - PR #154 passed CI, merged, remote branch removed, local main synced; story and sprint status marked done for status sync.
 
 ## Pre-Implementation Adversarial Reviews
 
