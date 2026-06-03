@@ -3,7 +3,7 @@ story_key: 8-b-4-rfc7807-error-panel
 epic_num: 8
 story_num: B.4
 epic_name: AIGC Filter + Rate Limit + Error Codes RFC 7807
-status: code-review
+status: done
 baseline_commit: db49ba8e3215da4146b7e72a75fb45c59b11fff7
 priority: High
 type: RFC7807 Tier 2 UI component
@@ -28,7 +28,7 @@ sources:
 
 # Story 8.B.4 - RFC7807ErrorPanel Component
 
-Status: code-review
+Status: done
 
 ## Story
 
@@ -133,8 +133,8 @@ Story 8.B.3 已将后端错误合同闭合到 canonical `next_action_url`，并�
 
 - [ ] T6: Review and GitHub sync (AC: 23-24)
   - [x] Complete post-implementation code review and fix findings.
-  - [ ] Commit, push, create PR, wait CI, merge, delete remote branch, sync local `main`.
-  - [ ] Only after merge/sync, mark story and sprint status `done` and push status-sync commit.
+  - [x] Commit, push, create PR, wait CI, merge, delete remote branch, sync local `main`.
+  - [x] Only after merge/sync, mark story and sprint status `done` and push status-sync commit.
 
 ## Dev Notes
 
@@ -214,6 +214,7 @@ GPT-5 Codex
 - 2026-06-03 - Implemented dedicated `RFC7807ErrorPanel`, old `RFC7807Panel` compatibility alias, ErrorBoundary reuse, safe `next_action_url`, remediation mapping, safe value/metadata preview, tests, a11y tests, Storybook stories, and README catalog entry.
 - 2026-06-03 - Post-implementation review found empty CTA label and metadata redaction gaps; fixed both and reran focused gates.
 - 2026-06-03 - Local gates passed and story/sprint status moved to `code-review`; final `done` remains gated on GitHub PR merge, remote branch deletion, local `main` sync, and status-sync commit.
+- 2026-06-03 - PR #155 passed GitHub CI, squash-merged to `main`, remote branch `codex/8-b-4-rfc7807-error-panel` was removed, and local `main` is synced to `origin/main`.
 - Customization resolver script absent at `_bmad/scripts/resolve_customization.py`; fallback loaded base `bmad-create-story/customize.toml`, found no project/user overrides, and no `project-context.md`.
 - Story creation analyzed Epic 8.B / Story 8.B.4, PRD Error Codes RFC7807, Architecture P72/P75/P77/P78, UX Error Recovery/a11y patterns, Story 8.B.3, current ErrorBoundary/RFC7807Panel, package exports, UI package test/storybook setup, and current app usages.
 - Latest web research was not needed because the story uses pinned local package versions and existing project patterns: React 18.3, TypeScript 5.4.5, Storybook 8.4, Vitest 2.1, Tailwind v3.4.
@@ -227,6 +228,7 @@ GPT-5 Codex
 - Added unit tests, axe a11y tests, Storybook states for 402/422/429/long/missing/unsafe URL, README catalog entry, and `test:a11y` inclusion.
 - Local gates passed: focused RFC7807 tests, package a11y tests, full UI test suite, UI typecheck, web typecheck, Storybook build, and `git diff --check`.
 - Storybook build emits existing bundler warnings about `"use client"` module directives and large Storybook chunks, but exits successfully.
+- GitHub closure passed: PR #155 CI green, merged to `main` at `40f7deab36cd526af83d9eecff088d053c66ec9d`, remote story branch deleted, and local `main` clean and synced before marking this story done.
 
 ### File List
 
@@ -246,6 +248,7 @@ GPT-5 Codex
 - 2026-06-03 - Story created for dedicated `RFC7807ErrorPanel` component, compatibility alias, tests, a11y, Storybook, and GitHub closure.
 - 2026-06-03 - Implementation started; baseline commit recorded and status moved to `in-progress`.
 - 2026-06-03 - Implemented dedicated RFC7807 error panel, compatibility alias, tests/a11y/storybook/docs, and post-review fixes; story moved to `code-review` pending GitHub sync.
+- 2026-06-03 - PR #155 passed CI, merged, remote branch removed, local main synced; story status moved to `done`.
 
 ## Post-Implementation Code Review
 
