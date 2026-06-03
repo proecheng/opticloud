@@ -4,7 +4,7 @@ baseline_commit: a6ab8741dd92f7b31bdd4d59afa40a5ce5d0846e
 epic_num: 8
 story_num: A.7
 epic_name: Public Status + Audit + Vuln Response
-status: code-review
+status: done
 priority: High
 type: J9 whitehat responsible disclosure vertical slice
 created_by: bmad-create-story
@@ -21,7 +21,7 @@ sources:
 
 # Story 8.A.7 - J9 白帽 Vertical Slice Mermaid Flow
 
-Status: code-review
+Status: done
 
 ## Story
 
@@ -108,13 +108,13 @@ UX J9 原始图包含 security.txt、security@、5 披露通道、48h 自动 tic
   - [x] Align runbook stages with the typed model and document evidence/redaction boundaries.
   - [x] Add lightweight test coverage or content assertions through web/model tests when practical.
 
-- [ ] T4: Review, gates, and GitHub sync (AC: 20-24)
+- [x] T4: Review, gates, and GitHub sync (AC: 20-24)
   - [x] Confirm no dependency or env var change.
   - [x] Run focused tests and local gates.
   - [x] Run post-implementation code review and fix findings.
   - [x] Record review findings and fixes in this story.
-  - [ ] Commit, push, create PR, wait for CI, merge, delete remote branch, and sync local `main`.
-  - [ ] Mark story and sprint status `done` only after merge/sync.
+  - [x] Commit, push, create PR, wait for CI, merge, delete remote branch, and sync local `main`.
+  - [x] Mark story and sprint status `done` only after merge/sync.
 
 ## Dev Notes
 
@@ -184,6 +184,9 @@ GPT-5 Codex
 - Production build passed: `pnpm -C apps/web build`.
 - Diff whitespace check passed: `git diff --check`.
 - Post-implementation review completed manually without subagents per user constraint; fixed page copy/test drift and added model edge/field consistency assertions.
+- Implementation commit pushed: `6b6f38c feat(web): add J9 whitehat disclosure slice`.
+- PR #151 created at `https://github.com/proecheng/opticloud/pull/151`; GitHub CI passed (`changes`, `lint`, `ts-typecheck`, `e2e`, `matrix-detect`, `gtm-toolkit-validation`, `build-and-sbom (auth-service)`).
+- PR #151 squash-merged to `main` as `10620b442a4f66810a33ae63fd26b67875c0814f`; remote branch `codex/8-a-7-j9-whitehat-vertical-slice` deleted and local `main` synced.
 
 ### Completion Notes List
 
@@ -193,7 +196,7 @@ GPT-5 Codex
 - Extended public `/security` page without client runtime, auth, storage, fetch, new dependencies, or unsupported automation claims.
 - Added J9 whitehat runbook and test coverage to keep runbook stage names and inactive automation boundaries aligned with the model.
 - Post-implementation code review found and fixed two issues: a page display deviation introduced only to avoid duplicate test text, and missing edge/required-field consistency assertions in model tests.
-- Local gates are green; GitHub sync and final `done` status remain pending until PR CI, merge, branch deletion, and local `main` sync complete.
+- GitHub sync complete: PR #151 passed CI, merged to `main`, remote branch deleted, local `main` synced, and final status moved to `done`.
 
 ### File List
 
@@ -212,6 +215,7 @@ GPT-5 Codex
 - 2026-06-03 - Implementation started; story and sprint status moved to in-progress.
 - 2026-06-03 - Implemented J9 typed model, Mermaid builder, SOP steps, 22 hardenings, `/security` rendering, and runbook.
 - 2026-06-03 - Completed post-implementation code review, applied fixes, and passed local gates; story and sprint status moved to code-review pending GitHub sync.
+- 2026-06-03 - PR #151 passed CI, merged to main, remote branch deleted, local main synced; story and sprint status marked done.
 
 ## Pre-Implementation Adversarial Reviews
 
