@@ -1,7 +1,7 @@
-"""Offline Critic confidence calibration for Story M3.5a.
+"""Offline Critic confidence calibration for Critic red-team gates.
 
 The tool is deliberately stdlib-only and deterministic: it reads a committed
-ground-truth dataset, recommends a threshold in the M3 policy range, and can
+ground-truth dataset, recommends a threshold in the policy range, and can
 write the aggregate critic-service handoff config without storing prompt text.
 """
 
@@ -16,15 +16,20 @@ from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DATASET_VERSION = "ground_truth_v1"
-TARGET_STAGE = "M3"
 TARGET_SAMPLE_COUNTS = {
     "M3": 30,
     "M3.5b": 50,
+    "M5": 200,
 }
 THRESHOLD_MIN = 0.55
 THRESHOLD_MAX = 0.65
 TARGET_THRESHOLD = 0.60
 MIN_RECALL = 0.95
+MIN_RECALL_BY_STAGE = {
+    "M3": 0.95,
+    "M3.5b": 0.95,
+    "M5": 0.98,
+}
 MAX_FALSE_POSITIVE_RATE = 0.05
 REQUIRED_SAMPLE_FIELDS = {
     "id",
@@ -54,6 +59,7 @@ FORBIDDEN_REDACTION_MARKERS = (
     "SK-LIVE",
     "TOKEN=",
 )
+STAGES_REQUIRING_LLM_OUTPUT_EXCERPT = {"M3.5b", "M5"}
 
 
 class CalibrationError(ValueError):
@@ -79,6 +85,19 @@ def _require_root(dataset: object) -> dict[str, Any]:
     return dataset
 
 
+def _target_stage_message() -> str:
+    return ", ".join(TARGET_SAMPLE_COUNTS)
+
+
+def _contains_forbidden_marker(value: str) -> bool:
+    upper_value = value.upper()
+    return any(marker in upper_value for marker in FORBIDDEN_REDACTION_MARKERS)
+
+
+def _expected_sample_id(index: int) -> str:
+    return f"critic-cal-v1-{index:03d}"
+
+
 def validate_dataset(dataset: dict[str, Any]) -> None:
     errors: list[str] = []
 
@@ -86,7 +105,7 @@ def validate_dataset(dataset: dict[str, Any]) -> None:
         errors.append("dataset_version must be ground_truth_v1")
     target_stage = dataset.get("target_stage")
     if target_stage not in TARGET_SAMPLE_COUNTS:
-        errors.append("target_stage must be one of: M3, M3.5b")
+        errors.append(f"target_stage must be one of: {_target_stage_message()}")
     if not isinstance(dataset.get("policy"), dict):
         errors.append("policy must be an object")
 
@@ -103,7 +122,7 @@ def validate_dataset(dataset: dict[str, Any]) -> None:
     expected_true = 0
     expected_false = 0
 
-    for index, sample in enumerate(samples):
+    for index, sample in enumerate(samples, start=1):
         if not isinstance(sample, dict):
             errors.append(f"sample {index} must be an object")
             continue
@@ -116,6 +135,8 @@ def validate_dataset(dataset: dict[str, Any]) -> None:
 
         if not isinstance(sample["id"], str) or not SAMPLE_ID_PATTERN.fullmatch(sample["id"]):
             errors.append(f"{sample_id} id must match critic-cal-v1-###")
+        elif sample["id"] != _expected_sample_id(index):
+            errors.append(f"{sample_id} id sequence must be contiguous from critic-cal-v1-001")
         if sample["id"] in seen_ids:
             errors.append(f"duplicate sample id: {sample['id']}")
         seen_ids.add(sample["id"])
@@ -123,6 +144,9 @@ def validate_dataset(dataset: dict[str, Any]) -> None:
         for text_field in ("prompt", "critic_reason_zh", "category", "source_story"):
             if not isinstance(sample[text_field], str) or not sample[text_field].strip():
                 errors.append(f"{sample_id} {text_field} must be a non-empty string")
+
+        if isinstance(sample.get("prompt"), str) and _contains_forbidden_marker(sample["prompt"]):
+            errors.append(f"{sample_id} prompt contains forbidden secret markers")
 
         if not isinstance(sample["expected_escalate"], bool):
             errors.append(f"{sample_id} expected_escalate must be boolean")
@@ -138,7 +162,7 @@ def validate_dataset(dataset: dict[str, Any]) -> None:
         if isinstance(sample.get("category"), str):
             categories.add(sample["category"])
 
-        if sample.get("source_story") == "M3.5b":
+        if sample.get("source_story") in STAGES_REQUIRING_LLM_OUTPUT_EXCERPT:
             excerpt = sample.get("llm_output_excerpt")
             if not isinstance(excerpt, str) or not excerpt.strip():
                 errors.append(f"{sample_id} llm_output_excerpt must be a non-empty string")
@@ -147,7 +171,7 @@ def validate_dataset(dataset: dict[str, Any]) -> None:
                     f"{sample_id} llm_output_excerpt must be <= "
                     f"{MAX_LLM_OUTPUT_EXCERPT_LENGTH} characters"
                 )
-            elif any(marker in excerpt.upper() for marker in FORBIDDEN_REDACTION_MARKERS):
+            elif _contains_forbidden_marker(excerpt):
                 errors.append(f"{sample_id} llm_output_excerpt contains forbidden secret markers")
 
     missing_categories = sorted(REQUIRED_CATEGORIES - categories)
@@ -227,14 +251,23 @@ def _validate_threshold_range(threshold_min: float, threshold_max: float) -> Non
         raise CalibrationError("threshold bounds must use hundredth-step precision")
 
 
-def _recommend_threshold(samples: list[dict[str, Any]], candidates: list[float]) -> float:
+def _min_recall_for_stage(target_stage: str) -> float:
+    return MIN_RECALL_BY_STAGE.get(target_stage, MIN_RECALL)
+
+
+def _recommend_threshold(
+    samples: list[dict[str, Any]],
+    candidates: list[float],
+    *,
+    min_recall: float,
+) -> float:
     passing: list[float] = []
     last_metrics: dict[str, float | int] | None = None
     for threshold in candidates:
         candidate_metrics = _metrics(_confusion_matrix(samples, threshold))
         last_metrics = candidate_metrics
         if (
-            candidate_metrics["recall"] >= MIN_RECALL
+            candidate_metrics["recall"] >= min_recall
             and candidate_metrics["false_positive_rate"] <= MAX_FALSE_POSITIVE_RATE
         ):
             passing.append(threshold)
@@ -247,7 +280,8 @@ def _recommend_threshold(samples: list[dict[str, Any]], candidates: list[float])
                 f"false_positive_rate={last_metrics['false_positive_rate']}"
             )
         raise CalibrationError(
-            "no threshold satisfies recall >=95% and false-positive rate <=5%;" + details
+            "no threshold satisfies "
+            f"recall >={min_recall:.0%} and false-positive rate <=5%;" + details
         )
 
     return min(passing, key=lambda value: (abs(value - TARGET_THRESHOLD), value))
@@ -273,7 +307,8 @@ def calibrate_dataset(
 
     samples = dataset["samples"]
     candidates = _candidate_thresholds(threshold_min, threshold_max)
-    threshold = _recommend_threshold(samples, candidates)
+    min_recall = _min_recall_for_stage(str(dataset["target_stage"]))
+    threshold = _recommend_threshold(samples, candidates, min_recall=min_recall)
     matrix = _confusion_matrix(samples, threshold)
     metrics = _metrics(matrix)
     generated_from = (
@@ -289,7 +324,7 @@ def calibrate_dataset(
         "policy": {
             "escalation_rule": "critic_confidence < threshold",
             "max_false_positive_rate": MAX_FALSE_POSITIVE_RATE,
-            "min_recall": MIN_RECALL,
+            "min_recall": min_recall,
             "threshold_selection": "nearest_to_0.60_then_lower",
         },
         "recommended_threshold": threshold,

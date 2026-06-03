@@ -3,8 +3,8 @@
 ## 目标
 
 本 SOP 定义 OptiCloud 如何维护 G9 所需的 Critic confidence ground truth。M3 交付
-30 条种子样本和校准配置；M3.5b 负责每周扩充样本，并按月重跑 calibration，最终到
-M5 达到 200 条样本目标。
+30 条种子样本和校准配置；M3.5b 负责每周扩充样本，并按月重跑 calibration；当前
+M5 已达到 200 条已裁决样本，并以 red-team escalation recall >= 98% 作为门禁。
 
 ## 负责人
 
@@ -24,9 +24,9 @@ Critic Lead 负责样本质量、分歧裁决、月度校准重跑，以及把
 根对象字段：
 
 - `dataset_version`: 当前为 `ground_truth_v1`
-- `target_stage`: 当前为 `M3`
+- `target_stage`: 当前为 `M5`
 - `policy`: 阈值和指标 gate 元数据
-- `samples`: M3 阶段固定 30 条样本
+- `samples`: M5 阶段固定 200 条样本
 
 单条样本字段：
 
@@ -48,22 +48,22 @@ Critic Lead 负责样本质量、分歧裁决、月度校准重跑，以及把
 5. 运行：
    `uv run python tools/critic_calibration/calibrate.py --dataset tools/critic_calibration/ground_truth_v1.json --output apps/critic-service/config/critic-calibration.json`
 6. 生成当周 Linear-compatible ticket payload：
-   `uv run python tools/critic_calibration/create_annotation_batch.py batch --dataset tools/critic_calibration/ground_truth_v1.json --week-start 2026-05-25 --count 20 --output tools/critic_calibration/annotation_batches/2026-05-25.json`
+   `uv run python tools/critic_calibration/create_annotation_batch.py batch --dataset tools/critic_calibration/ground_truth_v1.json --week-start 2026-06-01 --count 20 --output tools/critic_calibration/annotation_batches/2026-06-01.json`
 7. 生成月度 calibration report：
-   `uv run python tools/critic_calibration/create_annotation_batch.py monthly-report --dataset tools/critic_calibration/ground_truth_v1.json --batch tools/critic_calibration/annotation_batches/2026-05-25.json --config apps/critic-service/config/critic-calibration.json --month 2026-05 --output tools/critic_calibration/monthly_reports/2026-05.json`
+   `uv run python tools/critic_calibration/create_annotation_batch.py monthly-report --dataset tools/critic_calibration/ground_truth_v1.json --batch tools/critic_calibration/annotation_batches/2026-06-01.json --config apps/critic-service/config/critic-calibration.json --month 2026-06 --output tools/critic_calibration/monthly_reports/2026-06.json`
 8. 运行 `uv run pytest tests/test_critic_calibration.py -q`。
 9. 数据集、配置、batch payload、monthly report、测试和 SOP 必须同 PR 提交。
 
 ## 质量 Gate
 
-M3 种子数据集必须满足：
+当前 M5 数据集必须满足：
 
-- 恰好 30 条样本
+- 恰好 200 条样本
 - 同时包含 expected-escalate 和 expected-non-escalate 两类
 - 覆盖 `unsafe_code`、`schema_error`、`logic_error`、`sandbox_risk`、`benign`、`low_risk_style`
 - 推荐阈值位于 `[0.55, 0.65]`
 - 升级规则固定为 `critic_confidence < threshold`
-- expected-escalate 样本 recall >= 95%
+- expected-escalate 样本 recall >= 98%
 - expected-non-escalate 样本误升级率 <= 5%
 
 月度重跑必须 fail closed：如果没有任何阈值满足 gate，不得更新 runtime 集成；需要开 follow-up
@@ -85,7 +85,9 @@ story 排查数据质量、Critic 评分漂移或阈值策略。
 
 M3 目标：`ground_truth_v1` 中 30 条样本。
 
-M5 目标：至少 200 条样本，由 M3.5b 和后续月度 calibration 工作维护。
+M3.5b 目标：`ground_truth_v1` 中 50 条样本，2026-05 batch/report 作为历史证据保留。
+
+M5 目标：`ground_truth_v1` 中 200 条样本；当前 2026-06 report 显示剩余样本数为 0。
 
 M3.5b 每周流程：
 

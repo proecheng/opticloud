@@ -10,18 +10,18 @@
     "fp": 0,
     "precision": 1.0,
     "recall": 1.0,
-    "tn": 18,
-    "tp": 32
+    "tn": 68,
+    "tp": 132
   },
   "policy": {
     "escalation_rule": "critic_confidence < threshold",
     "max_false_positive_rate": 0.05,
-    "min_recall": 0.95,
+    "min_recall": 0.98,
     "threshold_selection": "nearest_to_0.60_then_lower"
   },
   "recommended_threshold": 0.6,
-  "sample_count": 50,
-  "target_stage": "M3.5b",
+  "sample_count": 200,
+  "target_stage": "M5",
   "threshold_range": {
     "max": 0.65,
     "min": 0.55,
