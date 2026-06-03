@@ -3,7 +3,7 @@ story_key: 8-b-8-redteam-tests-m5-200
 epic_num: 8
 story_num: B.8
 epic_name: AIGC Filter + Rate Limit + Error Codes RFC 7807
-status: code-review
+status: done
 baseline_commit: e47cf3814ae972630b343da837cb80b86500a314
 priority: High
 type: NFR-S7 Critic red-team M5 calibration gate
@@ -28,7 +28,7 @@ sources:
 
 # Story 8.B.8 - Critic 红队测试集 >=200 (M5 升级)
 
-Status: code-review
+Status: done
 
 ## Story
 
@@ -139,10 +139,10 @@ Epic 8.B.8 的原始 AC 是：Given Story M3.5b 持续标注 / When M5 末 / The
   - [x] Update CI smoke commands only if needed for M5 report generation.
   - [x] Run local gates and record results.
 
-- [ ] T5: Review and GitHub sync (AC: 17-18)
+- [x] T5: Review and GitHub sync (AC: 17-18)
   - [x] Complete post-implementation code review and fix findings.
-  - [ ] Commit, push, create PR, wait CI, merge, delete remote branch, sync local main.
-  - [ ] After merge/sync, mark story and sprint status `done` and push status-sync commit.
+  - [x] Commit, push, create PR, wait CI, merge, delete remote branch, sync local main.
+  - [x] After merge/sync, mark story and sprint status `done` and push status-sync commit.
 
 ## Dev Notes
 
@@ -218,6 +218,7 @@ GPT-5 Codex
 - Implementation expanded current Critic calibration dataset to M5 200 samples, regenerated config, `2026-06-01` batch and `2026-06` monthly report.
 - A parallel local generation attempt produced a transient JSON parse error because monthly report generation read artifacts while config/batch were being rewritten. Commands were rerun sequentially; CI uses sequential steps.
 - Local validation completed: calibration config generation, M5 batch generation, M5 monthly report generation, `uv run pytest tests/test_critic_calibration.py -q`, ruff check, ruff format check, mypy, full pre-commit, and `git diff --check`.
+- GitHub sync completed: implementation commit pushed, PR #159 created, GitHub CI passed, PR squash-merged to `main`, remote feature branch deleted, and local `main` synced to `origin/main` at `659bcde0ab70c4f53b1db3c7569525abc26dd219`.
 
 ### Completion Notes List
 
@@ -225,6 +226,7 @@ GPT-5 Codex
 - Three pre-implementation adversarial review rounds completed and revisions applied before implementation.
 - M5 implementation completed: dataset exactly 200 samples, 150 M5 rows, ID continuity 001-200, config/report regenerated with recall 1.0 and false-positive rate 0.0.
 - Post-implementation adversarial code review completed; data quality finding fixed before GitHub sync.
+- PR #159 merged and local `main` synced; story and sprint status marked `done` in separate status-sync commit.
 
 ### File List
 
@@ -245,6 +247,7 @@ GPT-5 Codex
 - 2026-06-03 - Story created for 8.B.8 Critic red-team M5 200-sample calibration gate.
 - 2026-06-03 - Pre-implementation adversarial reviews completed; story moved to in-progress.
 - 2026-06-03 - M5 dataset/config/report/tests/CI/SOP implemented; local gates and post-implementation review completed; story moved to code-review pending GitHub sync.
+- 2026-06-03 - PR #159 passed GitHub CI, merged to main, remote branch deleted, local main synced; story moved to done.
 
 ## Post-Implementation Code Review
 
@@ -287,7 +290,7 @@ Result: PASS for local implementation review.
   - `uv run mypy tools/critic_calibration/calibrate.py tools/critic_calibration/create_annotation_batch.py`
   - `uv tool run pre-commit run --all-files --show-diff-on-failure`
   - `git diff --check`
-- AC 18 remains pending by design until PR CI green, merge, remote branch deletion, local main sync, and separate status-sync commit.
+- AC 18 complete: PR #159 CI passed, PR merged, remote branch deleted, local main synced, and status-sync commit prepared separately.
 
 ## Pre-Implementation Adversarial Reviews
 
