@@ -3,7 +3,7 @@ story_key: 8-b-1-aigc-filter-invoke
 epic_num: 8
 story_num: B.1
 epic_name: AIGC Filter + Rate Limit + Error Codes RFC 7807
-status: code-review
+status: done
 baseline_commit: 32ff75a2894d561b9e9a50fc71beda15e2442e8a
 priority: High
 type: compliance evidence closure
@@ -23,7 +23,7 @@ sources:
 
 # Story 8.B.1 - AIGC Filter 调用证据闭环
 
-Status: code-review
+Status: done
 
 ## Story
 
@@ -130,11 +130,11 @@ Story M3.4 已实现唯一 AIGC filter/watermark 模块 `packages/shared-py/aigc
   - [x] 更新 `apps/web/src/app/console/chat/page.test.tsx`。
   - [x] 增加 no duplicate filter/static drift guard。
 
-- [ ] T4: 审查、门禁和 GitHub 同步 (AC: 7, 8)
+- [x] T4: 审查、门禁和 GitHub 同步 (AC: 7, 8)
   - [x] 执行 post-implementation code review 并修复 findings。
   - [x] 跑 focused 与必要 package gates。
-  - [ ] Commit、push、创建 PR、等待 CI、merge、删除远端分支、同步 local main。
-  - [ ] 合并同步后更新 story/sprint status 为 done 并推送状态同步。
+  - [x] Commit、push、创建 PR、等待 CI、merge、删除远端分支、同步 local main。
+  - [x] 合并同步后更新 story/sprint status 为 done 并推送状态同步。
 
 ## Dev Notes
 
@@ -214,6 +214,7 @@ GPT-5 Codex
 - 2026-06-03 - GREEN implementation added frontend AIGC watermark evidence types, JSON/SSE normalization, assistant-message evidence rendering, and Console Chat fallback preservation.
 - 2026-06-03 - Post-implementation review completed manually without subagents per user constraint; patched trace-only UI to avoid fabricated marker/provider/module/tier, and added UI-side static drift guard.
 - 2026-06-03 - Local validation passed: `pnpm --filter @opticloud/web test -- chat` (26 tests), `pnpm --filter @opticloud/ui test -- ChatInterface` (15 tests), `pnpm --filter @opticloud/web typecheck`, `pnpm --filter @opticloud/ui typecheck`, `pnpm --filter @opticloud/web test` (43 files / 209 tests), `pnpm --filter @opticloud/ui test` (18 files / 106 tests), and `git diff --check`.
+- 2026-06-03 - GitHub sync completed: PR #152 passed CI (`changes`, `lint`, `ts-typecheck`, `e2e`, `chromatic`, `matrix-detect`, `build-and-sbom (auth-service)`, `gtm-toolkit-validation`), merged to `main` at `e774394f0c83f2f6f34011996eb0353512d21fad`, remote branch `codex/8-b-1-aigc-filter-invoke` deleted, and local `main` synced before marking story done.
 
 ### Completion Notes List
 
@@ -250,6 +251,7 @@ Residual risk: frontend only displays backend-provided evidence and cannot verif
 - 2026-06-03 - Completed 3 pre-implementation adversarial review rounds; story marked ready for development.
 - 2026-06-03 - Implementation started; story and sprint status moved to in-progress.
 - 2026-06-03 - Implemented web/UI AIGC watermark evidence closure, completed post-implementation review patches, passed local gates, and moved story/sprint status to code-review pending GitHub sync.
+- 2026-06-03 - PR #152 passed GitHub CI, merged to main, remote branch deleted, local main synced; story and sprint status marked done.
 
 ## Pre-Implementation Adversarial Reviews
 
