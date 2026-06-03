@@ -79,6 +79,27 @@ describe("SecurityDisclosurePage", () => {
     expect(screen.getAllByText(/handled by the follow-up J9 policy/i).length).toBeGreaterThan(0);
   });
 
+  it("renders the J9 whitehat flow, SOP, Mermaid source, and 22 hardenings", () => {
+    render(<SecurityDisclosurePage />);
+
+    expect(screen.getByRole("heading", { name: "J9 Whitehat Vertical Slice" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Mermaid flow source" })).toBeTruthy();
+    expect(screen.getByText(/^graph TD$/)).toBeTruthy();
+    expect(screen.getByText("Researcher scans API v1 surface")).toBeTruthy();
+    expect(screen.getByText("Disclosure type decision")).toBeTruthy();
+    expect(screen.getByText("National/APT escalation handoff")).toBeTruthy();
+    const sopList = screen.getByRole("list", { name: "J9 SOP steps" });
+    expect(sopList).toBeTruthy();
+    expect(within(sopList).getByText("Discover")).toBeTruthy();
+    expect(within(sopList).getByText("Retrospective evidence")).toBeTruthy();
+
+    const hardeningList = screen.getByRole("list", { name: "J9 hardening checklist" });
+    expect(hardeningList.children).toHaveLength(22);
+    expect(within(hardeningList).getByText("Automation overclaim guard")).toBeTruthy();
+    expect(within(hardeningList).getByText("Reward anti-fraud handoff")).toBeTruthy();
+    expect(within(hardeningList).getByText("Retrospective evidence")).toBeTruthy();
+  });
+
   it("does not claim unimplemented automation is active", () => {
     render(<SecurityDisclosurePage />);
 
@@ -87,5 +108,7 @@ describe("SecurityDisclosurePage", () => {
     expect(screen.queryByText(/CVE tracking is active/i)).toBeNull();
     expect(screen.queryByText(/bounty payment is active/i)).toBeNull();
     expect(screen.queryByText(/PGP encrypted intake is active/i)).toBeNull();
+    expect(screen.queryByText(/Telegram bot is active/i)).toBeNull();
+    expect(screen.queryByText(/HackerOne integration is active/i)).toBeNull();
   });
 });

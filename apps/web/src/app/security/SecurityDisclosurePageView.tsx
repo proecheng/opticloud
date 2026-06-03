@@ -1,6 +1,10 @@
 import Link from "next/link";
 
 import {
+  buildJ9WhitehatMermaid,
+  J9_WHITEHAT_FLOW,
+  J9_WHITEHAT_HARDENINGS,
+  J9_WHITEHAT_SOP_STEPS,
   SECURITY_DISCLOSURE_POLICY,
   type SecurityDisclosurePolicy,
 } from "@/lib/security-disclosure";
@@ -18,6 +22,8 @@ export function SecurityDisclosurePageView({
 }: {
   policy?: SecurityDisclosurePolicy;
 }): JSX.Element {
+  const j9MermaidSource = buildJ9WhitehatMermaid(J9_WHITEHAT_FLOW);
+
   return (
     <main className="min-h-screen bg-background">
       <header className="border-b border-border bg-background">
@@ -154,6 +160,99 @@ export function SecurityDisclosurePageView({
             </ul>
           </section>
         </aside>
+      </section>
+
+      <section className="border-t border-border bg-background">
+        <div className="mx-auto max-w-6xl px-6 py-8">
+          <div className="max-w-3xl">
+            <p className="text-sm font-semibold text-primary">J9 responsible disclosure</p>
+            <h2 className="mt-2 text-2xl font-bold">J9 Whitehat Vertical Slice</h2>
+            <p className="mt-3 text-sm text-muted-foreground">
+              This vertical slice is a deterministic public model and dry-run contract for the
+              whitehat path. Manual, planned, and blocked items are labeled as boundaries instead of
+              active automation.
+            </p>
+          </div>
+
+          <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_420px]">
+            <section className="rounded-md border border-border bg-background p-4">
+              <h3 className="text-xl font-semibold">Flow stages</h3>
+              <div className="mt-4 grid gap-3 md:grid-cols-2">
+                {J9_WHITEHAT_FLOW.nodes.map((node) => (
+                  <article key={node.id} className="rounded-md border border-border bg-muted p-3">
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <h4 className="font-semibold">{node.label}</h4>
+                      <span className="rounded-sm border border-border bg-background px-2 py-0.5 text-xs uppercase text-muted-foreground">
+                        {node.status}
+                      </span>
+                    </div>
+                    {node.description ? (
+                      <p className="mt-2 text-sm text-muted-foreground">{node.description}</p>
+                    ) : null}
+                  </article>
+                ))}
+              </div>
+            </section>
+
+            <section className="rounded-md border border-border bg-background p-4">
+              <h3 className="text-xl font-semibold">Mermaid flow source</h3>
+              <pre className="mt-4 max-h-[560px] overflow-auto rounded-md border border-border bg-muted p-4 text-xs leading-5 text-foreground">
+                <code>
+                  {j9MermaidSource.split("\n").map((line, index) => (
+                    <span key={`${index}-${line}`} className="block whitespace-pre">
+                      {line}
+                    </span>
+                  ))}
+                </code>
+              </pre>
+            </section>
+          </div>
+
+          <div className="mt-6 grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
+            <section className="rounded-md border border-border bg-background p-4">
+              <h3 className="text-xl font-semibold">SOP steps</h3>
+              <ol aria-label="J9 SOP steps" className="mt-4 space-y-3 text-sm">
+                {J9_WHITEHAT_SOP_STEPS.map((step, index) => (
+                  <li key={step.id} className="rounded-md border border-border bg-muted p-3">
+                    <div className="flex items-center gap-2">
+                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-sm bg-primary text-xs font-semibold text-primary-foreground">
+                        {index + 1}
+                      </span>
+                      <h4 className="font-semibold">{step.title}</h4>
+                    </div>
+                    <p className="mt-2 text-muted-foreground">{step.description}</p>
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      Owner: {step.owner}. Evidence: {step.evidence}
+                    </p>
+                  </li>
+                ))}
+              </ol>
+            </section>
+
+            <section className="rounded-md border border-border bg-background p-4">
+              <h3 className="text-xl font-semibold">Hardening checklist</h3>
+              <ul
+                aria-label="J9 hardening checklist"
+                className="mt-4 grid gap-3 text-sm md:grid-cols-2"
+              >
+                {J9_WHITEHAT_HARDENINGS.map((item) => (
+                  <li key={item.id} className="rounded-md border border-border bg-muted p-3">
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <h4 className="font-semibold">{item.title}</h4>
+                      <span className="rounded-sm border border-border bg-background px-2 py-0.5 text-xs uppercase text-muted-foreground">
+                        {item.status}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {item.id} · {item.stage} · {item.owner}
+                    </p>
+                    <p className="mt-2 text-muted-foreground">{item.description}</p>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          </div>
+        </div>
       </section>
     </main>
   );
