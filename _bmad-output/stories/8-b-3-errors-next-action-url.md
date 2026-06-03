@@ -29,8 +29,8 @@ Status: code-review
 
 ## Story
 
-**作为** API/SDK 用户、Console 用户和平台集成方，  
-**我希望** 4xx、402 Credits 不足、429 限流等可恢复错误统一返回 RFC 7807 `errors[]` detail 和 `next_action_url`，  
+**作为** API/SDK 用户、Console 用户和平台集成方，
+**我希望** 4xx、402 Credits 不足、429 限流等可恢复错误统一返回 RFC 7807 `errors[]` detail 和 `next_action_url`，
 **从而** 客户端能直接定位字段、读取 i18n remediation key，并把用户引导到充值、升级计划或排错文档，而不是解析不一致的 `next_action` / 422 旧错误。
 
 ## Context
