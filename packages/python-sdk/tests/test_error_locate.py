@@ -2,7 +2,20 @@
 
 from __future__ import annotations
 
+import copy
+import json
+from pathlib import Path
+
+import pytest
+from opticloud.client import OptiCloudClient
 from opticloud.errors import OptiCloudHTTPError
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
+PRESERVATION_FIXTURE = REPO_ROOT / "tests" / "fixtures" / "sdk-rfc7807-preservation.json"
+
+
+def load_preservation_fixture() -> dict[str, object]:
+    return json.loads(PRESERVATION_FIXTURE.read_text(encoding="utf-8"))
 
 
 def test_locate_returns_matching_value() -> None:
@@ -62,6 +75,22 @@ def test_find_constraint_matches_regex() -> None:
     assert matches[0]["field_path"] == "st"
 
 
+def test_find_constraint_ignores_non_string_constraint_values() -> None:
+    error = OptiCloudHTTPError(
+        status=422,
+        title="Validation Error",
+        detail="malformed constraint details",
+        errors=[
+            {"field_path": "st", "constraint": {"code": "infeasible_lp"}, "value": None},
+            {"field_path": "obj", "constraint": "infeasible_lp", "value": None},
+        ],
+    )
+
+    assert error.find_constraint(r"infeasible") == [
+        {"field_path": "obj", "constraint": "infeasible_lp", "value": None}
+    ]
+
+
 def test_remediation_keys() -> None:
     error = OptiCloudHTTPError(
         status=402,
@@ -105,3 +134,90 @@ def test_from_response_constructs_from_rfc7807_body() -> None:
     assert error.locate("options.max_solve_seconds") == 600
     assert error.remediation_keys() == ["errors.402.topup"]
     assert error.raw == body  # Full preservation (FG1.3 SDK contract)
+
+
+def test_from_response_preserves_errors_without_mutable_aliasing() -> None:
+    body = load_preservation_fixture()
+    expected_errors = copy.deepcopy(body["errors"])
+    expected_raw = copy.deepcopy(body)
+
+    error = OptiCloudHTTPError.from_response(422, body)
+
+    assert error.errors == expected_errors
+    assert error.raw == expected_raw
+    assert error.next_action_url == expected_raw["next_action_url"]
+    assert error.request_id == expected_raw["request_id"]
+    assert error.trace_id == expected_raw["trace_id"]
+    assert error.locate("series[0].values") == {
+        "observed": [12.5, None, 13.1],
+        "metadata": {"source": "csv", "row": 7},
+    }
+    assert error.locate("options.horizon") is None
+    assert error.errors[0]["debug_metadata"] == {
+        "parser": "csv-v1",
+        "columns": ["timestamp", "value"],
+    }
+
+    body["request_id"] = "mutated-request"
+    body["errors"][0]["value"]["metadata"]["row"] = 999
+    body["errors"].append({"field_path": "mutated", "value": "late"})
+
+    assert error.raw == expected_raw
+    assert error.errors == expected_errors
+    assert error.locate("series[0].values") == {
+        "observed": [12.5, None, 13.1],
+        "metadata": {"source": "csv", "row": 7},
+    }
+
+
+@pytest.mark.parametrize("bad_errors", [{"field_path": "x"}, "not-an-array", 123, None])
+def test_from_response_treats_non_array_errors_as_empty(
+    bad_errors: object,
+) -> None:
+    body = {
+        "type": "https://api.opticloud.cn/errors/bad_errors",
+        "title": "Bad errors payload",
+        "status": 422,
+        "detail": "errors must be an array",
+        "errors": bad_errors,
+    }
+
+    error = OptiCloudHTTPError.from_response(422, body)
+
+    assert error.errors == []
+    assert error.locate("x") is None
+    assert error.remediation_keys() == []
+
+
+def test_client_request_non_json_error_falls_back_to_empty_errors(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class TextOnlyErrorResponse:
+        status_code = 502
+        text = "upstream provider failed"
+
+        def json(self) -> dict[str, object]:
+            raise ValueError("not json")
+
+    client = OptiCloudClient(api_key="sk-test")
+
+    def fake_request(method: str, path: str, **kwargs: object) -> TextOnlyErrorResponse:
+        return TextOnlyErrorResponse()
+
+    monkeypatch.setattr(client._client, "request", fake_request)
+    try:
+        with pytest.raises(OptiCloudHTTPError) as raised:
+            client._request("GET", "/v1/anything")
+    finally:
+        client.close()
+
+    error = raised.value
+    assert error.status == 502
+    assert error.title == "Unknown Error"
+    assert error.detail == "upstream provider failed"
+    assert error.errors == []
+    assert error.raw == {
+        "title": "Unknown Error",
+        "detail": "upstream provider failed",
+        "status": 502,
+    }

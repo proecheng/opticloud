@@ -1,5 +1,6 @@
 packages:
   - "apps/web"
+  - "packages/node-sdk"
   - "packages/shared-ts"
   - "packages/ui"
   - "e2e"

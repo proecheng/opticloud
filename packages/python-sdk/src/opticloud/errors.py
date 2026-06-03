@@ -11,6 +11,7 @@ Three-language SDK consistency (A-S3 fix):
 
 from __future__ import annotations
 
+import copy
 import re
 from typing import Any
 
@@ -51,11 +52,13 @@ class OptiCloudHTTPError(OptiCloudError):
         self.title = title
         self.detail = detail
         self.instance = instance
-        self.errors: list[dict[str, Any]] = errors or []
+        self.errors: list[dict[str, Any]] = (
+            copy.deepcopy(errors) if isinstance(errors, list) else []
+        )
         self.next_action_url = next_action_url
         self.request_id = request_id
         self.trace_id = trace_id
-        self.raw = raw or {}
+        self.raw = copy.deepcopy(raw) if isinstance(raw, dict) else {}
         super().__init__(f"[{status}] {title}: {detail}")
 
     # ===== FG1.3 + L1: error.locate() helper =====
@@ -95,7 +98,11 @@ class OptiCloudHTTPError(OptiCloudError):
             e.find_constraint(r"infeasible") -> [{field_path: "st", ...}]
         """
         pat = re.compile(constraint_pattern)
-        return [d for d in self.errors if pat.search(d.get("constraint", ""))]
+        return [
+            d
+            for d in self.errors
+            if isinstance(d.get("constraint"), str) and pat.search(d["constraint"])
+        ]
 
     def remediation_keys(self) -> list[str]:
         """Return all i18n remediation_hint_key values (FG1.3)."""
@@ -106,13 +113,14 @@ class OptiCloudHTTPError(OptiCloudError):
     @classmethod
     def from_response(cls, status: int, body: dict[str, Any]) -> OptiCloudHTTPError:
         """Construct from raw RFC 7807 response body."""
+        errors = body.get("errors", [])
         return cls(
             status=status,
             type=body.get("type", "about:blank"),
             title=body.get("title", ""),
             detail=body.get("detail", ""),
             instance=body.get("instance"),
-            errors=body.get("errors", []),
+            errors=errors if isinstance(errors, list) else [],
             next_action_url=body.get("next_action_url"),
             request_id=body.get("request_id"),
             trace_id=body.get("trace_id"),

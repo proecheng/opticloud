@@ -1,0 +1,42 @@
+{
+  "type": "https://api.opticloud.cn/errors/invalid_prediction_data",
+  "title": "Invalid Prediction Data",
+  "status": 422,
+  "detail": "Prediction payload failed semantic validation.",
+  "instance": "/v1/predictions",
+  "request_id": "req_sdk_preservation",
+  "trace_id": "trc_sdk_preservation",
+  "next_action_url": "https://console.opticloud.cn/docs/errors#invalid-prediction-data",
+  "errors": [
+    {
+      "field_path": "series[0].values",
+      "value": {
+        "observed": [12.5, null, 13.1],
+        "metadata": {
+          "source": "csv",
+          "row": 7
+        }
+      },
+      "constraint": "series values must be numeric and non-null",
+      "remediation_hint_key": "errors.422.invalid_prediction_data",
+      "severity": "error",
+      "debug_metadata": {
+        "parser": "csv-v1",
+        "columns": ["timestamp", "value"]
+      }
+    },
+    {
+      "field_path": "options.horizon",
+      "value": null,
+      "constraint": "horizon must be between 1 and 365",
+      "remediation_hint_key": "errors.422.invalid_prediction_data",
+      "extra_context": {
+        "min": 1,
+        "max": 365
+      }
+    }
+  ],
+  "sdk_contract_extra": {
+    "must_preserve": true
+  }
+}

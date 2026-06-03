@@ -26,6 +26,7 @@ jobs:
       outbox_relayer: ${{ steps.filter.outputs.outbox_relayer }}
       ui: ${{ steps.filter.outputs.ui }}
       python_sdk: ${{ steps.filter.outputs.python_sdk }}
+      node_sdk: ${{ steps.filter.outputs.node_sdk }}
       auth_service: ${{ steps.filter.outputs.auth_service }}
       api_gateway: ${{ steps.filter.outputs.api_gateway }}
       solver_orchestrator: ${{ steps.filter.outputs.solver_orchestrator }}
@@ -70,6 +71,12 @@ jobs:
               - 'packages/ui/**'
             python_sdk:
               - 'packages/python-sdk/**'
+              - 'tests/fixtures/sdk-rfc7807-preservation.json'
+            node_sdk:
+              - 'packages/node-sdk/**'
+              - 'tests/fixtures/sdk-rfc7807-preservation.json'
+              - 'pnpm-workspace.yaml'
+              - 'pnpm-lock.yaml'
             # Per-service: only its dir
             auth_service:
               - 'apps/auth-service/**'
@@ -285,6 +292,24 @@ jobs:
       - run: pip install uv==${{ env.UV_VERSION }}
       - run: uv sync --all-packages --extra dev
       - run: uv run pytest packages/python-sdk/tests/ -v
+        env:
+          PYTHONPATH: packages/python-sdk/src
+
+  # ===== Node: SDK error contract tests (Story 8.B.6) =====
+  node-sdk-test:
+    needs: changes
+    if: needs.changes.outputs.node_sdk == 'true' || needs.changes.outputs.ci_or_root == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @opticloud/sdk test
 
   # ===== Python: per-service tests =====
   auth-service-test:
