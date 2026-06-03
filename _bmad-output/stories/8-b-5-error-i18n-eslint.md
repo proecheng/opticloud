@@ -3,7 +3,7 @@ story_key: 8-b-5-error-i18n-eslint
 epic_num: 8
 story_num: B.5
 epic_name: AIGC Filter + Rate Limit + Error Codes RFC 7807
-status: code-review
+status: done
 baseline_commit: 4b3210d72f9c45716b736cd3269539f08ae0a3fb
 priority: High
 type: FG1.3 i18n single-source lint gate
@@ -28,7 +28,7 @@ sources:
 
 # Story 8.B.5 - i18n 单源 ESLint Enforcement
 
-Status: code-review
+Status: done
 
 ## Story
 
@@ -128,10 +128,10 @@ PRD FG1.3 要求所有 RFC 7807 `title`、`detail`、`remediation_hint_key` 字�
   - [x] `pnpm -r typecheck`
   - [x] `git diff --check`
 
-- [ ] T6: Review and GitHub sync (AC: 18-19)
+- [x] T6: Review and GitHub sync (AC: 18-19)
   - [x] Complete post-implementation code review and fix findings.
-  - [ ] Commit, push, create PR, wait CI, merge, delete remote branch, sync local `main`.
-  - [ ] Only after merge/sync, mark story and sprint status `done` and push status-sync commit.
+  - [x] Commit, push, create PR, wait CI, merge, delete remote branch, sync local `main`.
+  - [x] Only after merge/sync, mark story and sprint status `done` and push status-sync commit.
 
 ## Dev Notes
 
@@ -218,6 +218,7 @@ GPT-5 Codex
 - 2026-06-03 - Root `pnpm -r typecheck` exposed missing `packages/shared-ts/tsconfig.json` and an e2e capture-variable narrowing issue; both were fixed to close the local/CI typecheck gate.
 - 2026-06-03 - Post-implementation review found scanner blind spots for single-quoted strings and outer nested problem objects, plus fallback RFC7807 strings in web pages; fixed scanner/tests and aligned fallbacks to dictionary keys.
 - 2026-06-03 - Local gates passed: focused pytest, script scan, pre-commit hook, root lint, focused web recovery test, root typecheck, and diff-check.
+- 2026-06-03 - PR #156 passed GitHub CI, was squash-merged to `main` at `545b1bd5be9f3189ef3479ae784e8ac0459a54e4`, remote story branch was deleted, and local `main` was synced.
 
 ### Completion Notes List
 
@@ -229,7 +230,7 @@ GPT-5 Codex
 - Aligned web fallback RFC7807 payloads to dictionary keys and added remediation details for client-side/network fallback paths.
 - Added `packages/shared-ts/tsconfig.json` so root `pnpm -r typecheck` can run cleanly.
 - Fixed e2e TypeScript capture typing in Lina CSV recovery spec without changing runtime behavior.
-- Story status moved to `code-review`; final `done` remains gated on GitHub PR/CI/merge, remote branch deletion, local `main` sync, and status-sync commit.
+- Story status moved to `done` only after PR #156 passed GitHub CI, was merged to `main`, remote branch deletion was verified, and local `main` was synced.
 
 ### File List
 
@@ -256,6 +257,7 @@ GPT-5 Codex
 - 2026-06-03 - Story created for i18n error dictionary, `error-message-i18n-single-source` lint gate, CI/pre-commit/root lint wiring, tests, review, and GitHub closure.
 - 2026-06-03 - Implementation started; baseline commit recorded and status moved to `in-progress`.
 - 2026-06-03 - Implemented i18n dictionaries, lint gate, tests, pre-commit/root lint/CI wiring, drift fixes, and post-review patches; story moved to `code-review` pending GitHub sync.
+- 2026-06-03 - PR #156 passed CI, merged to `main`, remote branch deleted, local `main` synced; story moved to `done` and sprint status updated.
 
 ## Post-Implementation Code Review
 
