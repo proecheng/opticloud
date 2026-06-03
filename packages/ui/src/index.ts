@@ -35,7 +35,12 @@ export { CreditsBalanceBucket } from "./components/CreditsBalanceBucket";
 export type { CreditsBalanceBucketProps, CreditsBucket } from "./components/CreditsBalanceBucket";
 
 export { ErrorBoundary, RFC7807Panel } from "./components/ErrorBoundary";
-export type { RFC7807ErrorPayload } from "./components/ErrorBoundary";
+export { RFC7807ErrorPanel } from "./components/RFC7807ErrorPanel";
+export type {
+  RFC7807ErrorDetail,
+  RFC7807ErrorPanelProps,
+  RFC7807ErrorPayload,
+} from "./components/RFC7807ErrorPanel";
 
 export { ExcelDropZone } from "./components/ExcelDropZone";
 export type {

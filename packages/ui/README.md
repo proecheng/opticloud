@@ -24,6 +24,12 @@ Tier 1 12 v1 Component stubs — **Story 0.9 / 0.10 / 0.11 / 0.12 (Sprint 0 N3 u
 | `LoadingShimmer` | Step 12 Loading & Skeleton | Cross-cutting |
 | `EmptyState` | Step 12 Empty State | Cross-cutting |
 
+**Tier 2 Components**:
+
+| Component | UX Spec ref | Owner Story |
+|---|---|---|
+| `RFC7807ErrorPanel` | UX-DR1 + UX-DR2 Error Recovery | Story 8.B.4 (detail / field_path / remediation / next_action_url + aria-live) |
+
 ## Quickstart
 
 ```bash
