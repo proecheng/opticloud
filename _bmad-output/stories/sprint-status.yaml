@@ -252,7 +252,7 @@ development_status:
   8-b-6-sdk-errors-preservation: done                # 2026-06-03 - SDK RFC7807 errors preservation shipped; PR #157 passed CI, merged to main, remote branch deleted, local main synced
   8-b-7-aigc-watermark-detect: done             # 2026-06-03 - AIGC zero-width detector closure shipped; PR #158 passed CI, merged to main, remote branch deleted, local main synced
   8-b-8-redteam-tests-m5-200: done
-  8-b-9-aigc-filter-perf-budget: code-review
+  8-b-9-aigc-filter-perf-budget: done             # 2026-06-03 - AIGC filter P95 performance budget gate shipped; PR #160 passed CI, merged to main, remote branch deleted, local main synced
 
   8-c-1-mode-teaching-explain: backlog         # FR O8
   8-c-2-provider-routing-history: backlog      # FR O9 v2
