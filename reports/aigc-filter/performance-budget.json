@@ -1,0 +1,29 @@
+{
+  "budget": {
+    "budget_to_chat_gate_ratio": 0.03333333333333333,
+    "budget_to_chat_gate_ratio_limit": 0.0334,
+    "chat_first_token_hard_gate_ms": 3000.0,
+    "filter_p95_budget_ms": 100.0
+  },
+  "corpus": {
+    "benign_count": 100,
+    "corpus_sha256": "7e9b075f677f0ac66b26ff3e4b5a1ef68bca5241e1db1a3dab78e1c2d91a4023",
+    "red_team_count": 200,
+    "total_count": 300
+  },
+  "evidence_scope": "filter_only_overhead",
+  "filter_only_overhead": true,
+  "methodology": {
+    "measurement_repeat_count": 5,
+    "operation": "aigc_filter.filter(prompt, tier='strict')",
+    "percentile_method": "nearest_rank",
+    "secondary_operation": "aigc_filter.filter(already_watermarked_text, tier='strict')",
+    "secondary_sample_count": 20,
+    "timer": "time.perf_counter_ns",
+    "warmup_repeat_count": 1
+  },
+  "not_end_to_end_chat_evidence": true,
+  "requires_staging_chat_evidence": true,
+  "report_type": "aigc_filter_performance_budget_manifest",
+  "source_story": "8.B.9"
+}

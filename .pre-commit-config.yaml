@@ -116,5 +116,8 @@ repos:
           # Public 5.A.0c Saga cross-epic fixture manifest SHA-256, not a secret.
           - "--exclude-secrets"
           - "6741adad1791c8f0108144a23af80e628b91ef5d80a88e99efb4b1bc928e2986"
+          # Public 8.B.9 AIGC filter performance corpus SHA-256, not a secret.
+          - "--exclude-secrets"
+          - "7e9b075f677f0ac66b26ff3e4b5a1ef68bca5241e1db1a3dab78e1c2d91a4023"
         # pnpm-lock.yaml contains generated integrity hashes that trigger high-entropy false positives.
         exclude: ^(\.env\.example|infra/local-init/.*\.sql|.*\.stories\.tsx|pnpm-lock\.yaml)$

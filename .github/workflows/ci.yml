@@ -218,6 +218,8 @@ jobs:
               - 'packages/shared-py/pyproject.toml'
               - 'tests/aigc/**'
               - 'scripts/report_aigc_filter_metrics.py'
+              - 'scripts/report_aigc_filter_performance.py'
+              - 'reports/aigc-filter/**'
             contract_tests:
               - 'tests/contract/**'
               - 'packages/shared-py/aigc_filter/**'
@@ -890,6 +892,10 @@ jobs:
         env:
           PYTHONPATH: packages/shared-py
         run: uv run python scripts/report_aigc_filter_metrics.py
+      - name: Validate AIGC filter performance budget
+        env:
+          PYTHONPATH: packages/shared-py
+        run: uv run python scripts/report_aigc_filter_performance.py
 
   # ===== Critic confidence calibration validation (Story M3.5a) =====
   critic-calibration-validation:
