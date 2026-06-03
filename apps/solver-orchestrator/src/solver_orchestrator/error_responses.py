@@ -119,6 +119,7 @@ def build_problem_response(
     field_path: str | None = None,
     value: Any | None = None,
     constraint: str | None = None,
+    headers: dict[str, str] | None = None,
 ) -> JSONResponse:
     resolved_key = (
         error_key
@@ -157,6 +158,7 @@ def build_problem_response(
         content=json.loads(body.model_dump_json()),
         status_code=resolved_status,
         media_type=PROBLEM_JSON,
+        headers=headers,
     )
 
 
