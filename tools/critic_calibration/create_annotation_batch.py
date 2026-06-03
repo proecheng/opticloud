@@ -65,8 +65,9 @@ def create_batch_payload(dataset_path: Path, week_start: str, count: int) -> dic
         raise CalibrationError("dataset does not contain enough samples for requested count")
 
     batch_samples = samples[-count:]
-    if any(sample.get("source_story") != "M3.5b" for sample in batch_samples):
-        raise CalibrationError("newest batch samples must all have source_story=M3.5b")
+    target_stage = str(dataset["target_stage"])
+    if any(sample.get("source_story") != target_stage for sample in batch_samples):
+        raise CalibrationError(f"newest batch samples must all have source_story={target_stage}")
 
     ticket_prefix = f"{EPIC_KEY}-{start:%Y%m%d}"
     tickets: list[dict[str, Any]] = []
@@ -92,6 +93,7 @@ def create_batch_payload(dataset_path: Path, week_start: str, count: int) -> dic
         "due_date": due.isoformat(),
         "epic_key": EPIC_KEY,
         "sample_count": len(tickets),
+        "target_stage": dataset["target_stage"],
         "ticket_prefix": ticket_prefix,
         "tickets": tickets,
         "week_start": start.isoformat(),
@@ -141,11 +143,16 @@ def create_monthly_report_payload(
             "batch references sample IDs not present in dataset: " + ", ".join(missing)
         )
     expected_samples = sorted(dataset["samples"], key=_sample_number)[-len(batch_sample_ids) :]
-    if any(sample.get("source_story") != "M3.5b" for sample in expected_samples):
-        raise CalibrationError("expected monthly batch samples must all have source_story=M3.5b")
+    target_stage = str(dataset["target_stage"])
+    if any(sample.get("source_story") != target_stage for sample in expected_samples):
+        raise CalibrationError(
+            f"expected monthly batch samples must all have source_story={target_stage}"
+        )
     expected_sample_ids = [str(sample["id"]) for sample in expected_samples]
     if batch_sample_ids != expected_sample_ids:
-        raise CalibrationError("batch sample IDs must match newest M3.5b samples in order")
+        raise CalibrationError(
+            f"batch sample IDs must match newest {target_stage} samples in order"
+        )
 
     sample_count = int(calibration["sample_count"])
     return {
