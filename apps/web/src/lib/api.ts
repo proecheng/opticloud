@@ -17,6 +17,19 @@ const BILLING_SERVICE_URL =
 const CAPABILITY_REGISTRY_URL =
   process.env.NEXT_PUBLIC_CAPABILITY_REGISTRY_URL ?? "http://localhost:8006";
 
+const FALLBACK_ERROR_MESSAGES = {
+  requestFailed: {
+    remediationHintKey: "errors.fallback.request_failed",
+    title: "Request failed",
+    detail: "Request failed",
+  },
+  networkError: {
+    remediationHintKey: "errors.fallback.network_error",
+    title: "Network Error",
+    detail: "无法解析错误响应",
+  },
+} as const;
+
 export interface SignupRequest {
   phone: string;
   email: string;
@@ -70,14 +83,17 @@ function extractErrorDetail(value: unknown): string {
   if (value && typeof value === "object") {
     return JSON.stringify(value);
   }
-  return "Request failed";
+  return FALLBACK_ERROR_MESSAGES.requestFailed.detail;
 }
 
 function normalizeErrorPayload(status: number, body: unknown): ApiError {
   const payload = body && typeof body === "object" ? (body as Record<string, unknown>) : {};
   return {
     status,
-    title: typeof payload.title === "string" ? payload.title : "Request failed",
+    title:
+      typeof payload.title === "string"
+        ? payload.title
+        : FALLBACK_ERROR_MESSAGES.requestFailed.title,
     detail: extractErrorDetail(payload.detail),
     errors: Array.isArray(payload.errors)
       ? (payload.errors as ApiError["errors"])
@@ -135,8 +151,16 @@ async function request<T>(
     } catch {
       payload = {
         status: response.status,
-        title: "Network Error",
-        detail: await response.text().catch(() => "无法解析错误响应"),
+        title: FALLBACK_ERROR_MESSAGES.networkError.title,
+        detail: await response.text().catch(() => FALLBACK_ERROR_MESSAGES.networkError.detail),
+        errors: [
+          {
+            field_path: "response.body",
+            value: null,
+            constraint: "error response body must be parseable JSON or text",
+            remediation_hint_key: FALLBACK_ERROR_MESSAGES.networkError.remediationHintKey,
+          },
+        ],
       };
     }
     throw new OptiCloudClientError(payload);

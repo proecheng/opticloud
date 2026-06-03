@@ -47,6 +47,7 @@ jobs:
       llm_router: ${{ steps.filter.outputs.llm_router }}
       gtm_toolkit: ${{ steps.filter.outputs.gtm_toolkit }}
       gurobi_benchmark: ${{ steps.filter.outputs.gurobi_benchmark }}
+      error_i18n: ${{ steps.filter.outputs.error_i18n }}
       contract_tests: ${{ steps.filter.outputs.contract_tests }}
       blue_green_deploy: ${{ steps.filter.outputs.blue_green_deploy }}
       aigc_filter: ${{ steps.filter.outputs.aigc_filter }}
@@ -188,6 +189,16 @@ jobs:
               - 'scripts/validate_gurobi_benchmark.py'
               - 'tests/test_gurobi_benchmark.py'
               - 'reports/gurobi-benchmark/**'
+            error_i18n:
+              - 'packages/i18n/**'
+              - 'scripts/error_message_i18n_single_source.py'
+              - 'tests/test_error_i18n_single_source.py'
+              - 'apps/web/src/**'
+              - 'packages/ui/src/**'
+              - 'packages/shared-ts/src/**'
+              - '.pre-commit-config.yaml'
+              - 'package.json'
+              - '.github/workflows/ci.yml'
             blue_green_deploy:
               - 'scripts/deploy/**'
               - 'scripts/validate_blue_green_deploy.py'
@@ -792,6 +803,23 @@ jobs:
         run: uv run python scripts/validate_gtm_toolkit.py
       - name: Run GTM toolkit tests
         run: uv run pytest tests/test_gtm_toolkit.py -v
+
+  # ===== Error i18n single-source validation (Story 8.B.5 / FG1.3) =====
+  error-i18n-validation:
+    needs: changes
+    if: needs.changes.outputs.error_i18n == 'true' || needs.changes.outputs.web == 'true' || needs.changes.outputs.ui == 'true' || needs.changes.outputs.shared_ts == 'true' || needs.changes.outputs.ci_or_root == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: pip install uv==${{ env.UV_VERSION }}
+      - run: uv sync --all-packages --extra dev
+      - name: Validate error i18n single-source gate
+        run: uv run python scripts/error_message_i18n_single_source.py
+      - name: Run error i18n tests
+        run: uv run pytest tests/test_error_i18n_single_source.py -v
 
   # ===== Gurobi LP benchmark package validation (Story M4.5b) =====
   gurobi-benchmark-validation:

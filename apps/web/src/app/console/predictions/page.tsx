@@ -75,9 +75,17 @@ function toRfc7807(error: unknown): RFC7807ErrorPayload {
     };
   }
   return {
-    title: "Prediction Request Failed",
+    title: "errors.fallback.prediction_request_failed",
     status: 500,
     detail: error instanceof Error ? error.message : "预测请求失败",
+    errors: [
+      {
+        field_path: "prediction.request",
+        value: null,
+        constraint: "prediction request must complete without client-side failure",
+        remediation_hint_key: "errors.fallback.prediction_request_failed",
+      },
+    ],
   };
 }
 

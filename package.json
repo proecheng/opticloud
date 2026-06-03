@@ -10,7 +10,8 @@
   "scripts": {
     "dev": "echo 'use docker-compose up + uv run uvicorn in each app/'",
     "typecheck": "pnpm -r typecheck",
-    "lint": "pnpm -r lint",
+    "lint": "pnpm lint:error-i18n",
+    "lint:error-i18n": "python scripts/error_message_i18n_single_source.py",
     "test": "pnpm -r test"
   },
   "devDependencies": {

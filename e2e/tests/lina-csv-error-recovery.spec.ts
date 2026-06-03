@@ -7,6 +7,12 @@
 
 import { expect, test } from "../fixtures";
 
+interface PostedPredictionBody {
+  family: string;
+  horizon: number;
+  data: unknown[];
+}
+
 function buildCsv(rows = 1000, invalidDataRow?: number): string {
   const lines = ["商品编号,月份,销量"];
   for (let i = 1; i <= rows; i++) {
@@ -20,10 +26,10 @@ function buildCsv(rows = 1000, invalidDataRow?: number): string {
 
 test.describe("Lina CSV prediction recovery", () => {
   test("repairs row 847 and renders prediction quantiles", async ({ page }) => {
-    let postedBody: Record<string, unknown> | null = null;
+    const captured: { postedBody: PostedPredictionBody | null } = { postedBody: null };
 
     await page.route("**/v1/predictions", async (route) => {
-      postedBody = route.request().postDataJSON() as Record<string, unknown>;
+      captured.postedBody = route.request().postDataJSON() as PostedPredictionBody;
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -83,11 +89,13 @@ test.describe("Lina CSV prediction recovery", () => {
     await expect(result).toContainText("P50");
     await expect(result).toContainText("P90");
     await expect(result).toContainText("本预测仅供参考");
+    const postedBody = captured.postedBody;
+    if (!postedBody) throw new Error("prediction request body was not captured");
     expect(postedBody).toMatchObject({
       family: "chronos",
       horizon: 3,
     });
-    expect(postedBody?.data).toHaveLength(12);
+    expect(postedBody.data).toHaveLength(12);
     expect(JSON.stringify(postedBody)).not.toContain("BAD_VALUE");
     expect(JSON.stringify(postedBody)).not.toContain("商品编号");
   });

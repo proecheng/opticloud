@@ -1,0 +1,54 @@
+# OptiCloud RFC 7807 error message single source (en-US fallback).
+# Keys must remain identical to errors.zh-CN.yaml.
+
+errors:
+  402:
+    topup:
+      title: "Insufficient Credits"
+      detail: "The current Credits balance is not enough to complete this request."
+      remediation: "Top up Credits, then retry the request."
+  422:
+    invalid_prediction_data:
+      title: "Invalid Prediction Data"
+      detail: "The prediction request data failed field validation."
+      remediation: "Check the field path, value range, and data format before resubmitting."
+    invalid_job_template:
+      title: "Invalid Job Template"
+      detail: "The job template version or parameter change failed validation."
+      remediation: "Check the template parameter path and value type before saving again."
+    source_task_not_completed:
+      title: "Source Task Not Completed"
+      detail: "Only completed optimization or prediction tasks can be saved as templates."
+      remediation: "Wait for the source task to complete before creating or updating the template."
+  429:
+    rate_limit_exceeded:
+      title: "Rate Limit Exceeded"
+      detail: "The request-rate quota for the current plan has been exhausted."
+      remediation: "Retry later, or upgrade the plan for a higher request-rate quota."
+  503:
+    rate_limit_unavailable:
+      title: "Rate Limit Unavailable"
+      detail: "The system cannot confirm request-rate quota at this time."
+      remediation: "Retry later; if the issue continues, contact support with the request_id."
+  fallback:
+    request_failed:
+      title: "Request Failed"
+      detail: "The service returned an unrecognized error response."
+      remediation: "Keep the request_id and contact support for investigation."
+    network_error:
+      title: "Network Error"
+      detail: "The client could not parse the service error response."
+      remediation: "Check the network connection and retry; contact support if it continues."
+    prediction_request_failed:
+      title: "Prediction Request Failed"
+      detail: "The prediction request failed during client-side handling or service invocation."
+      remediation: "Check the input data and network connection, then retry."
+  chat_csv:
+    add_header:
+      title: "CSV Header Missing"
+      detail: "The CSV recovery flow requires a recognizable header row."
+      remediation: "Add a header row, then upload again or replace the failed rows."
+    replace_failed_row:
+      title: "CSV Row Needs Replacement"
+      detail: "At least one CSV row does not match the header structure."
+      remediation: "Replace only the failed rows, making sure column counts and source row numbers match."

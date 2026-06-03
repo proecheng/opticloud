@@ -202,8 +202,16 @@ export default function WelcomePage(): JSX.Element {
         setLpError(
           new OptiCloudClientError({
             status: 0,
-            title: "Network Error",
+            title: "errors.fallback.network_error",
             detail: String((err as Error).message),
+            errors: [
+              {
+                field_path: "network",
+                value: null,
+                constraint: "hello-world optimization request must reach solver service",
+                remediation_hint_key: "errors.fallback.network_error",
+              },
+            ],
           }),
         );
       }
