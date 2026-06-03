@@ -26,6 +26,9 @@ async function* streamResult() {
       messageId: "msg_0123456789abcdef01234567",
       locale: "zh-CN" as const,
       content: "已读取",
+      aigcWatermark: {
+        traceId: "trc_0123456789abcdef",
+      },
       modelPreview: {
         previewId: "mpv_0123456789abcdef",
         status: "ready_to_confirm",
@@ -72,6 +75,9 @@ describe("ConsoleChatPage", () => {
       expect.any(String),
     );
     expect(await screen.findByText("已读取")).toBeTruthy();
+    expect((await screen.findByTestId("chat-aigc-watermark")).textContent).toContain(
+      "trc_0123456789abcdef",
+    );
   });
 
   it("falls back to JSON helper when stream fails", async () => {
@@ -81,7 +87,18 @@ describe("ConsoleChatPage", () => {
     mocks.sendInternalBetaChatMessage.mockResolvedValue({
       messageId: "msg_json",
       locale: "zh-CN",
-      content: "JSON fallback",
+      content: "JSON fallback\n\n本回答由 AI 生成，仅供参考",
+      aigcWatermark: {
+        ariaLabel: "本回答由 AI 生成，仅供参考",
+        visibleMarker: "本回答由 AI 生成，仅供参考",
+        traceId: "trc_fedcba9876543210",
+        provider: "opticloud-aigc-filter",
+        moduleVersion: "0.1.0",
+        tier: "strict",
+        blocked: false,
+        reasonCodes: [],
+        metadata: { self_loop_bypass: false },
+      },
     });
 
     render(<ConsoleChatPage />);
@@ -92,7 +109,11 @@ describe("ConsoleChatPage", () => {
     fireEvent.change(screen.getByLabelText("输入消息"), { target: { value: "求解" } });
     fireEvent.click(screen.getByRole("button", { name: "发送" }));
 
-    expect(await screen.findByText("JSON fallback")).toBeTruthy();
+    expect(await screen.findByText(/JSON fallback/)).toBeTruthy();
+    const watermark = await screen.findByTestId("chat-aigc-watermark");
+    expect(watermark.textContent).toContain("本回答由 AI 生成，仅供参考");
+    expect(watermark.textContent).toContain("trc_fedcba9876543210");
+    expect(watermark.textContent).toContain("opticloud-aigc-filter");
     expect(mocks.sendInternalBetaChatMessage).toHaveBeenCalled();
   });
 });

@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
 import {
   normalizeInternalBetaChatResponse,
@@ -11,7 +13,18 @@ const responseBody = {
   message_id: "msg_0123456789abcdef01234567",
   locale: "zh-CN",
   language_preview: {
-    summary: "AI 生成内容仅供参考。",
+    summary: "模型预览已生成。\n\n本回答由 AI 生成，仅供参考",
+    aigc_watermark: {
+      aria_label: "本回答由 AI 生成，仅供参考",
+      visible_marker: "本回答由 AI 生成，仅供参考",
+      trace_id: "trc_0123456789abcdef",
+      provider: "opticloud-aigc-filter",
+      module_version: "0.1.0",
+      tier: "strict",
+      blocked: false,
+      reason_codes: [],
+      metadata: { self_loop_bypass: false },
+    },
   },
   model_preview: {
     preview_id: "mpv_0123456789abcdef",
@@ -53,7 +66,7 @@ describe("chat web adapter", () => {
     expect(normalized).toMatchObject({
       messageId: "msg_0123456789abcdef01234567",
       locale: "zh-CN",
-      content: "AI 生成内容仅供参考。",
+      content: "模型预览已生成。\n\n本回答由 AI 生成，仅供参考",
       modelPreview: {
         previewId: "mpv_0123456789abcdef",
         status: "ready_to_confirm",
@@ -62,6 +75,17 @@ describe("chat web adapter", () => {
       fileContextPreview: {
         fileCount: 1,
         filenames: ["demand.csv"],
+      },
+      aigcWatermark: {
+        ariaLabel: "本回答由 AI 生成，仅供参考",
+        visibleMarker: "本回答由 AI 生成，仅供参考",
+        traceId: "trc_0123456789abcdef",
+        provider: "opticloud-aigc-filter",
+        moduleVersion: "0.1.0",
+        tier: "strict",
+        blocked: false,
+        reasonCodes: [],
+        metadata: { self_loop_bypass: false },
       },
     });
   });
@@ -80,7 +104,7 @@ describe("chat web adapter", () => {
     ).toEqual({ type: "content_delta", chunk: "你好" });
     expect(
       parseChatSseBlock(
-        'event: done\ndata: {"message_id":"msg_0123456789abcdef01234567","done":true,"model_preview_id":"mpv_0123456789abcdef","model_preview_status":"blocked","file_context_preview":null,"what_if_preview":null}',
+        'event: done\ndata: {"message_id":"msg_0123456789abcdef01234567","done":true,"model_preview_id":"mpv_0123456789abcdef","model_preview_status":"blocked","aigc_watermark_trace_id":"trc_0123456789abcdef","file_context_preview":null,"what_if_preview":null}',
       ),
     ).toMatchObject({
       type: "done",
@@ -89,6 +113,9 @@ describe("chat web adapter", () => {
         modelPreview: {
           previewId: "mpv_0123456789abcdef",
           status: "blocked",
+        },
+        aigcWatermark: {
+          traceId: "trc_0123456789abcdef",
         },
       },
     });
@@ -283,5 +310,36 @@ describe("chat web adapter", () => {
       { type: "message_start", locale: "en-US" },
       { type: "done", response: { locale: "en-US" } },
     ]);
+  });
+
+  it("does not fabricate full AIGC metadata on trace-only stream done", () => {
+    const event = parseChatSseBlock(
+      'event: done\ndata: {"message_id":"msg_stream","done":true,"model_preview_id":"mpv_stream","model_preview_status":"ready_to_confirm","aigc_watermark_trace_id":"trc_fedcba9876543210","file_context_preview":null,"what_if_preview":null}',
+    );
+
+    expect(event).toMatchObject({
+      type: "done",
+      response: {
+        aigcWatermark: {
+          traceId: "trc_fedcba9876543210",
+        },
+      },
+    });
+    if (event.type !== "done") throw new Error("Expected done event");
+    expect(event.response.aigcWatermark?.provider).toBeUndefined();
+    expect(event.response.aigcWatermark?.moduleVersion).toBeUndefined();
+    expect(event.response.aigcWatermark?.tier).toBeUndefined();
+  });
+
+  it("does not implement local AIGC filter or watermark encoding in web adapter", () => {
+    const source = readFileSync(
+      fileURLToPath(new URL("./chat.ts", import.meta.url)),
+      "utf8",
+    );
+
+    expect(source).not.toMatch(/aigc_filter|detect_watermark|add_watermark/);
+    expect(source).not.toContain("opticloud-aigc-filter");
+    expect(source).not.toMatch(/zero[-_ ]?width|\\u200b|\\u200c|\\u200d|\\u2060/i);
+    expect(source).not.toMatch(/base64|btoa|atob|TextEncoder/);
   });
 });

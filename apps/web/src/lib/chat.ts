@@ -1,6 +1,7 @@
 import type {
   ChatInterfaceFileContext,
   ChatInterfaceFileSelectionResult,
+  ChatInterfaceAigcWatermarkEvidence,
   ChatInterfaceModelAction,
   ChatInterfaceResponse,
   ChatInterfaceSendRequest,
@@ -274,6 +275,7 @@ export function normalizeInternalBetaChatResponse(value: unknown): ChatInterface
     },
     fileContextPreview: normalizeFilePreview(payload.file_context_preview),
     whatIfPreview: normalizeWhatIfPreview(payload.what_if_preview),
+    aigcWatermark: normalizeBackendAigcWatermark(languagePreview.aigc_watermark),
     aigcGate: asRecord(payload.aigc_gate),
   };
 }
@@ -289,6 +291,7 @@ function normalizeStreamDone(data: Record<string, unknown>): ChatInterfaceRespon
     },
     fileContextPreview: normalizeFilePreview(data.file_context_preview),
     whatIfPreview: normalizeWhatIfPreview(data.what_if_preview),
+    aigcWatermark: normalizeStreamAigcWatermark(data.aigc_watermark_trace_id),
     aigcGate: asRecord(data.aigc_gate),
   };
 }
@@ -331,6 +334,46 @@ function normalizeWhatIfPreview(value: unknown): ChatInterfaceResponse["whatIfPr
     changeSummary: safeText(stringOr(preview.change_summary, "")),
     changedFields: arrayOfStrings(preview.changed_fields),
   };
+}
+
+function normalizeBackendAigcWatermark(
+  value: unknown,
+): ChatInterfaceAigcWatermarkEvidence | undefined {
+  const watermark = asRecord(value);
+  const traceId = traceIdOr(watermark.trace_id);
+  if (!traceId) return undefined;
+
+  const evidence: ChatInterfaceAigcWatermarkEvidence = { traceId };
+  const ariaLabel = safeOptionalText(watermark.aria_label, 64);
+  const visibleMarker = safeOptionalText(watermark.visible_marker, 64);
+  const provider = safeOptionalText(watermark.provider, 64);
+  const moduleVersion = safeOptionalText(watermark.module_version, 32);
+  if (ariaLabel) evidence.ariaLabel = ariaLabel;
+  if (visibleMarker) evidence.visibleMarker = visibleMarker;
+  if (provider) evidence.provider = provider;
+  if (moduleVersion) evidence.moduleVersion = moduleVersion;
+  if (watermark.tier === "strict" || watermark.tier === "loose") {
+    evidence.tier = watermark.tier;
+  }
+  if (typeof watermark.blocked === "boolean") {
+    evidence.blocked = watermark.blocked;
+  }
+  const reasonCodes = normalizeReasonCodes(watermark.reason_codes);
+  if (reasonCodes.length > 0 || Array.isArray(watermark.reason_codes)) {
+    evidence.reasonCodes = reasonCodes;
+  }
+  const metadata = normalizeAigcMetadata(watermark.metadata);
+  if (Object.keys(metadata).length > 0) {
+    evidence.metadata = metadata;
+  }
+  return evidence;
+}
+
+function normalizeStreamAigcWatermark(
+  value: unknown,
+): ChatInterfaceAigcWatermarkEvidence | undefined {
+  const traceId = traceIdOr(value);
+  return traceId ? { traceId } : undefined;
 }
 
 function buildRequestBody(request: InternalBetaChatRequest): Record<string, unknown> {
@@ -448,14 +491,65 @@ function numberOr(value: unknown, fallback: number): number {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
 
+function traceIdOr(value: unknown): string | undefined {
+  return typeof value === "string" && /^trc_[0-9a-f]{16}$/.test(value)
+    ? value
+    : undefined;
+}
+
 function arrayOfStrings(value: unknown): string[] {
   return Array.isArray(value)
     ? value.filter((item): item is string => typeof item === "string").map(safeText)
     : [];
 }
 
+function normalizeReasonCodes(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set<string>();
+  const output: string[] = [];
+  for (const item of value) {
+    if (
+      typeof item === "string" &&
+      /^[a-z0-9_]{1,64}$/.test(item) &&
+      safeText(item) === item &&
+      !seen.has(item)
+    ) {
+      output.push(item);
+      seen.add(item);
+    }
+    if (output.length >= 8) break;
+  }
+  return output;
+}
+
+function normalizeAigcMetadata(
+  value: unknown,
+): Record<string, boolean | number | string | null> {
+  const metadata = asRecord(value);
+  const output: Record<string, boolean | number | string | null> = {};
+  for (const [rawKey, rawValue] of Object.entries(metadata).slice(0, 4)) {
+    const key = safeOptionalText(rawKey, 64);
+    if (!key || !/^[a-z0-9_]{1,64}$/.test(key)) continue;
+    if (typeof rawValue === "boolean" || rawValue === null) {
+      output[key] = rawValue;
+    } else if (typeof rawValue === "number" && Number.isFinite(rawValue)) {
+      output[key] = rawValue;
+    } else if (typeof rawValue === "string") {
+      const text = safeOptionalText(rawValue, 160);
+      if (text) output[key] = text;
+    }
+  }
+  return output;
+}
+
 function localeOr(value: unknown): "zh-CN" | "en-US" | "mixed" {
   return value === "en-US" || value === "mixed" ? value : "zh-CN";
+}
+
+function safeOptionalText(value: unknown, maxLength: number): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const safe = safeText(value).slice(0, maxLength);
+  return safe === "[filtered]" ? undefined : safe;
 }
 
 function safeText(value: string): string {

@@ -123,6 +123,18 @@ export interface ChatInterfaceWhatIfContext {
   summary?: string;
 }
 
+export interface ChatInterfaceAigcWatermarkEvidence {
+  traceId: string;
+  ariaLabel?: string;
+  visibleMarker?: string;
+  provider?: string;
+  moduleVersion?: string;
+  tier?: "strict" | "loose";
+  blocked?: boolean;
+  reasonCodes?: string[];
+  metadata?: Record<string, boolean | number | string | null>;
+}
+
 export interface ChatInterfaceResponse {
   messageId: string;
   locale: ChatInterfaceLocale;
@@ -130,6 +142,7 @@ export interface ChatInterfaceResponse {
   modelPreview?: ChatInterfaceModelPreview;
   fileContextPreview?: ChatInterfaceFileContextPreview | null;
   whatIfPreview?: ChatInterfaceWhatIfPreview | null;
+  aigcWatermark?: ChatInterfaceAigcWatermarkEvidence;
   aigcGate?: Record<string, unknown>;
 }
 
@@ -162,6 +175,7 @@ export interface ChatInterfaceMessage {
   modelPreview?: ChatInterfaceModelPreview;
   fileContextPreview?: ChatInterfaceFileContextPreview | null;
   whatIfPreview?: ChatInterfaceWhatIfPreview | null;
+  aigcWatermark?: ChatInterfaceAigcWatermarkEvidence;
   localModelState?: "confirmed" | "canceled";
 }
 
@@ -345,6 +359,7 @@ export function ChatInterface({
               modelPreview: response.modelPreview,
               fileContextPreview: response.fileContextPreview ?? null,
               whatIfPreview: response.whatIfPreview ?? null,
+              aigcWatermark: response.aigcWatermark,
             }
           : message,
       ),
@@ -693,6 +708,7 @@ function MessageBubble({
       <p className="whitespace-pre-wrap break-words text-sm">
         {message.content || (message.status === "pending" ? "等待响应..." : "")}
       </p>
+      {message.aigcWatermark && <AigcWatermarkEvidence evidence={message.aigcWatermark} />}
       {message.status === "streaming" && (
         <div className="mt-2 inline-flex items-center gap-2 text-xs text-primary">
           <RotateCw className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
@@ -742,6 +758,44 @@ function MessageBubble({
         </div>
       )}
     </article>
+  );
+}
+
+function AigcWatermarkEvidence({
+  evidence,
+}: {
+  evidence: ChatInterfaceAigcWatermarkEvidence;
+}): JSX.Element {
+  const ariaLabel = evidence.ariaLabel ?? "本回答由 AI 生成，仅供参考";
+  const details = [
+    `trace ${evidence.traceId}`,
+    evidence.provider,
+    evidence.moduleVersion,
+    evidence.tier,
+    typeof evidence.blocked === "boolean"
+      ? evidence.blocked
+        ? "blocked"
+        : "allowed"
+      : undefined,
+  ].filter((item): item is string => Boolean(item));
+
+  return (
+    <div
+      data-testid="chat-aigc-watermark"
+      aria-label={ariaLabel}
+      className="mt-3 rounded-md border border-border bg-muted/30 p-3 text-xs"
+    >
+      {evidence.visibleMarker && (
+        <div className="font-semibold">{evidence.visibleMarker}</div>
+      )}
+      <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-muted-foreground first:mt-0">
+        {details.map((detail) => (
+          <span key={detail} className="min-w-0 break-words font-mono">
+            {detail}
+          </span>
+        ))}
+      </div>
+    </div>
   );
 }
 

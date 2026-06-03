@@ -3,7 +3,7 @@
 # Source: epics.md (21 Epics / 192 Stories, post AE rounds)
 # Path B unlock node sequence (5 + J1 vertical slice 4 锚点 + Critical Gaps)
 
-last_updated: 2026-06-02
+last_updated: 2026-06-03
 
 # ===== STATUS DEFINITIONS =====
 # backlog            — not yet started
@@ -233,7 +233,7 @@ development_status:
 
   # ===== Epic 8.A/B/C: Observability & Compliance (22 stories) =====
   epic-8-a: in-progress
-  epic-8-b: backlog
+  epic-8-b: in-progress
   epic-8-c: backlog
 
   8-a-1-public-status-page: done               # 2026-06-02 - Public status page shipped; PR #145 passed CI, merged to main, remote branch deleted, local main synced
@@ -244,7 +244,7 @@ development_status:
   8-a-6-vuln-submission: done                  # 2026-06-03 - Security disclosure surface shipped; PR #150 passed CI, merged to main, remote branch deleted, local main synced
   8-a-7-j9-whitehat-vertical-slice: done                  # 2026-06-03 - J9 whitehat disclosure vertical slice shipped; PR #151 passed CI, merged to main, remote branch deleted, local main synced
 
-  8-b-1-aigc-filter-invoke: backlog            # FR O5
+  8-b-1-aigc-filter-invoke: code-review        # FR O5
   8-b-2-rate-limit-per-plan: backlog           # FR O6
   8-b-3-errors-next-action-url: backlog        # FR O7
   8-b-4-rfc7807-error-panel: backlog

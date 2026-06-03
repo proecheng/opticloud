@@ -1,5 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -56,6 +58,17 @@ async function* streamEvents(): AsyncIterable<ChatInterfaceStreamEvent> {
         filenames: ["demand.csv"],
         detectedFields: ["sku", "month", "demand"],
       },
+      aigcWatermark: {
+        ariaLabel: "本回答由 AI 生成，仅供参考",
+        visibleMarker: "本回答由 AI 生成，仅供参考",
+        traceId: "trc_0123456789abcdef",
+        provider: "opticloud-aigc-filter",
+        moduleVersion: "0.1.0",
+        tier: "strict",
+        blocked: false,
+        reasonCodes: [],
+        metadata: { self_loop_bypass: false },
+      },
     },
   };
 }
@@ -74,6 +87,9 @@ async function* streamEventsWithEmptyDoneContent(): AsyncIterable<ChatInterfaceS
         previewId: "mpv_empty_done",
         status: "ready_to_confirm",
       },
+      aigcWatermark: {
+        traceId: "trc_fedcba9876543210",
+      },
     },
   };
 }
@@ -91,6 +107,17 @@ function completeResponse(content = "模型预览已生成"): ChatInterfaceSendR
       messageId: "msg_complete",
       locale: "zh-CN",
       content,
+      aigcWatermark: {
+        ariaLabel: "本回答由 AI 生成，仅供参考",
+        visibleMarker: "本回答由 AI 生成，仅供参考",
+        traceId: "trc_0123456789abcdef",
+        provider: "opticloud-aigc-filter",
+        moduleVersion: "0.1.0",
+        tier: "strict",
+        blocked: false,
+        reasonCodes: [],
+        metadata: { self_loop_bypass: false },
+      },
       modelPreview: {
         previewId: "mpv_aaaaaaaaaaaaaaaa",
         status: "needs_clarification",
@@ -182,6 +209,51 @@ describe("ChatInterface", () => {
 
     expect(await screen.findByText("分段响应")).toBeInTheDocument();
     expect(screen.getAllByText("完成").length).toBeGreaterThan(0);
+    expect(screen.getByTestId("chat-aigc-watermark")).toHaveTextContent(
+      "trc_fedcba9876543210",
+    );
+    expect(screen.getByTestId("chat-aigc-watermark")).not.toHaveTextContent(
+      "opticloud-aigc-filter",
+    );
+    expect(screen.getByTestId("chat-aigc-watermark")).not.toHaveTextContent("strict");
+  });
+
+  it("renders backend AIGC watermark evidence with accessible label", async () => {
+    const onSendMessage = vi.fn().mockResolvedValue(
+      completeResponse("模型预览已生成。\n\n本回答由 AI 生成，仅供参考"),
+    );
+    render(
+      <ChatInterface
+        ariaLabel="chat.interface"
+        onSendMessage={onSendMessage}
+        onSelectFile={vi.fn()}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("输入消息"), {
+      target: { value: "求最短路径" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "发送" }));
+
+    const watermark = await screen.findByTestId("chat-aigc-watermark");
+    expect(watermark).toHaveAccessibleName("本回答由 AI 生成，仅供参考");
+    expect(watermark).toHaveTextContent("本回答由 AI 生成，仅供参考");
+    expect(watermark).toHaveTextContent("trc_0123456789abcdef");
+    expect(watermark).toHaveTextContent("opticloud-aigc-filter");
+    expect(watermark).toHaveTextContent("0.1.0");
+    expect(watermark).toHaveTextContent("strict");
+  });
+
+  it("does not implement local AIGC filter or watermark encoding in UI source", () => {
+    const source = readFileSync(
+      join(process.cwd(), "src/components/ChatInterface/index.tsx"),
+      "utf8",
+    );
+
+    expect(source).not.toMatch(/aigc_filter|detect_watermark|add_watermark/);
+    expect(source).not.toContain("opticloud-aigc-filter");
+    expect(source).not.toMatch(/zero[-_ ]?width|\\u200b|\\u200c|\\u200d|\\u2060/i);
+    expect(source).not.toMatch(/base64|btoa|atob|TextEncoder|TextDecoder/);
   });
 
   it("keeps stream error events in error state instead of incomplete", async () => {
