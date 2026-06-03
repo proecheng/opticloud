@@ -60,7 +60,9 @@ def _assert_no_forbidden_metadata(data: object) -> None:
         if isinstance(value, dict):
             for key in value:
                 normalized_key = str(key).lower().replace("-", "_")
-                assert not any(fragment in normalized_key for fragment in FORBIDDEN_KEY_FRAGMENTS), (
+                assert not any(
+                    fragment in normalized_key for fragment in FORBIDDEN_KEY_FRAGMENTS
+                ), (
                     path,
                     key,
                 )
@@ -103,7 +105,10 @@ def test_canonical_corpus_counts_and_hash_are_pinned() -> None:
 def test_nearest_rank_percentile_and_exact_threshold_fail() -> None:
     assert performance.percentile_nearest_rank([1_000_000, 2_000_000, 3_000_000], 50) == 2.0
     assert performance.percentile_nearest_rank([1_000_000] * 19 + [100_000_000], 95) == 1.0
-    assert performance.percentile_nearest_rank([1_000_000] * 18 + [99_000_000, 100_000_000], 95) == 99.0
+    assert (
+        performance.percentile_nearest_rank([1_000_000] * 18 + [99_000_000, 100_000_000], 95)
+        == 99.0
+    )
 
     summary = performance.summarize_durations([100_000_000] * 20)
 

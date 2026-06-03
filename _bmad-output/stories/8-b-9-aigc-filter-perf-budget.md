@@ -255,6 +255,7 @@ GPT-5 Codex
 - 2026-06-03 - Updated CI `aigc_filter` path filter and `aigc-filter-validation` job to run the performance budget command as a hard gate.
 - 2026-06-03 - Local validation passed: AIGC tests (45 passed), quality metrics report, performance budget report (primary P95 observed below 1ms in final run), module contract test (9 passed), ruff, mypy, full pre-commit, and `git diff --check`.
 - 2026-06-03 - Post-implementation adversarial code review completed; one decision-closure finding fixed by making report `decision` depend on both primary P95 and budget-to-Chat relation, with regression test added.
+- 2026-06-03 - GitHub PR #160 first CI run passed all jobs except lint. Lint findings were CI ruff-format drift in `tests/aigc/test_performance_budget.py` and detect-secrets false positives on the public AIGC corpus SHA-256 in the test and manifest. Fixed by applying ruff-format output and adding the public corpus SHA-256 to `.pre-commit-config.yaml` `--exclude-secrets`; full local pre-commit passed afterward.
 
 ### Completion Notes List
 
@@ -262,12 +263,14 @@ GPT-5 Codex
 - Exactly three pre-implementation adversarial review rounds completed; implementation started.
 - Performance budget report script, manifest, tests and CI gate implemented.
 - Local gates passed after post-review fix.
+- GitHub lint fix applied for CI ruff-format parity and public corpus SHA-256 detect-secrets allowlist.
 - Story moved to `code-review`; pending GitHub PR/CI/merge/sync before marking done.
 
 ### File List
 
 - `_bmad-output/stories/8-b-9-aigc-filter-perf-budget.md`
 - `_bmad-output/stories/sprint-status.yaml`
+- `.pre-commit-config.yaml`
 - `.github/workflows/ci.yml`
 - `reports/aigc-filter/performance-budget.json`
 - `scripts/report_aigc_filter_performance.py`
@@ -296,6 +299,7 @@ Findings:
 
 - No remaining issue found against AC 1-15: report command, canonical corpus, primary/secondary operations, warmup/repeat count, P95 gate, Chat no-pass-claim fields, deterministic manifest, tests and CI path filter/job are present.
 - No remaining issue found against AC 16: local validation commands passed and are recorded above.
+- CI lint follow-up fixed: ruff-format parity is committed, and the public corpus SHA-256 is allowlisted in detect-secrets using the repo's existing public-hash pattern.
 - AC 18-19 remain pending by design until GitHub PR CI passes, PR is merged, remote branch is deleted, local `main` is synced, and a separate status-sync commit marks story/sprint `done`.
 
 Outcome: PASS after fixes.
@@ -305,3 +309,4 @@ Outcome: PASS after fixes.
 - 2026-06-03 - Story created for 8.B.9 AIGC filter P95 <100ms performance budget.
 - 2026-06-03 - Completed three pre-implementation adversarial review rounds; story status moved to in-progress for implementation.
 - 2026-06-03 - Implemented performance budget script/manifest/tests/CI; post-implementation review completed and story moved to code-review pending GitHub sync.
+- 2026-06-03 - Fixed PR #160 lint findings: ruff-format parity and public corpus SHA-256 detect-secrets allowlist.
