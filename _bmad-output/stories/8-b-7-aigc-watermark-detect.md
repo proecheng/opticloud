@@ -3,7 +3,7 @@ story_key: 8-b-7-aigc-watermark-detect
 epic_num: 8
 story_num: B.7
 epic_name: AIGC Filter + Rate Limit + Error Codes RFC 7807
-status: code-review
+status: done
 baseline_commit: d23bed38edbd56541328410e68274dc8cccaae89
 priority: High
 type: G12 AIGC zero-width watermark detector closure
@@ -27,7 +27,7 @@ sources:
 
 # Story 8.B.7 - AIGC 水印 zero-width metadata 检测
 
-Status: code-review
+Status: done
 
 ## Story
 
@@ -121,8 +121,8 @@ Story M3.4 已经建立唯一 shared Python AIGC filter/watermark module：`pack
 
 - [ ] T4: Review and GitHub sync（AC: 14-15）
   - [x] 完成 post-implementation code review 并修复 findings。
-  - [ ] Commit、push、创建 PR、等待 CI、merge、删除远端分支、同步 local main。
-  - [ ] 合并同步后更新 story/sprint status 为 done 并推送 status-sync commit。
+  - [x] Commit、push、创建 PR、等待 CI、merge、删除远端分支、同步 local main。
+  - [x] 合并同步后更新 story/sprint status 为 done 并推送 status-sync commit。
 
 ## Dev Notes
 
@@ -195,6 +195,7 @@ GPT-5 Codex
 - 2026-06-03 - RED confirmed: extended detector tests failed on corrupted trailing payload recovery and malformed metadata acceptance.
 - 2026-06-03 - GREEN implementation changed detector extraction to right-to-left candidate scanning, strict module metadata validation, and `trc_` trace prefix validation without changing public exports.
 - 2026-06-03 - Local validation passed: `uv run pytest tests/aigc -q` (37 passed), contract module test (9 passed), ruff, mypy, and `git diff --check`.
+- 2026-06-03 - PR #158 passed GitHub CI, was squash-merged to `main` at `6dd6706e8c0375950be4ad9f74cac53f73c4ade0`, remote branch `codex/8-b-7-aigc-watermark-detect` was deleted, and local `main` was synced before marking story done.
 
 ### Completion Notes List
 
@@ -204,6 +205,7 @@ GPT-5 Codex
 - Detector now recovers from corrupted trailing payloads by scanning right-to-left and returning the rightmost valid module payload.
 - Detector now rejects missing/empty/type-wrong metadata fields, non-module provider values, broken payloads and non-`trc_` trace IDs without raising.
 - Post-implementation review found and fixed one trace-validation gap; local gates passed after the patch.
+- GitHub closure passed: PR #158 CI green, merged to `main`, remote branch deleted, and local `main` clean and synced before final status update.
 
 ### File List
 
@@ -217,6 +219,7 @@ GPT-5 Codex
 - 2026-06-03 - Story created for 8.B.7 AIGC zero-width watermark detector coverage and CI closure.
 - 2026-06-03 - Completed three pre-implementation adversarial review rounds; story status moved to in-progress for implementation.
 - 2026-06-03 - Implemented detector scanning/validation hardening, expanded AIGC watermark tests, completed post-implementation review patch, passed local gates, and moved story to code-review pending GitHub sync.
+- 2026-06-03 - PR #158 passed CI, merged, remote branch removed, local main synced; story status moved to done.
 
 ## Post-Implementation Code Review
 
