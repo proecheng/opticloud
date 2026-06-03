@@ -83,6 +83,7 @@ export type { EmptyStateProps } from "./components/EmptyState";
 
 export { ChatInterface } from "./components/ChatInterface";
 export type {
+  ChatInterfaceAigcWatermarkEvidence,
   ChatInterfaceFileContext,
   ChatInterfaceFileContextPreview,
   ChatInterfaceFileSheetContext,
