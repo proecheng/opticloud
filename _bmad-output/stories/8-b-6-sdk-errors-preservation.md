@@ -3,7 +3,7 @@ story_key: 8-b-6-sdk-errors-preservation
 epic_num: 8
 story_num: B.6
 epic_name: AIGC Filter + Rate Limit + Error Codes RFC 7807
-status: code-review
+status: done
 baseline_commit: befdb701a758fb4688021a5de130705a744f8040
 priority: High
 type: FG1.3 SDK RFC7807 errors preservation
@@ -32,7 +32,7 @@ sources:
 
 # Story 8.B.6 - SDK Contract 保留 errors[]
 
-Status: code-review
+Status: done
 
 ## Story
 
@@ -120,10 +120,10 @@ Epic 8.B.6 的原始 AC 是：Given Python/Node SDK / When parse error response 
   - [x] Update `pnpm-lock.yaml` only as needed for the new workspace importer and TypeScript devDependency metadata.
   - [x] Run local validation commands and record results.
 
-- [ ] T5: Review and GitHub sync (AC: 16-17)
+- [x] T5: Review and GitHub sync (AC: 16-17)
   - [x] Complete post-implementation code review and fix findings.
-  - [ ] Commit, push, create PR, wait CI, merge, delete remote branch, sync local `main`.
-  - [ ] Only after merge/sync, mark story and sprint status `done` and push status-sync commit.
+  - [x] Commit, push, create PR, wait CI, merge, delete remote branch, sync local `main`.
+  - [x] Only after merge/sync, mark story and sprint status `done` and push status-sync commit.
 
 ## Dev Notes
 
@@ -218,6 +218,7 @@ GPT-5 Codex
 - 2026-06-03 - Full local `pnpm install --frozen-lockfile` confirmed the lockfile is up to date, then failed on Windows filesystem EPERM while renaming an existing `@swc/core` node_modules directory; PR CI's clean Linux runner remains the final full frozen-install gate.
 - 2026-06-03 - Post-implementation review found Python `find_constraint()` could throw on malformed preserved non-string `constraint`; fixed by ignoring non-string constraints and added regression coverage.
 - 2026-06-03 - PR CI blocker found outside SDK scope: `image-build` failed while `sigstore/cosign-installer@v3` attempted to download pinned `cosign v2.4.1`; updated the installer action to `v4.1.2` and removed the stale explicit cosign release pin.
+- 2026-06-03 - PR #157 passed GitHub CI, was squash-merged to `main` at `ab0eb36bad969bb3b836bbf760f695c386fdc5b9`, remote branch `codex/8-b-6-sdk-errors-preservation` was deleted, and local `main` was synced to `origin/main`.
 
 ### Completion Notes List
 
@@ -231,6 +232,7 @@ GPT-5 Codex
 - `pnpm-lock.yaml` changed for the new workspace importer and TypeScript devDependency metadata only.
 - Post-implementation review completed across boundary handling, drift/data consistency, dependency consistency, CI closure, and test sufficiency; the only actionable finding was fixed.
 - Local gates passed after review fix: Python SDK tests (12 passed), Node SDK tests (3 passed), root `pnpm -r typecheck`, full pre-commit, `git diff --check`, and lockfile-only frozen install.
+- GitHub closure passed: PR #157 CI green, merged to `main` at `ab0eb36bad969bb3b836bbf760f695c386fdc5b9`, remote story branch deleted, and local `main` clean and synced before marking this story done.
 
 ### File List
 
@@ -256,6 +258,7 @@ GPT-5 Codex
 - 2026-06-03 - Implementation started; baseline commit recorded and status moved to `in-progress`.
 - 2026-06-03 - Implemented SDK preservation tests, Python parser hardening, minimal Node SDK package, workspace wiring, and CI validation closure; full local validation and post-implementation review still pending.
 - 2026-06-03 - Completed full local validation and post-implementation review; fixed Python malformed `constraint` helper boundary; story moved to `code-review` pending GitHub sync.
+- 2026-06-03 - PR #157 passed CI, merged, remote branch removed, local main synced; story status moved to `done`.
 
 ## Post-Implementation Code Review
 

@@ -249,7 +249,7 @@ development_status:
   8-b-3-errors-next-action-url: done           # 2026-06-03 - Error next-action URL contract shipped; PR #154 passed CI, merged to main, remote branch deleted, local main synced
   8-b-4-rfc7807-error-panel: done             # 2026-06-03 - RFC7807ErrorPanel Tier 2 shipped; PR #155 passed CI, merged to main, remote branch deleted, local main synced
   8-b-5-error-i18n-eslint: done                # 2026-06-03 - Error i18n single-source gate shipped; PR #156 passed CI, merged to main, remote branch deleted, local main synced
-  8-b-6-sdk-errors-preservation: code-review
+  8-b-6-sdk-errors-preservation: done                # 2026-06-03 - SDK RFC7807 errors preservation shipped; PR #157 passed CI, merged to main, remote branch deleted, local main synced
   8-b-7-aigc-watermark-detect: backlog
   8-b-8-redteam-tests-m5-200: backlog
   8-b-9-aigc-filter-perf-budget: backlog
