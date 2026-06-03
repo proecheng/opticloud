@@ -171,7 +171,7 @@ export class ChatCsvRecoverySession {
             data_row_number: this.#invalidRows[0]?.data_row_number ?? 0,
             field_path: "replacement",
             constraint,
-            remediation_hint_key: "chat.csv.replace_failed_row",
+            remediation_hint_key: "errors.chat_csv.replace_failed_row",
           },
         ],
       }),
@@ -257,7 +257,7 @@ function evaluateRows(rows: ParsedCsvRow[]): {
       data_row_number: 0,
       field_path: "header",
       constraint: "header row must be present",
-      remediation_hint_key: "chat.csv.add_header",
+      remediation_hint_key: "errors.chat_csv.add_header",
     });
   }
 
@@ -269,7 +269,7 @@ function evaluateRows(rows: ParsedCsvRow[]): {
         data_row_number: row.dataRowNumber,
         field_path: `rows[${row.dataRowNumber}]`,
         constraint: "row cell count must match header cell count",
-        remediation_hint_key: "chat.csv.replace_failed_row",
+        remediation_hint_key: "errors.chat_csv.replace_failed_row",
       });
     }
   });

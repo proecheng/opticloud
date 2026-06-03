@@ -65,7 +65,7 @@ describe("parseChatCsvWithRecovery", () => {
       data_row_number: 847,
       field_path: "rows[847]",
       constraint: "row cell count must match header cell count",
-      remediation_hint_key: "chat.csv.replace_failed_row",
+      remediation_hint_key: "errors.chat_csv.replace_failed_row",
     });
     expect(result.actions).toEqual(CHAT_PARTIAL_UPLOAD_RECOVERY_ACTIONS);
     expect(result.actions.map((action) => action.label)).toEqual([

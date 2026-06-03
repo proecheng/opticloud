@@ -52,6 +52,12 @@ repos:
         language: system
         pass_filenames: false
         files: ^(pyproject\.toml|package\.json|pnpm-lock\.yaml|uv\.lock)$
+      - id: error-message-i18n-single-source
+        name: error-message-i18n-single-source
+        entry: python scripts/error_message_i18n_single_source.py
+        language: system
+        pass_filenames: false
+        files: ^(apps/web/src/|packages/ui/src/|packages/shared-ts/src/|packages/i18n/|scripts/error_message_i18n_single_source\.py|tests/test_error_i18n_single_source\.py|package\.json|\.pre-commit-config\.yaml|\.github/workflows/ci\.yml)
 
   # ----- Secrets (基础；详细 secret 扫描走 GitGuardian / TruffleHog CI) -----
   - repo: https://github.com/Yelp/detect-secrets

@@ -118,7 +118,7 @@ async def test_audit_logs_return_only_current_users_rows(
 ) -> None:
     user_a, jwt_a = await _signup(http_client)
     user_b, _ = await _signup(http_client)
-    now = datetime(2026, 6, 2, 8, 0, tzinfo=UTC)
+    now = datetime.now(UTC)
     own_id = await _insert_audit(
         engine,
         user_id=user_a,

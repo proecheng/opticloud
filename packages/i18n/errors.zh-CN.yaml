@@ -1,0 +1,55 @@
+# OptiCloud RFC 7807 error message single source (zh-CN).
+# Add new user-facing error text here before referencing remediation_hint_key
+# from production problem-detail code.
+
+errors:
+  402:
+    topup:
+      title: "Credits 不足"
+      detail: "当前 Credits 余额不足，无法完成本次请求。"
+      remediation: "前往充值页补足 Credits 后重试。"
+  422:
+    invalid_prediction_data:
+      title: "预测数据无效"
+      detail: "预测请求数据未通过字段校验。"
+      remediation: "检查字段路径、取值范围和数据格式后重新提交。"
+    invalid_job_template:
+      title: "作业模板无效"
+      detail: "作业模板版本或参数变更未通过校验。"
+      remediation: "检查模板参数路径和值类型后重新保存。"
+    source_task_not_completed:
+      title: "源任务未完成"
+      detail: "只有已完成的优化或预测任务可以保存为模板。"
+      remediation: "等待源任务完成后再创建或更新模板。"
+  429:
+    rate_limit_exceeded:
+      title: "请求频率超限"
+      detail: "当前套餐的请求频率额度已用尽。"
+      remediation: "稍后重试，或升级套餐以获得更高频率额度。"
+  503:
+    rate_limit_unavailable:
+      title: "限流服务暂不可用"
+      detail: "系统暂时无法确认请求频率额度。"
+      remediation: "稍后重试；若持续失败，请联系支持并提供 request_id。"
+  fallback:
+    request_failed:
+      title: "请求失败"
+      detail: "服务返回了无法识别的错误响应。"
+      remediation: "保留 request_id 并联系支持排查。"
+    network_error:
+      title: "网络错误"
+      detail: "客户端无法解析服务错误响应。"
+      remediation: "检查网络连接后重试；若持续失败，请联系支持。"
+    prediction_request_failed:
+      title: "预测请求失败"
+      detail: "预测请求在客户端或服务调用过程中失败。"
+      remediation: "检查输入数据和网络连接后重试。"
+  chat_csv:
+    add_header:
+      title: "CSV 缺少表头"
+      detail: "CSV 恢复流程需要可识别的表头行。"
+      remediation: "添加表头行后重新上传或替换失败行。"
+    replace_failed_row:
+      title: "CSV 行需要替换"
+      detail: "CSV 中至少一行与表头结构不一致。"
+      remediation: "仅替换失败行，确保列数和源行号匹配。"
