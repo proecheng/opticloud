@@ -342,6 +342,44 @@ export interface TeachingMetadata {
   };
 }
 
+export interface RoutingHistoryRoute {
+  task_type: string;
+  requested_solver: string | null;
+  selected_solver: string;
+  provider_id: string;
+  provider_kind: string;
+  provider_url: string;
+  routing_reason: string;
+}
+
+export interface RoutingHistoryAttempt {
+  attempt: number;
+  role: "primary" | "fallback";
+  requested_solver: string | null;
+  selected_solver: string;
+  provider_id: string;
+  provider_kind: string;
+  provider_url: string;
+  routing_reason: string;
+  status: string;
+  retryable: boolean;
+  solve_seconds: number;
+}
+
+export interface RoutingHistory {
+  primary_route: RoutingHistoryRoute | null;
+  executed_route: RoutingHistoryRoute | null;
+  summary: {
+    attempt_count: number;
+    fallback_used: boolean;
+    terminal_status: string | null;
+    terminal_attempt: number | null;
+    exhausted: boolean;
+    solve_seconds: number;
+  };
+  attempts: RoutingHistoryAttempt[];
+}
+
 export interface OptimizationResponse {
   optimization_id: string;
   status: "completed" | "failed" | "timeout";
@@ -357,7 +395,31 @@ export interface OptimizationResponse {
   reproducibility?: Reproducibility;
   /** Present only for `POST /v1/optimizations?mode=teaching`. */
   teaching?: TeachingMetadata;
+  /** Present when provider routing metadata exists for this persisted optimization. */
+  routing_history?: RoutingHistory;
 }
+
+export interface OptimizationStatusResponse {
+  optimization_id: string;
+  status: "queued" | "in_progress" | "failed" | "timeout" | "cancelled";
+  model_version: ModelVersion | null;
+  created_at: string;
+  completed_at: string | null;
+  progress_pct: number | null;
+  eta_seconds: number | null;
+  mode?: string;
+  message?: string;
+  error?: Record<string, unknown> | null;
+  solve_seconds?: number;
+  best_solution_available?: boolean;
+  best_solution?: { x: number[] };
+  objective?: number;
+  refund_status?: string;
+  routing_history?: RoutingHistory;
+  teaching?: TeachingMetadata;
+}
+
+export type GetOptimizationResponse = OptimizationResponse | OptimizationStatusResponse;
 
 export interface ReproductionRerunResponse extends OptimizationResponse {
   rerun_of_voucher_id: string;
@@ -1420,6 +1482,46 @@ export async function postOptimization(
     },
     SOLVER_SERVICE_URL,
   );
+}
+
+export async function getOptimization(
+  apiKey: string,
+  optimizationId: string,
+): Promise<GetOptimizationResponse> {
+  const headers = new Headers({ Authorization: `Bearer ${apiKey}` });
+  headers.set("Accept-Language", getClientLocale());
+  const response = await fetch(
+    `${SOLVER_SERVICE_URL}/v1/optimizations/${encodeURIComponent(optimizationId)}`,
+    {
+      method: "GET",
+      headers,
+    },
+  );
+
+  if (!response.ok) {
+    let payload: ApiError;
+    try {
+      const body = (await response.json()) as unknown;
+      payload = normalizeErrorPayload(response.status, body);
+    } catch {
+      payload = {
+        status: response.status,
+        title: FALLBACK_ERROR_MESSAGES.networkError.title,
+        detail: await response.text().catch(() => FALLBACK_ERROR_MESSAGES.networkError.detail),
+        errors: [
+          {
+            field_path: "response.body",
+            value: null,
+            constraint: "error response body must be parseable JSON or text",
+            remediation_hint_key: FALLBACK_ERROR_MESSAGES.networkError.remediationHintKey,
+          },
+        ],
+      };
+    }
+    throw new OptiCloudClientError(payload);
+  }
+
+  return (await response.json()) as GetOptimizationResponse;
 }
 
 export async function postPrediction(

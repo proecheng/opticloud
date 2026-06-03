@@ -341,7 +341,149 @@ async def _load_source_optimization_for_voucher(
     return opt
 
 
-def _build_response_content(opt: Optimization) -> dict[str, Any]:
+_PUBLIC_ROUTE_FIELDS = (
+    "task_type",
+    "requested_solver",
+    "selected_solver",
+    "provider_id",
+    "provider_kind",
+    "provider_url",
+    "routing_reason",
+)
+_PUBLIC_ATTEMPT_FIELDS = (
+    "attempt",
+    "role",
+    "requested_solver",
+    "selected_solver",
+    "provider_id",
+    "provider_kind",
+    "provider_url",
+    "routing_reason",
+    "status",
+    "retryable",
+    "solve_seconds",
+)
+
+
+def _optimization_system_payload(opt: Optimization) -> dict[str, Any]:
+    if isinstance(opt.input_payload, dict):
+        system_payload = opt.input_payload.get("_system")
+        if isinstance(system_payload, dict):
+            return system_payload
+    return {}
+
+
+def _public_route_metadata(value: Any) -> dict[str, Any] | None:
+    if not isinstance(value, dict):
+        return None
+    public: dict[str, Any] = {}
+    for field in _PUBLIC_ROUTE_FIELDS:
+        if field not in value:
+            return None
+        public[field] = value[field]
+    return public
+
+
+def _public_attempt_metadata(value: Any) -> dict[str, Any] | None:
+    if not isinstance(value, dict):
+        return None
+    public: dict[str, Any] = {}
+    for field in _PUBLIC_ATTEMPT_FIELDS:
+        if field not in value:
+            return None
+        public[field] = value[field]
+    return public
+
+
+def _routing_history_metadata(opt: Optimization) -> dict[str, Any] | None:
+    system_payload = _optimization_system_payload(opt)
+    primary_route = _public_route_metadata(system_payload.get("provider_route"))
+    executed_route = _public_route_metadata(system_payload.get("executed_provider_route"))
+    fallback_execution = system_payload.get("fallback_execution")
+    solve_seconds = float(opt.solve_seconds) if opt.solve_seconds is not None else 0.0
+
+    if isinstance(fallback_execution, dict):
+        attempts = [
+            public_attempt
+            for attempt in fallback_execution.get("attempts", [])
+            if (public_attempt := _public_attempt_metadata(attempt)) is not None
+        ]
+        terminal_attempt_raw = fallback_execution.get("terminal_attempt")
+        terminal_attempt = terminal_attempt_raw if isinstance(terminal_attempt_raw, int) else None
+        attempt_count = len(attempts)
+        if terminal_attempt is not None:
+            attempt_count = max(attempt_count, terminal_attempt)
+        return {
+            "primary_route": primary_route,
+            "executed_route": executed_route,
+            "summary": {
+                "attempt_count": attempt_count,
+                "fallback_used": any(attempt.get("role") == "fallback" for attempt in attempts)
+                or (terminal_attempt is not None and terminal_attempt > 1),
+                "terminal_status": fallback_execution.get("terminal_status")
+                if isinstance(fallback_execution.get("terminal_status"), str)
+                else None,
+                "terminal_attempt": terminal_attempt,
+                "exhausted": bool(fallback_execution.get("exhausted", False)),
+                "solve_seconds": solve_seconds,
+            },
+            "attempts": attempts,
+        }
+
+    if primary_route is None and executed_route is None:
+        return None
+    terminal_route = executed_route or primary_route
+    if opt.status in {"queued", "in_progress"}:
+        return {
+            "primary_route": primary_route,
+            "executed_route": None,
+            "summary": {
+                "attempt_count": 0,
+                "fallback_used": False,
+                "terminal_status": None,
+                "terminal_attempt": None,
+                "exhausted": False,
+                "solve_seconds": 0.0,
+            },
+            "attempts": [],
+        }
+    attempts = []
+    if terminal_route is not None:
+        attempts.append(
+            {
+                "attempt": 1,
+                "role": "primary",
+                "requested_solver": terminal_route["requested_solver"],
+                "selected_solver": terminal_route["selected_solver"],
+                "provider_id": terminal_route["provider_id"],
+                "provider_kind": terminal_route["provider_kind"],
+                "provider_url": terminal_route["provider_url"],
+                "routing_reason": terminal_route["routing_reason"],
+                "status": opt.status,
+                "retryable": False,
+                "solve_seconds": solve_seconds,
+            }
+        )
+    return {
+        "primary_route": primary_route,
+        "executed_route": executed_route,
+        "summary": {
+            "attempt_count": len(attempts),
+            "fallback_used": False,
+            "terminal_status": opt.status,
+            "terminal_attempt": 1 if attempts else None,
+            "exhausted": False,
+            "solve_seconds": solve_seconds,
+        },
+        "attempts": attempts,
+    }
+
+
+def _build_response_content(
+    opt: Optimization,
+    *,
+    include_routing_history: bool = True,
+) -> dict[str, Any]:
     algo_citation: Citation | None = None
     algo_attribution: IPAttribution | None = None
     if isinstance(opt.model_version, dict):
@@ -408,26 +550,28 @@ def _build_response_content(opt: Optimization) -> dict[str, Any]:
         }
     content["model_version"] = public_model_version
     content.update(_status_progress_fields(opt))
-    if isinstance(opt.input_payload, dict):
-        system_payload = opt.input_payload.get("_system")
-        if isinstance(system_payload, dict):
-            reproducibility = system_payload.get("reproducibility")
-            if isinstance(reproducibility, dict):
-                content["reproducibility"] = reproducibility
-            top_k = system_payload.get("top_k_alternatives")
-            if isinstance(top_k, dict):
-                alternatives = top_k.get("alternatives")
-                requested = top_k.get("requested")
-                returned = top_k.get("returned")
-                if isinstance(alternatives, list) and isinstance(requested, int):
-                    content["top_k_alternatives_requested"] = requested
-                    content["top_k_alternatives_returned"] = (
-                        returned if isinstance(returned, int) else len(alternatives)
-                    )
-                    content["alternatives"] = alternatives
-            teaching = system_payload.get("teaching")
-            if isinstance(teaching, dict):
-                content["teaching"] = teaching
+    system_payload = _optimization_system_payload(opt)
+    reproducibility = system_payload.get("reproducibility")
+    if isinstance(reproducibility, dict):
+        content["reproducibility"] = reproducibility
+    top_k = system_payload.get("top_k_alternatives")
+    if isinstance(top_k, dict):
+        alternatives = top_k.get("alternatives")
+        requested = top_k.get("requested")
+        returned = top_k.get("returned")
+        if isinstance(alternatives, list) and isinstance(requested, int):
+            content["top_k_alternatives_requested"] = requested
+            content["top_k_alternatives_returned"] = (
+                returned if isinstance(returned, int) else len(alternatives)
+            )
+            content["alternatives"] = alternatives
+    teaching = system_payload.get("teaching")
+    if isinstance(teaching, dict):
+        content["teaching"] = teaching
+    if include_routing_history:
+        routing_history = _routing_history_metadata(opt)
+        if routing_history is not None:
+            content["routing_history"] = routing_history
     return content
 
 
@@ -629,7 +773,11 @@ def _refund_status_from_optimization(opt: Optimization) -> str:
     return "not_applicable" if not billing_metadata.get("reserved") else "pending_reconciliation"
 
 
-def _build_optimization_status_response_content(opt: Optimization) -> dict[str, Any]:
+def _build_optimization_status_response_content(
+    opt: Optimization,
+    *,
+    include_routing_history: bool = True,
+) -> dict[str, Any]:
     execution_mode = _optimization_execution_mode(opt)
     teaching = _optimization_teaching_metadata(opt)
     content: dict[str, Any] = {
@@ -641,6 +789,10 @@ def _build_optimization_status_response_content(opt: Optimization) -> dict[str, 
     }
     if teaching:
         content["teaching"] = teaching
+    if include_routing_history:
+        routing_history = _routing_history_metadata(opt)
+        if routing_history is not None:
+            content["routing_history"] = routing_history
     content.update(_status_progress_fields(opt))
     effective_mode = execution_mode.get("effective_mode")
     if effective_mode is not None:
@@ -1916,9 +2068,11 @@ def _build_batch_response_content(
         if opt.status in counts:
             counts[opt.status] += 1
         if opt.status == "completed":
-            content = _build_response_content(opt)
+            content = _build_response_content(opt, include_routing_history=False)
         else:
-            content = _build_optimization_status_response_content(opt)
+            content = _build_optimization_status_response_content(
+                opt, include_routing_history=False
+            )
         child_payloads.append(content)
         item = {"index": index, **content}
         items.append(item)

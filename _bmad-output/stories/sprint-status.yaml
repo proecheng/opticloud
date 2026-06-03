@@ -255,7 +255,7 @@ development_status:
   8-b-9-aigc-filter-perf-budget: done             # 2026-06-03 - AIGC filter P95 performance budget gate shipped; PR #160 passed CI, merged to main, remote branch deleted, local main synced
 
   8-c-1-mode-teaching-explain: done            # 2026-06-04 - Teaching mode API response shipped; PR #161 passed CI, merged to main, remote branch deleted, local main synced
-  8-c-2-provider-routing-history: backlog      # FR O9 v2
+  8-c-2-provider-routing-history: code-review   # FR O9 v2
   8-c-3-legal-inquiry-sla: backlog             # FR O10
   8-c-4-algorithm-library-browse: backlog      # FR O11 v2
   8-c-5-algorithm-capability-card: backlog
