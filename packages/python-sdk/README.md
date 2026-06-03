@@ -48,10 +48,12 @@ except OptiCloudHTTPError as e:
     print(e.raw)
 ```
 
-## Three-language consistency (A-S3)
+## SDK consistency (A-S3 / Story 8.B.6)
 
 - Python: `e.locate("st.A[2][1]")` ✅
-- Node SDK: `e.locate("st.A[2][1]")` (future M5)
+- Node SDK: `error.locate("st.A[2][1]")` ✅ via `@opticloud/sdk`
 - Go SDK: `err.Locate("st.A[2][1]")` (future M5)
 
-All return identical values; CI parity test in Story 0.4 ensures consistent behavior.
+Python and Node preserve the original RFC 7807 `errors[]` structure through
+`error.errors` and expose locate helpers with matching semantics. Go remains a
+future SDK expansion.

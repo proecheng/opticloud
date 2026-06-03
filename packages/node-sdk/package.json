@@ -1,0 +1,23 @@
+{
+  "name": "@opticloud/sdk",
+  "version": "0.0.1-alpha.1",
+  "private": true,
+  "description": "OptiCloud Node SDK error contract package",
+  "type": "module",
+  "main": "./dist/src/index.js",
+  "types": "./dist/src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "default": "./dist/src/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "pnpm run build && node --test test/*.test.mjs"
+  },
+  "devDependencies": {
+    "typescript": "5.4.5"
+  }
+}
