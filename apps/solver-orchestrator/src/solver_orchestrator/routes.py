@@ -23,7 +23,7 @@ from sqlalchemy.dialects.postgresql import insert as postgresql_insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from solver_orchestrator import billing_client, solvers
+from solver_orchestrator import billing_client, rate_limit, solvers
 from solver_orchestrator.auth import require_scope, verify_api_key
 from solver_orchestrator.catalog import (
     CATALOG,
@@ -742,6 +742,8 @@ def _rfc7807_error(
     errors: list[ErrorDetail] | None = None,
     next_action: str | None = None,
     request_id: str | None = None,
+    headers: dict[str, str] | None = None,
+    error_key: str | None = None,
 ) -> JSONResponse:
     """Build RFC 7807 + errors[] response (FG1.3)."""
     return build_problem_response(
@@ -751,7 +753,72 @@ def _rfc7807_error(
         errors=errors,
         next_action=next_action,
         request_id=request_id,
+        headers=headers,
+        error_key=error_key,
     )
+
+
+def _rate_limit_headers(decision: rate_limit.RateLimitDecision) -> dict[str, str]:
+    return {
+        "X-RateLimit-Limit": str(decision.limit),
+        "X-RateLimit-Remaining": str(decision.remaining),
+        "X-RateLimit-Reset": str(decision.reset_epoch_seconds),
+        "Retry-After": str(decision.retry_after_seconds),
+    }
+
+
+def _rate_limit_response(
+    decision: rate_limit.RateLimitDecision, *, request_id: str | None = None
+) -> JSONResponse:
+    return _rfc7807_error(
+        title="Rate Limit Exceeded",
+        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+        detail=f"current {decision.plan_code} plan allows {decision.limit} requests per {decision.window_seconds}s window",
+        error_key="rate_limit_exceeded",
+        errors=[
+            ErrorDetail(
+                field_path="rate_limit",
+                value=decision.plan_code,
+                constraint=f"limit {decision.limit} requests per {decision.window_seconds}s",
+                remediation_hint_key="errors.429.rate_limit_exceeded",
+            )
+        ],
+        request_id=request_id,
+        headers=_rate_limit_headers(decision),
+    )
+
+
+def _rate_limit_unavailable_response(*, request_id: str | None = None) -> JSONResponse:
+    return _rfc7807_error(
+        title="Rate Limit Unavailable",
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        detail="rate limit backend is unavailable",
+        error_key="rate_limit_unavailable",
+        errors=[
+            ErrorDetail(
+                field_path="rate_limit",
+                value="[omitted]",
+                constraint="rate limit backend must be available before execution",
+                remediation_hint_key="errors.503.rate_limit_unavailable",
+            )
+        ],
+        request_id=request_id,
+    )
+
+
+async def _rate_limit_or_response(
+    *,
+    session: AsyncSession,
+    user_id: uuid.UUID,
+    request_id: str | None = None,
+) -> JSONResponse | None:
+    try:
+        await rate_limit.enforce_rate_limit(session=session, user_id=user_id)
+    except rate_limit.RateLimitExceededError as exc:
+        return _rate_limit_response(exc.decision, request_id=request_id)
+    except rate_limit.RateLimitUnavailableError:
+        return _rate_limit_unavailable_response(request_id=request_id)
+    return None
 
 
 def _idempotency_conflict_response(
@@ -1152,6 +1219,11 @@ async def create_job_template(
     user_id, _api_key_id, scopes = await verify_api_key(authorization, session, client_ip=client_ip)
     require_scope("optimize:write", scopes)
     request_id = request.headers.get("x-request-id") or str(uuid.uuid4())
+    rate_limit_error = await _rate_limit_or_response(
+        session=session, user_id=user_id, request_id=request_id
+    )
+    if rate_limit_error is not None:
+        return rate_limit_error
 
     name, name_error = _normalized_template_name(payload, request_id=request_id)
     if name_error is not None:
@@ -1358,6 +1430,11 @@ async def create_job_template_version(
     user_id, _api_key_id, scopes = await verify_api_key(authorization, session, client_ip=client_ip)
     require_scope("optimize:write", scopes)
     request_id = request.headers.get("x-request-id") or str(uuid.uuid4())
+    rate_limit_error = await _rate_limit_or_response(
+        session=session, user_id=user_id, request_id=request_id
+    )
+    if rate_limit_error is not None:
+        return rate_limit_error
     parent = await _get_owned_active_job_template(session, template_id=template_id, user_id=user_id)
     if parent is None:
         return _job_template_not_found_response(request_id=request_id)
@@ -1445,6 +1522,12 @@ async def delete_job_template(
     client_ip = request.client.host if request.client else None
     user_id, _api_key_id, scopes = await verify_api_key(authorization, session, client_ip=client_ip)
     require_scope("optimize:write", scopes)
+    request_id = request.headers.get("x-request-id") or str(uuid.uuid4())
+    rate_limit_error = await _rate_limit_or_response(
+        session=session, user_id=user_id, request_id=request_id
+    )
+    if rate_limit_error is not None:
+        return rate_limit_error
     result = await session.execute(
         select(JobTemplate).where(
             JobTemplate.id == template_id,
@@ -1454,9 +1537,7 @@ async def delete_job_template(
     )
     template = result.scalar_one_or_none()
     if template is None:
-        return _job_template_not_found_response(
-            request_id=request.headers.get("x-request-id") or str(uuid.uuid4())
-        )
+        return _job_template_not_found_response(request_id=request_id)
     now = datetime.now(UTC)
     template.deleted_at = now
     template.updated_at = now
@@ -2298,6 +2379,11 @@ async def post_optimization(
 
     body_dict = payload.model_dump(by_alias=True)
     request_id = request.headers.get("x-request-id") or str(uuid.uuid4())
+    rate_limit_error = await _rate_limit_or_response(
+        session=session, user_id=user_id, request_id=request_id
+    )
+    if rate_limit_error is not None:
+        return rate_limit_error
 
     normalized_mode, mode_error = _validate_execution_mode(mode, request_id=request_id)
     if mode_error is not None:
@@ -2824,6 +2910,11 @@ async def post_optimization_batch(
     user_id, api_key_id, scopes = await verify_api_key(authorization, session, client_ip=client_ip)
     require_scope("optimize:write", scopes)
     request_id = request.headers.get("x-request-id") or str(uuid.uuid4())
+    rate_limit_error = await _rate_limit_or_response(
+        session=session, user_id=user_id, request_id=request_id
+    )
+    if rate_limit_error is not None:
+        return rate_limit_error
 
     if mode is not None and mode.strip().lower() != "async":
         return _batch_invalid_mode_response(mode=mode, request_id=request_id)
@@ -2966,6 +3057,11 @@ async def post_prediction(
     user_id, api_key_id, scopes = await verify_api_key(authorization, session, client_ip=client_ip)
     require_scope("optimize:write", scopes)
     request_id = request.headers.get("x-request-id") or str(uuid.uuid4())
+    rate_limit_error = await _rate_limit_or_response(
+        session=session, user_id=user_id, request_id=request_id
+    )
+    if rate_limit_error is not None:
+        return rate_limit_error
 
     body_dict, validation_error = _validate_prediction_payload(payload, request_id=request_id)
     if validation_error is not None:
@@ -3196,6 +3292,11 @@ async def rerun_reproduction(
     require_scope("optimize:write", scopes)
 
     request_id = request.headers.get("x-request-id") or str(uuid.uuid4())
+    rate_limit_error = await _rate_limit_or_response(
+        session=session, user_id=user_id, request_id=request_id
+    )
+    if rate_limit_error is not None:
+        return rate_limit_error
     billing_charge_id = request.headers.get("x-billing-charge-id")
     if billing_charge_id:
         return _rfc7807_error(

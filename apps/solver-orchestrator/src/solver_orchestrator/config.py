@@ -49,6 +49,18 @@ class SolverSettings(BaseSettings):
         description="Single-attempt timeout per billing call (Q4)",
     )
 
+    # Story 8.B.2 — Redis sliding-window rate limiting
+    redis_url: str = Field(
+        default="redis://localhost:6379/0",
+        alias="REDIS_URL",
+        description="Redis URL for plan-aware rate limiting",
+    )
+    rate_limit_redis_timeout_seconds: float = Field(
+        default=0.25,
+        alias="RATE_LIMIT_REDIS_TIMEOUT_SECONDS",
+        description="Single rate-limit Redis command timeout; fail closed on timeout",
+    )
+
     # Story 6.A.3 — citation tracking integrations
     semantic_scholar_api_key: str = Field(default="", alias="SEMANTIC_SCHOLAR_API_KEY")
     semantic_scholar_min_interval_seconds: float = Field(

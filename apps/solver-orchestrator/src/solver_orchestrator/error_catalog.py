@@ -29,6 +29,7 @@ API_KEYS_URL = "https://console.opticloud.cn/api-keys"
 REQUEST_HELP_URL = f"{DOCS_BASE_URL}/invalid_request_body"
 IDEMPOTENCY_URL = f"{DOCS_BASE_URL}/idempotency_conflict"
 REPRO_RERUN_URL = f"{DOCS_BASE_URL}/reproducibility-rerun"
+PLAN_UPGRADE_URL = "https://console.opticloud.cn/billing/plans"
 
 
 def _entry(
@@ -209,6 +210,34 @@ ERROR_CATALOG: dict[str, ErrorCatalogEntry] = {
         next_action_url=REPRO_RERUN_URL,
         default_field_path="path.voucher_id",
         default_value="[redacted]",
+    ),
+    "rate_limit_exceeded": _entry(
+        "rate_limit_exceeded",
+        slug="rate_limit_exceeded",
+        status=429,
+        title_en="Rate Limit Exceeded",
+        title_zh="请求过于频繁",
+        detail_en="{detail}",
+        detail_zh="{detail}",
+        constraint="request rate must stay within current plan limits",
+        remediation_hint_key="errors.429.rate_limit_exceeded",
+        next_action_url=PLAN_UPGRADE_URL,
+        default_field_path="rate_limit",
+        default_value="[omitted]",
+    ),
+    "rate_limit_unavailable": _entry(
+        "rate_limit_unavailable",
+        slug="rate_limit_unavailable",
+        status=503,
+        title_en="Rate Limit Unavailable",
+        title_zh="限流服务暂不可用",
+        detail_en="{detail}",
+        detail_zh="{detail}",
+        constraint="rate limit backend must be available before execution",
+        remediation_hint_key="errors.503.rate_limit_unavailable",
+        next_action_url=f"{DOCS_BASE_URL}/rate_limit_unavailable",
+        default_field_path="rate_limit",
+        default_value="[omitted]",
     ),
     "invalid_request_body": _entry(
         "invalid_request_body",
@@ -488,6 +517,8 @@ TITLE_TO_KEY: dict[str, str] = {
     "Cancellation Not Allowed": "cancellation_not_allowed",
     "Rerun Not Allowed": "rerun_not_allowed",
     "Voucher Expired": "voucher_expired",
+    "Rate Limit Exceeded": "rate_limit_exceeded",
+    "Rate Limit Unavailable": "rate_limit_unavailable",
     "Invalid Request Body": "invalid_request_body",
     "Invalid Execution Mode": "invalid_execution_mode",
     "Invalid Anonymous Option": "invalid_anonymous_option",
@@ -528,8 +559,10 @@ def error_key_for_title(title: str, status_code: int) -> str:
         404: "not_found",
         409: "idempotency_conflict",
         410: "voucher_expired",
+        429: "rate_limit_exceeded",
         422: "validation_error",
         500: "catalog_error",
+        503: "rate_limit_unavailable",
         501: "not_implemented",
         504: "solver_timeout",
     }
