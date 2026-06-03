@@ -120,6 +120,12 @@ async def test_create_charge_without_auth_returns_401(http_client: AsyncClient) 
         headers={"Idempotency-Key": str(uuid.uuid4())},
     )
     assert response.status_code == 401
+    assert response.headers["content-type"].startswith("application/problem+json")
+    body = response.json()
+    assert body["status"] == 401
+    assert body["errors"][0]["field_path"] == "$"
+    assert body["next_action_url"] == "https://docs.opticloud.cn/errors/billing-auth"
+    assert "next_action" not in body
 
 
 async def test_get_balance_without_auth_returns_401(http_client: AsyncClient) -> None:
@@ -231,6 +237,38 @@ async def test_invalid_idempotency_key_format(
         headers={**auth_headers, "Idempotency-Key": "not-a-uuid"},
     )
     assert response.status_code == 400
+    assert response.headers["content-type"].startswith("application/problem+json")
+    body = response.json()
+    assert body["status"] == 400
+    assert body["errors"][0]["field_path"] == "$"
+    assert body["errors"][0]["remediation_hint_key"] == "errors.400.billing_http_error"
+    assert body["next_action_url"] == "https://docs.opticloud.cn/errors/billing-validation"
+    assert "next_action" not in body
+
+
+async def test_missing_idempotency_key_returns_problem_details(
+    http_client: AsyncClient, auth_headers: dict[str, str]
+) -> None:
+    response = await http_client.post(
+        "/v1/billing/charges",
+        json={
+            "amount": "6.00",
+            "currency": "CNY",
+            "purpose": "demo",
+            "reference_id": str(uuid.uuid4()),
+            "confirmed": True,
+        },
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 422
+    assert response.headers["content-type"].startswith("application/problem+json")
+    body = response.json()
+    assert body["status"] == 422
+    assert body["errors"][0]["field_path"] == "header.Idempotency-Key"
+    assert body["errors"][0]["remediation_hint_key"] == "errors.422.request_validation"
+    assert body["next_action_url"] == "https://docs.opticloud.cn/errors/billing-validation"
+    assert "next_action" not in body
 
 
 async def test_confirm_charge_transitions_to_charged(
@@ -264,7 +302,7 @@ async def test_confirm_charge_transitions_to_charged(
     assert bal_after == balance_before - 6.0
 
 
-async def test_insufficient_balance_returns_422(
+async def test_insufficient_balance_returns_402_problem_details(
     http_client: AsyncClient, auth_headers: dict[str, str]
 ) -> None:
     response = await http_client.post(
@@ -277,10 +315,17 @@ async def test_insufficient_balance_returns_422(
         },
         headers={**auth_headers, "Idempotency-Key": str(uuid.uuid4())},
     )
-    assert response.status_code == 422
+    assert response.status_code == 402
+    assert response.headers["content-type"].startswith("application/problem+json")
     body = response.json()
-    assert body["title"] == "Insufficient balance"
+    assert body["type"] == "https://api.opticloud.cn/errors/insufficient_credits"
+    assert body["title"] == "Insufficient Credits"
+    assert body["status"] == 402
+    assert body["next_action_url"] == "https://console.opticloud.cn/topup?suggested_amount=10"
+    assert "next_action" not in body
+    assert body["errors"][0]["field_path"] == "body.amount"
     assert body["errors"][0]["constraint"] == "amount > balance"
+    assert body["errors"][0]["remediation_hint_key"] == "errors.402.topup"
 
 
 # ===== Story 5.A.4 — split-phase reserve + finalize (AC7 rows 10-14) =====
