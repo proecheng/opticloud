@@ -3,7 +3,7 @@ story_key: 8-c-2-provider-routing-history
 epic_num: 8
 story_num: C.2
 epic_name: Teaching + Provider Routing + Legal + Algorithm Library
-status: code-review
+status: done
 baseline_commit: 333cf75798eb83039563cb2a732898eb38849feb
 priority: High
 type: FR O9 provider routing history
@@ -25,7 +25,7 @@ sources:
 
 # Story 8.C.2 - Provider Routing History
 
-Status: code-review
+Status: done
 
 ## Story
 
@@ -126,11 +126,11 @@ PRD/epics 对 FR O9 的定义是：用户 can view Provider routing history in C
   - [x] Add navigation link from `/console/providers`.
   - [x] Add page tests for success, empty validation, no-history, non-completed status, backend error and storage behavior.
 
-- [ ] T4: Review, gates and GitHub sync (AC: 28-33)
+- [x] T4: Review, gates and GitHub sync (AC: 28-33)
   - [x] Run post-implementation code review and fix/document findings.
   - [x] Run local quality gates.
-  - [ ] Commit, push, create PR, wait for CI, merge, delete remote branch, sync local `main`.
-  - [ ] Mark story/sprint status `done` only after merge/sync via separate status-sync commit.
+  - [x] Commit, push, create PR, wait for CI, merge, delete remote branch, sync local `main`.
+  - [x] Mark story/sprint status `done` only after merge/sync via separate status-sync commit.
 
 ## Dev Notes
 
@@ -231,6 +231,8 @@ GPT-5 Codex
 - 2026-06-04 - Implemented `getOptimization()` broad GET response contract, `/console/routing-history` page, provider navigation link, and page/API tests.
 - 2026-06-04 - Post-implementation code review findings fixed: GET client no longer sends JSON `Content-Type`, TS attempt type now matches backend AC5 shape, terminal attempt is explicitly marked in timeline, batch GET exclusion and missing-route omission have direct tests.
 - 2026-06-04 - Local gates passed: solver targeted pytest 44 passed; web targeted Vitest 12 passed; web typecheck passed; solver mypy passed; ruff check passed; ruff format check passed; git diff --check passed.
+- 2026-06-04 - PR #162 passed GitHub CI, squash-merged to `main` at `62dc7ea`, remote branch `codex/8-c-2-provider-routing-history` deleted, and local `main` synced.
+- 2026-06-04 - Story and sprint status marked `done` via separate status-sync commit after merge/sync closure.
 
 ### Completion Notes List
 
@@ -243,6 +245,8 @@ GPT-5 Codex
 - Console `/console/routing-history` implemented with in-memory API key/optimization ID state, validation, safe error/empty states, route summaries, summary metrics and ordered attempt timeline.
 - Post-implementation code review completed; all patch findings fixed.
 - Local quality gates passed; story moved to `code-review` pending GitHub sync.
+- GitHub CI passed; PR #162 merged; remote feature branch deleted; local `main` synced.
+- Story closed as `done` after merge/sync in a separate status-sync commit.
 
 ### File List
 
@@ -264,6 +268,7 @@ GPT-5 Codex
 - 2026-06-04 - Round 3 pre-implementation review revised dependency closure for GET response typing, URL encoding and batch-exclusion coverage.
 - 2026-06-04 - Story status moved to in-progress after pre-implementation review closure.
 - 2026-06-04 - Implemented provider routing history backend contract, web client, Console page, tests, post-implementation review fixes and local gates; story status moved to code-review.
+- 2026-06-04 - PR #162 passed CI, merged to main, remote branch deleted, local main synced; story status moved to done in separate status-sync commit.
 
 ## Post-Implementation Code Review (AI)
 
