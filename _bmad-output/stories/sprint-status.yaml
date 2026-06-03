@@ -3,7 +3,7 @@
 # Source: epics.md (21 Epics / 192 Stories, post AE rounds)
 # Path B unlock node sequence (5 + J1 vertical slice 4 锚点 + Critical Gaps)
 
-last_updated: 2026-06-03
+last_updated: 2026-06-04
 
 # ===== STATUS DEFINITIONS =====
 # backlog            — not yet started
@@ -234,7 +234,7 @@ development_status:
   # ===== Epic 8.A/B/C: Observability & Compliance (22 stories) =====
   epic-8-a: in-progress
   epic-8-b: in-progress
-  epic-8-c: backlog
+  epic-8-c: in-progress
 
   8-a-1-public-status-page: done               # 2026-06-02 - Public status page shipped; PR #145 passed CI, merged to main, remote branch deleted, local main synced
   8-a-2-incident-subscribe: done              # 2026-06-02 - Incident subscription fanout shipped; PR #146 passed CI, merged to main, remote branch deleted, local main synced
@@ -254,7 +254,7 @@ development_status:
   8-b-8-redteam-tests-m5-200: done
   8-b-9-aigc-filter-perf-budget: done             # 2026-06-03 - AIGC filter P95 performance budget gate shipped; PR #160 passed CI, merged to main, remote branch deleted, local main synced
 
-  8-c-1-mode-teaching-explain: backlog         # FR O8
+  8-c-1-mode-teaching-explain: code-review     # FR O8
   8-c-2-provider-routing-history: backlog      # FR O9 v2
   8-c-3-legal-inquiry-sla: backlog             # FR O10
   8-c-4-algorithm-library-browse: backlog      # FR O11 v2

@@ -310,11 +310,36 @@ export interface LPRequest {
   minimize?: { c: number[] };
   maximize?: { c: number[] };
   st: { A: number[][]; b: number[]; x_lower?: number[]; x_upper?: number[] };
-  options?: { max_solve_seconds?: number; reproducible?: boolean };
+  options?: {
+    max_solve_seconds?: number;
+    reproducible?: boolean;
+    anonymous?: boolean;
+    backtest?: boolean;
+  };
   /** Story 2.4 — FR C4 explicit solver enum. */
   solver?: string;
   /** Story 2.5 — FR C5 ordered fallback solvers (≤3); execution in Story 2.7. */
   fallback_chain?: string[];
+}
+
+export interface TeachingMetadata {
+  mode: "teaching";
+  principle_explanation: {
+    title_zh: string;
+    summary_zh: string;
+    modeling_steps_zh: string[];
+    limitations_zh: string[];
+  };
+  credits_discount: {
+    kind: "teaching";
+    label_zh: "50% Credits 折扣";
+    discount_multiplier: 0.5;
+  };
+  notebook: {
+    label_zh: string;
+    repo_path: string;
+    colab_url: string;
+  };
 }
 
 export interface OptimizationResponse {
@@ -330,6 +355,8 @@ export interface OptimizationResponse {
   ip_attribution: IPAttribution | null;
   /** Present only when `options.reproducible: true`; omitted otherwise. */
   reproducibility?: Reproducibility;
+  /** Present only for `POST /v1/optimizations?mode=teaching`. */
+  teaching?: TeachingMetadata;
 }
 
 export interface ReproductionRerunResponse extends OptimizationResponse {
@@ -1361,16 +1388,28 @@ export async function submitOptimizationDemo<TBody extends { task_type: string }
 
 // ===== Optimizations (Story 3.1) =====
 
+export interface PostOptimizationOptions {
+  mode?: "sync" | "teaching";
+  idempotencyKey?: string;
+}
+
 export async function postOptimization(
   apiKey: string,
   body: LPRequest,
+  options: PostOptimizationOptions = {},
 ): Promise<OptimizationResponse> {
   const idempotencyKey =
-    typeof crypto !== "undefined" && "randomUUID" in crypto
+    options.idempotencyKey ??
+    (typeof crypto !== "undefined" && "randomUUID" in crypto
       ? crypto.randomUUID()
-      : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}`);
+  const params = new URLSearchParams();
+  if (options.mode) {
+    params.set("mode", options.mode);
+  }
+  const path = params.size > 0 ? `/v1/optimizations?${params.toString()}` : "/v1/optimizations";
   return request<OptimizationResponse>(
-    "/v1/optimizations",
+    path,
     {
       method: "POST",
       headers: {

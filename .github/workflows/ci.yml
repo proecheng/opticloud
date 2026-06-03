@@ -100,6 +100,7 @@ jobs:
               - 'infra/local-init/02-solver-schema.sql'
               - 'infra/local-init/09-geo-anomaly-risk.sql'
               - 'infra/local-init/10-cost-attribution.sql'
+              - 'docs/notebooks/**'
             chat_service:
               - 'apps/chat-service/**'
               - 'apps/sandbox-runner/**'

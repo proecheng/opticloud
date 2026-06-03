@@ -109,6 +109,13 @@ SYNC_ASYNC_THRESHOLD_SECONDS = 5.0
 SOLVER_BUDGET_EPSILON_SECONDS = 1e-9
 BACKTEST_DISCOUNT_MULTIPLIER = 0.5
 BACKTEST_DISCOUNT_KIND = "backtest"
+TEACHING_DISCOUNT_MULTIPLIER = 0.5
+TEACHING_DISCOUNT_KIND = "teaching"
+TEACHING_NOTEBOOK_REPO_PATH = "docs/notebooks/teaching-lp.ipynb"
+TEACHING_NOTEBOOK_COLAB_URL = (
+    "https://colab.research.google.com/github/proecheng/opticloud/blob/main/"
+    f"{TEACHING_NOTEBOOK_REPO_PATH}"
+)
 PREDICTION_MAX_ABS_DATA_VALUE = 1_000_000_000_000.0
 BATCH_TERMINAL_STATUSES = {"completed", "failed", "timeout", "cancelled"}
 BATCH_COUNT_STATUSES = ("queued", "in_progress", "completed", "failed", "timeout", "cancelled")
@@ -418,6 +425,9 @@ def _build_response_content(opt: Optimization) -> dict[str, Any]:
                         returned if isinstance(returned, int) else len(alternatives)
                     )
                     content["alternatives"] = alternatives
+            teaching = system_payload.get("teaching")
+            if isinstance(teaching, dict):
+                content["teaching"] = teaching
     return content
 
 
@@ -445,12 +455,90 @@ def _optimization_billing_metadata(opt: Optimization) -> dict[str, Any]:
     return {}
 
 
+def _optimization_teaching_metadata(opt: Optimization) -> dict[str, Any]:
+    if isinstance(opt.input_payload, dict):
+        system_payload = opt.input_payload.get("_system")
+        if isinstance(system_payload, dict):
+            teaching_metadata = system_payload.get("teaching")
+            if isinstance(teaching_metadata, dict):
+                return dict(teaching_metadata)
+    return {}
+
+
 def _backtest_billing_discount_metadata(payload: OptimizationRequest) -> dict[str, Any] | None:
     if not payload.options.backtest:
         return None
     return {
         "discount_kind": BACKTEST_DISCOUNT_KIND,
         "discount_multiplier": BACKTEST_DISCOUNT_MULTIPLIER,
+    }
+
+
+def _optimization_billing_discount_metadata(
+    payload: OptimizationRequest,
+    *,
+    teaching_enabled: bool,
+) -> dict[str, Any] | None:
+    if teaching_enabled:
+        return {
+            "discount_kind": TEACHING_DISCOUNT_KIND,
+            "discount_multiplier": TEACHING_DISCOUNT_MULTIPLIER,
+        }
+    return _backtest_billing_discount_metadata(payload)
+
+
+def _teaching_metadata(
+    *,
+    task_type: str,
+    selected_solver: str | None,
+) -> dict[str, Any]:
+    solver_label = selected_solver or "platform-default"
+    if task_type == "lp":
+        principle = {
+            "title_zh": "线性规划教学模式",
+            "summary_zh": (
+                "线性规划通过线性目标函数和线性约束描述资源分配问题，"
+                f"当前示例使用 {solver_label} 求解标准 LP。"
+            ),
+            "modeling_steps_zh": [
+                "定义决策变量，例如每个产品、路线或资源的取值。",
+                "写出线性目标函数，说明需要最小化成本或最大化收益。",
+                "把业务限制写成线性不等式或等式约束，并检查量纲一致性。",
+                "求解后验证最优解是否满足约束，再解释影子价格或松弛量。",
+            ],
+            "limitations_zh": [
+                "教学模式只解释线性模型，不替代对非线性、整数变量或真实生产约束的建模审查。",
+                "小规模教材算例适合课堂演示；真实生产数据仍应使用生产模式和标准计费边界。",
+            ],
+        }
+    else:
+        principle = {
+            "title_zh": "优化任务教学模式",
+            "summary_zh": (
+                f"教学模式返回算法原理、折扣资格和 Notebook 入口；当前任务类型为 {task_type}。"
+            ),
+            "modeling_steps_zh": [
+                "明确决策变量和输入数据边界。",
+                "写出目标函数和业务约束。",
+                "用小规模算例先验证模型含义，再扩大到真实数据。",
+            ],
+            "limitations_zh": [
+                "当前教学 Notebook 首先覆盖 LP 示例；其他任务类型的专用 Notebook 会在后续 story 扩展。"
+            ],
+        }
+    return {
+        "mode": "teaching",
+        "principle_explanation": principle,
+        "credits_discount": {
+            "kind": TEACHING_DISCOUNT_KIND,
+            "label_zh": "50% Credits 折扣",
+            "discount_multiplier": TEACHING_DISCOUNT_MULTIPLIER,
+        },
+        "notebook": {
+            "label_zh": "LP 教学 Notebook",
+            "repo_path": TEACHING_NOTEBOOK_REPO_PATH,
+            "colab_url": TEACHING_NOTEBOOK_COLAB_URL,
+        },
     }
 
 
@@ -543,6 +631,7 @@ def _refund_status_from_optimization(opt: Optimization) -> str:
 
 def _build_optimization_status_response_content(opt: Optimization) -> dict[str, Any]:
     execution_mode = _optimization_execution_mode(opt)
+    teaching = _optimization_teaching_metadata(opt)
     content: dict[str, Any] = {
         "optimization_id": str(opt.id),
         "status": opt.status,
@@ -550,6 +639,8 @@ def _build_optimization_status_response_content(opt: Optimization) -> dict[str, 
         "created_at": _status_datetime(opt.created_at),
         "completed_at": _status_datetime(opt.completed_at),
     }
+    if teaching:
+        content["teaching"] = teaching
     content.update(_status_progress_fields(opt))
     effective_mode = execution_mode.get("effective_mode")
     if effective_mode is not None:
@@ -1969,25 +2060,31 @@ async def _add_optimization_idempotency_key(
 
 def _validate_execution_mode(
     mode: str | None, *, request_id: str | None
-) -> tuple[str, None] | tuple[None, JSONResponse]:
+) -> tuple[str, bool, None] | tuple[None, bool, JSONResponse]:
     if mode is None:
-        return "sync", None
+        return "sync", False, None
     normalized = mode.strip().lower()
     if normalized in {"sync", "async"}:
-        return normalized, None
-    return None, _rfc7807_error(
-        title="Invalid Execution Mode",
-        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-        detail="query parameter mode must be either 'sync' or 'async'",
-        errors=[
-            ErrorDetail(
-                field_path="query.mode",
-                value=mode,
-                constraint="must be one of: sync, async",
-                remediation_hint_key="errors.422.invalid_execution_mode",
-            )
-        ],
-        request_id=request_id,
+        return normalized, False, None
+    if normalized == "teaching":
+        return "sync", True, None
+    return (
+        None,
+        False,
+        _rfc7807_error(
+            title="Invalid Execution Mode",
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="query parameter mode must be one of 'sync', 'async', or 'teaching'",
+            errors=[
+                ErrorDetail(
+                    field_path="query.mode",
+                    value=mode,
+                    constraint="must be one of: sync, async, teaching",
+                    remediation_hint_key="errors.422.invalid_execution_mode",
+                )
+            ],
+            request_id=request_id,
+        ),
     )
 
 
@@ -2385,7 +2482,9 @@ async def post_optimization(
     if rate_limit_error is not None:
         return rate_limit_error
 
-    normalized_mode, mode_error = _validate_execution_mode(mode, request_id=request_id)
+    normalized_mode, teaching_enabled, mode_error = _validate_execution_mode(
+        mode, request_id=request_id
+    )
     if mode_error is not None:
         return mode_error
     assert normalized_mode is not None
@@ -2474,6 +2573,11 @@ async def post_optimization(
     primary_route_metadata = attempt_route_metadata(
         attempt_plan.attempts[0], task_type=payload.task_type
     )
+    teaching_metadata = (
+        _teaching_metadata(task_type=payload.task_type, selected_solver=route.selected_solver)
+        if teaching_enabled
+        else None
+    )
 
     estimated_seconds = _estimate_optimization_seconds(payload)
     effective_mode, _auto_async, execution_mode_metadata = _execution_mode_metadata(
@@ -2493,7 +2597,7 @@ async def post_optimization(
         normalized_billing_charge_id = str(billing_uuid)
     body_hash = _hash_optimization_body(
         body_dict,
-        normalized_mode,
+        "teaching" if teaching_enabled else normalized_mode,
         billing_charge_id=normalized_billing_charge_id if effective_mode == "async" else None,
     )
 
@@ -2540,7 +2644,13 @@ async def post_optimization(
     if effective_mode == "async":
         billing_metadata: dict[str, Any] | None = None
         if billing_uuid is not None:
-            billing_metadata = _backtest_billing_discount_metadata(payload) or {}
+            billing_metadata = (
+                _optimization_billing_discount_metadata(
+                    payload,
+                    teaching_enabled=teaching_enabled,
+                )
+                or {}
+            )
             billing_metadata = {
                 **billing_metadata,
                 "charge_id": str(billing_uuid),
@@ -2560,6 +2670,7 @@ async def post_optimization(
                 provider_route=primary_route_metadata,
                 execution_mode=execution_mode_metadata,
                 billing=billing_metadata,
+                teaching=teaching_metadata,
             ),
             model_version=dict(route.model_version),
             idempotency_key=idempotency_key,
@@ -2597,7 +2708,13 @@ async def post_optimization(
             _set_optimization_billing_metadata(
                 opt,
                 {
-                    **(_backtest_billing_discount_metadata(payload) or {}),
+                    **(
+                        _optimization_billing_discount_metadata(
+                            payload,
+                            teaching_enabled=teaching_enabled,
+                        )
+                        or {}
+                    ),
                     "charge_id": str(billing_uuid),
                     "reserved": True,
                     "reserve_status_code": reserve_result.status_code,
@@ -2642,6 +2759,7 @@ async def post_optimization(
             body_dict,
             provider_route=primary_route_metadata,
             execution_mode=execution_mode_metadata,
+            teaching=teaching_metadata,
         ),
         idempotency_key=idempotency_key,
     )
@@ -2693,7 +2811,10 @@ async def post_optimization(
         failure_reason: str | None = (
             None if finalize_status == "success" else (result.error_constraint or result.status)
         )
-        billing_discount_metadata = _backtest_billing_discount_metadata(payload)
+        billing_discount_metadata = _optimization_billing_discount_metadata(
+            payload,
+            teaching_enabled=teaching_enabled,
+        )
         if billing_discount_metadata is None:
             finalize_outcome = await billing_client.finalize(
                 billing_uuid,
