@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { postOptimization } from "./api";
+import { getOptimization, postOptimization } from "./api";
 
 describe("optimization API client", () => {
   afterEach(() => {
@@ -70,5 +70,64 @@ describe("optimization API client", () => {
     expect(headers.get("Authorization")).toBe("Bearer sk-test");
     expect(headers.get("Idempotency-Key")).toBe("idem-teaching-1");
     expect(headers.get("X-Billing-Charge-Id")).toBeNull();
+  });
+
+  it("GETs optimization routing history with encoded id and read-only API-key auth", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          optimization_id: "opt/with space",
+          status: "queued",
+          model_version: {
+            provider_id: "highs",
+            kind: "open_source",
+            version: "1.7.0",
+            provider_url: "https://highs.dev/",
+          },
+          created_at: "2026-06-04T01:00:00Z",
+          completed_at: null,
+          progress_pct: 0,
+          eta_seconds: null,
+          routing_history: {
+            primary_route: {
+              task_type: "lp",
+              requested_solver: null,
+              selected_solver: "highs",
+              provider_id: "highs",
+              provider_kind: "open_source",
+              provider_url: "https://highs.dev/",
+              routing_reason: "default_solver",
+            },
+            executed_route: null,
+            summary: {
+              attempt_count: 0,
+              fallback_used: false,
+              terminal_status: null,
+              terminal_attempt: null,
+              exhausted: false,
+              solve_seconds: 0,
+            },
+            attempts: [],
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+
+    const result = await getOptimization("sk-test", "opt/with space");
+
+    expect(result.routing_history?.primary_route).toMatchObject({ provider_id: "highs" });
+    expect(result.status).toBe("queued");
+    const [url, init] = fetchMock.mock.calls[0]!;
+    const headers = new Headers(init?.headers);
+    expect(url).toBe("http://localhost:8002/v1/optimizations/opt%2Fwith%20space");
+    expect(init?.method).toBe("GET");
+    expect(init?.body).toBeUndefined();
+    expect(headers.get("Authorization")).toBe("Bearer sk-test");
+    expect(headers.get("Accept-Language")).toBe("zh-CN");
+    expect(headers.get("Content-Type")).toBeNull();
+    expect(headers.get("Idempotency-Key")).toBeNull();
+    expect(headers.get("X-Billing-Charge-Id")).toBeNull();
+    expect(headers.get("X-Internal-Service-Auth")).toBeNull();
   });
 });

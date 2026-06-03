@@ -286,6 +286,12 @@ export default function ProviderConsolePage(): JSX.Element {
               Providers
             </Link>
             <Link
+              href="/console/routing-history"
+              className="text-muted-foreground hover:text-foreground"
+            >
+              Routing History
+            </Link>
+            <Link
               href="/console/billing/invoices"
               className="text-muted-foreground hover:text-foreground"
             >
