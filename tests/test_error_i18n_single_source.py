@@ -35,9 +35,9 @@ def write_dictionary(root: Path, name: str, keys: list[str]) -> None:
             lines.extend(
                 [
                     f"    {code}:",
-                    f"      title: \"Title for {key}\"",
-                    f"      detail: \"Detail for {key}\"",
-                    f"      remediation: \"Remediation for {key}\"",
+                    f'      title: "Title for {key}"',
+                    f'      detail: "Detail for {key}"',
+                    f'      remediation: "Remediation for {key}"',
                 ]
             )
     (directory / name).write_text("\n".join(lines) + "\n", encoding="utf-8")

@@ -32,8 +32,8 @@ Status: code-review
 
 ## Story
 
-**作为** 平台工程师、前端开发者和 API 错误合同维护者，  
-**我希望** 仓库提供名为 `error-message-i18n-single-source` 的静态 lint gate，并建立 `packages/i18n/errors.zh-CN.yaml` 错误文案单源，  
+**作为** 平台工程师、前端开发者和 API 错误合同维护者，
+**我希望** 仓库提供名为 `error-message-i18n-single-source` 的静态 lint gate，并建立 `packages/i18n/errors.zh-CN.yaml` 错误文案单源，
 **从而** 新增 RFC 7807 错误 `title` / `detail` 硬编码时 CI 直接失败，并把开发者指向错误 i18n 单源，而不是继续散落字符串。
 
 ## Context
