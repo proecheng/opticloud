@@ -53,6 +53,7 @@ jobs:
       blue_green_deploy: ${{ steps.filter.outputs.blue_green_deploy }}
       aigc_filter: ${{ steps.filter.outputs.aigc_filter }}
       ui_a11y_audit: ${{ steps.filter.outputs.ui_a11y_audit }}
+      prometheus_metric_audit: ${{ steps.filter.outputs.prometheus_metric_audit }}
       web: ${{ steps.filter.outputs.web }}
       ci_or_root: ${{ steps.filter.outputs.ci_or_root }}
     steps:
@@ -77,6 +78,14 @@ jobs:
               - 'tests/test_a11y_quarterly_audit.py'
               - 'docs/runbooks/quarterly-a11y-audit.md'
               - 'reports/a11y-quarterly/**'
+            prometheus_metric_audit:
+              - 'tools/prometheus_metric_audit/**'
+              - 'scripts/validate_prometheus_metric_audit.py'
+              - 'tests/test_prometheus_metric_audit.py'
+              - 'docs/runbooks/prometheus-metric-audit.md'
+              - 'reports/prometheus-metric-audit/**'
+              - '.github/workflows/ci.yml'
+              - 'apps/*/src/**/*.py'
             python_sdk:
               - 'packages/python-sdk/**'
               - 'tests/fixtures/sdk-rfc7807-preservation.json'
@@ -940,6 +949,30 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Run UI axe gate
         run: pnpm --filter @opticloud/ui test:a11y
+
+  # ===== Prometheus business metric audit validation (Story 9.2) =====
+  prometheus-metric-audit-validation:
+    needs: changes
+    if: needs.changes.outputs.prometheus_metric_audit == 'true' || needs.changes.outputs.ci_or_root == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: pip install uv==${{ env.UV_VERSION }}
+      - run: uv sync --all-packages --extra dev
+      - name: Validate Prometheus metric audit contract
+        run: uv run python scripts/validate_prometheus_metric_audit.py
+      - name: Validate real Prometheus metric audit evidence manifests when present
+        run: |
+          shopt -s globstar nullglob
+          manifests=(reports/prometheus-metric-audit/**/audit_manifest.json)
+          for manifest in "${manifests[@]}"; do
+            uv run python scripts/validate_prometheus_metric_audit.py --evidence "$manifest"
+          done
+      - name: Run Prometheus metric audit tests
+        run: uv run pytest tests/test_prometheus_metric_audit.py -v
 
   # ===== Critic confidence calibration validation (Story M3.5a) =====
   critic-calibration-validation:
