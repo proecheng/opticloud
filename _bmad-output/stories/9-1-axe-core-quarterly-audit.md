@@ -3,7 +3,7 @@ story_key: 9-1-axe-core-quarterly-audit
 epic_num: 9
 story_num: 1
 epic_name: NFR Governance
-status: code-review
+status: done
 baseline_commit: 26a90ae40eceef79f5d3dfaae9a925633222d866
 priority: High
 type: NFR-A quarterly axe-core audit governance
@@ -29,7 +29,7 @@ sources:
 
 # Story 9.1 - Quarterly axe-core CI Audit
 
-Status: code-review
+Status: done
 
 ## Story
 
@@ -148,8 +148,8 @@ Epic 9.1 原始 AC 要求季度 axe-core CI 审计、axe-core CI violation 0、�
 - [x] T5: Gates, review, and GitHub sync (AC: 26-29)
   - [x] Run local validation gates.
   - [x] Run post-implementation code review and fix/document findings.
-  - [ ] Commit, push, create PR, wait for CI, merge, delete remote branch, and sync local `main`.
-  - [ ] Mark story and sprint status `done` only after merge/sync through a separate status-sync commit.
+  - [x] Commit, push, create PR, wait for CI, merge, delete remote branch, and sync local `main`.
+  - [x] Mark story and sprint status `done` only after merge/sync through a separate status-sync commit.
 
 ## Dev Notes
 
@@ -262,15 +262,17 @@ GPT-5 Codex
 - 2026-06-04 - Implemented static quarterly a11y audit contract/schema/example, stdlib validator, runbook, Python tests, and CI `ui-a11y-audit-validation` hard gate.
 - 2026-06-04 - Local gates passed: `uv run python scripts/validate_a11y_quarterly_audit.py`, `uv run pytest tests/test_a11y_quarterly_audit.py -q` (16 passed), `pnpm --filter @opticloud/ui test:a11y` (36 passed), `pnpm --filter @opticloud/ui typecheck`, and `git diff --check`.
 - 2026-06-04 - Post-implementation code review completed; fixed POSIX absolute-path leak detection and CI filter-block drift validation, then reran all local gates successfully.
+- 2026-06-04 - PR #170 passed GitHub CI, squash-merged to `main` at `f2f8f58`, remote branch was deleted, and local `main` synced.
+- 2026-06-04 - Separate status-sync step marked story and sprint status `done`.
 
 ### Completion Notes List
 
 - Initial story created.
 - Exactly three pre-implementation adversarial review rounds completed; story is ready for implementation.
+- Story moved to in-progress after exactly three pre-implementation review rounds.
 - Static contract/schema/example, validator, tests, runbook, and CI hard gate implemented.
 - Post-implementation code review completed; findings fixed and gates rerun.
-- Story moved to `code-review` pending GitHub PR/CI/merge cleanup. Not marked done.
-- Story moved to in-progress after exactly three pre-implementation review rounds.
+- PR #170 passed GitHub CI, merged to `main`, remote branch deleted, local `main` synced, and this separate status-sync marks the story done.
 
 ### File List
 
@@ -307,7 +309,7 @@ Findings:
 - No remaining issue found against AC 1-23: static assets, validator, tests, runbook, and CI job are present and locally validated.
 - No remaining issue found against AC 24-25: no dependencies or out-of-scope implementation files changed.
 - AC 26-27 closed locally: validation gates pass and post-implementation review findings are fixed.
-- AC 28-29 remain pending by design until GitHub PR CI passes, merge completes, remote branch is deleted, local `main` is synced, and the separate status-sync commit marks the story `done`.
+- AC 28-29 closed: PR #170 passed GitHub CI, was squash-merged to `main`, remote branch was deleted, local `main` was synced, and this separate status-sync marks the story `done`.
 
 Outcome: PASS after fixes; awaiting GitHub sync.
 
@@ -317,6 +319,7 @@ Outcome: PASS after fixes; awaiting GitHub sync.
 - 2026-06-04 - Round 1 pre-implementation review revised fake-completion and WCAG 2.2 boundaries.
 - 2026-06-04 - Round 2 pre-implementation review revised drift detection, matrix completeness, and ticket/stop-ship closure.
 - 2026-06-04 - Round 3 pre-implementation review revised dependency, CI trigger, and status-sync closure.
+- 2026-06-04 - Story status moved to in-progress after exactly three pre-implementation review rounds.
 - 2026-06-04 - Implemented quarterly a11y audit contract, evidence schema/example, validator, tests, runbook, and CI hard gate.
 - 2026-06-04 - Post-implementation code review fixed POSIX path leakage detection and CI filter-block drift validation; story moved to `code-review` pending GitHub sync.
-- 2026-06-04 - Story status moved to in-progress after exactly three pre-implementation review rounds.
+- 2026-06-04 - PR #170 passed CI, merged to main, remote branch deleted, local main synced; story moved to `done`.
