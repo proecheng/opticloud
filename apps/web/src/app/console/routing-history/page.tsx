@@ -2,7 +2,8 @@
 /** /console/routing-history — public-safe optimization provider routing history (Story 8.C.2). */
 
 import Link from "next/link";
-import { useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useState } from "react";
 
 import { EmptyState, LoadingShimmer, StatusCard } from "@opticloud/ui";
 
@@ -145,7 +146,18 @@ function AttemptsTable({ history }: { history: RoutingHistory }): JSX.Element {
   );
 }
 
-export default function RoutingHistoryPage(): JSX.Element {
+function Field({ label, value }: { label: string; value: string }): JSX.Element | null {
+  if (!value) return null;
+  return (
+    <div className="min-w-0 rounded-md border border-border bg-background p-3">
+      <dt className="text-xs text-muted-foreground">{label}</dt>
+      <dd className="mt-1 break-words text-sm font-semibold">{value}</dd>
+    </div>
+  );
+}
+
+function RoutingHistoryContent(): JSX.Element {
+  const searchParams = useSearchParams();
   const [apiKey, setApiKey] = useState("");
   const [optimizationId, setOptimizationId] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
@@ -178,6 +190,13 @@ export default function RoutingHistoryPage(): JSX.Element {
   };
 
   const history = result?.routing_history;
+  const handoffContext = {
+    providerId: searchParams.get("provider_id")?.trim() ?? "",
+    tenantId: searchParams.get("tenant_id")?.trim() ?? "",
+    applicationId: searchParams.get("application_id")?.trim() ?? "",
+    periodMonth: searchParams.get("period_month")?.trim() ?? "",
+  };
+  const hasHandoffContext = Object.values(handoffContext).some((value) => value !== "");
 
   return (
     <main className="min-h-screen bg-background">
@@ -278,6 +297,21 @@ export default function RoutingHistoryPage(): JSX.Element {
             description="API key 和 optimization ID 只保存在当前页面内存中。"
             ariaLabel="routing-history.credential-boundary"
           />
+
+          {hasHandoffContext && (
+            <div className="rounded-md border border-border bg-background p-4">
+              <div className="text-sm font-semibold">Provider Console context</div>
+              <p className="mt-2 text-sm text-muted-foreground">
+                该上下文只来自 Provider Console 筛选链接；仍需手动输入 solver API key 和 optimization ID。
+              </p>
+              <dl className="mt-3 grid gap-2">
+                <Field label="Provider ID" value={handoffContext.providerId} />
+                <Field label="Tenant ID" value={handoffContext.tenantId} />
+                <Field label="Application ID" value={handoffContext.applicationId} />
+                <Field label="Period" value={handoffContext.periodMonth} />
+              </dl>
+            </div>
+          )}
         </aside>
 
         <section className="space-y-5">
@@ -338,5 +372,13 @@ export default function RoutingHistoryPage(): JSX.Element {
         </section>
       </section>
     </main>
+  );
+}
+
+export default function RoutingHistoryPage(): JSX.Element {
+  return (
+    <Suspense fallback={<LoadingShimmer variant="card" />}>
+      <RoutingHistoryContent />
+    </Suspense>
   );
 }

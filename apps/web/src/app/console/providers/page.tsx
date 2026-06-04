@@ -24,6 +24,7 @@ import {
 } from "@/lib/api";
 
 type SectionKey = "applications" | "route" | "kpi" | "revenue" | "versions" | "monthly";
+type OperationalState = "ready" | "watch" | "blocked/error" | "empty" | "not loaded";
 
 interface ProviderConsoleData {
   applications: ProviderApplicationResponse[];
@@ -35,6 +36,19 @@ interface ProviderConsoleData {
 }
 
 type ProviderConsoleErrors = Partial<Record<SectionKey, string>>;
+
+interface SubmittedProviderContext {
+  providerId: string;
+  tenantId?: string;
+  applicationId?: string;
+  periodMonth?: string;
+}
+
+interface OperationalBand {
+  title: string;
+  state: OperationalState;
+  detail: string;
+}
 
 const emptyData: ProviderConsoleData = {
   applications: [],
@@ -166,6 +180,201 @@ function SafeTable({
   );
 }
 
+function buildHandoffHref(context: SubmittedProviderContext): string {
+  const params = new URLSearchParams();
+  params.set("provider_id", context.providerId);
+  if (context.tenantId) params.set("tenant_id", context.tenantId);
+  if (context.applicationId) params.set("application_id", context.applicationId);
+  if (context.periodMonth) params.set("period_month", context.periodMonth);
+  return `/console/routing-history?${params.toString()}`;
+}
+
+function buildOperationalBands(
+  data: ProviderConsoleData,
+  errors: ProviderConsoleErrors,
+  submittedContext: SubmittedProviderContext | null,
+  selectedApplication: ProviderApplicationResponse | null,
+): OperationalBand[] {
+  if (!submittedContext) {
+    return [
+      "Application readiness",
+      "Route Share rollout",
+      "Shadow KPI quality",
+      "Revenue/Payout projection",
+      "Version Updates lifecycle",
+      "Monthly Batches lifecycle",
+    ].map((title) => ({
+      title,
+      state: "not loaded" as const,
+      detail: "提交 Provider ID 后加载。",
+    }));
+  }
+
+  const applicationBand = (): OperationalBand => {
+    if (errors.applications) {
+      return {
+        title: "Application readiness",
+        state: "blocked/error",
+        detail: errors.applications,
+      };
+    }
+    if (!selectedApplication) {
+      return {
+        title: "Application readiness",
+        state: "empty",
+        detail: "没有匹配的 Provider application；该上下文不代表身份绑定。",
+      };
+    }
+    if (selectedApplication.status === "accepted") {
+      return {
+        title: "Application readiness",
+        state: "ready",
+        detail: "Application accepted；仍为显式筛选上下文。",
+      };
+    }
+    if (selectedApplication.status === "rejected") {
+      return {
+        title: "Application readiness",
+        state: "blocked/error",
+        detail: "Application rejected；需要查看 review lifecycle。",
+      };
+    }
+    return {
+      title: "Application readiness",
+      state: "watch",
+      detail: `Application status=${selectedApplication.status}；不表示 Provider ownership。`,
+    };
+  };
+
+  const routeBand = (): OperationalBand => {
+    if (errors.route) return { title: "Route Share rollout", state: "blocked/error", detail: errors.route };
+    if (!data.route || data.route.total_rollouts === 0) {
+      return {
+        title: "Route Share rollout",
+        state: "empty",
+        detail: "没有 declared rollout stage/share 投影。",
+      };
+    }
+    const activeOrCompleted = data.route.current_rollouts.some(
+      (item) => item.status === "active" || item.status === "completed",
+    );
+    return {
+      title: "Route Share rollout",
+      state: activeOrCompleted ? "ready" : "watch",
+      detail: `${data.route.total_rollouts} rollout(s), max declared stage ${data.route.highest_current_stage_percent}%。`,
+    };
+  };
+
+  const kpiBand = (): OperationalBand => {
+    if (errors.kpi) return { title: "Shadow KPI quality", state: "blocked/error", detail: errors.kpi };
+    if (!data.kpi || data.kpi.total_runs === 0 || data.kpi.aggregate.sample_count === 0) {
+      return {
+        title: "Shadow KPI quality",
+        state: "empty",
+        detail: "没有 shadow validation run/sample。",
+      };
+    }
+    const failedRuns = data.kpi.run_status_counts.failed + data.kpi.run_status_counts.cancelled;
+    const violationCount = data.kpi.run_metrics.reduce(
+      (total, item) => total + item.threshold_violations.length,
+      0,
+    );
+    return {
+      title: "Shadow KPI quality",
+      state: failedRuns > 0 || violationCount > 0 ? "blocked/error" : "ready",
+      detail: `${data.kpi.total_runs} run(s), ${data.kpi.aggregate.sample_count} shadow samples, ${violationCount} threshold violation(s)。`,
+    };
+  };
+
+  const revenueBand = (): OperationalBand => {
+    if (errors.revenue) {
+      return { title: "Revenue/Payout projection", state: "blocked/error", detail: errors.revenue };
+    }
+    if (!data.revenue || data.revenue.total_entries === 0) {
+      return {
+        title: "Revenue/Payout projection",
+        state: "empty",
+        detail: "没有 revenue/payout read-model entry。",
+      };
+    }
+    if (data.revenue.status_counts.voided > 0) {
+      return {
+        title: "Revenue/Payout projection",
+        state: "blocked/error",
+        detail: `${data.revenue.status_counts.voided} voided projection entry；非银行打款状态。`,
+      };
+    }
+    const pendingOrHeld = data.revenue.status_counts.pending + data.revenue.status_counts.held;
+    return {
+      title: "Revenue/Payout projection",
+      state: pendingOrHeld > 0 ? "watch" : "ready",
+      detail: `${data.revenue.total_entries} projection entry(s), pending/held=${pendingOrHeld}。`,
+    };
+  };
+
+  const versionsBand = (): OperationalBand => {
+    if (errors.versions) {
+      return { title: "Version Updates lifecycle", state: "blocked/error", detail: errors.versions };
+    }
+    if (data.versions.length === 0) {
+      return {
+        title: "Version Updates lifecycle",
+        state: "empty",
+        detail: "没有 version review lifecycle row。",
+      };
+    }
+    const attention = data.versions.some((item) =>
+      ["submitted", "under_review", "rejected"].includes(item.status),
+    );
+    return {
+      title: "Version Updates lifecycle",
+      state: attention ? "watch" : "ready",
+      detail: `${data.versions.length} review lifecycle row(s)；不代表部署或 live catalog mutation。`,
+    };
+  };
+
+  const monthlyBand = (): OperationalBand => {
+    if (errors.monthly) {
+      return { title: "Monthly Batches lifecycle", state: "blocked/error", detail: errors.monthly };
+    }
+    if (data.monthly.length === 0) {
+      return {
+        title: "Monthly Batches lifecycle",
+        state: "empty",
+        detail: "没有 monthly revenue-share batch。",
+      };
+    }
+    if (data.monthly.some((item) => item.status === "cancelled")) {
+      return {
+        title: "Monthly Batches lifecycle",
+        state: "blocked/error",
+        detail: "存在 cancelled calculation batch；不代表支付失败。",
+      };
+    }
+    const draftOrReviewed = data.monthly.some(
+      (item) => item.status === "draft" || item.status === "reviewed",
+    );
+    return {
+      title: "Monthly Batches lifecycle",
+      state: draftOrReviewed ? "watch" : "ready",
+      detail: `${data.monthly.length} calculation batch row(s)；不代表付款、开票或纳税。`,
+    };
+  };
+
+  return [
+    applicationBand(),
+    routeBand(),
+    kpiBand(),
+    revenueBand(),
+    versionsBand(),
+    monthlyBand(),
+  ];
+}
+
+function issueBands(bands: OperationalBand[]): OperationalBand[] {
+  return bands.filter((band) => band.state !== "ready" && band.state !== "not loaded");
+}
+
 export default function ProviderConsolePage(): JSX.Element {
   const router = useRouter();
   const [jwt, setJwt] = useState<string | null>(null);
@@ -177,6 +386,7 @@ export default function ProviderConsolePage(): JSX.Element {
   const [formError, setFormError] = useState<string | null>(null);
   const [data, setData] = useState<ProviderConsoleData>(emptyData);
   const [errors, setErrors] = useState<ProviderConsoleErrors>({});
+  const [submittedContext, setSubmittedContext] = useState<SubmittedProviderContext | null>(null);
 
   useEffect(() => {
     const stored = typeof window !== "undefined" ? sessionStorage.getItem("jwt_access") : null;
@@ -188,25 +398,37 @@ export default function ProviderConsolePage(): JSX.Element {
   }, [router]);
 
   const selectedApplication = useMemo(() => {
-    if (applicationId.trim()) {
-      return data.applications.find((item) => item.application_id === applicationId.trim()) ?? null;
+    if (submittedContext?.applicationId) {
+      return (
+        data.applications.find((item) => item.application_id === submittedContext.applicationId) ??
+        null
+      );
     }
     return data.applications[0] ?? null;
-  }, [applicationId, data.applications]);
+  }, [data.applications, submittedContext?.applicationId]);
 
   const loadProviderConsole = async (): Promise<void> => {
     if (!jwt) return;
     const provider = providerId.trim();
     const tenant = tenantId.trim() || undefined;
+    const submittedApplication = applicationId.trim() || undefined;
     const period = periodMonth.trim() || undefined;
     if (!provider) {
       setFormError("请输入 Provider ID。");
       return;
     }
 
+    const nextContext: SubmittedProviderContext = {
+      providerId: provider,
+      tenantId: tenant,
+      applicationId: submittedApplication,
+      periodMonth: period,
+    };
     setFormError(null);
     setLoading(true);
     setErrors({});
+    setData(emptyData);
+    setSubmittedContext(nextContext);
     const baseFilters = { tenantId: tenant };
 
     const [applicationsResult, routeResult, kpiResult, revenueResult, monthlyResult] =
@@ -249,7 +471,7 @@ export default function ProviderConsolePage(): JSX.Element {
       nextErrors.monthly = normalizeError(monthlyResult.reason);
     }
 
-    const versionApplicationId = applicationId.trim() || nextData.applications[0]?.application_id;
+    const versionApplicationId = submittedApplication || nextData.applications[0]?.application_id;
     if (versionApplicationId) {
       try {
         nextData.versions = await listProviderVersionUpdates(jwt, versionApplicationId, {
@@ -269,6 +491,8 @@ export default function ProviderConsolePage(): JSX.Element {
   const route = data.route;
   const kpi = data.kpi;
   const revenue = data.revenue;
+  const operationalBands = buildOperationalBands(data, errors, submittedContext, selectedApplication);
+  const openIssues = issueBands(operationalBands);
 
   return (
     <main className="min-h-screen bg-background">
@@ -401,6 +625,60 @@ export default function ProviderConsolePage(): JSX.Element {
 
         <section className="space-y-5">
           {loading && <LoadingShimmer variant="card" />}
+
+          <Section
+            title="Tier 3 Operational Overview"
+            subtitle="只基于已请求的安全 summary 字段派生，不使用生产流量、付款、部署或身份绑定假设。"
+          >
+            <SafeTable
+              headers={["signal", "state", "detail"]}
+              rows={operationalBands.map((band) => [band.title, band.state, band.detail])}
+            />
+          </Section>
+
+          {submittedContext && (
+            <Section
+              title="Provider Console open issues"
+              subtitle="需要关注的 partial failure、empty 或 watch 状态；不包含 raw payload。"
+            >
+              {openIssues.length === 0 ? (
+                <StatusCard
+                  variant="info"
+                  title="No open Provider Console issues"
+                  description="当前已加载 summary 没有派生出 open issue。"
+                  ariaLabel="provider-console.issues.none"
+                />
+              ) : (
+                <ul className="space-y-2 text-sm">
+                  {openIssues.map((issue) => (
+                    <li
+                      key={`${issue.title}-${issue.state}`}
+                      className="rounded-md border border-border bg-muted p-3"
+                    >
+                      <span className="font-medium">
+                        {issue.title}: {issue.state}
+                      </span>
+                      <span className="ml-2 text-muted-foreground">{issue.detail}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Section>
+          )}
+
+          {submittedContext && (
+            <Section
+              title="Routing History Handoff"
+              subtitle="只传递显式筛选上下文；Routing History 仍需手动输入 solver API key 和 optimization ID。"
+            >
+              <Link
+                href={buildHandoffHref(submittedContext)}
+                className="inline-flex min-h-touch items-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary-600"
+              >
+                打开 Routing History
+              </Link>
+            </Section>
+          )}
 
           <Section title="Application" subtitle="安全字段摘要，不展示 metadata/cosign/evaluation_profile。">
             <DataError title="Application 加载失败" error={errors.applications} />

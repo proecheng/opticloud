@@ -310,9 +310,20 @@ function mockSuccess(): void {
   mocks.listProviderMonthlyRevenueShareBatches.mockResolvedValue([monthlyBatch]);
 }
 
-async function submitFilters(providerId = "provider-alpha"): Promise<void> {
+async function submitFilters(
+  providerId = "provider-alpha",
+  options: { tenantId?: string; applicationId?: string; periodMonth?: string } = {},
+): Promise<void> {
   fireEvent.change(screen.getByLabelText("Provider ID"), { target: { value: providerId } });
-  fireEvent.change(screen.getByLabelText("月份"), { target: { value: "2026-06" } });
+  fireEvent.change(screen.getByLabelText("Tenant ID"), {
+    target: { value: options.tenantId ?? "" },
+  });
+  fireEvent.change(screen.getByLabelText("Application ID"), {
+    target: { value: options.applicationId ?? "" },
+  });
+  fireEvent.change(screen.getByLabelText("月份"), {
+    target: { value: options.periodMonth ?? "2026-06" },
+  });
   await act(async () => {
     fireEvent.click(screen.getByRole("button", { name: "加载 Provider Console" }));
   });
@@ -354,6 +365,17 @@ describe("ProviderConsolePage", () => {
     expect(screen.getByText("vu-alpha")).toBeTruthy();
     expect(screen.getByText("1.2.0 -> 1.3.0")).toBeTruthy();
     expect(screen.getByText("batch-alpha")).toBeTruthy();
+    expect(screen.getByText("Tier 3 Operational Overview")).toBeTruthy();
+    expect(screen.getByText("Application readiness")).toBeTruthy();
+    expect(screen.getByText("Route Share rollout")).toBeTruthy();
+    expect(screen.getByText("Shadow KPI quality")).toBeTruthy();
+    expect(screen.getByText("Revenue/Payout projection")).toBeTruthy();
+    expect(screen.getByText("Provider Console open issues")).toBeTruthy();
+    expect(screen.getByText(/Application readiness: watch/)).toBeTruthy();
+    expect(screen.getByText(/Revenue\/Payout projection: watch/)).toBeTruthy();
+    expect(screen.getByRole("link", { name: "打开 Routing History" }).getAttribute("href")).toBe(
+      "/console/routing-history?provider_id=provider-alpha&period_month=2026-06",
+    );
     expect(screen.getByText("ffffffffff")).toBeTruthy();
     expect(screen.queryByText("should not render")).toBeNull();
     expect(mocks.listProviderApplications).toHaveBeenCalledWith("jwt-test", {
@@ -401,8 +423,9 @@ describe("ProviderConsolePage", () => {
     expect(await screen.findByText("Alpha Solver Lab")).toBeTruthy();
     expect(screen.getByText("0.984000")).toBeTruthy();
     expect(screen.getByText("收入/待结算加载失败")).toBeTruthy();
-    expect(screen.getByText(/revenue projection unavailable/)).toBeTruthy();
+    expect(screen.getAllByText(/revenue projection unavailable/).length).toBeGreaterThan(0);
     expect(screen.getByText("batch-alpha")).toBeTruthy();
+    expect(screen.getByText(/Revenue\/Payout projection: blocked\/error/)).toBeTruthy();
   });
 
   it("does not write provider filters or dashboard data to browser storage", async () => {
@@ -422,5 +445,104 @@ describe("ProviderConsolePage", () => {
     expect(within(nav).getByRole("link", { name: "Providers" }).getAttribute("href")).toBe(
       "/console/providers",
     );
+    expect(screen.getByRole("link", { name: "打开 Routing History" }).getAttribute("href")).not.toContain(
+      "jwt-test",
+    );
+  });
+
+  it("builds routing-history handoff from submitted filters and keeps it stable across draft edits", async () => {
+    sessionStorage.setItem("jwt_access", "jwt-test");
+    mockSuccess();
+
+    render(<ProviderConsolePage />);
+    await submitFilters("provider-alpha", {
+      tenantId: "tenant 1",
+      applicationId: "app/alpha",
+      periodMonth: "2026-06",
+    });
+
+    const link = await screen.findByRole("link", { name: "打开 Routing History" });
+    expect(link.getAttribute("href")).toBe(
+      "/console/routing-history?provider_id=provider-alpha&tenant_id=tenant+1&application_id=app%2Falpha&period_month=2026-06",
+    );
+
+    fireEvent.change(screen.getByLabelText("Provider ID"), { target: { value: "provider-beta" } });
+    expect(screen.getByRole("link", { name: "打开 Routing History" }).getAttribute("href")).toBe(
+      "/console/routing-history?provider_id=provider-alpha&tenant_id=tenant+1&application_id=app%2Falpha&period_month=2026-06",
+    );
+  });
+
+  it("clears prior provider data while a new submitted context is loading", async () => {
+    sessionStorage.setItem("jwt_access", "jwt-test");
+    mockSuccess();
+
+    render(<ProviderConsolePage />);
+    await submitFilters("provider-alpha");
+    expect(await screen.findByText("Alpha Solver Lab")).toBeTruthy();
+
+    let resolveApplications: (value: unknown[]) => void = () => undefined;
+    mocks.listProviderApplications.mockReturnValue(
+      new Promise((resolve) => {
+        resolveApplications = resolve;
+      }),
+    );
+    mocks.getProviderRouteShareDashboard.mockResolvedValue(routeShare);
+    mocks.getProviderKpiDashboard.mockResolvedValue(kpi);
+    mocks.getProviderRevenuePayoutDashboard.mockResolvedValue(revenue);
+    mocks.listProviderMonthlyRevenueShareBatches.mockResolvedValue([monthlyBatch]);
+    fireEvent.change(screen.getByLabelText("Provider ID"), { target: { value: "provider-beta" } });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "加载 Provider Console" }));
+    });
+
+    expect(screen.getByRole("link", { name: "打开 Routing History" }).getAttribute("href")).toBe(
+      "/console/routing-history?provider_id=provider-beta&period_month=2026-06",
+    );
+    expect(screen.queryByText("Alpha Solver Lab")).toBeNull();
+
+    await act(async () => {
+      resolveApplications([]);
+    });
+  });
+
+  it("renders empty-section operational issues without treating the whole page as failed", async () => {
+    sessionStorage.setItem("jwt_access", "jwt-test");
+    mocks.listProviderApplications.mockResolvedValue([]);
+    mocks.getProviderRouteShareDashboard.mockResolvedValue({
+      ...routeShare,
+      total_rollouts: 0,
+      highest_current_stage_percent: 0,
+      current_rollouts: [],
+      timeline: [],
+      status_counts: { draft: 0, active: 0, paused: 0, completed: 0, cancelled: 0 },
+    });
+    mocks.getProviderKpiDashboard.mockResolvedValue({
+      ...kpi,
+      total_runs: 0,
+      aggregate: { ...kpi.aggregate, sample_count: 0 },
+      run_metrics: [],
+      timeline: [],
+      run_status_counts: { draft: 0, running: 0, passed: 0, failed: 0, cancelled: 0 },
+    });
+    mocks.getProviderRevenuePayoutDashboard.mockResolvedValue({
+      ...revenue,
+      total_entries: 0,
+      status_counts: { pending: 0, held: 0, paid: 0, voided: 0 },
+      currency_totals: [],
+      period_summaries: [],
+      entries: [],
+    });
+    mocks.listProviderMonthlyRevenueShareBatches.mockResolvedValue([]);
+
+    render(<ProviderConsolePage />);
+    await submitFilters();
+
+    expect(await screen.findByText(/Application readiness: empty/)).toBeTruthy();
+    expect(screen.getByText(/Route Share rollout: empty/)).toBeTruthy();
+    expect(screen.getByText(/Shadow KPI quality: empty/)).toBeTruthy();
+    expect(screen.getByText(/Revenue\/Payout projection: empty/)).toBeTruthy();
+    expect(screen.getByText(/Monthly Batches lifecycle: empty/)).toBeTruthy();
+    expect(screen.getByRole("link", { name: "打开 Routing History" })).toBeTruthy();
   });
 });
