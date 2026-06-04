@@ -220,6 +220,89 @@ class BillingSubscription(Base):
     )
 
 
+class LegalInquiry(Base):
+    """Story 8.C.3 — Team+ legal inquiry support record."""
+
+    __tablename__ = "legal_inquiries"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    subscription_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    plan_code: Mapped[str] = mapped_column(String(32), nullable=False)
+    category: Mapped[str] = mapped_column(String(32), nullable=False)
+    contact_email: Mapped[str] = mapped_column(String(254), nullable=False)
+    company_name: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    subject: Mapped[str] = mapped_column(String(160), nullable=False)
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+    urgency: Mapped[str] = mapped_column(String(16), nullable=False, default="normal")
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="submitted")
+    ticket_key: Mapped[str] = mapped_column(String(32), nullable=False)
+    submitted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    sla_due_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    responded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "plan_code IN ('team', 'enterprise')",
+            name="ck_legal_inquiries_plan_code",
+        ),
+        CheckConstraint(
+            "category IN ("
+            "'pipl',"
+            "'gdpr',"
+            "'graded_protection',"
+            "'data_export',"
+            "'dpa',"
+            "'license',"
+            "'security',"
+            "'other'"
+            ")",
+            name="ck_legal_inquiries_category",
+        ),
+        CheckConstraint("urgency IN ('normal', 'urgent')", name="ck_legal_inquiries_urgency"),
+        CheckConstraint(
+            "status IN ('submitted', 'triage_pending', 'responded', 'closed')",
+            name="ck_legal_inquiries_status",
+        ),
+        CheckConstraint(
+            "length(contact_email) BETWEEN 3 AND 254 AND position('@' IN contact_email) > 1",
+            name="ck_legal_inquiries_contact_email",
+        ),
+        CheckConstraint(
+            "company_name IS NULL OR length(btrim(company_name)) BETWEEN 1 AND 160",
+            name="ck_legal_inquiries_company_name",
+        ),
+        CheckConstraint(
+            "length(btrim(subject)) BETWEEN 3 AND 160",
+            name="ck_legal_inquiries_subject",
+        ),
+        CheckConstraint(
+            "length(btrim(message)) BETWEEN 10 AND 4000",
+            name="ck_legal_inquiries_message",
+        ),
+        CheckConstraint(
+            "ticket_key ~ '^OPTI-LEGAL-[0-9]{8}-[A-F0-9]{6}$'",
+            name="ck_legal_inquiries_ticket_key",
+        ),
+        CheckConstraint(
+            "sla_due_at = submitted_at + INTERVAL '24 hours'",
+            name="ck_legal_inquiries_sla_due",
+        ),
+        Index("idx_legal_inquiries_ticket_key", "ticket_key", unique=True),
+        Index("idx_legal_inquiries_user_submitted", "user_id", "submitted_at"),
+        Index("idx_legal_inquiries_status_sla", "status", "sla_due_at"),
+    )
+
+
 class BillingBudgetControl(Base):
     """Story 5.D.5 — one current monthly budget control per user."""
 

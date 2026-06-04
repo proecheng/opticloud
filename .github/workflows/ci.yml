@@ -90,6 +90,7 @@ jobs:
               - 'infra/local-init/11-billing-subscriptions.sql'
               - 'infra/local-init/12-billing-budget.sql'
               - 'infra/local-init/13-notification-preferences.sql'
+              - 'infra/local-init/15-legal-inquiries.sql'
             outbox_relayer:
               - 'apps/outbox-relayer/**'
               - 'infra/local-init/04-outbox-trigger.sql'
@@ -396,6 +397,7 @@ jobs:
           psql -h localhost -U opticloud -d opticloud_dev -f infra/local-init/10-cost-attribution.sql
           psql -h localhost -U opticloud -d opticloud_dev -f infra/local-init/11-billing-subscriptions.sql
           psql -h localhost -U opticloud -d opticloud_dev -f infra/local-init/12-billing-budget.sql
+          psql -h localhost -U opticloud -d opticloud_dev -f infra/local-init/15-legal-inquiries.sql
       - name: Run tests
         env:
           DATABASE_URL: postgresql+asyncpg://opticloud:opticloud_dev@localhost:5432/opticloud_dev  # pragma: allowlist secret

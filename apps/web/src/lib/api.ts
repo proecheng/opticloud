@@ -1194,6 +1194,74 @@ export async function confirmCharge(
   );
 }
 
+// ===== Legal inquiry (Story 8.C.3 — Team+ legal SLA) =====
+
+export type LegalInquiryCategory =
+  | "pipl"
+  | "gdpr"
+  | "graded_protection"
+  | "data_export"
+  | "dpa"
+  | "license"
+  | "security"
+  | "other";
+
+export type LegalInquiryUrgency = "normal" | "urgent";
+
+export interface LegalInquiryRequest {
+  category: LegalInquiryCategory;
+  contact_email: string;
+  subject: string;
+  message: string;
+  company_name?: string | null;
+  urgency?: LegalInquiryUrgency;
+}
+
+export interface LegalTicketResponse {
+  provider: "linear";
+  status: "pending";
+  reference: string;
+}
+
+export interface LegalInquiryResponse {
+  inquiry_id: string;
+  status: "submitted";
+  submitted_at: string;
+  sla_due_at: string;
+  sla_hours: 24;
+  linear_ticket: LegalTicketResponse;
+}
+
+function uuidIdempotencyKey(): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+  const template = "10000000-1000-4000-8000-100000000000";
+  return template.replace(/[018]/g, (char) => {
+    const random = Math.floor(Math.random() * 16);
+    return (Number(char) ^ (random & (15 >> (Number(char) / 4)))).toString(16);
+  });
+}
+
+export async function submitLegalInquiry(
+  jwtAccess: string,
+  body: LegalInquiryRequest,
+  idempotencyKey: string = uuidIdempotencyKey(),
+): Promise<LegalInquiryResponse> {
+  return request<LegalInquiryResponse>(
+    "/v1/legal/inquiry",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${jwtAccess}`,
+        "Idempotency-Key": idempotencyKey,
+      },
+      body: JSON.stringify(body),
+    },
+    BILLING_SERVICE_URL,
+  );
+}
+
 // ===== Billing budget (Story 5.D.5) =====
 
 export interface BillingBudgetEventSummary {

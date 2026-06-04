@@ -23,6 +23,7 @@ This is the live entry point for M4.5 GTM assets. The toolkit supports buyer con
 | [`docs/gtm/customer-stories/energy-forecasting-spotlight.md`](gtm/customer-stories/energy-forecasting-spotlight.md) | draft | Energy forecasting customer story draft |
 | [`docs/customer-faqs/commercial-buyer-faq.md`](customer-faqs/commercial-buyer-faq.md) | internal_ready | Buyer FAQ for pricing, security, support, and commercial packaging |
 | [`docs/customer-faqs/technical-evaluator-faq.md`](customer-faqs/technical-evaluator-faq.md) | internal_ready | Technical evaluator FAQ |
+| [`docs/customer-faqs/legal-inquiry-faq.md`](customer-faqs/legal-inquiry-faq.md) | internal_ready | Team+ legal inquiry scope and 24h first-response boundary |
 | [`docs/gtm/po-checklist.md`](gtm/po-checklist.md) | legal_review_required | Purchase-order checklist |
 | [`docs/gtm/sow-template.md`](gtm/sow-template.md) | legal_review_required | Pilot SOW template |
 | [`docs/gtm/msa-checklist.md`](gtm/msa-checklist.md) | legal_review_required | Master agreement review checklist |
@@ -42,6 +43,7 @@ This is the live entry point for M4.5 GTM assets. The toolkit supports buyer con
 
 - This toolkit does not create legal terms. Legal ownership remains in [`docs/legal-templates.md`](legal-templates.md).
 - This toolkit does not claim SOC 2, ISO 27001, AIGC filing approval, production SLA, approved public customer references, or production customer case studies.
+- Team+ legal inquiry wording is limited to the first-response workflow described in [`docs/customer-faqs/legal-inquiry-faq.md`](customer-faqs/legal-inquiry-faq.md); it is not final legal advice or contract approval.
 - Gurobi comparison content is limited to buyer questions and evaluation planning. The 30 LP benchmark whitepaper is Story `m4-5b-gurobi-benchmark-whitepaper` and remains out of scope.
 - Do not commit CRM exports, contact lists, interview transcripts, screenshots, private prospect lists, signed contracts, or binary sales decks.
 

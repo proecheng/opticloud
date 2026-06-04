@@ -15,6 +15,7 @@ _IDEMPOTENCY_KEY_RE = re.compile(
     r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
 )
 _POINTER_REF_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$")
+_LEGAL_EMAIL_RE = re.compile(r"^[^@\s]{1,64}@[^@\s]{1,188}\.[^@\s]{2,63}$")
 
 
 def validate_idempotency_key(key: str) -> str:
@@ -531,6 +532,77 @@ class RefillDueResponse(BaseModel):
     as_of: datetime
 
 
+class LegalInquiryRequest(BaseModel):
+    """POST /v1/legal/inquiry request body — Story 8.C.3."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    category: Literal[
+        "pipl",
+        "gdpr",
+        "graded_protection",
+        "data_export",
+        "dpa",
+        "license",
+        "security",
+        "other",
+    ]
+    contact_email: str = Field(..., min_length=3, max_length=254)
+    subject: str = Field(..., min_length=3, max_length=160)
+    message: str = Field(..., min_length=10, max_length=4000)
+    company_name: str | None = Field(default=None, max_length=160)
+    urgency: Literal["normal", "urgent"] = "normal"
+
+    @field_validator("contact_email", mode="before")
+    @classmethod
+    def _validate_contact_email(cls, value: object) -> object:
+        if not isinstance(value, str):
+            return value
+        normalized = value.strip()
+        if not _LEGAL_EMAIL_RE.match(normalized):
+            raise ValueError("contact_email must be a valid email address")
+        return normalized
+
+    @field_validator("subject", "message", mode="before")
+    @classmethod
+    def _strip_required_text(cls, value: object) -> object:
+        if not isinstance(value, str):
+            return value
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("field cannot be blank")
+        return normalized
+
+    @field_validator("company_name", mode="before")
+    @classmethod
+    def _strip_optional_text(cls, value: object) -> object:
+        if value is None:
+            return None
+        if not isinstance(value, str):
+            return value
+        normalized = str(value).strip()
+        return normalized or None
+
+
+class LegalTicketResponse(BaseModel):
+    """Linear-ready ticket pointer; no external Linear mutation is claimed."""
+
+    provider: Literal["linear"] = "linear"
+    status: Literal["pending"] = "pending"
+    reference: str
+
+
+class LegalInquiryResponse(BaseModel):
+    """Safe legal inquiry acceptance response."""
+
+    inquiry_id: str
+    status: Literal["submitted"]
+    submitted_at: datetime
+    sla_due_at: datetime
+    sla_hours: Literal[24] = 24
+    linear_ticket: LegalTicketResponse
+
+
 __all__ = [
     "AutoRefundRequest",
     "AutoRefundResponse",
@@ -552,6 +624,9 @@ __all__ = [
     "InvoiceSubscriptionResponse",
     "InvoiceSummaryResponse",
     "InvoiceUsageSummaryResponse",
+    "LegalInquiryRequest",
+    "LegalInquiryResponse",
+    "LegalTicketResponse",
     "PlanListResponse",
     "PlanRateLimits",
     "PlanResponse",
