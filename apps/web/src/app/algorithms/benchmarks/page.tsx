@@ -7,7 +7,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
-import { EmptyState, LoadingShimmer, StatusCard } from "@opticloud/ui";
+import { CapabilityCard, EmptyState, LoadingShimmer, StatusCard } from "@opticloud/ui";
 
 import {
   type BenchmarkImportResponse,
@@ -62,23 +62,6 @@ function FilterSelect({
         ))}
       </select>
     </label>
-  );
-}
-
-function DiscountBadge({ item }: { item: BenchmarkLibraryItem }): JSX.Element {
-  const supported = item.discount.billing_supported;
-  return (
-    <span
-      className={
-        "rounded-md border px-2 py-1 text-xs font-medium " +
-        (supported
-          ? "border-success/30 bg-success/10 text-success"
-          : "border-warning/30 bg-warning/10 text-warning")
-      }
-    >
-      {item.discount.label_zh}
-      {supported ? "" : " · 预测计费未落地"}
-    </span>
   );
 }
 
@@ -228,64 +211,12 @@ export default function BenchmarkLibraryPage(): JSX.Element {
           {items && items.length > 0 && (
             <ul className="grid gap-3" data-testid="benchmark-card-list">
               {items.map((item) => (
-                <li
-                  key={item.benchmark_id}
-                  className="rounded-lg border border-border bg-background p-5"
-                  data-testid="benchmark-card"
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="rounded-md border border-border bg-muted px-2 py-1 text-xs font-medium">
-                          {SUITE_LABEL[item.suite] ?? item.suite}
-                        </span>
-                        <span className="rounded-md bg-muted px-2 py-1 font-mono text-xs">
-                          {item.task_type}
-                        </span>
-                        <DiscountBadge item={item} />
-                      </div>
-                      <h2 className="mt-3 text-lg font-semibold">{item.title_zh}</h2>
-                      <p className="mt-1 text-sm text-muted-foreground">{item.title_en}</p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => void handleImport(item.benchmark_id)}
-                      disabled={importingId === item.benchmark_id}
-                      className="min-h-touch rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {importingId === item.benchmark_id ? "生成中" : "一键 import"}
-                    </button>
-                  </div>
-
-                  <dl className="mt-4 grid gap-2 text-sm md:grid-cols-2">
-                    <div>
-                      <dt className="text-xs font-medium text-muted-foreground">Benchmark ID</dt>
-                      <dd className="font-mono">{item.benchmark_id}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-xs font-medium text-muted-foreground">Source</dt>
-                      <dd>
-                        <a
-                          href={item.source_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-primary hover:underline"
-                        >
-                          {item.source_name}
-                        </a>
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-xs font-medium text-muted-foreground">Dataset Ref</dt>
-                      <dd className="font-mono">{item.dataset_ref}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-xs font-medium text-muted-foreground">Target</dt>
-                      <dd className="font-mono">{item.target_endpoint}</dd>
-                    </div>
-                  </dl>
-
-                  <p className="mt-3 text-xs text-muted-foreground">{item.license_note_zh}</p>
+                <li key={item.benchmark_id} data-testid="benchmark-card">
+                  <CapabilityCard
+                    capability={item}
+                    isImporting={importingId === item.benchmark_id}
+                    onImport={handleImport}
+                  />
                 </li>
               ))}
             </ul>

@@ -14,7 +14,7 @@
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
     "test": "vitest run",
-    "test:a11y": "vitest run src/components/Tier1.a11y.test.tsx src/components/RFC7807ErrorPanel/index.a11y.test.tsx src/components/VoucherCard/index.a11y.test.tsx src/components/ChatInterface/index.a11y.test.tsx src/components/InvoiceCard/index.a11y.test.tsx src/components/BudgetAlertCard/index.a11y.test.tsx src/components/AuditLogTable/index.a11y.test.tsx",
+    "test:a11y": "vitest run src/components/Tier1.a11y.test.tsx src/components/RFC7807ErrorPanel/index.a11y.test.tsx src/components/VoucherCard/index.a11y.test.tsx src/components/ChatInterface/index.a11y.test.tsx src/components/InvoiceCard/index.a11y.test.tsx src/components/BudgetAlertCard/index.a11y.test.tsx src/components/AuditLogTable/index.a11y.test.tsx src/components/CapabilityCard/index.a11y.test.tsx",
     "chromatic": "chromatic --exit-zero-on-changes"
   },
   "peerDependencies": {

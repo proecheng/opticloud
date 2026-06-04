@@ -127,6 +127,7 @@ describe("BenchmarkLibraryPage", () => {
     expect(screen.getByText("M5 零售销量预测模板")).toBeTruthy();
     expect(screen.getByText("UCI Appliances Energy 能耗预测模板")).toBeTruthy();
     expect(screen.getByText("NAB realKnownCause 异常检测预测模板")).toBeTruthy();
+    expect(screen.getByTestId("benchmark-card-list").querySelectorAll("li")).toHaveLength(6);
     expect(screen.getByRole("link", { name: "返回算法目录" }).getAttribute("href")).toBe(
       "/algorithms",
     );
@@ -190,5 +191,41 @@ describe("BenchmarkLibraryPage", () => {
     expect(within(panel).getByText(/"benchmark_library": true/)).toBeTruthy();
     expect(within(panel).getByText(/"benchmark_id": "or-lib-afiro-lp"/)).toBeTruthy();
     expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("disables only the importing card and keeps import errors page-owned", async () => {
+    let resolveImport: (value: BenchmarkImportResponse) => void = () => undefined;
+    mocks.importBenchmarkLibraryItem
+      .mockImplementationOnce(
+        () =>
+          new Promise<BenchmarkImportResponse>((resolve) => {
+            resolveImport = resolve;
+          }),
+      )
+      .mockRejectedValueOnce(new Error("import service unavailable"));
+
+    render(<BenchmarkLibraryPage />);
+
+    const cards = await screen.findAllByTestId("benchmark-card");
+    const ieeeCard = cards.find((card) => card.textContent?.includes("ieee-14-dc-opf-lp"));
+    const orLibCard = cards.find((card) => card.textContent?.includes("or-lib-afiro-lp"));
+    expect(ieeeCard).toBeTruthy();
+    expect(orLibCard).toBeTruthy();
+
+    fireEvent.click(within(ieeeCard!).getByRole("button", { name: "一键 import" }));
+    expect(
+      (within(ieeeCard!).getByRole("button", { name: "生成中" }) as HTMLButtonElement).disabled,
+    ).toBe(true);
+    expect(
+      (within(orLibCard!).getByRole("button", { name: "一键 import" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(false);
+
+    resolveImport(optimizationImport);
+    await screen.findByTestId("benchmark-import-panel");
+
+    fireEvent.click(within(orLibCard!).getByRole("button", { name: "一键 import" }));
+    expect(await screen.findByText(/import service unavailable/)).toBeTruthy();
+    expect(screen.getByTestId("benchmark-import-panel")).toBeTruthy();
   });
 });
