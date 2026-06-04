@@ -256,7 +256,7 @@ development_status:
 
   8-c-1-mode-teaching-explain: done            # 2026-06-04 - Teaching mode API response shipped; PR #161 passed CI, merged to main, remote branch deleted, local main synced
   8-c-2-provider-routing-history: done          # 2026-06-04 - Provider routing history shipped; PR #162 passed CI, merged to main, remote branch deleted, local main synced
-  8-c-3-legal-inquiry-sla: code-review          # FR O10
+  8-c-3-legal-inquiry-sla: done                 # 2026-06-04 - Team+ legal inquiry SLA shipped; PR #163 passed CI, merged to main, remote branch deleted, local main synced
   8-c-4-algorithm-library-browse: backlog      # FR O11 v2
   8-c-5-algorithm-capability-card: backlog
   8-c-6-provider-console-tier3: backlog

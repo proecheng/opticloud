@@ -3,7 +3,7 @@ story_key: 8-c-3-legal-inquiry-sla
 epic_num: 8
 story_num: C.3
 epic_name: Teaching + Provider Routing + Legal + Algorithm Library
-status: code-review
+status: done
 baseline_commit: 6125eaacc55a6a62db35b559ac22ed7648be8bc1
 priority: High
 type: FR O10 legal inquiry SLA
@@ -28,7 +28,7 @@ sources:
 
 # Story 8.C.3 - Team+ 法务问询 <=24h SLA
 
-Status: code-review
+Status: done
 
 ## Story
 
@@ -156,8 +156,8 @@ Epic 8.C.3 的原始 AC 是：Given Team+ user / When `POST /v1/legal/inquiry` /
 - [ ] T6: Review, gates and GitHub sync (AC: 39-41)
   - [x] Run local quality gates and fix failures.
   - [x] Run post-implementation code review and fix/document findings.
-  - [ ] Commit, push, create PR, wait for CI, merge, delete remote branch, sync local `main`.
-  - [ ] Mark story/sprint status `done` only after merge/sync via separate status-sync commit.
+  - [x] Commit, push, create PR, wait for CI, merge, delete remote branch, sync local `main`.
+  - [x] Mark story/sprint status `done` only after merge/sync via separate status-sync commit.
 
 ## Dev Notes
 
@@ -260,6 +260,7 @@ GPT-5 Codex
 - 2026-06-04 - Implemented backend persistence, exact `/v1/legal/inquiry` route, Team+ entitlement, pointer-safe outbox, idempotency replay/conflict/cross-tenant/expired-row handling, Console page, API client, nav links, and GTM FAQ docs.
 - 2026-06-04 - Post-implementation code review fixed schema trim-before-length validation, local DB constraint backfill parity, frontend failure-state sensitive field clearing, frontend max-length validation, default UUID idempotency coverage, and concurrent same-key replay handling.
 - 2026-06-04 - Local gates passed: billing targeted pytest 17 passed; web targeted Vitest 8 passed; billing ruff check/format check passed; billing mypy passed; web typecheck passed; GTM validator passed; GTM tests 7 passed; git diff --check passed.
+- 2026-06-04 - GitHub sync completed: PR #163 passed CI, squash-merged to `main` as `6a7974d6d59c60c90320827e83f7dc82414669d4`, remote branch `codex/8-c-3-legal-inquiry-sla` deleted, local `main` synced to `origin/main`.
 
 ### Completion Notes List
 
@@ -273,7 +274,7 @@ GPT-5 Codex
 - Legal inquiry content is stored only in `legal_inquiries`; response, idempotency row, outbox payload/headers, and Console success state omit raw subject/message/contact email/company name.
 - Console `/console/legal-inquiry` added with JWT redirect, client validation, safe 403/409 errors, sensitive field clearing after submit attempts, and nav links from providers/routing history.
 - Post-implementation code review completed and all confirmed findings were fixed.
-- Story is ready for GitHub sync; not marked done until PR CI/merge/branch cleanup/local main sync and separate status-sync commit complete.
+- PR #163 passed GitHub CI, merged, remote branch deleted, local `main` synced, and this separate status-sync commit marks the story done.
 
 ### File List
 
@@ -327,3 +328,4 @@ Review checklist:
 - 2026-06-04 - Round 3 pre-implementation review revised Linear-ready dependency boundary, idempotency closure and docs claim controls; story status set ready-for-dev.
 - 2026-06-04 - Story status moved to in-progress after pre-implementation review closure.
 - 2026-06-04 - Implemented Team+ legal inquiry SLA API, Console flow, docs, tests, CI schema hook, and post-implementation review fixes; story status set code-review pending GitHub sync.
+- 2026-06-04 - PR #163 passed CI, merged, remote feature branch deleted, local main synced; story status set done through separate status-sync commit.
