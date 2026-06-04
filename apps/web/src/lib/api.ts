@@ -241,6 +241,29 @@ export interface IPAttribution {
   contract_anchor: string;
 }
 
+/** Story 8.C.8 — Algorithm Provenance details for public catalog pages. */
+export type AlgorithmProvenanceParameterSource =
+  | "catalog_field"
+  | "request_schema"
+  | "runtime_policy"
+  | "documentation";
+
+export interface AlgorithmProvenanceParameter {
+  name: string;
+  value_zh: string;
+  description_zh: string;
+  source: AlgorithmProvenanceParameterSource;
+}
+
+export interface AlgorithmProvenance {
+  theory_zh: string;
+  theory_en: string;
+  configuration_parameters: AlgorithmProvenanceParameter[];
+  applicable_scenarios_zh: string[];
+  limitations_zh: string[];
+  citation_source: "catalog_citation";
+}
+
 /** Story 6.B.1 — opt-in reproducibility handoff for voucher minting. */
 export interface Reproducibility {
   requested: true;
@@ -274,6 +297,8 @@ export interface Algorithm {
   citation: Citation | null;
   /** Story 6.A.5 — L1/L2/L3 IP attribution display metadata. */
   ip_attribution: IPAttribution;
+  /** Story 8.C.8 — structured provenance metadata; nullable for compatibility. */
+  provenance: AlgorithmProvenance | null;
 }
 
 export interface ListAlgorithmsOptions {

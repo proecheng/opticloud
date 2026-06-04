@@ -49,6 +49,13 @@ const PLACEHOLDER_INPUT: Record<string, unknown> = {
   st: { A: [[1]], b: [1] },
 };
 
+const PROVENANCE_SOURCE_LABEL: Record<string, string> = {
+  catalog_field: "Catalog",
+  request_schema: "Request schema",
+  runtime_policy: "Runtime policy",
+  documentation: "Documentation",
+};
+
 function buildPythonSnippet(algo: Algorithm, exampleInput: Record<string, unknown>): string {
   const json = JSON.stringify(exampleInput, null, 4).replace(/\n/g, "\n    ");
   return `import os
@@ -339,6 +346,116 @@ export default function AlgorithmDetailPage(): JSX.Element {
                 />
               </section>
             )}
+
+            <section
+              data-testid="algorithm-provenance"
+              aria-labelledby="algorithm-provenance-heading"
+              className="border-t border-border pt-6"
+            >
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h2 id="algorithm-provenance-heading" className="text-lg font-semibold">
+                    Algorithm Provenance
+                  </h2>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    求解器理论、公开参数解释、适用场景和限制说明。
+                  </p>
+                </div>
+                <span className="rounded-md border border-border bg-muted px-2 py-1 text-xs text-muted-foreground">
+                  catalog-backed
+                </span>
+              </div>
+
+              {algo.provenance ? (
+                <div className="mt-4 space-y-5">
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <div className="border-l-2 border-primary/30 pl-3">
+                      <h3 className="text-sm font-semibold">求解器理论</h3>
+                      <p className="mt-2 text-sm leading-6">{algo.provenance.theory_zh}</p>
+                    </div>
+                    <div className="border-l-2 border-border pl-3">
+                      <h3 className="text-sm font-semibold">Theory</h3>
+                      <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                        {algo.provenance.theory_en}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h3 className="text-sm font-semibold">配置参数</h3>
+                    <dl className="mt-2 grid gap-2">
+                      {algo.provenance.configuration_parameters.map((param) => (
+                        <div
+                          key={param.name}
+                          className="rounded-md border border-border bg-muted/20 p-3"
+                        >
+                          <dt className="flex min-w-0 flex-wrap items-center gap-2">
+                            <span className="break-words text-sm font-medium">{param.name}</span>
+                            <span className="rounded bg-background px-2 py-0.5 text-xs text-muted-foreground">
+                              {PROVENANCE_SOURCE_LABEL[param.source] ?? param.source}
+                            </span>
+                          </dt>
+                          <dd className="mt-1 break-words text-sm">{param.value_zh}</dd>
+                          <dd className="mt-1 break-words text-xs text-muted-foreground">
+                            {param.description_zh}
+                          </dd>
+                        </div>
+                      ))}
+                    </dl>
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      这些是公开 catalog / request 层解释，不是可编辑的 native solver tuning knobs。
+                    </p>
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div>
+                      <h3 className="text-sm font-semibold">适用场景</h3>
+                      <ul className="mt-2 list-disc space-y-1 pl-5 text-sm">
+                        {algo.provenance.applicable_scenarios_zh.map((scenario) => (
+                          <li key={scenario} className="break-words">
+                            {scenario}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-semibold">限制说明</h3>
+                      <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+                        {algo.provenance.limitations_zh.map((limitation) => (
+                          <li key={limitation} className="break-words">
+                            {limitation}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+
+                  <div className="rounded-md border border-border bg-muted/30 p-3 text-sm">
+                    <h3 className="font-semibold">论文引用来源</h3>
+                    {algo.citation ? (
+                      <p className="mt-1 break-words text-muted-foreground">
+                        {algo.citation.authors_label_zh} · {algo.citation.venue} ·{" "}
+                        {algo.citation.year}
+                      </p>
+                    ) : (
+                      <p className="mt-1 text-muted-foreground">
+                        当前算法没有公开 citation 元数据。
+                      </p>
+                    )}
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      BibTeX、DOI 和出处链接保持在「引用本算法」区块，provenance 不复制这些字段。
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <EmptyState
+                  ariaLabel="algorithm.provenance.empty"
+                  icon="📄"
+                  title="Provenance 元数据暂未接入"
+                  description="该算法仍可查看 Provider、IP Attribution、引用和示例信息。"
+                />
+              )}
+            </section>
 
             <section>
               <h2 className="mb-3 text-lg font-semibold">Example input JSON</h2>
