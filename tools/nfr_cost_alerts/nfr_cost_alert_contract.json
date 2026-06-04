@@ -1,0 +1,345 @@
+{
+  "alert_version": "nfr_cost_redline_alerts_v1",
+  "source_story": "9.3",
+  "nfr": "NFR-COST",
+  "standard_cadence": "quarterly",
+  "breach_drill_required": true,
+  "evidence": {
+    "report_directory": "reports/nfr-cost-alerts",
+    "manifest_filename": "alert_manifest.json",
+    "schema_path": "tools/nfr_cost_alerts/nfr_cost_alert_manifest.schema.json",
+    "example_manifest_path": "tools/nfr_cost_alerts/nfr_cost_alert_manifest.example.json"
+  },
+  "input_signal_states": [
+    "required",
+    "planned",
+    "missing_with_ticket",
+    "not_applicable"
+  ],
+  "evaluation_statuses": [
+    "not_run_example",
+    "passed",
+    "breached",
+    "failed",
+    "not_applicable"
+  ],
+  "route_statuses": [
+    "not_run_example",
+    "payload_ready",
+    "failed",
+    "not_applicable"
+  ],
+  "redline_catalog": [
+    {
+      "redline_id": "llm_revenue_ratio",
+      "name": "LLM cost to revenue ratio",
+      "owner": "NFR-COST",
+      "severity": "P1",
+      "threshold": {
+        "comparator": ">=",
+        "value": 0.3,
+        "unit": "ratio"
+      },
+      "prometheus_alert": {
+        "alert_name": "OptiCloudNfrCostLlmRevenueRatioHigh",
+        "promql": "sum(rate(opticloud_llm_cost_cny_total[30d])) / clamp_min(sum(rate(opticloud_revenue_cny_total[30d])), 1) >= 0.30",
+        "for": "30m",
+        "labels": {
+          "severity": "P1",
+          "nfr": "NFR-COST",
+          "redline_id": "llm_revenue_ratio",
+          "owner": "nfr-cost"
+        },
+        "annotations": {
+          "summary": "LLM cost exceeds 30 percent of revenue",
+          "runbook": "docs/runbooks/nfr-cost-alerts.md",
+          "evidence": "reports/nfr-cost-alerts/<run_id>/alert_manifest.json"
+        }
+      },
+      "input_signals": [
+        {
+          "signal_id": "llm_cost_cny",
+          "source_system": "future chat or LLM provider cost telemetry",
+          "expected_metric_name": "opticloud_llm_cost_cny_total",
+          "unit": "cny",
+          "aggregation_window": "30d",
+          "implementation_state": "planned"
+        },
+        {
+          "signal_id": "revenue_cny",
+          "source_system": "billing revenue aggregation",
+          "expected_metric_name": "opticloud_revenue_cny_total",
+          "unit": "cny",
+          "aggregation_window": "30d",
+          "implementation_state": "planned"
+        }
+      ]
+    },
+    {
+      "redline_id": "gpu_idle_rate",
+      "name": "GPU idle rate",
+      "owner": "SRE",
+      "severity": "P2",
+      "threshold": {
+        "comparator": ">=",
+        "value": 0.5,
+        "unit": "ratio"
+      },
+      "prometheus_alert": {
+        "alert_name": "OptiCloudNfrCostGpuIdleRateHigh",
+        "promql": "sum(rate(opticloud_gpu_idle_seconds_total[30d])) / clamp_min(sum(rate(opticloud_gpu_allocated_seconds_total[30d])), 1) >= 0.50",
+        "for": "30m",
+        "labels": {
+          "severity": "P2",
+          "nfr": "NFR-COST",
+          "redline_id": "gpu_idle_rate",
+          "owner": "sre"
+        },
+        "annotations": {
+          "summary": "GPU idle rate exceeds 50 percent",
+          "runbook": "docs/runbooks/nfr-cost-alerts.md",
+          "evidence": "reports/nfr-cost-alerts/<run_id>/alert_manifest.json"
+        }
+      },
+      "input_signals": [
+        {
+          "signal_id": "gpu_idle_seconds",
+          "source_system": "future GPU runner telemetry",
+          "expected_metric_name": "opticloud_gpu_idle_seconds_total",
+          "unit": "seconds",
+          "aggregation_window": "30d",
+          "implementation_state": "planned"
+        },
+        {
+          "signal_id": "gpu_allocated_seconds",
+          "source_system": "future GPU runner telemetry",
+          "expected_metric_name": "opticloud_gpu_allocated_seconds_total",
+          "unit": "seconds",
+          "aggregation_window": "30d",
+          "implementation_state": "planned"
+        }
+      ]
+    },
+    {
+      "redline_id": "provider_share_revenue_ratio",
+      "name": "Provider share to revenue ratio",
+      "owner": "Provider",
+      "severity": "P1",
+      "threshold": {
+        "comparator": ">=",
+        "value": 0.5,
+        "unit": "ratio"
+      },
+      "prometheus_alert": {
+        "alert_name": "OptiCloudNfrCostProviderShareRevenueRatioHigh",
+        "promql": "sum(rate(opticloud_provider_share_cny_total[30d])) / clamp_min(sum(rate(opticloud_revenue_cny_total[30d])), 1) >= 0.50",
+        "for": "30m",
+        "labels": {
+          "severity": "P1",
+          "nfr": "NFR-COST",
+          "redline_id": "provider_share_revenue_ratio",
+          "owner": "provider"
+        },
+        "annotations": {
+          "summary": "Provider share exceeds 50 percent of revenue",
+          "runbook": "docs/runbooks/nfr-cost-alerts.md",
+          "evidence": "reports/nfr-cost-alerts/<run_id>/alert_manifest.json"
+        }
+      },
+      "input_signals": [
+        {
+          "signal_id": "provider_share_cny",
+          "source_system": "provider payout aggregation",
+          "expected_metric_name": "opticloud_provider_share_cny_total",
+          "unit": "cny",
+          "aggregation_window": "30d",
+          "implementation_state": "planned"
+        },
+        {
+          "signal_id": "revenue_cny",
+          "source_system": "billing revenue aggregation",
+          "expected_metric_name": "opticloud_revenue_cny_total",
+          "unit": "cny",
+          "aggregation_window": "30d",
+          "implementation_state": "planned"
+        }
+      ]
+    },
+    {
+      "redline_id": "refund_issued_rate",
+      "name": "Refund to issued credits rate",
+      "owner": "Billing",
+      "severity": "P1",
+      "threshold": {
+        "comparator": ">=",
+        "value": 0.05,
+        "unit": "ratio"
+      },
+      "prometheus_alert": {
+        "alert_name": "OptiCloudNfrCostRefundIssuedRateHigh",
+        "promql": "sum(rate(opticloud_refund_cny_total[30d])) / clamp_min(sum(rate(opticloud_issued_credits_cny_total[30d])), 1) >= 0.05",
+        "for": "30m",
+        "labels": {
+          "severity": "P1",
+          "nfr": "NFR-COST",
+          "redline_id": "refund_issued_rate",
+          "owner": "billing"
+        },
+        "annotations": {
+          "summary": "Refunds exceed 5 percent of issued credits",
+          "runbook": "docs/runbooks/nfr-cost-alerts.md",
+          "evidence": "reports/nfr-cost-alerts/<run_id>/alert_manifest.json"
+        }
+      },
+      "input_signals": [
+        {
+          "signal_id": "refund_cny",
+          "source_system": "billing ledger aggregation",
+          "expected_metric_name": "opticloud_refund_cny_total",
+          "unit": "cny",
+          "aggregation_window": "30d",
+          "implementation_state": "planned"
+        },
+        {
+          "signal_id": "issued_credits_cny",
+          "source_system": "billing ledger aggregation",
+          "expected_metric_name": "opticloud_issued_credits_cny_total",
+          "unit": "cny",
+          "aggregation_window": "30d",
+          "implementation_state": "planned"
+        }
+      ]
+    },
+    {
+      "redline_id": "runway_months",
+      "name": "Cash runway months",
+      "owner": "Finance",
+      "severity": "P0",
+      "threshold": {
+        "comparator": "<",
+        "value": 6,
+        "unit": "months"
+      },
+      "prometheus_alert": {
+        "alert_name": "OptiCloudNfrCostRunwayMonthsLow",
+        "promql": "min(opticloud_cash_runway_months) < 6",
+        "for": "15m",
+        "labels": {
+          "severity": "P0",
+          "nfr": "NFR-COST",
+          "redline_id": "runway_months",
+          "owner": "finance"
+        },
+        "annotations": {
+          "summary": "Cash runway is below 6 months",
+          "runbook": "docs/runbooks/nfr-cost-alerts.md",
+          "evidence": "reports/nfr-cost-alerts/<run_id>/alert_manifest.json"
+        }
+      },
+      "input_signals": [
+        {
+          "signal_id": "cash_runway_months",
+          "source_system": "finance monthly runway model",
+          "expected_metric_name": "opticloud_cash_runway_months",
+          "unit": "months",
+          "aggregation_window": "latest",
+          "implementation_state": "planned"
+        }
+      ]
+    }
+  ],
+  "dingtalk_ready_payload": {
+    "required_fields": [
+      "redline_id",
+      "severity",
+      "markdown_title",
+      "markdown_text",
+      "summary",
+      "runbook_path",
+      "evidence_pointer"
+    ],
+    "delivery_policy": "Payloads are deterministic handoff records only; external DingTalk delivery is not claimed by static examples.",
+    "credential_policy": "No webhook URL or signing material may be committed."
+  },
+  "linear_ready_ticket": {
+    "required_fields": [
+      "redline_id",
+      "title",
+      "description",
+      "team_key",
+      "labels",
+      "severity",
+      "owner",
+      "due_date_policy",
+      "evidence_pointer"
+    ],
+    "team_key": "NFR-COST",
+    "required_labels": [
+      "nfr-cost",
+      "redline",
+      "governance"
+    ],
+    "delivery_policy": "Payloads are deterministic handoff records only; external Linear issue creation is not claimed by static examples."
+  },
+  "observed_cost_telemetry_state": {
+    "cost_attribution_sql": {
+      "path": "infra/local-init/10-cost-attribution.sql",
+      "cost_units": [
+        "llm_token",
+        "gpu_second",
+        "solver_second"
+      ],
+      "has_tenant_service_unit_index": true,
+      "has_source_id_partial_index": true
+    },
+    "shared_cost_unit_enum": {
+      "path": "packages/shared-py/opticloud_shared/cost_telemetry/__init__.py",
+      "values": [
+        "llm_token",
+        "gpu_second",
+        "solver_second"
+      ]
+    },
+    "solver_hook": {
+      "path": "apps/solver-orchestrator/src/solver_orchestrator/routes.py",
+      "helper": "_record_solver_cost_attribution",
+      "service": "solver-orchestrator",
+      "cost_unit": "solver_second",
+      "uses_record_cost_event": true
+    },
+    "billing_hook": {
+      "path": "apps/billing-service/src/billing_service/routes.py",
+      "helper": "_record_billing_cost_attribution",
+      "service": "billing-service",
+      "cost_unit": "solver_second",
+      "uses_record_cost_event": true
+    },
+    "prometheus_metric_audit_handoff": {
+      "path": "docs/runbooks/prometheus-metric-audit.md",
+      "mentions_story_9_3": true
+    }
+  },
+  "boundaries": {
+    "live_prometheus_rule_loaded": false,
+    "real_alertmanager_fired": false,
+    "real_dingtalk_delivered": false,
+    "real_linear_created": false,
+    "real_production_breach_observed": false,
+    "finance_approval_completed": false,
+    "release_approved": false,
+    "external_delivery_in_scope": false,
+    "unified_governance_dashboard_in_scope": false
+  },
+  "disallowed_static_completion_claims": [
+    "real_alert_fired",
+    "real_alertmanager_fired",
+    "real_dingtalk_delivered",
+    "real_linear_created",
+    "real_external_delivery_completed",
+    "real_production_breach_observed",
+    "finance_approval_completed",
+    "release_approved",
+    "production_release_approved",
+    "external_issue_created"
+  ]
+}

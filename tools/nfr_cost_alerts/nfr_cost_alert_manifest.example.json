@@ -1,0 +1,392 @@
+{
+  "source_story": "9.3",
+  "alert_version": "nfr_cost_redline_alerts_v1",
+  "run_id": "example-nfr-cost-alerts-20260604",
+  "example_only": true,
+  "generated_by": "Story 9.3 static example; not real Prometheus, DingTalk, Linear, or finance evidence",
+  "commit_sha": "0000000",
+  "cadence_mode": "quarterly",
+  "period": {
+    "start_date": "2026-04-01",
+    "end_date": "2026-06-30"
+  },
+  "redline_evaluations": [
+    {
+      "redline_id": "llm_revenue_ratio",
+      "status": "not_run_example",
+      "threshold": {
+        "comparator": ">=",
+        "value": 0.3,
+        "unit": "ratio"
+      },
+      "observed_value": null,
+      "window": "30d",
+      "finding_ids": []
+    },
+    {
+      "redline_id": "gpu_idle_rate",
+      "status": "not_run_example",
+      "threshold": {
+        "comparator": ">=",
+        "value": 0.5,
+        "unit": "ratio"
+      },
+      "observed_value": null,
+      "window": "30d",
+      "finding_ids": []
+    },
+    {
+      "redline_id": "provider_share_revenue_ratio",
+      "status": "not_run_example",
+      "threshold": {
+        "comparator": ">=",
+        "value": 0.5,
+        "unit": "ratio"
+      },
+      "observed_value": null,
+      "window": "30d",
+      "finding_ids": []
+    },
+    {
+      "redline_id": "refund_issued_rate",
+      "status": "not_run_example",
+      "threshold": {
+        "comparator": ">=",
+        "value": 0.05,
+        "unit": "ratio"
+      },
+      "observed_value": null,
+      "window": "30d",
+      "finding_ids": []
+    },
+    {
+      "redline_id": "runway_months",
+      "status": "not_run_example",
+      "threshold": {
+        "comparator": "<",
+        "value": 6,
+        "unit": "months"
+      },
+      "observed_value": null,
+      "window": "latest",
+      "finding_ids": []
+    }
+  ],
+  "source_snapshots": [
+    {
+      "redline_id": "llm_revenue_ratio",
+      "signal_id": "llm_cost_cny",
+      "source_system": "future chat or LLM provider cost telemetry",
+      "metric_name": "opticloud_llm_cost_cny_total",
+      "status": "not_run_example",
+      "artifact_path": "reports/nfr-cost-alerts/example-nfr-cost-alerts-20260604/llm-cost-source.json",
+      "finding_ids": []
+    },
+    {
+      "redline_id": "llm_revenue_ratio",
+      "signal_id": "revenue_cny",
+      "source_system": "billing revenue aggregation",
+      "metric_name": "opticloud_revenue_cny_total",
+      "status": "not_run_example",
+      "artifact_path": "reports/nfr-cost-alerts/example-nfr-cost-alerts-20260604/revenue-source.json",
+      "finding_ids": []
+    },
+    {
+      "redline_id": "gpu_idle_rate",
+      "signal_id": "gpu_idle_seconds",
+      "source_system": "future GPU runner telemetry",
+      "metric_name": "opticloud_gpu_idle_seconds_total",
+      "status": "not_run_example",
+      "artifact_path": "reports/nfr-cost-alerts/example-nfr-cost-alerts-20260604/gpu-idle-source.json",
+      "finding_ids": []
+    },
+    {
+      "redline_id": "gpu_idle_rate",
+      "signal_id": "gpu_allocated_seconds",
+      "source_system": "future GPU runner telemetry",
+      "metric_name": "opticloud_gpu_allocated_seconds_total",
+      "status": "not_run_example",
+      "artifact_path": "reports/nfr-cost-alerts/example-nfr-cost-alerts-20260604/gpu-allocated-source.json",
+      "finding_ids": []
+    },
+    {
+      "redline_id": "provider_share_revenue_ratio",
+      "signal_id": "provider_share_cny",
+      "source_system": "provider payout aggregation",
+      "metric_name": "opticloud_provider_share_cny_total",
+      "status": "not_run_example",
+      "artifact_path": "reports/nfr-cost-alerts/example-nfr-cost-alerts-20260604/provider-share-source.json",
+      "finding_ids": []
+    },
+    {
+      "redline_id": "provider_share_revenue_ratio",
+      "signal_id": "revenue_cny",
+      "source_system": "billing revenue aggregation",
+      "metric_name": "opticloud_revenue_cny_total",
+      "status": "not_run_example",
+      "artifact_path": "reports/nfr-cost-alerts/example-nfr-cost-alerts-20260604/provider-revenue-source.json",
+      "finding_ids": []
+    },
+    {
+      "redline_id": "refund_issued_rate",
+      "signal_id": "refund_cny",
+      "source_system": "billing ledger aggregation",
+      "metric_name": "opticloud_refund_cny_total",
+      "status": "not_run_example",
+      "artifact_path": "reports/nfr-cost-alerts/example-nfr-cost-alerts-20260604/refund-source.json",
+      "finding_ids": []
+    },
+    {
+      "redline_id": "refund_issued_rate",
+      "signal_id": "issued_credits_cny",
+      "source_system": "billing ledger aggregation",
+      "metric_name": "opticloud_issued_credits_cny_total",
+      "status": "not_run_example",
+      "artifact_path": "reports/nfr-cost-alerts/example-nfr-cost-alerts-20260604/issued-credits-source.json",
+      "finding_ids": []
+    },
+    {
+      "redline_id": "runway_months",
+      "signal_id": "cash_runway_months",
+      "source_system": "finance monthly runway model",
+      "metric_name": "opticloud_cash_runway_months",
+      "status": "not_run_example",
+      "artifact_path": "reports/nfr-cost-alerts/example-nfr-cost-alerts-20260604/runway-source.json",
+      "finding_ids": []
+    }
+  ],
+  "prometheus_alerts": [
+    {
+      "redline_id": "llm_revenue_ratio",
+      "alert_name": "OptiCloudNfrCostLlmRevenueRatioHigh",
+      "promql_ref": "nfr-cost-llm-revenue-ratio",
+      "status": "not_run_example",
+      "artifact_path": "reports/nfr-cost-alerts/example-nfr-cost-alerts-20260604/llm-revenue-alert.json",
+      "finding_ids": []
+    },
+    {
+      "redline_id": "gpu_idle_rate",
+      "alert_name": "OptiCloudNfrCostGpuIdleRateHigh",
+      "promql_ref": "nfr-cost-gpu-idle-rate",
+      "status": "not_run_example",
+      "artifact_path": "reports/nfr-cost-alerts/example-nfr-cost-alerts-20260604/gpu-idle-alert.json",
+      "finding_ids": []
+    },
+    {
+      "redline_id": "provider_share_revenue_ratio",
+      "alert_name": "OptiCloudNfrCostProviderShareRevenueRatioHigh",
+      "promql_ref": "nfr-cost-provider-share-revenue-ratio",
+      "status": "not_run_example",
+      "artifact_path": "reports/nfr-cost-alerts/example-nfr-cost-alerts-20260604/provider-share-alert.json",
+      "finding_ids": []
+    },
+    {
+      "redline_id": "refund_issued_rate",
+      "alert_name": "OptiCloudNfrCostRefundIssuedRateHigh",
+      "promql_ref": "nfr-cost-refund-issued-rate",
+      "status": "not_run_example",
+      "artifact_path": "reports/nfr-cost-alerts/example-nfr-cost-alerts-20260604/refund-issued-alert.json",
+      "finding_ids": []
+    },
+    {
+      "redline_id": "runway_months",
+      "alert_name": "OptiCloudNfrCostRunwayMonthsLow",
+      "promql_ref": "nfr-cost-runway-months",
+      "status": "not_run_example",
+      "artifact_path": "reports/nfr-cost-alerts/example-nfr-cost-alerts-20260604/runway-alert.json",
+      "finding_ids": []
+    }
+  ],
+  "dingtalk_payloads": [
+    {
+      "redline_id": "llm_revenue_ratio",
+      "status": "not_run_example",
+      "severity": "P1",
+      "markdown_title": "NFR-COST redline: LLM revenue ratio",
+      "markdown_text": "Static example only. See docs/runbooks/nfr-cost-alerts.md.",
+      "summary": "LLM cost to revenue ratio requires governance evidence.",
+      "runbook_path": "docs/runbooks/nfr-cost-alerts.md",
+      "evidence_pointer": "reports/nfr-cost-alerts/example-nfr-cost-alerts-20260604/alert_manifest.json",
+      "finding_ids": []
+    },
+    {
+      "redline_id": "gpu_idle_rate",
+      "status": "not_run_example",
+      "severity": "P2",
+      "markdown_title": "NFR-COST redline: GPU idle rate",
+      "markdown_text": "Static example only. See docs/runbooks/nfr-cost-alerts.md.",
+      "summary": "GPU idle rate requires governance evidence.",
+      "runbook_path": "docs/runbooks/nfr-cost-alerts.md",
+      "evidence_pointer": "reports/nfr-cost-alerts/example-nfr-cost-alerts-20260604/alert_manifest.json",
+      "finding_ids": []
+    },
+    {
+      "redline_id": "provider_share_revenue_ratio",
+      "status": "not_run_example",
+      "severity": "P1",
+      "markdown_title": "NFR-COST redline: provider share ratio",
+      "markdown_text": "Static example only. See docs/runbooks/nfr-cost-alerts.md.",
+      "summary": "Provider share to revenue ratio requires governance evidence.",
+      "runbook_path": "docs/runbooks/nfr-cost-alerts.md",
+      "evidence_pointer": "reports/nfr-cost-alerts/example-nfr-cost-alerts-20260604/alert_manifest.json",
+      "finding_ids": []
+    },
+    {
+      "redline_id": "refund_issued_rate",
+      "status": "not_run_example",
+      "severity": "P1",
+      "markdown_title": "NFR-COST redline: refund issued rate",
+      "markdown_text": "Static example only. See docs/runbooks/nfr-cost-alerts.md.",
+      "summary": "Refund to issued credits rate requires governance evidence.",
+      "runbook_path": "docs/runbooks/nfr-cost-alerts.md",
+      "evidence_pointer": "reports/nfr-cost-alerts/example-nfr-cost-alerts-20260604/alert_manifest.json",
+      "finding_ids": []
+    },
+    {
+      "redline_id": "runway_months",
+      "status": "not_run_example",
+      "severity": "P0",
+      "markdown_title": "NFR-COST redline: runway months",
+      "markdown_text": "Static example only. See docs/runbooks/nfr-cost-alerts.md.",
+      "summary": "Cash runway months requires governance evidence.",
+      "runbook_path": "docs/runbooks/nfr-cost-alerts.md",
+      "evidence_pointer": "reports/nfr-cost-alerts/example-nfr-cost-alerts-20260604/alert_manifest.json",
+      "finding_ids": []
+    }
+  ],
+  "linear_payloads": [
+    {
+      "redline_id": "llm_revenue_ratio",
+      "status": "not_run_example",
+      "title": "NFR-COST redline: LLM revenue ratio",
+      "description": "Static example only. Validate redacted evidence before external handoff.",
+      "team_key": "NFR-COST",
+      "labels": [
+        "nfr-cost",
+        "redline",
+        "governance"
+      ],
+      "severity": "P1",
+      "owner": "NFR-COST",
+      "due_date": "2026-07-07",
+      "evidence_pointer": "reports/nfr-cost-alerts/example-nfr-cost-alerts-20260604/alert_manifest.json",
+      "external_issue_id": null,
+      "finding_ids": []
+    },
+    {
+      "redline_id": "gpu_idle_rate",
+      "status": "not_run_example",
+      "title": "NFR-COST redline: GPU idle rate",
+      "description": "Static example only. Validate redacted evidence before external handoff.",
+      "team_key": "NFR-COST",
+      "labels": [
+        "nfr-cost",
+        "redline",
+        "governance"
+      ],
+      "severity": "P2",
+      "owner": "SRE",
+      "due_date": "2026-07-07",
+      "evidence_pointer": "reports/nfr-cost-alerts/example-nfr-cost-alerts-20260604/alert_manifest.json",
+      "external_issue_id": null,
+      "finding_ids": []
+    },
+    {
+      "redline_id": "provider_share_revenue_ratio",
+      "status": "not_run_example",
+      "title": "NFR-COST redline: provider share ratio",
+      "description": "Static example only. Validate redacted evidence before external handoff.",
+      "team_key": "NFR-COST",
+      "labels": [
+        "nfr-cost",
+        "redline",
+        "governance"
+      ],
+      "severity": "P1",
+      "owner": "Provider",
+      "due_date": "2026-07-07",
+      "evidence_pointer": "reports/nfr-cost-alerts/example-nfr-cost-alerts-20260604/alert_manifest.json",
+      "external_issue_id": null,
+      "finding_ids": []
+    },
+    {
+      "redline_id": "refund_issued_rate",
+      "status": "not_run_example",
+      "title": "NFR-COST redline: refund issued rate",
+      "description": "Static example only. Validate redacted evidence before external handoff.",
+      "team_key": "NFR-COST",
+      "labels": [
+        "nfr-cost",
+        "redline",
+        "governance"
+      ],
+      "severity": "P1",
+      "owner": "Billing",
+      "due_date": "2026-07-07",
+      "evidence_pointer": "reports/nfr-cost-alerts/example-nfr-cost-alerts-20260604/alert_manifest.json",
+      "external_issue_id": null,
+      "finding_ids": []
+    },
+    {
+      "redline_id": "runway_months",
+      "status": "not_run_example",
+      "title": "NFR-COST redline: runway months",
+      "description": "Static example only. Validate redacted evidence before external handoff.",
+      "team_key": "NFR-COST",
+      "labels": [
+        "nfr-cost",
+        "redline",
+        "governance"
+      ],
+      "severity": "P0",
+      "owner": "Finance",
+      "due_date": "2026-07-07",
+      "evidence_pointer": "reports/nfr-cost-alerts/example-nfr-cost-alerts-20260604/alert_manifest.json",
+      "external_issue_id": null,
+      "finding_ids": []
+    }
+  ],
+  "routing_outcomes": [
+    {
+      "redline_id": "llm_revenue_ratio",
+      "dingtalk_status": "not_run_example",
+      "linear_status": "not_run_example",
+      "owner_ack_status": "not_run_example",
+      "finding_ids": []
+    },
+    {
+      "redline_id": "gpu_idle_rate",
+      "dingtalk_status": "not_run_example",
+      "linear_status": "not_run_example",
+      "owner_ack_status": "not_run_example",
+      "finding_ids": []
+    },
+    {
+      "redline_id": "provider_share_revenue_ratio",
+      "dingtalk_status": "not_run_example",
+      "linear_status": "not_run_example",
+      "owner_ack_status": "not_run_example",
+      "finding_ids": []
+    },
+    {
+      "redline_id": "refund_issued_rate",
+      "dingtalk_status": "not_run_example",
+      "linear_status": "not_run_example",
+      "owner_ack_status": "not_run_example",
+      "finding_ids": []
+    },
+    {
+      "redline_id": "runway_months",
+      "dingtalk_status": "not_run_example",
+      "linear_status": "not_run_example",
+      "owner_ack_status": "not_run_example",
+      "finding_ids": []
+    }
+  ],
+  "findings": [],
+  "redaction_reviewed": false,
+  "release_approved": false,
+  "real_alert_fired": false,
+  "real_dingtalk_delivered": false,
+  "real_linear_created": false
+}
