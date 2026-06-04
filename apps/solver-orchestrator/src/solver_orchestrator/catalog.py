@@ -46,6 +46,35 @@ class IPAttribution(TypedDict):
     contract_anchor: str
 
 
+AlgorithmProvenanceParameterSource = Literal[
+    "catalog_field", "request_schema", "runtime_policy", "documentation"
+]
+
+
+class AlgorithmProvenanceParameter(TypedDict):
+    """Story 8.C.8 — catalog-facing configuration parameter explanation."""
+
+    name: str
+    value_zh: str
+    description_zh: str
+    source: AlgorithmProvenanceParameterSource
+
+
+class AlgorithmProvenance(TypedDict):
+    """Story 8.C.8 — algorithm provenance detail metadata.
+
+    Citation data remains single-sourced through `citation`; provenance only
+    declares that relationship via `citation_source`.
+    """
+
+    theory_zh: str
+    theory_en: str
+    configuration_parameters: list[AlgorithmProvenanceParameter]
+    applicable_scenarios_zh: list[str]
+    limitations_zh: list[str]
+    citation_source: Literal["catalog_citation"]
+
+
 class SelfAuditStatus(TypedDict):
     """Internal §4.5 self-developed algorithm audit state.
 
@@ -73,6 +102,7 @@ class Algorithm(TypedDict):
     ]  # Story 2.4 — FR C4 (enum of solver names valid for this algorithm)
     citation: Citation | None  # Story 6.A.1 — FR R5 (None reserved for future commercial-only SKUs)
     ip_attribution: IPAttribution  # Story 6.A.5 — L1/L2/L3 academic IP attribution
+    provenance: AlgorithmProvenance  # Story 8.C.8 — theory / parameters / scenarios
     self_audit: NotRequired[SelfAuditStatus]  # Story 2.8 — internal FR C8 publish/route gate
 
 
@@ -143,6 +173,338 @@ ATTR_AQGS: IPAttribution = {
 }
 
 
+PROVENANCE_HIGHS_LP: AlgorithmProvenance = {
+    "theory_zh": (
+        "线性规划把目标函数和约束都表达为线性关系，使用单纯形、对偶单纯形"
+        "或内点法在凸多面体上寻找全局最优解。"
+    ),
+    "theory_en": (
+        "Linear programming models both the objective and constraints as linear "
+        "relations, then searches a convex polytope with simplex, dual simplex, "
+        "or interior-point methods."
+    ),
+    "configuration_parameters": [
+        {
+            "name": "建模形式",
+            "value_zh": "线性目标与线性不等式约束",
+            "description_zh": "公开请求体需要给出目标向量、约束矩阵和右端项。",
+            "source": "request_schema",
+        },
+        {
+            "name": "执行策略",
+            "value_zh": "同步求解优先，超时预算由请求选项限制",
+            "description_zh": "目录页只解释可见策略，不暴露底层算法切换开关。",
+            "source": "runtime_policy",
+        },
+        {
+            "name": "可解释输出",
+            "value_zh": "最优目标值、解向量和求解耗时",
+            "description_zh": "结果字段面向复现实验和教学演示，可与引用信息一起归档。",
+            "source": "documentation",
+        },
+    ],
+    "applicable_scenarios_zh": [
+        "生产、运输或库存中的连续资源分配。",
+        "课堂演示线性约束建模与影子价格概念。",
+        "作为更复杂整数、鲁棒或随机模型的松弛基线。",
+    ],
+    "limitations_zh": [
+        "不能直接表达整数决策、非线性目标或逻辑约束。",
+        "公开页面不承诺暴露底层求解器的全部调参选项。",
+    ],
+    "citation_source": "catalog_citation",
+}
+
+PROVENANCE_HIGHS_MILP: AlgorithmProvenance = {
+    "theory_zh": (
+        "混合整数线性优化在线性模型中加入离散变量，通常通过分支定界、割平面"
+        "和启发式搜索组合来证明可行解与界限。"
+    ),
+    "theory_en": (
+        "Mixed-integer linear optimization augments a linear model with discrete "
+        "variables, combining branch-and-bound, cutting planes, and heuristics "
+        "to manage feasible solutions and bounds."
+    ),
+    "configuration_parameters": [
+        {
+            "name": "变量语义",
+            "value_zh": "连续变量与离散决策可以共同建模",
+            "description_zh": "目录说明离散建模能力，具体变量声明仍由请求 schema 承载。",
+            "source": "request_schema",
+        },
+        {
+            "name": "搜索边界",
+            "value_zh": "求解时间受公共请求预算限制",
+            "description_zh": "长尾证明过程可能被预算截断，页面不展示内部节点策略。",
+            "source": "runtime_policy",
+        },
+        {
+            "name": "证明口径",
+            "value_zh": "返回状态需要与目标值和解向量一起解释",
+            "description_zh": "教学和评估场景应区分最优、可行、超时和失败状态。",
+            "source": "documentation",
+        },
+    ],
+    "applicable_scenarios_zh": [
+        "选址、排产、装箱和开关决策。",
+        "需要同时考虑连续资源与离散选择的企业优化。",
+        "从线性松弛推进到整数决策的教学案例。",
+    ],
+    "limitations_zh": [
+        "离散变量会显著增加搜索复杂度，最坏情况不可按线性模型估算。",
+        "公开详情页不提供底层分支策略、割平面族或启发式开关。",
+    ],
+    "citation_source": "catalog_citation",
+}
+
+PROVENANCE_OR_TOOLS_VRPTW: AlgorithmProvenance = {
+    "theory_zh": (
+        "带时间窗车辆路径问题在图上分配车辆访问客户，并同时满足容量、服务时间"
+        "和时间窗约束，通常依赖约束搜索和局部搜索组合。"
+    ),
+    "theory_en": (
+        "Vehicle routing with time windows assigns visits on a graph while "
+        "respecting capacity, service time, and time-window constraints, usually "
+        "with constraint search and local-search neighborhoods."
+    ),
+    "configuration_parameters": [
+        {
+            "name": "核心约束族",
+            "value_zh": "车辆容量、访问顺序、服务时间与时间窗",
+            "description_zh": "这些是建模概念说明，不表示页面可直接编辑所有原生维度。",
+            "source": "documentation",
+        },
+        {
+            "name": "输入形态",
+            "value_zh": "节点、距离或时间矩阵、需求和窗口数据",
+            "description_zh": "实际请求格式由具体模板或后续 API 能力决定。",
+            "source": "request_schema",
+        },
+        {
+            "name": "求解策略",
+            "value_zh": "约束搜索结合邻域改进",
+            "description_zh": "目录解释算法族，不开放底层局部搜索算子选择。",
+            "source": "documentation",
+        },
+    ],
+    "applicable_scenarios_zh": [
+        "配送线路规划、上门服务排程和校车路径。",
+        "需要尊重客户时间窗或服务时段的物流问题。",
+        "教学中展示路由约束、时间窗和启发式改进。",
+    ],
+    "limitations_zh": [
+        "大规模实例可能需要业务专用预处理和启发式调参。",
+        "当前详情页不代表已连接外部车队系统或实时地图服务。",
+    ],
+    "citation_source": "catalog_citation",
+}
+
+PROVENANCE_OR_TOOLS_CP_SAT: AlgorithmProvenance = {
+    "theory_zh": (
+        "约束规划把排班、分配和逻辑条件表达为变量域与约束传播问题，"
+        "并结合布尔可满足性搜索处理复杂组合结构。"
+    ),
+    "theory_en": (
+        "Constraint programming represents scheduling, assignment, and logical "
+        "conditions as variable domains with propagation, combined with Boolean "
+        "satisfiability search for combinatorial structure."
+    ),
+    "configuration_parameters": [
+        {
+            "name": "约束表达",
+            "value_zh": "变量域、互斥关系、时间区间和布尔逻辑",
+            "description_zh": "页面描述建模能力，不提供原生约束编辑器。",
+            "source": "documentation",
+        },
+        {
+            "name": "任务边界",
+            "value_zh": "适合离散排班和组合分配",
+            "description_zh": "连续非线性数值优化不属于该算法族的主要用途。",
+            "source": "catalog_field",
+        },
+        {
+            "name": "搜索策略",
+            "value_zh": "约束传播、冲突学习和分支搜索",
+            "description_zh": "公开目录只解释算法理论，不暴露内部搜索参数。",
+            "source": "documentation",
+        },
+    ],
+    "applicable_scenarios_zh": [
+        "员工排班、课程安排和机器作业调度。",
+        "带互斥、先后顺序或资源容量的组合问题。",
+        "教学中展示约束传播与可满足性搜索思想。",
+    ],
+    "limitations_zh": [
+        "不适合以连续光滑函数为核心的数值优化。",
+        "公开页面不保证展示所有原生约束类型或搜索日志。",
+    ],
+    "citation_source": "catalog_citation",
+}
+
+PROVENANCE_CHRONOS_T5: AlgorithmProvenance = {
+    "theory_zh": (
+        "时序基础模型把历史数值序列离散化为 token 序列，通过序列到序列模型学习跨领域预测模式。"
+    ),
+    "theory_en": (
+        "A time-series foundation model tokenizes historical numerical sequences "
+        "and learns cross-domain predictive patterns with a sequence-to-sequence "
+        "architecture."
+    ),
+    "configuration_parameters": [
+        {
+            "name": "历史窗口",
+            "value_zh": "输入序列长度由预测请求提供",
+            "description_zh": "目录不持久化用户数据，也不展示训练语料细节。",
+            "source": "request_schema",
+        },
+        {
+            "name": "预测步长",
+            "value_zh": "输出期数由请求中的 horizon 决定",
+            "description_zh": "较长预测期应结合回测和业务约束解释。",
+            "source": "request_schema",
+        },
+        {
+            "name": "模型使用方式",
+            "value_zh": "公开页面说明模型族和推理用途",
+            "description_zh": "不声明针对用户数据的在线训练或再训练。",
+            "source": "runtime_policy",
+        },
+    ],
+    "applicable_scenarios_zh": [
+        "销售、流量、能耗或供需曲线的短中期预测。",
+        "缺少专门建模团队时的基础预测起点。",
+        "教学中比较基础模型与经典统计模型的差异。",
+    ],
+    "limitations_zh": [
+        "预测结果仅供参考，需要结合漂移监控和业务校验。",
+        "公开详情页不表示用户数据进入模型训练集。",
+    ],
+    "citation_source": "catalog_citation",
+}
+
+PROVENANCE_ARIMA: AlgorithmProvenance = {
+    "theory_zh": (
+        "自回归积分滑动平均模型用差分处理非平稳序列，并用自回归项和滑动平均项刻画线性时间依赖。"
+    ),
+    "theory_en": (
+        "Autoregressive integrated moving-average modeling differences a "
+        "non-stationary series, then uses autoregressive and moving-average terms "
+        "to capture linear temporal dependence."
+    ),
+    "configuration_parameters": [
+        {
+            "name": "序列假设",
+            "value_zh": "主要面向单变量、近似线性的时间依赖",
+            "description_zh": "强季节性或结构突变需要额外建模判断。",
+            "source": "documentation",
+        },
+        {
+            "name": "历史数据",
+            "value_zh": "请求数据提供观测序列",
+            "description_zh": "平台不在 provenance 中保存或回显用户原始数据。",
+            "source": "request_schema",
+        },
+        {
+            "name": "输出口径",
+            "value_zh": "返回预测区间或分位数时需标注参考用途",
+            "description_zh": "预测免责声明仍由预测响应合同负责。",
+            "source": "runtime_policy",
+        },
+    ],
+    "applicable_scenarios_zh": [
+        "稳定业务指标的短期趋势外推。",
+        "作为复杂预测模型的可解释基线。",
+        "课堂讲解差分、残差和自相关诊断。",
+    ],
+    "limitations_zh": [
+        "难以捕捉强非线性、多变量交互或长程复杂模式。",
+        "参数阶数选择需要统计诊断，公开页面不自动证明最优阶数。",
+    ],
+    "citation_source": "catalog_citation",
+}
+
+PROVENANCE_LSTM: AlgorithmProvenance = {
+    "theory_zh": ("长短期记忆网络通过门控状态保留和遗忘序列信息，用于学习非线性和较长时间依赖。"),
+    "theory_en": (
+        "Long short-term memory networks use gated state updates to retain and "
+        "forget sequential information, learning nonlinear and longer-range "
+        "temporal dependencies."
+    ),
+    "configuration_parameters": [
+        {
+            "name": "序列建模",
+            "value_zh": "面向多步时间依赖和非线性模式",
+            "description_zh": "实际窗口、特征和训练策略由后续模型服务能力决定。",
+            "source": "documentation",
+        },
+        {
+            "name": "推理用途",
+            "value_zh": "公开目录说明算法族，不声明在线训练",
+            "description_zh": "用户请求不会因为浏览 provenance 而触发训练或数据存储。",
+            "source": "runtime_policy",
+        },
+        {
+            "name": "评估口径",
+            "value_zh": "需要结合回测、漂移和误差分析",
+            "description_zh": "页面不展示 benchmark 排名或生产 SLO 证明。",
+            "source": "documentation",
+        },
+    ],
+    "applicable_scenarios_zh": [
+        "存在非线性模式的流量、需求或传感器序列。",
+        "多变量特征对未来走势有影响的预测任务。",
+        "教学中展示门控循环网络和经典统计模型的对比。",
+    ],
+    "limitations_zh": [
+        "需要充足数据和验证流程，不能仅凭模型族保证精度。",
+        "公开详情页不提供训练超参数、权重文件或实时再训练能力。",
+    ],
+    "citation_source": "catalog_citation",
+}
+
+PROVENANCE_AQGS_ACOPF: AlgorithmProvenance = {
+    "theory_zh": (
+        "交流最优潮流把电网潮流方程、发电约束和运行目标组合为非线性约束优化，"
+        "自研方法尝试用增强商梯度系统改进求解路径。"
+    ),
+    "theory_en": (
+        "AC optimal power-flow combines network equations, generation constraints, "
+        "and operating objectives into a nonlinear constrained optimization problem; "
+        "the in-house method explores augmented quotient-gradient dynamics."
+    ),
+    "configuration_parameters": [
+        {
+            "name": "电网模型",
+            "value_zh": "节点、支路、发电机和运行边界",
+            "description_zh": "当前公开发布仍受自研审核门槛约束。",
+            "source": "documentation",
+        },
+        {
+            "name": "非线性结构",
+            "value_zh": "潮流方程和运行目标共同决定可行域",
+            "description_zh": "页面只记录理论来源，不开放生产求解入口。",
+            "source": "catalog_field",
+        },
+        {
+            "name": "审核状态",
+            "value_zh": "需要通过包可运行、许可、示例、文档和复现实验检查",
+            "description_zh": "未完成审核前不会出现在公开 API 或公开详情页。",
+            "source": "runtime_policy",
+        },
+    ],
+    "applicable_scenarios_zh": [
+        "电网运行和潮流约束研究。",
+        "非线性优化方法的内部验证和论文复现实验。",
+        "自研算法审核流程中的证据归档。",
+    ],
+    "limitations_zh": [
+        "该条目未通过公开发布审核，不应作为可用生产 SKU 展示。",
+        "provenance 存在于内部 catalog，不代表 API 路由已开放。",
+    ],
+    "citation_source": "catalog_citation",
+}
+
+
 CATALOG: list[Algorithm] = [
     {
         "k_algo": "highs-lp",
@@ -189,6 +551,7 @@ CATALOG: list[Algorithm] = [
             "url": "https://doi.org/10.1007/s12532-017-0130-5",
         },
         "ip_attribution": ATTR_HIGHS,
+        "provenance": PROVENANCE_HIGHS_LP,
     },
     {
         "k_algo": "highs-milp",
@@ -225,6 +588,7 @@ CATALOG: list[Algorithm] = [
             "url": "https://doi.org/10.1007/s12532-017-0130-5",
         },
         "ip_attribution": ATTR_HIGHS,
+        "provenance": PROVENANCE_HIGHS_MILP,
     },
     {
         "k_algo": "or-tools-vrptw",
@@ -259,6 +623,7 @@ CATALOG: list[Algorithm] = [
             "url": "https://developers.google.com/optimization",
         },
         "ip_attribution": ATTR_OR_TOOLS,
+        "provenance": PROVENANCE_OR_TOOLS_VRPTW,
     },
     {
         "k_algo": "or-tools-cp-sat",
@@ -295,6 +660,7 @@ CATALOG: list[Algorithm] = [
             "url": "https://doi.org/10.1007/978-3-642-23786-7_2",
         },
         "ip_attribution": ATTR_OR_TOOLS,
+        "provenance": PROVENANCE_OR_TOOLS_CP_SAT,
     },
     {
         "k_algo": "chronos-t5-forecast",
@@ -333,6 +699,7 @@ CATALOG: list[Algorithm] = [
             "url": "https://doi.org/10.48550/arXiv.2403.07815",
         },
         "ip_attribution": ATTR_CHRONOS,
+        "provenance": PROVENANCE_CHRONOS_T5,
     },
     {
         "k_algo": "arima-forecast",
@@ -367,6 +734,7 @@ CATALOG: list[Algorithm] = [
             "url": None,
         },
         "ip_attribution": ATTR_ARIMA,
+        "provenance": PROVENANCE_ARIMA,
     },
     {
         "k_algo": "lstm-forecast",
@@ -403,6 +771,7 @@ CATALOG: list[Algorithm] = [
             "url": "https://doi.org/10.1162/neco.1997.9.8.1735",
         },
         "ip_attribution": ATTR_LSTM,
+        "provenance": PROVENANCE_LSTM,
     },
     {
         "k_algo": "aqgs-acopf",
@@ -444,6 +813,7 @@ CATALOG: list[Algorithm] = [
             "url": "https://github.com/opticloud/aqgs",
         },
         "ip_attribution": ATTR_AQGS,
+        "provenance": PROVENANCE_AQGS_ACOPF,
     },
 ]
 

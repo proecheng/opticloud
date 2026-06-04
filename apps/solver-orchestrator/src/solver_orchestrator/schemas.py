@@ -42,6 +42,26 @@ class IPAttributionSchema(BaseModel):
     contract_anchor: str
 
 
+class AlgorithmProvenanceParameterSchema(BaseModel):
+    """Story 8.C.8 — catalog-facing provenance parameter."""
+
+    name: str
+    value_zh: str
+    description_zh: str
+    source: Literal["catalog_field", "request_schema", "runtime_policy", "documentation"]
+
+
+class AlgorithmProvenanceSchema(BaseModel):
+    """Story 8.C.8 — algorithm provenance detail metadata."""
+
+    theory_zh: str
+    theory_en: str
+    configuration_parameters: list[AlgorithmProvenanceParameterSchema]
+    applicable_scenarios_zh: list[str]
+    limitations_zh: list[str]
+    citation_source: Literal["catalog_citation"]
+
+
 class ReproducibilitySchema(BaseModel):
     """Story 6.B.1 — opt-in reproducibility handoff for voucher minting."""
 
@@ -66,6 +86,7 @@ class AlgorithmSchema(BaseModel):
     supported_solvers: list[str]  # Story 2.4 — FR C4
     citation: CitationSchema | None = None  # Story 6.A.1 — FR R5
     ip_attribution: IPAttributionSchema  # Story 6.A.5 — L1/L2/L3 IP attribution
+    provenance: AlgorithmProvenanceSchema | None = None  # Story 8.C.8
 
 
 class BenchmarkDiscountSchema(BaseModel):
