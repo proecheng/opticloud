@@ -3,7 +3,7 @@ story_key: 9-3-nfr-cost-alerts
 epic_num: 9
 story_num: 3
 epic_name: NFR Governance
-status: code-review
+status: done
 baseline_commit: ac51f2509932c84c8c821935154ad1902a798d10
 priority: High
 type: NFR-COST red-line alert governance
@@ -25,7 +25,7 @@ sources:
 
 # Story 9.3 - NFR-COST Red-Line Alert Governance
 
-Status: code-review
+Status: done
 
 ## Story
 
@@ -142,8 +142,8 @@ Epic 9.3 原始 AC：Given Story M2.3 G3 完整版 / When 任一红线 breach / 
 - [x] T5: Gates, review, and GitHub sync (AC: 29-32)
   - [x] Run local validation gates.
   - [x] Run post-implementation code review and fix/document findings.
-  - [ ] Commit, push, create PR, wait for CI, merge, delete remote branch, and sync local `main`.
-  - [ ] Mark story and sprint status `done` only after merge/sync through a separate status-sync commit.
+  - [x] Commit, push, create PR, wait for CI, merge, delete remote branch, and sync local `main`.
+  - [x] Mark story and sprint status `done` only after merge/sync through a separate status-sync commit.
 
 ## Dev Notes
 
@@ -245,6 +245,7 @@ GPT-5 Codex
 - 2026-06-04 - Implemented NFR-COST alert contract/schema/example, stdlib validator, runbook, tests, and CI `nfr-cost-alerts-validation` hard gate.
 - 2026-06-04 - Focused gates passed: `uv run python scripts/validate_nfr_cost_alerts.py`, `uv run pytest tests/test_nfr_cost_alerts.py -q` (15 passed), and `git diff --check`.
 - 2026-06-04 - Post-implementation code review completed; fixed Story 9.2 handoff filter gap by adding Prometheus validator/tests/reports to `nfr_cost_alerts` CI triggers and validator coverage, then reran all local gates successfully.
+- 2026-06-04 - GitHub sync completed: PR #172 passed CI, squash-merged to `main` at `ec3d4d2`, remote branch `codex/9-3-nfr-cost-alerts` was deleted, and local `main` was synced to `origin/main`.
 
 ### Completion Notes List
 
@@ -254,6 +255,7 @@ GPT-5 Codex
 - Static contract/schema/example, validator, tests, runbook, and CI hard gate implemented.
 - Local validation gates passed before post-implementation review.
 - Post-implementation code review completed; CI handoff filter gap fixed and gates rerun.
+- GitHub sync completed: PR #172 passed CI, squash-merged to `main`, remote branch deleted, local `main` synced, and this separate status-sync commit marks Story 9.3 done.
 
 ### File List
 
@@ -276,6 +278,7 @@ GPT-5 Codex
 - 2026-06-04 - Story status moved to in-progress after exactly three pre-implementation review rounds.
 - 2026-06-04 - Implemented NFR-COST alert contract, evidence schema/example, validator, tests, runbook, and CI hard gate.
 - 2026-06-04 - Post-implementation code review fixed Story 9.2 handoff CI filter coverage; story moved to `code-review` pending GitHub sync.
+- 2026-06-04 - PR #172 passed CI, merged to `main`, remote branch deleted, local `main` synced, and story moved to `done` through a separate status-sync commit.
 
 ## Post-Implementation Code Review
 
