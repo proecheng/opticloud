@@ -1,0 +1,94 @@
+{
+  "audit_version": "quarterly_a11y_audit_v1",
+  "source_story": "9.1",
+  "nfr": "NFR-A",
+  "wcag_scope": "WCAG 2.1 AA",
+  "wcag_2_2_upgrade_story": "9.5",
+  "automated_gate": {
+    "package": "@opticloud/ui",
+    "command": "pnpm --filter @opticloud/ui test:a11y",
+    "test_script": "test:a11y",
+    "runner": "vitest",
+    "expected_violations": 0
+  },
+  "evidence": {
+    "report_directory": "reports/a11y-quarterly",
+    "manifest_filename": "audit_manifest.json",
+    "schema_path": "tools/a11y_audit/quarterly_a11y_manifest.schema.json",
+    "example_manifest_path": "tools/a11y_audit/quarterly_a11y_manifest.example.json"
+  },
+  "a11y_profiles": [
+    {
+      "profile_id": "screen_reader",
+      "label": "Screen reader"
+    },
+    {
+      "profile_id": "keyboard_only",
+      "label": "Keyboard-only"
+    },
+    {
+      "profile_id": "high_contrast",
+      "label": "High contrast"
+    },
+    {
+      "profile_id": "low_vision",
+      "label": "Low vision"
+    },
+    {
+      "profile_id": "motor",
+      "label": "Motor"
+    },
+    {
+      "profile_id": "cognitive",
+      "label": "Cognitive"
+    }
+  ],
+  "sub_personas": [
+    {
+      "persona_id": "li_gong_curl",
+      "label": "Li Gong cURL",
+      "channel": "logistics engineering group"
+    },
+    {
+      "persona_id": "lina_csv",
+      "label": "Lina CSV",
+      "channel": "data analyst community"
+    },
+    {
+      "persona_id": "lao_zhang_excel",
+      "label": "Lao Zhang Excel",
+      "channel": "manufacturing engineering LinkedIn"
+    },
+    {
+      "persona_id": "chen_architect_sdk",
+      "label": "Chen Architect SDK",
+      "channel": "SaaS architect community"
+    }
+  ],
+  "panel_sop": {
+    "cadence": "quarterly",
+    "recruitment_lead_weeks": 6,
+    "participants_per_sub_persona_target": 5,
+    "backup_pool_multiplier": 3,
+    "compensation_policy": "placeholder; finance and legal approval required before execution",
+    "finance_legal_approval_required": true,
+    "disabled_user_panel_completion_claim": false
+  },
+  "boundaries": {
+    "real_quarterly_audit_completed": false,
+    "real_panel_completed": false,
+    "third_party_audit_completed": false,
+    "wcag_2_2_in_scope": false,
+    "disabled_user_panel_completion_claim": false
+  },
+  "disallowed_static_completion_claims": [
+    "real_audit_passed",
+    "real_quarterly_audit_completed",
+    "real_panel_completed",
+    "release_approved",
+    "production_release_approved",
+    "external_ticket_created",
+    "third_party_audit_completed",
+    "recruitment_completed"
+  ]
+}

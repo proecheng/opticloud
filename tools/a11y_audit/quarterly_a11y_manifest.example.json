@@ -1,0 +1,64 @@
+{
+  "source_story": "9.1",
+  "audit_version": "quarterly_a11y_audit_v1",
+  "run_id": "example-a11y-quarterly-20260604",
+  "example_only": true,
+  "generated_by": "Story 9.1 static example; not real quarterly accessibility evidence",
+  "commit_sha": "0000000",
+  "quarter": "2026-Q2",
+  "period": {
+    "start_date": "2026-04-01",
+    "end_date": "2026-06-30"
+  },
+  "automated_axe": {
+    "package": "@opticloud/ui",
+    "command": "pnpm --filter @opticloud/ui test:a11y",
+    "executed": false,
+    "status": "not_run_example",
+    "violation_count": null,
+    "test_files": [
+      "src/components/Tier1.a11y.test.tsx",
+      "src/components/RFC7807ErrorPanel/index.a11y.test.tsx",
+      "src/components/VoucherCard/index.a11y.test.tsx",
+      "src/components/ChatInterface/index.a11y.test.tsx",
+      "src/components/InvoiceCard/index.a11y.test.tsx",
+      "src/components/BudgetAlertCard/index.a11y.test.tsx",
+      "src/components/AuditLogTable/index.a11y.test.tsx",
+      "src/components/CapabilityCard/index.a11y.test.tsx"
+    ],
+    "finding_ids": []
+  },
+  "manual_sampling": {
+    "matrix": [
+      { "profile_id": "screen_reader", "persona_id": "li_gong_curl", "status": "not_run_example", "finding_ids": [], "notes": "Static example only." },
+      { "profile_id": "screen_reader", "persona_id": "lina_csv", "status": "not_run_example", "finding_ids": [], "notes": "Static example only." },
+      { "profile_id": "screen_reader", "persona_id": "lao_zhang_excel", "status": "not_run_example", "finding_ids": [], "notes": "Static example only." },
+      { "profile_id": "screen_reader", "persona_id": "chen_architect_sdk", "status": "not_run_example", "finding_ids": [], "notes": "Static example only." },
+      { "profile_id": "keyboard_only", "persona_id": "li_gong_curl", "status": "not_run_example", "finding_ids": [], "notes": "Static example only." },
+      { "profile_id": "keyboard_only", "persona_id": "lina_csv", "status": "not_run_example", "finding_ids": [], "notes": "Static example only." },
+      { "profile_id": "keyboard_only", "persona_id": "lao_zhang_excel", "status": "not_run_example", "finding_ids": [], "notes": "Static example only." },
+      { "profile_id": "keyboard_only", "persona_id": "chen_architect_sdk", "status": "not_run_example", "finding_ids": [], "notes": "Static example only." },
+      { "profile_id": "high_contrast", "persona_id": "li_gong_curl", "status": "not_run_example", "finding_ids": [], "notes": "Static example only." },
+      { "profile_id": "high_contrast", "persona_id": "lina_csv", "status": "not_run_example", "finding_ids": [], "notes": "Static example only." },
+      { "profile_id": "high_contrast", "persona_id": "lao_zhang_excel", "status": "not_run_example", "finding_ids": [], "notes": "Static example only." },
+      { "profile_id": "high_contrast", "persona_id": "chen_architect_sdk", "status": "not_run_example", "finding_ids": [], "notes": "Static example only." },
+      { "profile_id": "low_vision", "persona_id": "li_gong_curl", "status": "not_run_example", "finding_ids": [], "notes": "Static example only." },
+      { "profile_id": "low_vision", "persona_id": "lina_csv", "status": "not_run_example", "finding_ids": [], "notes": "Static example only." },
+      { "profile_id": "low_vision", "persona_id": "lao_zhang_excel", "status": "not_run_example", "finding_ids": [], "notes": "Static example only." },
+      { "profile_id": "low_vision", "persona_id": "chen_architect_sdk", "status": "not_run_example", "finding_ids": [], "notes": "Static example only." },
+      { "profile_id": "motor", "persona_id": "li_gong_curl", "status": "not_run_example", "finding_ids": [], "notes": "Static example only." },
+      { "profile_id": "motor", "persona_id": "lina_csv", "status": "not_run_example", "finding_ids": [], "notes": "Static example only." },
+      { "profile_id": "motor", "persona_id": "lao_zhang_excel", "status": "not_run_example", "finding_ids": [], "notes": "Static example only." },
+      { "profile_id": "motor", "persona_id": "chen_architect_sdk", "status": "not_run_example", "finding_ids": [], "notes": "Static example only." },
+      { "profile_id": "cognitive", "persona_id": "li_gong_curl", "status": "not_run_example", "finding_ids": [], "notes": "Static example only." },
+      { "profile_id": "cognitive", "persona_id": "lina_csv", "status": "not_run_example", "finding_ids": [], "notes": "Static example only." },
+      { "profile_id": "cognitive", "persona_id": "lao_zhang_excel", "status": "not_run_example", "finding_ids": [], "notes": "Static example only." },
+      { "profile_id": "cognitive", "persona_id": "chen_architect_sdk", "status": "not_run_example", "finding_ids": [], "notes": "Static example only." }
+    ]
+  },
+  "findings": [],
+  "redaction_reviewed": false,
+  "release_approved": false,
+  "real_panel_completed": false,
+  "third_party_audit_completed": false
+}
