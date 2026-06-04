@@ -3,7 +3,7 @@ story_key: 9-2-prometheus-metric-audit
 epic_num: 9
 story_num: 2
 epic_name: NFR Governance
-status: code-review
+status: done
 baseline_commit: 3eb894b36e67a8b0c2ce5dae265aae943ad0149f
 priority: High
 type: NFR-O Prometheus business metric audit governance
@@ -27,7 +27,7 @@ sources:
 
 # Story 9.2 - Prometheus Business Metric Completeness Audit
 
-Status: code-review
+Status: done
 
 ## Story
 
@@ -146,11 +146,11 @@ Epic 9.2 原始 AC 要求：Given NFR-O1 业务埋点 / When quarterly / Then Gr
   - [x] Ensure relevant observability source files trigger the audit validator.
   - [x] Confirm no new dependencies or out-of-scope implementation files are modified.
 
-- [ ] T5: Gates, review, and GitHub sync (AC: 28-31)
+- [x] T5: Gates, review, and GitHub sync (AC: 28-31)
   - [x] Run local validation gates.
   - [x] Run post-implementation code review and fix/document findings.
-  - [ ] Commit, push, create PR, wait for CI, merge, delete remote branch, and sync local `main`.
-  - [ ] Mark story and sprint status `done` only after merge/sync through a separate status-sync commit.
+  - [x] Commit, push, create PR, wait for CI, merge, delete remote branch, and sync local `main`.
+  - [x] Mark story and sprint status `done` only after merge/sync through a separate status-sync commit.
 
 ## Dev Notes
 
@@ -257,6 +257,8 @@ GPT-5 Codex
 - 2026-06-04 - Implemented static Prometheus metric audit contract/schema/example, stdlib validator, runbook, tests, and CI `prometheus-metric-audit-validation` hard gate.
 - 2026-06-04 - Local gates passed: `uv run python scripts/validate_prometheus_metric_audit.py`, `uv run pytest tests/test_prometheus_metric_audit.py -q` (17 passed), and `git diff --check`.
 - 2026-06-04 - Post-implementation code review completed; fixed real-evidence planned/not-applicable bypass and broad Prometheus source drift detection, then reran all local gates successfully.
+- 2026-06-04 - PR #171 passed GitHub CI, squash-merged to `main` at `6165ead`, remote branch was deleted, and local `main` synced.
+- 2026-06-04 - Separate status-sync step marked story and sprint status `done`.
 
 ### Completion Notes List
 
@@ -265,6 +267,7 @@ GPT-5 Codex
 - Story moved to in-progress after exactly three pre-implementation review rounds.
 - Static contract/schema/example, validator, tests, runbook, and CI hard gate implemented.
 - Post-implementation code review completed; findings fixed and gates rerun.
+- PR #171 passed GitHub CI, merged to `main`, remote branch deleted, local `main` synced, and this separate status-sync marks the story done.
 
 ### File List
 
@@ -301,9 +304,9 @@ Findings:
 - No remaining issue found against AC 1-25: static assets, validator, tests, runbook, and CI job are present and locally validated.
 - No remaining issue found against AC 26-27: no dependencies or out-of-scope implementation files changed.
 - AC 28-29 closed locally: validation gates pass and post-implementation review findings are fixed.
-- AC 30-31 remain pending GitHub sync and post-merge status-sync commit, as required.
+- AC 30-31 closed: PR #171 passed GitHub CI, was squash-merged to `main`, remote branch was deleted, local `main` was synced, and this separate status-sync marks the story `done`.
 
-Outcome: PASS after fixes; awaiting GitHub sync.
+Outcome: PASS after fixes.
 
 ## Change Log
 
@@ -315,3 +318,4 @@ Outcome: PASS after fixes; awaiting GitHub sync.
 - 2026-06-04 - Corrected AC3 count from nine to ten metric ids and aligned `request_count` naming with NFR-O1 before implementation.
 - 2026-06-04 - Implemented Prometheus metric audit contract, evidence schema/example, validator, tests, runbook, and CI hard gate.
 - 2026-06-04 - Post-implementation code review fixed real-evidence coverage bypass and broad Prometheus source drift detection; story moved to `code-review` pending GitHub sync.
+- 2026-06-04 - PR #171 passed CI, merged to main, remote branch deleted, local main synced; story moved to `done`.
