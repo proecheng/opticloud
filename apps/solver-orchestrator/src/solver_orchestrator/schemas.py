@@ -68,6 +68,47 @@ class AlgorithmSchema(BaseModel):
     ip_attribution: IPAttributionSchema  # Story 6.A.5 — L1/L2/L3 IP attribution
 
 
+class BenchmarkDiscountSchema(BaseModel):
+    """Story 8.C.4 — benchmark library discount metadata."""
+
+    kind: Literal["benchmark_library"]
+    label_zh: str
+    discount_multiplier: float
+    billing_supported: bool
+
+
+class BenchmarkLibraryItemSchema(BaseModel):
+    """Story 8.C.4 — public classic benchmark library entry."""
+
+    benchmark_id: str
+    suite: Literal["ieee", "cvrplib", "or-lib", "m5", "uci", "nab"]
+    domain: str
+    task_type: str
+    title_zh: str
+    title_en: str
+    source_name: str
+    source_url: str
+    license_note_zh: str
+    import_kind: Literal["optimization_request", "prediction_request"]
+    target_endpoint: Literal["/v1/optimizations", "/v1/predictions"]
+    discount: BenchmarkDiscountSchema
+    dataset_ref: str
+    sample_payload: dict[str, Any]
+
+
+class BenchmarkImportResponseSchema(BaseModel):
+    """Story 8.C.4 — side-effect-free one-click import payload."""
+
+    benchmark_id: str
+    import_kind: Literal["optimization_request", "prediction_request"]
+    target_endpoint: Literal["/v1/optimizations", "/v1/predictions"]
+    request_payload: dict[str, Any]
+    discount: BenchmarkDiscountSchema
+    dataset_ref: str
+    disclaimer_zh: str
+    disclaimer_en: str
+
+
 # ===== Story 3.1: POST /v1/optimizations =====
 
 
@@ -95,6 +136,14 @@ class OptimizationOptions(BaseModel):
     reproducible: bool = Field(default=False, description="FR R1 lock version/seed")
     anonymous: bool = Field(default=False, description="FR R6 anonymous blind-review voucher")
     backtest: bool = Field(default=False, description="FR E10 backtest billing discount")
+    benchmark_library: bool = Field(
+        default=False,
+        description="FR O11 benchmark library billing discount eligibility",
+    )
+    benchmark_id: str | None = Field(
+        default=None,
+        description="FR O11 stable benchmark library id when benchmark_library=true",
+    )
 
 
 class OptimizationRequest(BaseModel):

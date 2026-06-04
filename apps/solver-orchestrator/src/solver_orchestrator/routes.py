@@ -25,6 +25,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from solver_orchestrator import billing_client, rate_limit, solvers
 from solver_orchestrator.auth import require_scope, verify_api_key
+from solver_orchestrator.benchmark_library import (
+    BENCHMARK_LIBRARY_DISCOUNT_KIND,
+    BENCHMARK_LIBRARY_DISCOUNT_MULTIPLIER,
+    build_import_response,
+    find_benchmark_library_item,
+    list_benchmark_library,
+)
 from solver_orchestrator.catalog import (
     CATALOG,
     Citation,
@@ -82,6 +89,8 @@ from solver_orchestrator.repro import (
 )
 from solver_orchestrator.schemas import (
     AlgorithmSchema,
+    BenchmarkImportResponseSchema,
+    BenchmarkLibraryItemSchema,
     CitationSchema,
     IPAttributionSchema,
     JobTemplateCreateRequest,
@@ -181,6 +190,61 @@ async def list_algorithms(
         if wanted:
             items = [a for a in items if a["tier"] in wanted]
     return [AlgorithmSchema.model_validate(a) for a in items]
+
+
+# ===== Story 8.C.4: Classic benchmark library (FR O11, no auth) =====
+
+
+@router.get(
+    "/benchmark-library",
+    response_model=list[BenchmarkLibraryItemSchema],
+    tags=["catalog"],
+    summary="列出经典算例库模板（公开免鉴权 FR O11）",
+    description=(
+        "FR O11: 公开浏览 IEEE/CVRPLIB/OR-Lib/M5/UCI/NAB 经典算例模板。\n\n"
+        "Optional filters (combinable): suite, domain, task_type. Unknown filter "
+        "values return an empty list."
+    ),
+)
+async def list_benchmark_library_entries(
+    suite: str | None = None,
+    domain: str | None = None,
+    task_type: str | None = None,
+) -> list[BenchmarkLibraryItemSchema]:
+    items = list_benchmark_library(suite=suite, domain=domain, task_type=task_type)
+    return [BenchmarkLibraryItemSchema.model_validate(item) for item in items]
+
+
+@router.get(
+    "/benchmark-library/{benchmark_id}",
+    response_model=BenchmarkLibraryItemSchema,
+    tags=["catalog"],
+    summary="经典算例库详情 (FR O11)",
+)
+async def get_benchmark_library_entry(benchmark_id: str) -> BenchmarkLibraryItemSchema:
+    item = find_benchmark_library_item(benchmark_id)
+    if item is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"unknown benchmark_id: {benchmark_id}",
+        )
+    return BenchmarkLibraryItemSchema.model_validate(item)
+
+
+@router.post(
+    "/benchmark-library/{benchmark_id}/import",
+    response_model=BenchmarkImportResponseSchema,
+    tags=["catalog"],
+    summary="生成经典算例库 import payload (FR O11)",
+)
+async def import_benchmark_library_entry(benchmark_id: str) -> BenchmarkImportResponseSchema:
+    imported = build_import_response(benchmark_id)
+    if imported is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"unknown benchmark_id: {benchmark_id}",
+        )
+    return BenchmarkImportResponseSchema.model_validate(imported)
 
 
 @router.get(
@@ -628,7 +692,97 @@ def _optimization_billing_discount_metadata(
             "discount_kind": TEACHING_DISCOUNT_KIND,
             "discount_multiplier": TEACHING_DISCOUNT_MULTIPLIER,
         }
+    if payload.options.benchmark_library:
+        return {
+            "discount_kind": BENCHMARK_LIBRARY_DISCOUNT_KIND,
+            "discount_multiplier": BENCHMARK_LIBRARY_DISCOUNT_MULTIPLIER,
+        }
     return _backtest_billing_discount_metadata(payload)
+
+
+def _invalid_benchmark_library_option_response(
+    *,
+    detail: str,
+    field_path: str,
+    value: Any,
+    constraint: str,
+    request_id: str | None = None,
+) -> JSONResponse:
+    return _rfc7807_error(
+        title="Invalid Benchmark Library Option",
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail=detail,
+        errors=[
+            ErrorDetail(
+                field_path=field_path,
+                value=value,
+                constraint=constraint,
+                remediation_hint_key="errors.400.invalid_benchmark_library_option",
+            )
+        ],
+        next_action="https://api.opticloud.cn/v1/benchmark-library",
+        request_id=request_id,
+    )
+
+
+def _validate_benchmark_library_options(
+    payload: OptimizationRequest,
+    *,
+    request_id: str | None,
+) -> JSONResponse | None:
+    benchmark_id = payload.options.benchmark_id
+    if not payload.options.benchmark_library:
+        if benchmark_id is not None:
+            return _invalid_benchmark_library_option_response(
+                detail="options.benchmark_id requires options.benchmark_library=true",
+                field_path="options.benchmark_id",
+                value=benchmark_id,
+                constraint="must be omitted unless benchmark_library is true",
+                request_id=request_id,
+            )
+        return None
+
+    if benchmark_id is None or not benchmark_id.strip():
+        return _invalid_benchmark_library_option_response(
+            detail="options.benchmark_library=true requires a non-empty options.benchmark_id",
+            field_path="options.benchmark_id",
+            value=benchmark_id,
+            constraint="must reference a published optimization benchmark library entry",
+            request_id=request_id,
+        )
+
+    entry = find_benchmark_library_item(benchmark_id)
+    if entry is None:
+        return _invalid_benchmark_library_option_response(
+            detail=f"unknown benchmark library id: {benchmark_id}",
+            field_path="options.benchmark_id",
+            value=benchmark_id,
+            constraint="must reference a published benchmark library entry",
+            request_id=request_id,
+        )
+    if (
+        entry["import_kind"] != "optimization_request"
+        or entry["target_endpoint"] != "/v1/optimizations"
+    ):
+        return _invalid_benchmark_library_option_response(
+            detail=f"benchmark library id '{benchmark_id}' is not eligible for optimization billing",
+            field_path="options.benchmark_id",
+            value=benchmark_id,
+            constraint="must be an optimization_request entry targeting /v1/optimizations",
+            request_id=request_id,
+        )
+    if entry["task_type"] != payload.task_type:
+        return _invalid_benchmark_library_option_response(
+            detail=(
+                f"benchmark library id '{benchmark_id}' has task_type "
+                f"'{entry['task_type']}', not '{payload.task_type}'"
+            ),
+            field_path="options.benchmark_id",
+            value=benchmark_id,
+            constraint=f"must match request task_type '{payload.task_type}'",
+            request_id=request_id,
+        )
+    return None
 
 
 def _teaching_metadata(
@@ -2659,6 +2813,10 @@ async def post_optimization(
 
     assert route.algorithm is not None
     assert route.selected_solver is not None
+
+    benchmark_error = _validate_benchmark_library_options(payload, request_id=request_id)
+    if benchmark_error is not None:
+        return benchmark_error
 
     # ----- Story 2.5 — FR C5 fallback_chain per-element validation -----
     # Chain is stored in input_payload (via model_dump) only; actual fallback

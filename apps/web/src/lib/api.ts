@@ -303,6 +303,85 @@ export async function getAlgorithm(kAlgo: string): Promise<Algorithm> {
   );
 }
 
+// ===== Benchmark Library (Story 8.C.4 — public, no auth) =====
+
+export type BenchmarkSuite = "ieee" | "cvrplib" | "or-lib" | "m5" | "uci" | "nab";
+export type BenchmarkImportKind = "optimization_request" | "prediction_request";
+export type BenchmarkTargetEndpoint = "/v1/optimizations" | "/v1/predictions";
+
+export interface BenchmarkDiscount {
+  kind: "benchmark_library";
+  label_zh: "50% Credits 折扣";
+  discount_multiplier: 0.5;
+  billing_supported: boolean;
+}
+
+export interface BenchmarkLibraryItem {
+  benchmark_id: string;
+  suite: BenchmarkSuite;
+  domain: string;
+  task_type: string;
+  title_zh: string;
+  title_en: string;
+  source_name: string;
+  source_url: string;
+  license_note_zh: string;
+  import_kind: BenchmarkImportKind;
+  target_endpoint: BenchmarkTargetEndpoint;
+  discount: BenchmarkDiscount;
+  dataset_ref: string;
+  sample_payload: Record<string, unknown>;
+}
+
+export interface BenchmarkImportResponse {
+  benchmark_id: string;
+  import_kind: BenchmarkImportKind;
+  target_endpoint: BenchmarkTargetEndpoint;
+  request_payload: Record<string, unknown>;
+  discount: BenchmarkDiscount;
+  dataset_ref: string;
+  disclaimer_zh: string;
+  disclaimer_en: string;
+}
+
+export interface ListBenchmarkLibraryOptions {
+  suite?: string;
+  domain?: string;
+  taskType?: string;
+}
+
+export async function listBenchmarkLibrary(
+  options: ListBenchmarkLibraryOptions = {},
+): Promise<BenchmarkLibraryItem[]> {
+  const params = new URLSearchParams();
+  if (options.suite) params.set("suite", options.suite);
+  if (options.domain) params.set("domain", options.domain);
+  if (options.taskType) params.set("task_type", options.taskType);
+  const qs = params.toString();
+  const path = qs ? `/v1/benchmark-library?${qs}` : "/v1/benchmark-library";
+  return request<BenchmarkLibraryItem[]>(path, {}, SOLVER_SERVICE_URL);
+}
+
+export async function getBenchmarkLibraryItem(
+  benchmarkId: string,
+): Promise<BenchmarkLibraryItem> {
+  return request<BenchmarkLibraryItem>(
+    `/v1/benchmark-library/${encodeURIComponent(benchmarkId)}`,
+    {},
+    SOLVER_SERVICE_URL,
+  );
+}
+
+export async function importBenchmarkLibraryItem(
+  benchmarkId: string,
+): Promise<BenchmarkImportResponse> {
+  return request<BenchmarkImportResponse>(
+    `/v1/benchmark-library/${encodeURIComponent(benchmarkId)}/import`,
+    { method: "POST" },
+    SOLVER_SERVICE_URL,
+  );
+}
+
 // ===== Optimizations (Story 3.1) =====
 
 export interface LPRequest {
@@ -315,6 +394,8 @@ export interface LPRequest {
     reproducible?: boolean;
     anonymous?: boolean;
     backtest?: boolean;
+    benchmark_library?: boolean;
+    benchmark_id?: string | null;
   };
   /** Story 2.4 — FR C4 explicit solver enum. */
   solver?: string;
