@@ -3,7 +3,7 @@ story_key: 8-c-4-algorithm-library-browse
 epic_num: 8
 story_num: C.4
 epic_name: Teaching + Provider Routing + Legal + Algorithm Library
-status: in-progress
+status: done
 baseline_commit: 50c5e6e8642449e29afde00733d6664f1f297f9b
 priority: High
 type: FR O11 benchmark library browse
@@ -29,7 +29,7 @@ sources:
 
 # Story 8.C.4 - 经典算例库浏览
 
-Status: in-progress
+Status: done
 
 ## Story
 
@@ -172,11 +172,11 @@ Epic 8.C.4 的原始 AC 是：Given IEEE/CVRPLIB/OR-Lib/M5/UCI/NAB / When 浏览
   - [x] Add discoverability link from `/algorithms`.
   - [x] Add page tests for rendering, filter calls, import payload display, no auto-submit and no storage writes.
 
-- [ ] T5: Review, gates and GitHub sync (AC: 47-49)
+- [x] T5: Review, gates and GitHub sync (AC: 47-49)
   - [x] Run local quality gates and fix failures.
   - [x] Run post-implementation code review and fix/document findings.
-  - [ ] Commit, push, create PR, wait for CI, merge, delete remote branch, sync local `main`.
-  - [ ] Mark story/sprint status `done` only after merge/sync via separate status-sync commit.
+  - [x] Commit, push, create PR, wait for CI, merge, delete remote branch, sync local `main`.
+  - [x] Mark story/sprint status `done` only after merge/sync via separate status-sync commit.
 
 ## Dev Notes
 
@@ -276,6 +276,7 @@ GPT-5 Codex
 - 2026-06-04 - Implemented web benchmark-library API helpers, `/algorithms/benchmarks` static public page, and `/algorithms` discoverability link.
 - 2026-06-04 - Local gates passed: solver targeted pytest, web targeted Vitest, web typecheck, solver ruff check/format, solver mypy for touched source files, and `git diff --check`.
 - 2026-06-04 - Post-implementation code review found missing explicit coverage for missing/unknown/task-type-mismatched benchmark ids; added tests and verified they pass.
+- 2026-06-04 - PR #164 CI passed, merged to main, remote branch deletion verified, and local main synced at `73d9eff`.
 
 ### Completion Notes List
 
@@ -288,7 +289,7 @@ GPT-5 Codex
 - Backend benchmark-library API, import payload generation and optimization billing discount path implemented.
 - Web benchmark-library API client and public `/algorithms/benchmarks` page implemented.
 - Post-implementation code review completed; the only patch finding was missing explicit invalid benchmark-id boundary coverage, fixed in tests.
-- Story remains in-progress until GitHub CI, PR merge, remote branch deletion, local main sync, and separate status-sync commit are complete.
+- PR #164 passed GitHub CI, merged to main, remote feature branch was deleted, local main synced, and this separate status-sync marks the story done.
 
 ### File List
 
@@ -315,3 +316,4 @@ GPT-5 Codex
 - 2026-06-04 - Implemented backend benchmark library catalog/API/import response, benchmark-library billing discount validation, and targeted solver tests.
 - 2026-06-04 - Implemented web benchmark library API helpers, static public browse/import page, algorithms-page link, and targeted Vitest coverage.
 - 2026-06-04 - Completed post-implementation code review, added missing invalid benchmark-id boundary tests, and passed local gates; GitHub sync remains pending.
+- 2026-06-04 - PR #164 passed CI, merged to main, remote branch deleted, local main synced; story marked done via separate status-sync commit.
