@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   getOptimization: vi.fn(),
+  searchParams: new URLSearchParams(),
 }));
 
 vi.mock("next/link", () => ({
@@ -21,6 +22,10 @@ vi.mock("next/link", () => ({
       {children}
     </a>
   ),
+}));
+
+vi.mock("next/navigation", () => ({
+  useSearchParams: () => mocks.searchParams,
 }));
 
 vi.mock("@/lib/api", () => ({
@@ -104,6 +109,7 @@ function renderPage(): void {
 describe("RoutingHistoryPage", () => {
   beforeEach(() => {
     mocks.getOptimization.mockReset();
+    mocks.searchParams = new URLSearchParams();
     localStorage.clear();
     sessionStorage.clear();
   });
@@ -232,5 +238,27 @@ describe("RoutingHistoryPage", () => {
     await waitFor(() => {
       expect(screen.getByText("Not Found: optimization not found")).toBeTruthy();
     });
+  });
+
+  it("renders provider handoff context without auto-querying or filling credentials", async () => {
+    const storageSet = vi.spyOn(Storage.prototype, "setItem");
+    mocks.searchParams = new URLSearchParams({
+      provider_id: "provider-alpha",
+      tenant_id: "tenant 1",
+      application_id: "app/alpha",
+      period_month: "2026-06",
+    });
+
+    renderPage();
+
+    expect(screen.getByText("Provider Console context")).toBeTruthy();
+    expect(screen.getByText("provider-alpha")).toBeTruthy();
+    expect(screen.getByText("tenant 1")).toBeTruthy();
+    expect(screen.getByText("app/alpha")).toBeTruthy();
+    expect(screen.getByText("2026-06")).toBeTruthy();
+    expect(screen.getByLabelText("API key")).toHaveProperty("value", "");
+    expect(screen.getByLabelText("Optimization ID")).toHaveProperty("value", "");
+    expect(mocks.getOptimization).not.toHaveBeenCalled();
+    expect(storageSet).not.toHaveBeenCalled();
   });
 });
