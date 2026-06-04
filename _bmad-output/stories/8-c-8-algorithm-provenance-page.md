@@ -3,7 +3,7 @@ story_key: 8-c-8-algorithm-provenance-page
 epic_num: 8
 story_num: C.8
 epic_name: Teaching + Provider Routing + Legal + Algorithm Library
-status: code-review
+status: done
 baseline_commit: 9c81242775c7d66e6b1be49c9c822303bfb20892
 priority: High
 type: Algorithm Provenance detail page
@@ -27,7 +27,7 @@ sources:
 
 # Story 8.C.8 - Algorithm Provenance 详情页
 
-Status: code-review
+Status: done
 
 ## Story
 
@@ -134,8 +134,8 @@ Story 6.A.1 已经把论文引用作为 `citation` 字段放入 solver catalog /
 - [ ] T3: Review, gates, and GitHub sync (AC: 35-37)
   - [x] Run local quality gates and fix failures.
   - [x] Run post-implementation code review and fix/document findings.
-  - [ ] Commit, push, create PR, wait for CI, merge, delete remote branch, and sync local `main`.
-  - [ ] Mark story and sprint status `done` only after merge/sync through a separate status-sync commit.
+  - [x] Commit, push, create PR, wait for CI, merge, delete remote branch, and sync local `main`.
+  - [x] Mark story and sprint status `done` only after merge/sync through a separate status-sync commit.
 
 ## Dev Notes
 
@@ -240,6 +240,9 @@ GPT-5 Codex
 - 2026-06-04 - Diff scope checked: no package/lockfile, generated OpenAPI, migrations, auth-service, billing-service, capability-registry, infra, CI, Console, benchmark page, or broad `/algorithms` list-page changes.
 - 2026-06-04 - Post-implementation code review found one patch finding: page tests did not cover the `catalog_field` source-label rendering required by AC 22.
 - 2026-06-04 - Review fix applied: expanded page test fixture and assertions to cover the `Catalog` source label; focused web test, typecheck and `git diff --check` passed.
+- 2026-06-04 - PR #168 passed GitHub CI: changes, lint, ts-typecheck, e2e, matrix-detect, mypy, solver-orchestrator-test, build-and-sbom (auth-service), error-i18n-validation, and gtm-toolkit-validation passed; unrelated service jobs were skipped by matrix.
+- 2026-06-04 - PR #168 squash-merged to `main` at merge commit `d007cf12b15c9a01e2a774f3e9555ff88a4b455b`; remote feature branch deleted; local `main` synced to `origin/main`.
+- 2026-06-04 - Story and sprint status marked `done` via separate status-sync commit after merge/sync closure.
 
 ### Completion Notes List
 
@@ -253,6 +256,8 @@ GPT-5 Codex
 - Focused backend and frontend tests pass.
 - Full web regression, web typecheck, solver ruff/format and diff check pass locally.
 - Post-implementation code review completed; missing `catalog_field` source-label coverage was fixed and verified.
+- GitHub CI passed; PR #168 merged; remote branch deleted; local `main` synced.
+- Story closed as `done` after merge/sync in this separate status-sync.
 
 ### File List
 
@@ -275,6 +280,7 @@ GPT-5 Codex
 - 2026-06-04 - Story status moved to in-progress after pre-implementation review closure.
 - 2026-06-04 - Implemented Algorithm Provenance catalog/schema/API/page surface and focused tests; local gates pass.
 - 2026-06-04 - Completed post-implementation code review, fixed missing `catalog_field` source-label coverage, and verified focused gates.
+- 2026-06-04 - PR #168 passed CI, merged to `main`, branch cleanup and local sync completed; story status moved to `done`.
 
 ## Post-Implementation Code Review
 
