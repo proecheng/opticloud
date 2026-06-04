@@ -159,6 +159,9 @@ describe("LegalInquiryPage", () => {
     expect(screen.queryByText("DPA review")).toBeNull();
     expect((screen.getByLabelText("问询内容") as HTMLTextAreaElement).value).toBe("");
     expect(storageSet).not.toHaveBeenCalled();
+    expect(screen.getByRole("link", { name: "Classroom" }).getAttribute("href")).toBe(
+      "/console/classroom",
+    );
   });
 
   it("renders safe Team+ entitlement error", async () => {

@@ -160,6 +160,12 @@ export default function LegalInquiryPage(): JSX.Element {
               Providers
             </Link>
             <Link
+              href="/console/classroom"
+              className="text-muted-foreground hover:text-foreground"
+            >
+              Classroom
+            </Link>
+            <Link
               href="/console/routing-history"
               className="text-muted-foreground hover:text-foreground"
             >

@@ -213,6 +213,8 @@ Classroom Plan 是 v2+ 教学产品能力，不是 Tier 1 当前上线能力。�
 - 手动发放 credits 或使用现有教育版额度
 - 不承诺 LMS gradebook 或自动课程管理
 
+Console 中的 `/console/classroom` 是 v1 planning stub：用于校验教师联系人 / future master-owner candidate、5-200 学生规模、共享 Credits 人工申请口径和 LMS 路线图状态。它不创建教师 master account、学生账号、Credits、LMS 连接、作业、gradebook 或账单记录。
+
 ---
 
 ## LMS 集成（路线图）

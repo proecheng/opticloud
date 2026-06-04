@@ -58,7 +58,7 @@ OptiCloud 会为上线算法准备可复制 BibTeX，并在 `/academic` 和算�
 
 ## 10. 我可以用于课堂教学吗？
 
-可以讨论 v1 人工 cohort：学生用教育邮箱注册，平台手动发放 credits 或使用现有教育版额度。完整 Classroom Plan、LMS gradebook、课程码和自动作业管理是 v2+ 路线图，不应理解为当前已上线能力。
+可以讨论 v1 人工 cohort：学生用教育邮箱注册，平台手动发放 credits 或使用现有教育版额度。Console 的 `/console/classroom` 只是 v1 planning stub，用来整理教师联系人、5-200 学生规模、共享 Credits 申请口径和 LMS 路线图状态。完整 Classroom Plan、LMS gradebook、课程码和自动作业管理是 v2+ 路线图，不应理解为当前已上线能力。
 
 ## 11. 支持 Canvas、Moodle、雨课堂或学堂在线吗？
 

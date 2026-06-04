@@ -445,6 +445,9 @@ describe("ProviderConsolePage", () => {
     expect(within(nav).getByRole("link", { name: "Providers" }).getAttribute("href")).toBe(
       "/console/providers",
     );
+    expect(within(nav).getByRole("link", { name: "Classroom" }).getAttribute("href")).toBe(
+      "/console/classroom",
+    );
     expect(screen.getByRole("link", { name: "打开 Routing History" }).getAttribute("href")).not.toContain(
       "jwt-test",
     );

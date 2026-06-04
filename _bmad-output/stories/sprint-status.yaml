@@ -260,7 +260,7 @@ development_status:
   8-c-4-algorithm-library-browse: done         # 2026-06-04 - Benchmark library browse shipped; PR #164 passed CI, merged to main, remote branch deleted, local main synced
   8-c-5-algorithm-capability-card: done
   8-c-6-provider-console-tier3: done             # 2026-06-04 - Provider Console Tier 3 closure shipped; PR #166 passed CI, merged to main, remote branch deleted, local main synced
-  8-c-7-classroom-plan-v1-stub: backlog        # E6
+  8-c-7-classroom-plan-v1-stub: code-review    # E6
   8-c-8-algorithm-provenance-page: backlog     # E10
   8-c-9-teaching-grading-api: backlog          # E12 v1 末
 
