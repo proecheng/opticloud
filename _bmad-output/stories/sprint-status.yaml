@@ -269,7 +269,7 @@ development_status:
 
   9-1-axe-core-quarterly-audit: done           # 2026-06-04 - Quarterly a11y audit governance shipped; PR #170 passed CI, merged to main, remote branch deleted, local main synced
   9-2-prometheus-metric-audit: done           # 2026-06-04 - Prometheus metric audit governance shipped; PR #171 passed CI, merged to main, remote branch deleted, local main synced
-  9-3-nfr-cost-alerts: backlog
+  9-3-nfr-cost-alerts: code-review
   9-4-nfr-s-p0-drills: backlog
   9-5-wcag-2-2-upgrade-path: backlog           # FR7
   9-6-error-i18n-audit: backlog

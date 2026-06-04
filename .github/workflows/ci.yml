@@ -54,6 +54,7 @@ jobs:
       aigc_filter: ${{ steps.filter.outputs.aigc_filter }}
       ui_a11y_audit: ${{ steps.filter.outputs.ui_a11y_audit }}
       prometheus_metric_audit: ${{ steps.filter.outputs.prometheus_metric_audit }}
+      nfr_cost_alerts: ${{ steps.filter.outputs.nfr_cost_alerts }}
       web: ${{ steps.filter.outputs.web }}
       ci_or_root: ${{ steps.filter.outputs.ci_or_root }}
     steps:
@@ -86,6 +87,24 @@ jobs:
               - 'reports/prometheus-metric-audit/**'
               - '.github/workflows/ci.yml'
               - 'apps/*/src/**/*.py'
+            nfr_cost_alerts:
+              - 'tools/nfr_cost_alerts/**'
+              - 'scripts/validate_nfr_cost_alerts.py'
+              - 'tests/test_nfr_cost_alerts.py'
+              - 'docs/runbooks/nfr-cost-alerts.md'
+              - 'reports/nfr-cost-alerts/**'
+              - '.github/workflows/ci.yml'
+              - 'infra/local-init/10-cost-attribution.sql'
+              - 'packages/shared-py/opticloud_shared/cost_telemetry/**'
+              - 'apps/solver-orchestrator/src/solver_orchestrator/routes.py'
+              - 'apps/solver-orchestrator/src/solver_orchestrator/models.py'
+              - 'apps/billing-service/src/billing_service/routes.py'
+              - 'apps/billing-service/src/billing_service/models.py'
+              - 'tools/prometheus_metric_audit/**'
+              - 'scripts/validate_prometheus_metric_audit.py'
+              - 'tests/test_prometheus_metric_audit.py'
+              - 'docs/runbooks/prometheus-metric-audit.md'
+              - 'reports/prometheus-metric-audit/**'
             python_sdk:
               - 'packages/python-sdk/**'
               - 'tests/fixtures/sdk-rfc7807-preservation.json'
@@ -973,6 +992,30 @@ jobs:
           done
       - name: Run Prometheus metric audit tests
         run: uv run pytest tests/test_prometheus_metric_audit.py -v
+
+  # ===== NFR-COST red-line alert governance validation (Story 9.3) =====
+  nfr-cost-alerts-validation:
+    needs: changes
+    if: needs.changes.outputs.nfr_cost_alerts == 'true' || needs.changes.outputs.ci_or_root == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: pip install uv==${{ env.UV_VERSION }}
+      - run: uv sync --all-packages --extra dev
+      - name: Validate NFR-COST alert contract
+        run: uv run python scripts/validate_nfr_cost_alerts.py
+      - name: Validate real NFR-COST alert evidence manifests when present
+        run: |
+          shopt -s globstar nullglob
+          manifests=(reports/nfr-cost-alerts/**/alert_manifest.json)
+          for manifest in "${manifests[@]}"; do
+            uv run python scripts/validate_nfr_cost_alerts.py --evidence "$manifest"
+          done
+      - name: Run NFR-COST alert tests
+        run: uv run pytest tests/test_nfr_cost_alerts.py -v
 
   # ===== Critic confidence calibration validation (Story M3.5a) =====
   critic-calibration-validation:
