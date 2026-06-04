@@ -1153,18 +1153,15 @@ def _rfc7807_error(
     error_key: str | None = None,
 ) -> JSONResponse:
     """Build RFC 7807 + errors[] response (FG1.3)."""
-    return cast(
-        JSONResponse,
-        build_problem_response(
-            title=title,
-            status_code=status_code,
-            detail=detail,
-            errors=errors,
-            next_action=next_action,
-            request_id=request_id,
-            headers=headers,
-            error_key=error_key,
-        ),
+    return build_problem_response(
+        title=title,
+        status_code=status_code,
+        detail=detail,
+        errors=errors,
+        next_action=next_action,
+        request_id=request_id,
+        headers=headers,
+        error_key=error_key,
     )
 
 

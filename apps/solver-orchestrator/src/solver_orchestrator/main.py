@@ -12,7 +12,7 @@ import json
 import logging
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
-from typing import Any, cast
+from typing import Any
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
@@ -111,12 +111,12 @@ async def error_context_middleware(
 async def validation_exception_handler(
     request: Request, exc: RequestValidationError
 ) -> JSONResponse:
-    return cast(JSONResponse, request_validation_error_response(request, exc))
+    return request_validation_error_response(request, exc)
 
 
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:
-    return cast(JSONResponse, http_exception_response(request, exc))
+    return http_exception_response(request, exc)
 
 
 app.include_router(health_router)

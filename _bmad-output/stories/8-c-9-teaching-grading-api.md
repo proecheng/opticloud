@@ -330,6 +330,7 @@ GPT-5 Codex
 - 2026-06-04 - Story moved to code-review after implementation and local validation.
 - 2026-06-04 - Post-implementation code review found and fixed validation-value redaction for opaque refs and added an explicit teaching grading item owner index.
 - 2026-06-04 - Local validation re-run after review fixes: teaching grading + teaching mode tests (20 passed), web helper tests (2 passed), solver ruff check/format, solver mypy, web typecheck and `git diff --check`.
+- 2026-06-04 - PR #169 initial CI found full-repo mypy redundant-cast failures in existing touched files; removed redundant casts and validated with CI-equivalent `uv run mypy apps packages`.
 
 ### Completion Notes List
 
@@ -343,6 +344,7 @@ GPT-5 Codex
 - Focused backend and frontend tests pass.
 - Solver ruff/format, solver mypy, web typecheck and diff check pass locally.
 - Post-implementation code review completed locally; findings fixed and gates re-run.
+- PR #169 initial CI mypy failure fixed locally; CI-equivalent mypy now passes.
 
 ### File List
 
@@ -368,3 +370,4 @@ GPT-5 Codex
 - 2026-06-04 - Story status moved to in-progress after pre-implementation review closure.
 - 2026-06-04 - Implemented Teaching Mode Grading API backend persistence/routes/rubric/idempotency and web API helper types; local gates pass; status moved to code-review.
 - 2026-06-04 - Post-implementation code review completed locally; fixed opaque-ref validation redaction and item owner index; gates pass.
+- 2026-06-04 - Fixed PR #169 CI mypy redundant-cast failures; CI-equivalent mypy and local gates pass.

@@ -6,7 +6,7 @@ import json
 import math
 import uuid
 from collections.abc import Sequence
-from typing import Any, cast
+from typing import Any
 
 from fastapi import HTTPException, status
 from fastapi.exceptions import RequestValidationError
@@ -104,7 +104,7 @@ def _normalize_error_detail(detail: ErrorDetail) -> ErrorDetail:
 def _error_key_from_details(errors: list[ErrorDetail] | None) -> str | None:
     if not errors:
         return None
-    return cast(str | None, error_key_for_remediation(errors[0].remediation_hint_key))
+    return error_key_for_remediation(errors[0].remediation_hint_key)
 
 
 def build_problem_response(
