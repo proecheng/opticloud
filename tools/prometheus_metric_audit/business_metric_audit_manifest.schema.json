@@ -1,0 +1,416 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Story 9.2 Prometheus business metric audit manifest",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "source_story",
+    "audit_version",
+    "run_id",
+    "example_only",
+    "generated_by",
+    "commit_sha",
+    "cadence_mode",
+    "period",
+    "metric_coverage",
+    "scrape_targets",
+    "promql_snapshots",
+    "grafana_reviews",
+    "findings",
+    "redaction_reviewed",
+    "release_approved",
+    "real_grafana_review_completed",
+    "real_prometheus_scrape_completed"
+  ],
+  "properties": {
+    "source_story": {
+      "const": "9.2",
+      "type": "string"
+    },
+    "audit_version": {
+      "const": "prometheus_business_metric_audit_v1",
+      "type": "string"
+    },
+    "run_id": {
+      "pattern": "^[a-z0-9][a-z0-9._-]{2,63}$",
+      "type": "string"
+    },
+    "example_only": {
+      "type": "boolean"
+    },
+    "generated_by": {
+      "type": "string"
+    },
+    "commit_sha": {
+      "pattern": "^[0-9a-f]{7,40}$",
+      "type": "string"
+    },
+    "cadence_mode": {
+      "$ref": "#/$defs/cadenceMode"
+    },
+    "period": {
+      "$ref": "#/$defs/period"
+    },
+    "metric_coverage": {
+      "items": {
+        "$ref": "#/$defs/metricCoverage"
+      },
+      "type": "array"
+    },
+    "scrape_targets": {
+      "items": {
+        "$ref": "#/$defs/scrapeTarget"
+      },
+      "type": "array"
+    },
+    "promql_snapshots": {
+      "items": {
+        "$ref": "#/$defs/promqlSnapshot"
+      },
+      "type": "array"
+    },
+    "grafana_reviews": {
+      "items": {
+        "$ref": "#/$defs/grafanaReview"
+      },
+      "type": "array"
+    },
+    "findings": {
+      "items": {
+        "$ref": "#/$defs/finding"
+      },
+      "type": "array"
+    },
+    "redaction_reviewed": {
+      "type": "boolean"
+    },
+    "release_approved": {
+      "type": "boolean"
+    },
+    "real_grafana_review_completed": {
+      "type": "boolean"
+    },
+    "real_prometheus_scrape_completed": {
+      "type": "boolean"
+    }
+  },
+  "$defs": {
+    "cadenceMode": {
+      "enum": [
+        "quarterly",
+        "annual_lite"
+      ],
+      "type": "string"
+    },
+    "coverageState": {
+      "enum": [
+        "covered",
+        "missing_with_ticket",
+        "planned",
+        "not_applicable"
+      ],
+      "type": "string"
+    },
+    "checkStatus": {
+      "enum": [
+        "not_run_example",
+        "passed",
+        "failed",
+        "not_applicable"
+      ],
+      "type": "string"
+    },
+    "metricId": {
+      "enum": [
+        "request_count",
+        "success_rate",
+        "latency",
+        "credit_burn",
+        "refund_rate",
+        "chat",
+        "provider_route",
+        "reproducibility",
+        "sandbox",
+        "uptime"
+      ],
+      "type": "string"
+    },
+    "period": {
+      "additionalProperties": false,
+      "properties": {
+        "start_date": {
+          "pattern": "^20[0-9]{2}-[0-9]{2}-[0-9]{2}$",
+          "type": "string"
+        },
+        "end_date": {
+          "pattern": "^20[0-9]{2}-[0-9]{2}-[0-9]{2}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "start_date",
+        "end_date"
+      ],
+      "type": "object"
+    },
+    "metricCoverage": {
+      "additionalProperties": true,
+      "properties": {
+        "metric_id": {
+          "$ref": "#/$defs/metricId"
+        },
+        "status": {
+          "$ref": "#/$defs/coverageState"
+        },
+        "owner": {
+          "type": "string"
+        },
+        "prometheus_names": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "dimensions": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "percentiles": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "finding_ids": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "notes": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "metric_id",
+        "status",
+        "owner",
+        "prometheus_names",
+        "dimensions",
+        "finding_ids",
+        "notes"
+      ],
+      "type": "object"
+    },
+    "scrapeTarget": {
+      "additionalProperties": true,
+      "properties": {
+        "service": {
+          "type": "string"
+        },
+        "endpoint": {
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/checkStatus"
+        },
+        "sample_count": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "finding_ids": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "service",
+        "endpoint",
+        "status",
+        "sample_count",
+        "finding_ids"
+      ],
+      "type": "object"
+    },
+    "promqlSnapshot": {
+      "additionalProperties": true,
+      "properties": {
+        "metric_id": {
+          "$ref": "#/$defs/metricId"
+        },
+        "query_ref": {
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/checkStatus"
+        },
+        "artifact_path": {
+          "type": "string"
+        },
+        "finding_ids": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "metric_id",
+        "query_ref",
+        "status",
+        "artifact_path",
+        "finding_ids"
+      ],
+      "type": "object"
+    },
+    "grafanaReview": {
+      "additionalProperties": true,
+      "properties": {
+        "metric_id": {
+          "$ref": "#/$defs/metricId"
+        },
+        "dashboard_id": {
+          "type": "string"
+        },
+        "panel_id": {
+          "type": "string"
+        },
+        "data_source": {
+          "const": "prometheus",
+          "type": "string"
+        },
+        "time_range": {
+          "type": "string"
+        },
+        "screenshot_artifact_path": {
+          "type": "string"
+        },
+        "reviewer_role": {
+          "type": "string"
+        },
+        "review_outcome": {
+          "$ref": "#/$defs/checkStatus"
+        },
+        "finding_ids": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "metric_id",
+        "dashboard_id",
+        "panel_id",
+        "data_source",
+        "time_range",
+        "screenshot_artifact_path",
+        "reviewer_role",
+        "review_outcome",
+        "finding_ids"
+      ],
+      "type": "object"
+    },
+    "finding": {
+      "additionalProperties": true,
+      "properties": {
+        "finding_id": {
+          "pattern": "^[a-z0-9][a-z0-9._-]{2,63}$",
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "metric_coverage",
+            "scrape_target",
+            "promql_snapshot",
+            "grafana_review"
+          ],
+          "type": "string"
+        },
+        "severity": {
+          "enum": [
+            "P0",
+            "P1",
+            "P2",
+            "P3"
+          ],
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "open",
+            "in_progress",
+            "resolved",
+            "deferred"
+          ],
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        },
+        "ticket_refs": {
+          "items": {
+            "$ref": "#/$defs/ticketRef"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "finding_id",
+        "source",
+        "severity",
+        "status",
+        "summary",
+        "ticket_refs"
+      ],
+      "type": "object"
+    },
+    "ticketRef": {
+      "additionalProperties": false,
+      "properties": {
+        "ticket_id": {
+          "type": "string"
+        },
+        "owner": {
+          "type": "string"
+        },
+        "severity": {
+          "enum": [
+            "P0",
+            "P1",
+            "P2",
+            "P3"
+          ],
+          "type": "string"
+        },
+        "due_date": {
+          "pattern": "^20[0-9]{2}-[0-9]{2}-[0-9]{2}$",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "open",
+            "in_progress",
+            "resolved",
+            "deferred"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "ticket_id",
+        "owner",
+        "severity",
+        "due_date",
+        "status"
+      ],
+      "type": "object"
+    }
+  }
+}

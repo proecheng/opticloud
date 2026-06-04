@@ -1,0 +1,316 @@
+{
+  "audit_version": "prometheus_business_metric_audit_v1",
+  "source_story": "9.2",
+  "nfr": "NFR-O",
+  "nfr_o1_scope": true,
+  "nfr_o2_stack": [
+    "Prometheus",
+    "Grafana",
+    "Loki",
+    "OpenTelemetry"
+  ],
+  "standard_cadence": "quarterly",
+  "lite_cadence": "annual",
+  "evidence": {
+    "report_directory": "reports/prometheus-metric-audit",
+    "manifest_filename": "audit_manifest.json",
+    "schema_path": "tools/prometheus_metric_audit/business_metric_audit_manifest.schema.json",
+    "example_manifest_path": "tools/prometheus_metric_audit/business_metric_audit_manifest.example.json"
+  },
+  "coverage_states": [
+    "covered",
+    "missing_with_ticket",
+    "planned",
+    "not_applicable"
+  ],
+  "required_api_dimensions": [
+    "sku",
+    "provider",
+    "service",
+    "endpoint_class",
+    "tenant_tier"
+  ],
+  "forbidden_metric_label_dimensions": [
+    "tenant_id",
+    "user_id",
+    "customer_id",
+    "email",
+    "phone",
+    "account_id",
+    "api_key",
+    "jwt",
+    "token",
+    "prompt",
+    "provider_payload"
+  ],
+  "latency_percentiles": [
+    "p50",
+    "p95",
+    "p99"
+  ],
+  "metric_catalog": [
+    {
+      "metric_id": "request_count",
+      "domain_group": "api_gateway",
+      "owner": "SRE",
+      "required_dimensions": [
+        "sku",
+        "provider",
+        "service",
+        "endpoint_class",
+        "tenant_tier"
+      ],
+      "expected_prometheus_names": [
+        "opticloud_requests_total"
+      ],
+      "grafana_panel_id": "api-request-count",
+      "coverage_required": true
+    },
+    {
+      "metric_id": "success_rate",
+      "domain_group": "api_gateway",
+      "owner": "SRE",
+      "required_dimensions": [
+        "sku",
+        "provider",
+        "service",
+        "endpoint_class",
+        "tenant_tier"
+      ],
+      "expected_prometheus_names": [
+        "opticloud_request_success_rate"
+      ],
+      "grafana_panel_id": "api-success-rate",
+      "coverage_required": true
+    },
+    {
+      "metric_id": "latency",
+      "domain_group": "api_gateway",
+      "owner": "SRE",
+      "required_dimensions": [
+        "sku",
+        "provider",
+        "service",
+        "endpoint_class",
+        "tenant_tier"
+      ],
+      "required_percentiles": [
+        "p50",
+        "p95",
+        "p99"
+      ],
+      "expected_prometheus_names": [
+        "opticloud_request_latency_seconds_bucket"
+      ],
+      "grafana_panel_id": "api-latency-percentiles",
+      "coverage_required": true
+    },
+    {
+      "metric_id": "credit_burn",
+      "domain_group": "billing",
+      "owner": "Billing",
+      "required_dimensions": [
+        "service",
+        "sku",
+        "tenant_tier"
+      ],
+      "expected_prometheus_names": [
+        "opticloud_credit_burn_total"
+      ],
+      "grafana_panel_id": "billing-credit-burn",
+      "coverage_required": true
+    },
+    {
+      "metric_id": "refund_rate",
+      "domain_group": "billing",
+      "owner": "Billing",
+      "required_dimensions": [
+        "service",
+        "sku",
+        "tenant_tier"
+      ],
+      "expected_prometheus_names": [
+        "opticloud_refund_rate"
+      ],
+      "grafana_panel_id": "billing-refund-rate",
+      "coverage_required": true
+    },
+    {
+      "metric_id": "chat",
+      "domain_group": "chat",
+      "owner": "Chat",
+      "required_dimensions": [
+        "service",
+        "sku",
+        "tenant_tier",
+        "locale"
+      ],
+      "expected_prometheus_names": [
+        "opticloud_chat_sessions_total",
+        "opticloud_chat_turns_total",
+        "opticloud_chat_conversion_total"
+      ],
+      "grafana_panel_id": "chat-session-turn-conversion",
+      "coverage_required": true
+    },
+    {
+      "metric_id": "provider_route",
+      "domain_group": "provider",
+      "owner": "Provider",
+      "required_dimensions": [
+        "service",
+        "provider",
+        "sku",
+        "tenant_tier"
+      ],
+      "expected_prometheus_names": [
+        "opticloud_provider_route_total",
+        "opticloud_provider_failure_total"
+      ],
+      "grafana_panel_id": "provider-route-failure",
+      "coverage_required": true
+    },
+    {
+      "metric_id": "reproducibility",
+      "domain_group": "repro",
+      "owner": "Repro",
+      "required_dimensions": [
+        "service",
+        "sku",
+        "tenant_tier"
+      ],
+      "expected_prometheus_names": [
+        "opticloud_repro_voucher_total"
+      ],
+      "grafana_panel_id": "repro-voucher-issuance",
+      "coverage_required": true
+    },
+    {
+      "metric_id": "sandbox",
+      "domain_group": "sandbox",
+      "owner": "Security",
+      "required_dimensions": [
+        "service",
+        "sandbox_profile",
+        "tenant_tier"
+      ],
+      "expected_prometheus_names": [
+        "opticloud_sandbox_violation_total",
+        "opticloud_sandbox_timeout_total"
+      ],
+      "grafana_panel_id": "sandbox-violation-timeout",
+      "coverage_required": true
+    },
+    {
+      "metric_id": "uptime",
+      "domain_group": "status",
+      "owner": "SRE",
+      "required_dimensions": [
+        "service",
+        "region",
+        "tier"
+      ],
+      "expected_prometheus_names": [
+        "opticloud_monthly_uptime_ratio"
+      ],
+      "grafana_panel_id": "monthly-uptime-ratio",
+      "coverage_required": true
+    }
+  ],
+  "grafana_dashboard_review": {
+    "dashboard_id_required": true,
+    "panel_id_required": true,
+    "data_source": "prometheus",
+    "time_range_required": true,
+    "screenshot_artifact_required": true,
+    "reviewer_role_required": true,
+    "review_outcome_values": [
+      "not_run_example",
+      "passed",
+      "failed",
+      "not_applicable"
+    ]
+  },
+  "observed_repo_state": {
+    "metrics_endpoints": [
+      {
+        "service": "auth-service",
+        "path": "apps/auth-service/src/auth_service/main.py",
+        "endpoint": "/metrics",
+        "exposition": "prometheus_client.generate_latest"
+      },
+      {
+        "service": "capability-registry",
+        "path": "apps/capability-registry/src/capability_registry/routes.py",
+        "endpoint": "/metrics",
+        "exposition": "prometheus_client.generate_latest"
+      },
+      {
+        "service": "outbox-relayer",
+        "path": "apps/outbox-relayer/src/outbox_relayer/health.py",
+        "endpoint": "/metrics",
+        "exposition": "prometheus_client.generate_latest"
+      },
+      {
+        "service": "solver-orchestrator",
+        "path": "apps/solver-orchestrator/src/solver_orchestrator/main.py",
+        "endpoint": "/metrics",
+        "exposition": "prometheus_client.generate_latest"
+      }
+    ],
+    "metric_declarations": [
+      {
+        "service": "billing-service",
+        "path": "apps/billing-service/src/billing_service/routes.py",
+        "metric_name": "billing_estimate_total",
+        "metric_type": "Counter"
+      },
+      {
+        "service": "outbox-relayer",
+        "path": "apps/outbox-relayer/src/outbox_relayer/relayer.py",
+        "metric_name": "outbox_relayer_batch_size",
+        "metric_type": "Histogram"
+      },
+      {
+        "service": "outbox-relayer",
+        "path": "apps/outbox-relayer/src/outbox_relayer/relayer.py",
+        "metric_name": "outbox_relayer_lag_seconds",
+        "metric_type": "Gauge"
+      },
+      {
+        "service": "outbox-relayer",
+        "path": "apps/outbox-relayer/src/outbox_relayer/relayer.py",
+        "metric_name": "outbox_relayer_publish_fail_total",
+        "metric_type": "Counter"
+      },
+      {
+        "service": "outbox-relayer",
+        "path": "apps/outbox-relayer/src/outbox_relayer/relayer.py",
+        "metric_name": "outbox_relayer_published_total",
+        "metric_type": "Counter"
+      }
+    ]
+  },
+  "boundaries": {
+    "live_production_scrape_proven": false,
+    "real_grafana_dashboard_published": false,
+    "real_quarterly_review_completed": false,
+    "real_external_ticket_created": false,
+    "uptime_sla_approved": false,
+    "status_page_coverage_claimed": false,
+    "alert_automation_in_scope": false,
+    "unified_governance_dashboard_in_scope": false
+  },
+  "disallowed_static_completion_claims": [
+    "real_audit_passed",
+    "real_quarterly_review_completed",
+    "real_grafana_review_completed",
+    "real_prometheus_scrape_completed",
+    "real_dashboard_published",
+    "release_approved",
+    "production_release_approved",
+    "external_ticket_created",
+    "uptime_sla_approved",
+    "status_page_coverage_claimed"
+  ]
+}

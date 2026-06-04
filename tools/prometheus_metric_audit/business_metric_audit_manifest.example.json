@@ -1,0 +1,401 @@
+{
+  "source_story": "9.2",
+  "audit_version": "prometheus_business_metric_audit_v1",
+  "run_id": "example-prometheus-metric-audit-20260604",
+  "example_only": true,
+  "generated_by": "Story 9.2 static example; not real Prometheus or Grafana evidence",
+  "commit_sha": "0000000",
+  "cadence_mode": "quarterly",
+  "period": {
+    "start_date": "2026-04-01",
+    "end_date": "2026-06-30"
+  },
+  "metric_coverage": [
+    {
+      "metric_id": "request_count",
+      "status": "planned",
+      "owner": "SRE",
+      "prometheus_names": [
+        "opticloud_requests_total"
+      ],
+      "dimensions": [
+        "sku",
+        "provider",
+        "service",
+        "endpoint_class",
+        "tenant_tier"
+      ],
+      "finding_ids": [],
+      "notes": "Static example only."
+    },
+    {
+      "metric_id": "success_rate",
+      "status": "planned",
+      "owner": "SRE",
+      "prometheus_names": [
+        "opticloud_request_success_rate"
+      ],
+      "dimensions": [
+        "sku",
+        "provider",
+        "service",
+        "endpoint_class",
+        "tenant_tier"
+      ],
+      "finding_ids": [],
+      "notes": "Static example only."
+    },
+    {
+      "metric_id": "latency",
+      "status": "planned",
+      "owner": "SRE",
+      "prometheus_names": [
+        "opticloud_request_latency_seconds_bucket"
+      ],
+      "dimensions": [
+        "sku",
+        "provider",
+        "service",
+        "endpoint_class",
+        "tenant_tier"
+      ],
+      "percentiles": [
+        "p50",
+        "p95",
+        "p99"
+      ],
+      "finding_ids": [],
+      "notes": "Static example only."
+    },
+    {
+      "metric_id": "credit_burn",
+      "status": "planned",
+      "owner": "Billing",
+      "prometheus_names": [
+        "opticloud_credit_burn_total"
+      ],
+      "dimensions": [
+        "service",
+        "sku",
+        "tenant_tier"
+      ],
+      "finding_ids": [],
+      "notes": "Static example only."
+    },
+    {
+      "metric_id": "refund_rate",
+      "status": "planned",
+      "owner": "Billing",
+      "prometheus_names": [
+        "opticloud_refund_rate"
+      ],
+      "dimensions": [
+        "service",
+        "sku",
+        "tenant_tier"
+      ],
+      "finding_ids": [],
+      "notes": "Static example only."
+    },
+    {
+      "metric_id": "chat",
+      "status": "planned",
+      "owner": "Chat",
+      "prometheus_names": [
+        "opticloud_chat_sessions_total",
+        "opticloud_chat_turns_total",
+        "opticloud_chat_conversion_total"
+      ],
+      "dimensions": [
+        "service",
+        "sku",
+        "tenant_tier",
+        "locale"
+      ],
+      "finding_ids": [],
+      "notes": "Static example only."
+    },
+    {
+      "metric_id": "provider_route",
+      "status": "planned",
+      "owner": "Provider",
+      "prometheus_names": [
+        "opticloud_provider_route_total",
+        "opticloud_provider_failure_total"
+      ],
+      "dimensions": [
+        "service",
+        "provider",
+        "sku",
+        "tenant_tier"
+      ],
+      "finding_ids": [],
+      "notes": "Static example only."
+    },
+    {
+      "metric_id": "reproducibility",
+      "status": "planned",
+      "owner": "Repro",
+      "prometheus_names": [
+        "opticloud_repro_voucher_total"
+      ],
+      "dimensions": [
+        "service",
+        "sku",
+        "tenant_tier"
+      ],
+      "finding_ids": [],
+      "notes": "Static example only."
+    },
+    {
+      "metric_id": "sandbox",
+      "status": "planned",
+      "owner": "Security",
+      "prometheus_names": [
+        "opticloud_sandbox_violation_total",
+        "opticloud_sandbox_timeout_total"
+      ],
+      "dimensions": [
+        "service",
+        "sandbox_profile",
+        "tenant_tier"
+      ],
+      "finding_ids": [],
+      "notes": "Static example only."
+    },
+    {
+      "metric_id": "uptime",
+      "status": "planned",
+      "owner": "SRE",
+      "prometheus_names": [
+        "opticloud_monthly_uptime_ratio"
+      ],
+      "dimensions": [
+        "service",
+        "region",
+        "tier"
+      ],
+      "finding_ids": [],
+      "notes": "Static example only."
+    }
+  ],
+  "scrape_targets": [
+    {
+      "service": "auth-service",
+      "endpoint": "/metrics",
+      "status": "not_run_example",
+      "sample_count": null,
+      "finding_ids": []
+    },
+    {
+      "service": "solver-orchestrator",
+      "endpoint": "/metrics",
+      "status": "not_run_example",
+      "sample_count": null,
+      "finding_ids": []
+    },
+    {
+      "service": "capability-registry",
+      "endpoint": "/metrics",
+      "status": "not_run_example",
+      "sample_count": null,
+      "finding_ids": []
+    },
+    {
+      "service": "outbox-relayer",
+      "endpoint": "/metrics",
+      "status": "not_run_example",
+      "sample_count": null,
+      "finding_ids": []
+    }
+  ],
+  "promql_snapshots": [
+    {
+      "metric_id": "request_count",
+      "query_ref": "nfr-o1-request-count",
+      "status": "not_run_example",
+      "artifact_path": "reports/prometheus-metric-audit/example-prometheus-metric-audit-20260604/request-count-promql.json",
+      "finding_ids": []
+    },
+    {
+      "metric_id": "success_rate",
+      "query_ref": "nfr-o1-success-rate",
+      "status": "not_run_example",
+      "artifact_path": "reports/prometheus-metric-audit/example-prometheus-metric-audit-20260604/success-rate-promql.json",
+      "finding_ids": []
+    },
+    {
+      "metric_id": "latency",
+      "query_ref": "nfr-o1-latency-percentiles",
+      "status": "not_run_example",
+      "artifact_path": "reports/prometheus-metric-audit/example-prometheus-metric-audit-20260604/latency-promql.json",
+      "finding_ids": []
+    },
+    {
+      "metric_id": "credit_burn",
+      "query_ref": "nfr-o1-credit-burn",
+      "status": "not_run_example",
+      "artifact_path": "reports/prometheus-metric-audit/example-prometheus-metric-audit-20260604/credit-burn-promql.json",
+      "finding_ids": []
+    },
+    {
+      "metric_id": "refund_rate",
+      "query_ref": "nfr-o1-refund-rate",
+      "status": "not_run_example",
+      "artifact_path": "reports/prometheus-metric-audit/example-prometheus-metric-audit-20260604/refund-rate-promql.json",
+      "finding_ids": []
+    },
+    {
+      "metric_id": "chat",
+      "query_ref": "nfr-o1-chat",
+      "status": "not_run_example",
+      "artifact_path": "reports/prometheus-metric-audit/example-prometheus-metric-audit-20260604/chat-promql.json",
+      "finding_ids": []
+    },
+    {
+      "metric_id": "provider_route",
+      "query_ref": "nfr-o1-provider-route",
+      "status": "not_run_example",
+      "artifact_path": "reports/prometheus-metric-audit/example-prometheus-metric-audit-20260604/provider-route-promql.json",
+      "finding_ids": []
+    },
+    {
+      "metric_id": "reproducibility",
+      "query_ref": "nfr-o1-reproducibility",
+      "status": "not_run_example",
+      "artifact_path": "reports/prometheus-metric-audit/example-prometheus-metric-audit-20260604/reproducibility-promql.json",
+      "finding_ids": []
+    },
+    {
+      "metric_id": "sandbox",
+      "query_ref": "nfr-o1-sandbox",
+      "status": "not_run_example",
+      "artifact_path": "reports/prometheus-metric-audit/example-prometheus-metric-audit-20260604/sandbox-promql.json",
+      "finding_ids": []
+    },
+    {
+      "metric_id": "uptime",
+      "query_ref": "nfr-o1-uptime",
+      "status": "not_run_example",
+      "artifact_path": "reports/prometheus-metric-audit/example-prometheus-metric-audit-20260604/uptime-promql.json",
+      "finding_ids": []
+    }
+  ],
+  "grafana_reviews": [
+    {
+      "metric_id": "request_count",
+      "dashboard_id": "nfr-o-business-metrics",
+      "panel_id": "api-request-count",
+      "data_source": "prometheus",
+      "time_range": "quarter-to-date",
+      "screenshot_artifact_path": "reports/prometheus-metric-audit/example-prometheus-metric-audit-20260604/request-count-grafana.png",
+      "reviewer_role": "SRE",
+      "review_outcome": "not_run_example",
+      "finding_ids": []
+    },
+    {
+      "metric_id": "success_rate",
+      "dashboard_id": "nfr-o-business-metrics",
+      "panel_id": "api-success-rate",
+      "data_source": "prometheus",
+      "time_range": "quarter-to-date",
+      "screenshot_artifact_path": "reports/prometheus-metric-audit/example-prometheus-metric-audit-20260604/success-rate-grafana.png",
+      "reviewer_role": "SRE",
+      "review_outcome": "not_run_example",
+      "finding_ids": []
+    },
+    {
+      "metric_id": "latency",
+      "dashboard_id": "nfr-o-business-metrics",
+      "panel_id": "api-latency-percentiles",
+      "data_source": "prometheus",
+      "time_range": "quarter-to-date",
+      "screenshot_artifact_path": "reports/prometheus-metric-audit/example-prometheus-metric-audit-20260604/latency-grafana.png",
+      "reviewer_role": "SRE",
+      "review_outcome": "not_run_example",
+      "finding_ids": []
+    },
+    {
+      "metric_id": "credit_burn",
+      "dashboard_id": "nfr-o-business-metrics",
+      "panel_id": "billing-credit-burn",
+      "data_source": "prometheus",
+      "time_range": "quarter-to-date",
+      "screenshot_artifact_path": "reports/prometheus-metric-audit/example-prometheus-metric-audit-20260604/credit-burn-grafana.png",
+      "reviewer_role": "Billing",
+      "review_outcome": "not_run_example",
+      "finding_ids": []
+    },
+    {
+      "metric_id": "refund_rate",
+      "dashboard_id": "nfr-o-business-metrics",
+      "panel_id": "billing-refund-rate",
+      "data_source": "prometheus",
+      "time_range": "quarter-to-date",
+      "screenshot_artifact_path": "reports/prometheus-metric-audit/example-prometheus-metric-audit-20260604/refund-rate-grafana.png",
+      "reviewer_role": "Billing",
+      "review_outcome": "not_run_example",
+      "finding_ids": []
+    },
+    {
+      "metric_id": "chat",
+      "dashboard_id": "nfr-o-business-metrics",
+      "panel_id": "chat-session-turn-conversion",
+      "data_source": "prometheus",
+      "time_range": "quarter-to-date",
+      "screenshot_artifact_path": "reports/prometheus-metric-audit/example-prometheus-metric-audit-20260604/chat-grafana.png",
+      "reviewer_role": "Chat",
+      "review_outcome": "not_run_example",
+      "finding_ids": []
+    },
+    {
+      "metric_id": "provider_route",
+      "dashboard_id": "nfr-o-business-metrics",
+      "panel_id": "provider-route-failure",
+      "data_source": "prometheus",
+      "time_range": "quarter-to-date",
+      "screenshot_artifact_path": "reports/prometheus-metric-audit/example-prometheus-metric-audit-20260604/provider-route-grafana.png",
+      "reviewer_role": "Provider",
+      "review_outcome": "not_run_example",
+      "finding_ids": []
+    },
+    {
+      "metric_id": "reproducibility",
+      "dashboard_id": "nfr-o-business-metrics",
+      "panel_id": "repro-voucher-issuance",
+      "data_source": "prometheus",
+      "time_range": "quarter-to-date",
+      "screenshot_artifact_path": "reports/prometheus-metric-audit/example-prometheus-metric-audit-20260604/reproducibility-grafana.png",
+      "reviewer_role": "Repro",
+      "review_outcome": "not_run_example",
+      "finding_ids": []
+    },
+    {
+      "metric_id": "sandbox",
+      "dashboard_id": "nfr-o-business-metrics",
+      "panel_id": "sandbox-violation-timeout",
+      "data_source": "prometheus",
+      "time_range": "quarter-to-date",
+      "screenshot_artifact_path": "reports/prometheus-metric-audit/example-prometheus-metric-audit-20260604/sandbox-grafana.png",
+      "reviewer_role": "Security",
+      "review_outcome": "not_run_example",
+      "finding_ids": []
+    },
+    {
+      "metric_id": "uptime",
+      "dashboard_id": "nfr-o-business-metrics",
+      "panel_id": "monthly-uptime-ratio",
+      "data_source": "prometheus",
+      "time_range": "quarter-to-date",
+      "screenshot_artifact_path": "reports/prometheus-metric-audit/example-prometheus-metric-audit-20260604/uptime-grafana.png",
+      "reviewer_role": "SRE",
+      "review_outcome": "not_run_example",
+      "finding_ids": []
+    }
+  ],
+  "findings": [],
+  "redaction_reviewed": false,
+  "release_approved": false,
+  "real_grafana_review_completed": false,
+  "real_prometheus_scrape_completed": false
+}
