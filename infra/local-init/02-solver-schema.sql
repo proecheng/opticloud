@@ -282,3 +282,60 @@ CREATE INDEX IF NOT EXISTS idx_job_templates_user_created_at
 
 CREATE INDEX IF NOT EXISTS idx_job_templates_root_version
     ON job_templates(user_id, root_template_id, version);
+
+-- Story 8.C.9: Teaching Mode Grading API.
+CREATE TABLE IF NOT EXISTS teaching_grading_batches (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id             UUID NOT NULL,
+    api_key_id          UUID NOT NULL,
+    assignment_ref      VARCHAR(80) NOT NULL,
+    rubric_version      VARCHAR(64) NOT NULL,
+    item_count          INTEGER NOT NULL,
+    graded_count        INTEGER NOT NULL,
+    not_gradable_count  INTEGER NOT NULL,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS teaching_grading_items (
+    id                       UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    grading_batch_id         UUID NOT NULL REFERENCES teaching_grading_batches(id) ON DELETE CASCADE,
+    user_id                  UUID NOT NULL,
+    item_index               INTEGER NOT NULL,
+    student_ref              VARCHAR(80) NOT NULL,
+    optimization_id          UUID NOT NULL,
+    gradable_optimization_id UUID NULL REFERENCES optimizations(id),
+    grading_status           VARCHAR(32) NOT NULL,
+    score                    NUMERIC(6, 2) NOT NULL,
+    max_score                NUMERIC(6, 2) NOT NULL,
+    criteria                 JSONB NOT NULL,
+    feedback_zh              TEXT NOT NULL,
+    created_at               TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS teaching_grading_idempotency_keys (
+    user_id             UUID NOT NULL,
+    key                 VARCHAR(255) NOT NULL,
+    grading_batch_id    UUID NOT NULL REFERENCES teaching_grading_batches(id) ON DELETE CASCADE,
+    request_body_hash   TEXT NOT NULL,
+    expires_at          TIMESTAMPTZ NOT NULL,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (user_id, key)
+);
+
+CREATE INDEX IF NOT EXISTS idx_teaching_grading_batches_user_created
+    ON teaching_grading_batches(user_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_teaching_grading_items_user_batch_index
+    ON teaching_grading_items(user_id, grading_batch_id, item_index);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_teaching_grading_items_batch_index
+    ON teaching_grading_items(grading_batch_id, item_index);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_teaching_grading_items_batch_student
+    ON teaching_grading_items(grading_batch_id, student_ref);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_teaching_grading_items_batch_optimization
+    ON teaching_grading_items(grading_batch_id, optimization_id);
+
+CREATE INDEX IF NOT EXISTS idx_teaching_grading_idempotency_expires_at
+    ON teaching_grading_idempotency_keys(expires_at);

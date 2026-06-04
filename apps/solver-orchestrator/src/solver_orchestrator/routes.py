@@ -71,6 +71,9 @@ from solver_orchestrator.models import (
     Prediction,
     PredictionIdempotencyKey,
     ReproductionVoucher,
+    TeachingGradingBatch,
+    TeachingGradingIdempotencyKey,
+    TeachingGradingItem,
 )
 from solver_orchestrator.provider_routing import (
     ProviderRouteMetadata,
@@ -107,6 +110,10 @@ from solver_orchestrator.schemas import (
     PredictionRequest,
     PredictionResponse,
     ReproducibilitySchema,
+    TeachingGradingBatchCreateRequest,
+    TeachingGradingBatchResponse,
+    TeachingGradingCriterionResult,
+    TeachingGradingItemResponse,
     prediction_disclaimer,
 )
 
@@ -128,6 +135,9 @@ TEACHING_NOTEBOOK_COLAB_URL = (
 PREDICTION_MAX_ABS_DATA_VALUE = 1_000_000_000_000.0
 BATCH_TERMINAL_STATUSES = {"completed", "failed", "timeout", "cancelled"}
 BATCH_COUNT_STATUSES = ("queued", "in_progress", "completed", "failed", "timeout", "cancelled")
+TEACHING_GRADING_RUBRIC_VERSION = "teaching-grading-v1"
+TEACHING_GRADING_MAX_SCORE = Decimal("100.00")
+TEACHING_GRADING_CRITERION_POINTS = Decimal("25.00")
 
 
 @dataclass(frozen=True)
@@ -1143,15 +1153,18 @@ def _rfc7807_error(
     error_key: str | None = None,
 ) -> JSONResponse:
     """Build RFC 7807 + errors[] response (FG1.3)."""
-    return build_problem_response(
-        title=title,
-        status_code=status_code,
-        detail=detail,
-        errors=errors,
-        next_action=next_action,
-        request_id=request_id,
-        headers=headers,
-        error_key=error_key,
+    return cast(
+        JSONResponse,
+        build_problem_response(
+            title=title,
+            status_code=status_code,
+            detail=detail,
+            errors=errors,
+            next_action=next_action,
+            request_id=request_id,
+            headers=headers,
+            error_key=error_key,
+        ),
     )
 
 
@@ -1599,6 +1612,354 @@ def _normalized_template_description(description: str | None) -> str | None:
         return None
     normalized = description.strip()
     return normalized or None
+
+
+def _hash_teaching_grading_body(payload: TeachingGradingBatchCreateRequest) -> str:
+    return _hash_body(json.loads(payload.model_dump_json()))
+
+
+def _teaching_grading_not_found_response(*, request_id: str | None = None) -> JSONResponse:
+    return _rfc7807_error(
+        title="Not Found",
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail="teaching grading batch not found",
+        request_id=request_id,
+    )
+
+
+async def _load_teaching_grading_batch(
+    session: AsyncSession,
+    *,
+    batch_id: uuid.UUID,
+    user_id: uuid.UUID,
+) -> TeachingGradingBatch | None:
+    result = await session.execute(
+        select(TeachingGradingBatch).where(
+            TeachingGradingBatch.id == batch_id,
+            TeachingGradingBatch.user_id == user_id,
+        )
+    )
+    return result.scalar_one_or_none()
+
+
+async def _load_teaching_grading_items(
+    session: AsyncSession,
+    *,
+    batch_id: uuid.UUID,
+    user_id: uuid.UUID,
+) -> list[TeachingGradingItem]:
+    result = await session.execute(
+        select(TeachingGradingItem)
+        .where(
+            TeachingGradingItem.grading_batch_id == batch_id,
+            TeachingGradingItem.user_id == user_id,
+        )
+        .order_by(TeachingGradingItem.item_index.asc())
+    )
+    return list(result.scalars().all())
+
+
+def _teaching_grading_item_model(item: TeachingGradingItem) -> TeachingGradingItemResponse:
+    return TeachingGradingItemResponse(
+        index=item.item_index,
+        student_ref=item.student_ref,
+        optimization_id=item.optimization_id,
+        grading_status=cast(Any, item.grading_status),
+        score=float(item.score),
+        max_score=float(item.max_score),
+        criteria=[
+            TeachingGradingCriterionResult.model_validate(criterion) for criterion in item.criteria
+        ],
+        feedback_zh=item.feedback_zh,
+    )
+
+
+async def _teaching_grading_response(
+    session: AsyncSession,
+    *,
+    batch: TeachingGradingBatch,
+) -> dict[str, Any]:
+    items = await _load_teaching_grading_items(session, batch_id=batch.id, user_id=batch.user_id)
+    model = TeachingGradingBatchResponse(
+        grading_batch_id=batch.id,
+        assignment_ref=batch.assignment_ref,
+        rubric_version=cast(Any, batch.rubric_version),
+        item_count=batch.item_count,
+        graded_count=batch.graded_count,
+        not_gradable_count=batch.not_gradable_count,
+        created_at=batch.created_at,
+        items=[_teaching_grading_item_model(item) for item in items],
+    )
+    content = json.loads(model.model_dump_json())
+    if not isinstance(content, dict):
+        raise ValueError("teaching grading response did not encode an object")
+    return content
+
+
+def _criterion_result(
+    *,
+    code: str,
+    label_zh: str,
+    passed: bool,
+    points: Decimal,
+) -> dict[str, Any]:
+    return {
+        "code": code,
+        "label_zh": label_zh,
+        "passed": passed,
+        "points": float(points),
+        "max_points": float(TEACHING_GRADING_CRITERION_POINTS),
+    }
+
+
+def _build_teaching_grading_result(
+    opt: Optimization | None,
+) -> tuple[str, Decimal, list[dict[str, Any]], str, uuid.UUID | None]:
+    teaching = _optimization_teaching_metadata(opt) if opt is not None else {}
+    teaching_mode = bool(teaching.get("mode") == "teaching")
+    completed_status = bool(opt is not None and opt.status == "completed")
+    solution_available = bool(opt is not None and opt.solution is not None)
+    explanation = teaching.get("principle_explanation") if isinstance(teaching, dict) else None
+    explanation_ready = bool(
+        isinstance(explanation, dict)
+        and isinstance(explanation.get("summary_zh"), str)
+        and explanation["summary_zh"].strip()
+    )
+    can_grade = teaching_mode and completed_status and solution_available and explanation_ready
+    if not can_grade:
+        criteria = [
+            _criterion_result(
+                code="teaching_mode",
+                label_zh="Teaching Mode 元数据",
+                passed=False,
+                points=Decimal("0.00"),
+            ),
+            _criterion_result(
+                code="completed_status",
+                label_zh="任务已完成",
+                passed=False,
+                points=Decimal("0.00"),
+            ),
+            _criterion_result(
+                code="solution_available",
+                label_zh="解结果可用",
+                passed=False,
+                points=Decimal("0.00"),
+            ),
+            _criterion_result(
+                code="explanation_ready",
+                label_zh="教学解释可复核",
+                passed=False,
+                points=Decimal("0.00"),
+            ),
+        ]
+        return (
+            "not_gradable",
+            Decimal("0.00"),
+            criteria,
+            "该 opaque student_ref 对应的提交当前不可自动评分。",
+            opt.id if opt is not None else None,
+        )
+
+    flags = (
+        ("teaching_mode", "Teaching Mode 元数据", teaching_mode),
+        ("completed_status", "任务已完成", completed_status),
+        ("solution_available", "解结果可用", solution_available),
+        ("explanation_ready", "教学解释可复核", explanation_ready),
+    )
+    criteria = [
+        _criterion_result(
+            code=code,
+            label_zh=label,
+            passed=passed,
+            points=TEACHING_GRADING_CRITERION_POINTS if passed else Decimal("0.00"),
+        )
+        for code, label, passed in flags
+    ]
+    score = sum(
+        (Decimal(str(criterion["points"])) for criterion in criteria),
+        Decimal("0.00"),
+    ).quantize(Decimal("0.01"))
+    assert opt is not None
+    return (
+        "graded",
+        score,
+        criteria,
+        "已按 teaching-grading-v1 自动评分；仅记录评分摘要，不含原始提交或解向量。",
+        opt.id,
+    )
+
+
+async def _load_owner_optimization(
+    session: AsyncSession,
+    *,
+    optimization_id: uuid.UUID,
+    user_id: uuid.UUID,
+) -> Optimization | None:
+    opt = await session.get(Optimization, optimization_id)
+    if opt is None or opt.user_id != user_id:
+        return None
+    return opt
+
+
+async def _load_teaching_grading_idempotency_replay(
+    session: AsyncSession,
+    *,
+    user_id: uuid.UUID,
+    idempotency_key: str,
+    request_body_hash: str,
+) -> tuple[TeachingGradingBatch | None, bool]:
+    result = await session.execute(
+        select(TeachingGradingIdempotencyKey).where(
+            TeachingGradingIdempotencyKey.user_id == user_id,
+            TeachingGradingIdempotencyKey.key == idempotency_key,
+        )
+    )
+    existing = result.scalar_one_or_none()
+    if existing is None:
+        return None, False
+    if existing.request_body_hash != request_body_hash:
+        return None, True
+    batch = await _load_teaching_grading_batch(
+        session, batch_id=existing.grading_batch_id, user_id=user_id
+    )
+    return batch, False
+
+
+@router.post(
+    "/teaching/grading-batches",
+    tags=["execution"],
+    summary="创建 Teaching Mode grading batch (Story 8.C.9)",
+)
+async def create_teaching_grading_batch(
+    payload: TeachingGradingBatchCreateRequest,
+    request: Request,
+    authorization: str | None = Header(default=None),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+    session: AsyncSession = Depends(get_session),
+) -> JSONResponse:
+    client_ip = request.client.host if request.client else None
+    user_id, api_key_id, scopes = await verify_api_key(authorization, session, client_ip=client_ip)
+    require_scope("optimize:write", scopes)
+    request_id = request.headers.get("x-request-id") or str(uuid.uuid4())
+    request_body_hash = _hash_teaching_grading_body(payload)
+    if idempotency_key:
+        replay_batch, conflict = await _load_teaching_grading_idempotency_replay(
+            session,
+            user_id=user_id,
+            idempotency_key=idempotency_key,
+            request_body_hash=request_body_hash,
+        )
+        if conflict:
+            return _idempotency_conflict_response(
+                idempotency_key=idempotency_key,
+                request_id=request_id,
+            )
+        if replay_batch is not None:
+            return JSONResponse(
+                content=await _teaching_grading_response(session, batch=replay_batch),
+                status_code=status.HTTP_200_OK,
+            )
+
+    batch = TeachingGradingBatch(
+        user_id=user_id,
+        api_key_id=api_key_id,
+        assignment_ref=payload.assignment_ref,
+        rubric_version=payload.rubric_version,
+        item_count=len(payload.submissions),
+        graded_count=0,
+        not_gradable_count=0,
+    )
+    session.add(batch)
+    await session.flush()
+
+    graded_count = 0
+    not_gradable_count = 0
+    for index, submission in enumerate(payload.submissions):
+        opt = await _load_owner_optimization(
+            session,
+            optimization_id=submission.optimization_id,
+            user_id=user_id,
+        )
+        grading_status, score, criteria, feedback_zh, gradable_optimization_id = (
+            _build_teaching_grading_result(opt)
+        )
+        if grading_status == "graded":
+            graded_count += 1
+        else:
+            not_gradable_count += 1
+        session.add(
+            TeachingGradingItem(
+                grading_batch_id=batch.id,
+                user_id=user_id,
+                item_index=index,
+                student_ref=submission.student_ref,
+                optimization_id=submission.optimization_id,
+                gradable_optimization_id=gradable_optimization_id,
+                grading_status=grading_status,
+                score=score,
+                max_score=TEACHING_GRADING_MAX_SCORE,
+                criteria=criteria,
+                feedback_zh=feedback_zh,
+            )
+        )
+
+    batch.graded_count = graded_count
+    batch.not_gradable_count = not_gradable_count
+    if idempotency_key:
+        session.add(
+            TeachingGradingIdempotencyKey(
+                key=idempotency_key,
+                user_id=user_id,
+                grading_batch_id=batch.id,
+                request_body_hash=request_body_hash,
+                expires_at=datetime.now(UTC) + timedelta(hours=24),
+            )
+        )
+
+    try:
+        await session.flush()
+    except IntegrityError:
+        await session.rollback()
+        return _idempotency_conflict_response(
+            idempotency_key=idempotency_key or "",
+            detail="failed to persist teaching grading batch atomically",
+            constraint="batch, items and idempotency key must be unique",
+            request_id=request_id,
+        )
+    await session.refresh(batch)
+    return JSONResponse(
+        content=await _teaching_grading_response(session, batch=batch),
+        status_code=status.HTTP_201_CREATED,
+    )
+
+
+@router.get(
+    "/teaching/grading-batches/{grading_batch_id}",
+    tags=["execution"],
+    summary="读取 Teaching Mode grading batch (Story 8.C.9)",
+)
+async def get_teaching_grading_batch(
+    grading_batch_id: uuid.UUID,
+    request: Request,
+    authorization: str | None = Header(default=None),
+    session: AsyncSession = Depends(get_session),
+) -> JSONResponse:
+    client_ip = request.client.host if request.client else None
+    user_id, _api_key_id, scopes = await verify_api_key(authorization, session, client_ip=client_ip)
+    require_scope("optimize:write", scopes)
+    request_id = request.headers.get("x-request-id") or str(uuid.uuid4())
+    batch = await _load_teaching_grading_batch(
+        session,
+        batch_id=grading_batch_id,
+        user_id=user_id,
+    )
+    if batch is None:
+        return _teaching_grading_not_found_response(request_id=request_id)
+    return JSONResponse(
+        content=await _teaching_grading_response(session, batch=batch),
+        status_code=status.HTTP_200_OK,
+    )
 
 
 @router.post(

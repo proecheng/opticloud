@@ -175,7 +175,7 @@ async def attach_existing_voucher_id(
     attach_voucher_metadata_to_optimization(
         opt, voucher_id=voucher.voucher_id, anonymous=voucher.anonymous
     )
-    return voucher.voucher_id
+    return cast(str, voucher.voucher_id)
 
 
 async def issue_reproduction_voucher(
@@ -195,7 +195,7 @@ async def issue_reproduction_voucher(
     existing = await get_reproduction_voucher(session, opt.id)
     if existing is not None:
         attach_voucher_id_to_optimization(opt, existing.voucher_id)
-        return existing.voucher_id
+        return cast(str, existing.voucher_id)
 
     handoff = _extract_reproducibility_handoff(opt)
     created_at = _as_utc(issued_at or datetime.now(UTC))
@@ -237,7 +237,7 @@ async def issue_reproduction_voucher(
                     voucher_id=existing_after_conflict.voucher_id,
                     anonymous=existing_after_conflict.anonymous,
                 )
-                return existing_after_conflict.voucher_id
+                return cast(str, existing_after_conflict.voucher_id)
             continue
 
         attach_voucher_metadata_to_optimization(opt, voucher_id=voucher_id, anonymous=anonymous)

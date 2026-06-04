@@ -6,7 +6,7 @@ import json
 import math
 import uuid
 from collections.abc import Sequence
-from typing import Any
+from typing import Any, cast
 
 from fastapi import HTTPException, status
 from fastapi.exceptions import RequestValidationError
@@ -29,6 +29,7 @@ SENSITIVE_ERROR_FIELDS = {
     "header.Idempotency-Key",
     "header.X-Billing-Charge-Id",
 }
+SENSITIVE_VALIDATION_FIELD_NAMES = {"assignment_ref", "student_ref"}
 
 
 def json_safe_error_value(value: Any) -> Any:
@@ -103,7 +104,7 @@ def _normalize_error_detail(detail: ErrorDetail) -> ErrorDetail:
 def _error_key_from_details(errors: list[ErrorDetail] | None) -> str | None:
     if not errors:
         return None
-    return error_key_for_remediation(errors[0].remediation_hint_key)
+    return cast(str | None, error_key_for_remediation(errors[0].remediation_hint_key))
 
 
 def build_problem_response(
@@ -183,7 +184,14 @@ def pydantic_loc_to_field_path(loc: Sequence[Any]) -> str:
     return f"{prefix}.{rendered}"
 
 
+def _validation_error_targets_sensitive_field(error: dict[str, Any]) -> bool:
+    loc = tuple(error.get("loc", ()))
+    return any(part in SENSITIVE_VALIDATION_FIELD_NAMES for part in loc)
+
+
 def _value_from_validation_error(error: dict[str, Any]) -> Any:
+    if _validation_error_targets_sensitive_field(error):
+        return "[redacted]"
     value = error.get("input")
     return json_safe_error_value(value)
 
