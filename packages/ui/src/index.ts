@@ -74,6 +74,13 @@ export type {
   VoucherStatus,
 } from "./components/VoucherCard";
 
+export { CapabilityCard } from "./components/CapabilityCard";
+export type {
+  CapabilityCardCapability,
+  CapabilityCardDiscount,
+  CapabilityCardProps,
+} from "./components/CapabilityCard";
+
 export { FilePicker } from "./components/FilePicker";
 export type {
   FilePickerProps,
