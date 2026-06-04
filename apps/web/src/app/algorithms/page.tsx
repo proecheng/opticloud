@@ -152,6 +152,14 @@ function AlgorithmsContent(): JSX.Element {
           <p className="mt-2 text-balance text-muted-foreground">
             公开免鉴权 — `GET /v1/algorithms`（FR C1） · Provider 全透明（含 provider_url）
           </p>
+          <div className="mt-4">
+            <Link
+              href="/algorithms/benchmarks"
+              className="inline-flex min-h-touch items-center rounded-md border border-border bg-background px-4 py-2 text-sm font-medium hover:bg-muted"
+            >
+              浏览经典算例库
+            </Link>
+          </div>
 
           <div className="mt-6 space-y-3">
             <div className="flex flex-wrap items-center justify-center gap-2">
