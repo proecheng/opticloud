@@ -29,6 +29,7 @@ SENSITIVE_ERROR_FIELDS = {
     "header.Idempotency-Key",
     "header.X-Billing-Charge-Id",
 }
+SENSITIVE_VALIDATION_FIELD_NAMES = {"assignment_ref", "student_ref"}
 
 
 def json_safe_error_value(value: Any) -> Any:
@@ -183,7 +184,14 @@ def pydantic_loc_to_field_path(loc: Sequence[Any]) -> str:
     return f"{prefix}.{rendered}"
 
 
+def _validation_error_targets_sensitive_field(error: dict[str, Any]) -> bool:
+    loc = tuple(error.get("loc", ()))
+    return any(part in SENSITIVE_VALIDATION_FIELD_NAMES for part in loc)
+
+
 def _value_from_validation_error(error: dict[str, Any]) -> Any:
+    if _validation_error_targets_sensitive_field(error):
+        return "[redacted]"
     value = error.get("input")
     return json_safe_error_value(value)
 

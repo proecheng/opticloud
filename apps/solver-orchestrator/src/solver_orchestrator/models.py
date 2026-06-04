@@ -313,6 +313,108 @@ class JobTemplate(Base):
     )
 
 
+class TeachingGradingBatch(Base):
+    """Story 8.C.9 — owner-scoped teaching grading batch."""
+
+    __tablename__ = "teaching_grading_batches"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    api_key_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    assignment_ref: Mapped[str] = mapped_column(String(80), nullable=False)
+    rubric_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    item_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    graded_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    not_gradable_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    __table_args__ = (
+        Index("idx_teaching_grading_batches_user_created", "user_id", text("created_at DESC")),
+    )
+
+
+class TeachingGradingItem(Base):
+    """Story 8.C.9 — per-submission teaching grading result."""
+
+    __tablename__ = "teaching_grading_items"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()
+    )
+    grading_batch_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("teaching_grading_batches.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    item_index: Mapped[int] = mapped_column(Integer, nullable=False)
+    student_ref: Mapped[str] = mapped_column(String(80), nullable=False)
+    optimization_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    gradable_optimization_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("optimizations.id"), nullable=True
+    )
+    grading_status: Mapped[str] = mapped_column(String(32), nullable=False)
+    score: Mapped[Decimal] = mapped_column(Numeric(6, 2), nullable=False)
+    max_score: Mapped[Decimal] = mapped_column(Numeric(6, 2), nullable=False)
+    criteria: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, nullable=False)
+    feedback_zh: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    __table_args__ = (
+        Index(
+            "idx_teaching_grading_items_user_batch_index",
+            "user_id",
+            "grading_batch_id",
+            "item_index",
+        ),
+        Index(
+            "uq_teaching_grading_items_batch_index",
+            "grading_batch_id",
+            "item_index",
+            unique=True,
+        ),
+        Index(
+            "uq_teaching_grading_items_batch_student",
+            "grading_batch_id",
+            "student_ref",
+            unique=True,
+        ),
+        Index(
+            "uq_teaching_grading_items_batch_optimization",
+            "grading_batch_id",
+            "optimization_id",
+            unique=True,
+        ),
+    )
+
+
+class TeachingGradingIdempotencyKey(Base):
+    """Story 8.C.9 — per-user idempotency for teaching grading batches."""
+
+    __tablename__ = "teaching_grading_idempotency_keys"
+
+    key: Mapped[str] = mapped_column(String(255), primary_key=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, nullable=False)
+    grading_batch_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("teaching_grading_batches.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    request_body_hash: Mapped[str] = mapped_column(Text, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    __table_args__ = (Index("idx_teaching_grading_idempotency_expires_at", "expires_at"),)
+
+
 class CostAttribution(Base):
     """Story M2.3 — shared G3 cost attribution table."""
 

@@ -537,6 +537,61 @@ export interface ReproductionRerunResponse extends OptimizationResponse {
   };
 }
 
+// ===== Teaching grading (Story 8.C.9) =====
+
+export type TeachingGradingRubricVersion = "teaching-grading-v1";
+export type TeachingGradingStatus = "graded" | "not_gradable";
+export type TeachingGradingCriterionCode =
+  | "teaching_mode"
+  | "completed_status"
+  | "solution_available"
+  | "explanation_ready";
+
+export interface TeachingGradingSubmission {
+  student_ref: string;
+  optimization_id: string;
+}
+
+export interface TeachingGradingBatchCreateRequest {
+  assignment_ref: string;
+  rubric_version?: TeachingGradingRubricVersion;
+  submissions: TeachingGradingSubmission[];
+}
+
+export interface TeachingGradingCriterionResult {
+  code: TeachingGradingCriterionCode;
+  label_zh: string;
+  passed: boolean;
+  points: number;
+  max_points: number;
+}
+
+export interface TeachingGradingItemResponse {
+  index: number;
+  student_ref: string;
+  optimization_id: string;
+  grading_status: TeachingGradingStatus;
+  score: number;
+  max_score: number;
+  criteria: TeachingGradingCriterionResult[];
+  feedback_zh: string;
+}
+
+export interface TeachingGradingBatchResponse {
+  grading_batch_id: string;
+  assignment_ref: string;
+  rubric_version: TeachingGradingRubricVersion;
+  item_count: number;
+  graded_count: number;
+  not_gradable_count: number;
+  created_at: string;
+  items: TeachingGradingItemResponse[];
+}
+
+export interface CreateTeachingGradingBatchOptions {
+  idempotencyKey?: string;
+}
+
 export type PredictionFamily = "arima" | "chronos";
 
 export interface PredictionRequest {
@@ -1696,6 +1751,37 @@ export async function getOptimization(
   }
 
   return (await response.json()) as GetOptimizationResponse;
+}
+
+export async function createTeachingGradingBatch(
+  apiKey: string,
+  body: TeachingGradingBatchCreateRequest,
+  options: CreateTeachingGradingBatchOptions = {},
+): Promise<TeachingGradingBatchResponse> {
+  const headers: Record<string, string> = { Authorization: `Bearer ${apiKey}` };
+  if (options.idempotencyKey) {
+    headers["Idempotency-Key"] = options.idempotencyKey;
+  }
+  return request<TeachingGradingBatchResponse>(
+    "/v1/teaching/grading-batches",
+    {
+      method: "POST",
+      headers,
+      body: JSON.stringify(body),
+    },
+    SOLVER_SERVICE_URL,
+  );
+}
+
+export async function getTeachingGradingBatch(
+  apiKey: string,
+  gradingBatchId: string,
+): Promise<TeachingGradingBatchResponse> {
+  return request<TeachingGradingBatchResponse>(
+    `/v1/teaching/grading-batches/${encodeURIComponent(gradingBatchId)}`,
+    { headers: { Authorization: `Bearer ${apiKey}` } },
+    SOLVER_SERVICE_URL,
+  );
 }
 
 export async function postPrediction(

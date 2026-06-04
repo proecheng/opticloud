@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 # ===== Story 2.1: GET /v1/algorithms =====
 
@@ -357,3 +357,87 @@ class JobTemplateVersionCreateRequest(BaseModel):
 
 class JobTemplateVersionsResponse(BaseModel):
     items: list[JobTemplateSummary]
+
+
+# ===== Story 8.C.9: Teaching Mode Grading API =====
+
+
+OPAQUE_REF_PATTERN = r"^[A-Za-z0-9._:-]+$"
+TEACHING_GRADING_RUBRIC_VERSION: Literal["teaching-grading-v1"] = "teaching-grading-v1"
+
+
+def _validate_opaque_ref(value: str, *, field_name: str) -> str:
+    import re
+
+    if not re.fullmatch(OPAQUE_REF_PATTERN, value):
+        raise ValueError(f"{field_name} must use opaque characters [A-Za-z0-9._:-] only")
+    if not any(separator in value for separator in "._:-"):
+        raise ValueError(f"{field_name} must be an opaque reference with a separator")
+    if "@" in value or "/" in value or "\\" in value:
+        raise ValueError(f"{field_name} must not contain email or path-like data")
+    return value
+
+
+class TeachingGradingSubmission(BaseModel):
+    student_ref: str = Field(..., min_length=3, max_length=80)
+    optimization_id: uuid.UUID
+
+    model_config = {"extra": "forbid"}
+
+    @field_validator("student_ref")
+    @classmethod
+    def validate_student_ref(cls, value: str) -> str:
+        return _validate_opaque_ref(value, field_name="student_ref")
+
+
+class TeachingGradingBatchCreateRequest(BaseModel):
+    assignment_ref: str = Field(..., min_length=3, max_length=80)
+    rubric_version: Literal["teaching-grading-v1"] = TEACHING_GRADING_RUBRIC_VERSION
+    submissions: list[TeachingGradingSubmission] = Field(..., min_length=1, max_length=100)
+
+    model_config = {"extra": "forbid"}
+
+    @field_validator("assignment_ref")
+    @classmethod
+    def validate_assignment_ref(cls, value: str) -> str:
+        return _validate_opaque_ref(value, field_name="assignment_ref")
+
+    @model_validator(mode="after")
+    def check_duplicates(self) -> TeachingGradingBatchCreateRequest:
+        student_refs = [submission.student_ref for submission in self.submissions]
+        if len(set(student_refs)) != len(student_refs):
+            raise ValueError("duplicate student_ref values are not allowed")
+        optimization_ids = [submission.optimization_id for submission in self.submissions]
+        if len(set(optimization_ids)) != len(optimization_ids):
+            raise ValueError("duplicate optimization_id values are not allowed")
+        return self
+
+
+class TeachingGradingCriterionResult(BaseModel):
+    code: Literal["teaching_mode", "completed_status", "solution_available", "explanation_ready"]
+    label_zh: str
+    passed: bool
+    points: float
+    max_points: float
+
+
+class TeachingGradingItemResponse(BaseModel):
+    index: int
+    student_ref: str
+    optimization_id: uuid.UUID
+    grading_status: Literal["graded", "not_gradable"]
+    score: float
+    max_score: float
+    criteria: list[TeachingGradingCriterionResult]
+    feedback_zh: str
+
+
+class TeachingGradingBatchResponse(BaseModel):
+    grading_batch_id: uuid.UUID
+    assignment_ref: str
+    rubric_version: Literal["teaching-grading-v1"]
+    item_count: int
+    graded_count: int
+    not_gradable_count: int
+    created_at: datetime
+    items: list[TeachingGradingItemResponse]
