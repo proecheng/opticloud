@@ -55,6 +55,7 @@ jobs:
       ui_a11y_audit: ${{ steps.filter.outputs.ui_a11y_audit }}
       prometheus_metric_audit: ${{ steps.filter.outputs.prometheus_metric_audit }}
       nfr_cost_alerts: ${{ steps.filter.outputs.nfr_cost_alerts }}
+      nfr_security_p0_drills: ${{ steps.filter.outputs.nfr_security_p0_drills }}
       web: ${{ steps.filter.outputs.web }}
       ci_or_root: ${{ steps.filter.outputs.ci_or_root }}
     steps:
@@ -105,6 +106,21 @@ jobs:
               - 'tests/test_prometheus_metric_audit.py'
               - 'docs/runbooks/prometheus-metric-audit.md'
               - 'reports/prometheus-metric-audit/**'
+            nfr_security_p0_drills:
+              - 'tools/nfr_security_p0_drills/**'
+              - 'scripts/validate_nfr_security_p0_drills.py'
+              - 'tests/test_nfr_security_p0_drills.py'
+              - 'docs/runbooks/nfr-security-p0-drills.md'
+              - 'reports/nfr-security-p0-drills/**'
+              - '.github/workflows/ci.yml'
+              - 'infra/sandbox-security/**'
+              - 'tools/incidents/**'
+              - 'scripts/validate_j3_incident_contract.py'
+              - 'apps/web/src/lib/status-page.ts'
+              - 'infra/local-init/03-billing-schema.sql'
+              - 'apps/billing-service/src/billing_service/models.py'
+              - 'apps/billing-service/src/billing_service/saga_orchestrator.py'
+              - 'apps/billing-service/src/billing_service/routes.py'
             python_sdk:
               - 'packages/python-sdk/**'
               - 'tests/fixtures/sdk-rfc7807-preservation.json'
@@ -1016,6 +1032,30 @@ jobs:
           done
       - name: Run NFR-COST alert tests
         run: uv run pytest tests/test_nfr_cost_alerts.py -v
+
+  # ===== NFR-S P0 security drill governance validation (Story 9.4) =====
+  nfr-security-p0-drills-validation:
+    needs: changes
+    if: needs.changes.outputs.nfr_security_p0_drills == 'true' || needs.changes.outputs.ci_or_root == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: pip install uv==${{ env.UV_VERSION }}
+      - run: uv sync --all-packages --extra dev
+      - name: Validate NFR-S P0 drill contract
+        run: uv run python scripts/validate_nfr_security_p0_drills.py
+      - name: Validate real NFR-S P0 drill evidence manifests when present
+        run: |
+          shopt -s globstar nullglob
+          manifests=(reports/nfr-security-p0-drills/**/drill_manifest.json)
+          for manifest in "${manifests[@]}"; do
+            uv run python scripts/validate_nfr_security_p0_drills.py --evidence "$manifest"
+          done
+      - name: Run NFR-S P0 drill tests
+        run: uv run pytest tests/test_nfr_security_p0_drills.py -v
 
   # ===== Critic confidence calibration validation (Story M3.5a) =====
   critic-calibration-validation:

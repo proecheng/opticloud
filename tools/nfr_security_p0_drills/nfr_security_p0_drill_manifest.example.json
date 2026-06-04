@@ -1,0 +1,313 @@
+{
+  "source_story": "9.4",
+  "drill_version": "nfr_security_p0_drills_v1",
+  "run_id": "example-nfr-security-p0-drills-20260605",
+  "example_only": true,
+  "generated_by": "Story 9.4 static example; not real P0, drill, public postmortem, notification, customer impact, or billing evidence",
+  "commit_sha": "0000000",
+  "cadence_mode": "quarterly",
+  "period": {
+    "start_date": "2026-04-01",
+    "end_date": "2026-06-30"
+  },
+  "scenario_results": [
+    {
+      "scenario_id": "sandbox_privilege_escape",
+      "status": "not_run_example",
+      "allowed_drill_mode": "tabletop",
+      "summary": "Static example only. Sandbox P0 drill requires redacted operator evidence.",
+      "finding_ids": []
+    },
+    {
+      "scenario_id": "data_exfiltration",
+      "status": "not_run_example",
+      "allowed_drill_mode": "tabletop",
+      "summary": "Static example only. Data exfiltration drill requires redacted operator evidence.",
+      "finding_ids": []
+    },
+    {
+      "scenario_id": "billing_ledger_corruption",
+      "status": "not_run_example",
+      "allowed_drill_mode": "tabletop",
+      "summary": "Static example only. Billing ledger drill requires redacted operator evidence.",
+      "finding_ids": []
+    }
+  ],
+  "source_snapshots": [
+    {
+      "scenario_id": "sandbox_privilege_escape",
+      "substrate_id": "m3-7-sandbox-audit",
+      "status": "not_run_example",
+      "artifact_path": "reports/nfr-security-p0-drills/example-nfr-security-p0-drills-20260605/sandbox-source.json",
+      "summary": "Static example only. References M3.7 static sandbox audit substrate.",
+      "finding_ids": []
+    },
+    {
+      "scenario_id": "data_exfiltration",
+      "substrate_id": "public-p0-postmortem-model",
+      "status": "not_run_example",
+      "artifact_path": "reports/nfr-security-p0-drills/example-nfr-security-p0-drills-20260605/data-source.json",
+      "summary": "Static example only. References public postmortem and privacy response substrate.",
+      "finding_ids": []
+    },
+    {
+      "scenario_id": "billing_ledger_corruption",
+      "substrate_id": "billing-ledger-saga",
+      "status": "not_run_example",
+      "artifact_path": "reports/nfr-security-p0-drills/example-nfr-security-p0-drills-20260605/billing-source.json",
+      "summary": "Static example only. References billing Saga and credit ledger substrate.",
+      "finding_ids": []
+    }
+  ],
+  "sop_executions": [
+    {
+      "scenario_id": "sandbox_privilege_escape",
+      "gate_id": "declare_p0",
+      "status": "not_run_example",
+      "artifact_path": "reports/nfr-security-p0-drills/example-nfr-security-p0-drills-20260605/sandbox-sop-declare-p0.json",
+      "finding_ids": []
+    },
+    {
+      "scenario_id": "sandbox_privilege_escape",
+      "gate_id": "assign_incident_commander",
+      "status": "not_run_example",
+      "artifact_path": "reports/nfr-security-p0-drills/example-nfr-security-p0-drills-20260605/sandbox-sop-assign-incident-commander.json",
+      "finding_ids": []
+    },
+    {
+      "scenario_id": "sandbox_privilege_escape",
+      "gate_id": "containment_decision",
+      "status": "not_run_example",
+      "artifact_path": "reports/nfr-security-p0-drills/example-nfr-security-p0-drills-20260605/sandbox-sop-containment-decision.json",
+      "finding_ids": []
+    },
+    {
+      "scenario_id": "sandbox_privilege_escape",
+      "gate_id": "evidence_redaction",
+      "status": "not_run_example",
+      "artifact_path": "reports/nfr-security-p0-drills/example-nfr-security-p0-drills-20260605/sandbox-sop-evidence-redaction.json",
+      "finding_ids": []
+    },
+    {
+      "scenario_id": "sandbox_privilege_escape",
+      "gate_id": "postmortem_owner",
+      "status": "not_run_example",
+      "artifact_path": "reports/nfr-security-p0-drills/example-nfr-security-p0-drills-20260605/sandbox-sop-postmortem-owner.json",
+      "finding_ids": []
+    },
+    {
+      "scenario_id": "sandbox_privilege_escape",
+      "gate_id": "ticket_closure_review",
+      "status": "not_run_example",
+      "artifact_path": "reports/nfr-security-p0-drills/example-nfr-security-p0-drills-20260605/sandbox-sop-ticket-closure-review.json",
+      "finding_ids": []
+    },
+    {
+      "scenario_id": "data_exfiltration",
+      "gate_id": "declare_p0",
+      "status": "not_run_example",
+      "artifact_path": "reports/nfr-security-p0-drills/example-nfr-security-p0-drills-20260605/data-sop-declare-p0.json",
+      "finding_ids": []
+    },
+    {
+      "scenario_id": "data_exfiltration",
+      "gate_id": "assign_incident_commander",
+      "status": "not_run_example",
+      "artifact_path": "reports/nfr-security-p0-drills/example-nfr-security-p0-drills-20260605/data-sop-assign-incident-commander.json",
+      "finding_ids": []
+    },
+    {
+      "scenario_id": "data_exfiltration",
+      "gate_id": "containment_decision",
+      "status": "not_run_example",
+      "artifact_path": "reports/nfr-security-p0-drills/example-nfr-security-p0-drills-20260605/data-sop-containment-decision.json",
+      "finding_ids": []
+    },
+    {
+      "scenario_id": "data_exfiltration",
+      "gate_id": "evidence_redaction",
+      "status": "not_run_example",
+      "artifact_path": "reports/nfr-security-p0-drills/example-nfr-security-p0-drills-20260605/data-sop-evidence-redaction.json",
+      "finding_ids": []
+    },
+    {
+      "scenario_id": "data_exfiltration",
+      "gate_id": "postmortem_owner",
+      "status": "not_run_example",
+      "artifact_path": "reports/nfr-security-p0-drills/example-nfr-security-p0-drills-20260605/data-sop-postmortem-owner.json",
+      "finding_ids": []
+    },
+    {
+      "scenario_id": "data_exfiltration",
+      "gate_id": "ticket_closure_review",
+      "status": "not_run_example",
+      "artifact_path": "reports/nfr-security-p0-drills/example-nfr-security-p0-drills-20260605/data-sop-ticket-closure-review.json",
+      "finding_ids": []
+    },
+    {
+      "scenario_id": "billing_ledger_corruption",
+      "gate_id": "declare_p0",
+      "status": "not_run_example",
+      "artifact_path": "reports/nfr-security-p0-drills/example-nfr-security-p0-drills-20260605/billing-sop-declare-p0.json",
+      "finding_ids": []
+    },
+    {
+      "scenario_id": "billing_ledger_corruption",
+      "gate_id": "assign_incident_commander",
+      "status": "not_run_example",
+      "artifact_path": "reports/nfr-security-p0-drills/example-nfr-security-p0-drills-20260605/billing-sop-assign-incident-commander.json",
+      "finding_ids": []
+    },
+    {
+      "scenario_id": "billing_ledger_corruption",
+      "gate_id": "containment_decision",
+      "status": "not_run_example",
+      "artifact_path": "reports/nfr-security-p0-drills/example-nfr-security-p0-drills-20260605/billing-sop-containment-decision.json",
+      "finding_ids": []
+    },
+    {
+      "scenario_id": "billing_ledger_corruption",
+      "gate_id": "evidence_redaction",
+      "status": "not_run_example",
+      "artifact_path": "reports/nfr-security-p0-drills/example-nfr-security-p0-drills-20260605/billing-sop-evidence-redaction.json",
+      "finding_ids": []
+    },
+    {
+      "scenario_id": "billing_ledger_corruption",
+      "gate_id": "postmortem_owner",
+      "status": "not_run_example",
+      "artifact_path": "reports/nfr-security-p0-drills/example-nfr-security-p0-drills-20260605/billing-sop-postmortem-owner.json",
+      "finding_ids": []
+    },
+    {
+      "scenario_id": "billing_ledger_corruption",
+      "gate_id": "ticket_closure_review",
+      "status": "not_run_example",
+      "artifact_path": "reports/nfr-security-p0-drills/example-nfr-security-p0-drills-20260605/billing-sop-ticket-closure-review.json",
+      "finding_ids": []
+    }
+  ],
+  "containment_actions": [
+    {
+      "scenario_id": "sandbox_privilege_escape",
+      "status": "not_run_example",
+      "decision": "freeze_sandbox_runner",
+      "artifact_path": "reports/nfr-security-p0-drills/example-nfr-security-p0-drills-20260605/sandbox-containment.json",
+      "summary": "Static example only. No real sandbox runner was frozen.",
+      "finding_ids": []
+    },
+    {
+      "scenario_id": "data_exfiltration",
+      "status": "not_run_example",
+      "decision": "revoke_suspect_access",
+      "artifact_path": "reports/nfr-security-p0-drills/example-nfr-security-p0-drills-20260605/data-containment.json",
+      "summary": "Static example only. No real access token or customer data is present.",
+      "finding_ids": []
+    },
+    {
+      "scenario_id": "billing_ledger_corruption",
+      "status": "not_run_example",
+      "decision": "run_reconciliation",
+      "artifact_path": "reports/nfr-security-p0-drills/example-nfr-security-p0-drills-20260605/billing-containment.json",
+      "summary": "Static example only. No real ledger row or customer balance is present.",
+      "finding_ids": []
+    }
+  ],
+  "timeline_records": [
+    {
+      "scenario_id": "sandbox_privilege_escape",
+      "status": "not_run_example",
+      "p0_declared_utc": "2026-06-05T01:00:00Z",
+      "incident_commander_assigned_utc": "2026-06-05T01:05:00Z",
+      "containment_started_utc": "2026-06-05T01:15:00Z",
+      "status_page_decision_utc": "2026-06-05T01:30:00Z",
+      "postmortem_due_utc": "2026-06-06T01:00:00Z",
+      "artifact_path": "reports/nfr-security-p0-drills/example-nfr-security-p0-drills-20260605/sandbox-timeline.json",
+      "finding_ids": []
+    },
+    {
+      "scenario_id": "data_exfiltration",
+      "status": "not_run_example",
+      "p0_declared_utc": "2026-06-05T02:00:00Z",
+      "incident_commander_assigned_utc": "2026-06-05T02:05:00Z",
+      "containment_started_utc": "2026-06-05T02:15:00Z",
+      "status_page_decision_utc": "2026-06-05T02:30:00Z",
+      "postmortem_due_utc": "2026-06-06T02:00:00Z",
+      "artifact_path": "reports/nfr-security-p0-drills/example-nfr-security-p0-drills-20260605/data-timeline.json",
+      "finding_ids": []
+    },
+    {
+      "scenario_id": "billing_ledger_corruption",
+      "status": "not_run_example",
+      "p0_declared_utc": "2026-06-05T03:00:00Z",
+      "incident_commander_assigned_utc": "2026-06-05T03:05:00Z",
+      "containment_started_utc": "2026-06-05T03:15:00Z",
+      "status_page_decision_utc": "2026-06-05T03:30:00Z",
+      "postmortem_due_utc": "2026-06-06T03:00:00Z",
+      "artifact_path": "reports/nfr-security-p0-drills/example-nfr-security-p0-drills-20260605/billing-timeline.json",
+      "finding_ids": []
+    }
+  ],
+  "postmortem_templates": [
+    {
+      "scenario_id": "sandbox_privilege_escape",
+      "status": "not_run_example",
+      "public_url_path": "/status/incidents/example-nfr-s-sandbox",
+      "sections": {
+        "what_happened": "Static example only.",
+        "timeline": "Static example only.",
+        "impact": "Static example only.",
+        "detection": "Static example only.",
+        "mitigation": "Static example only.",
+        "root_cause": "Static example only.",
+        "follow_ups": "Static example only.",
+        "prevention": "Static example only."
+      },
+      "artifact_path": "reports/nfr-security-p0-drills/example-nfr-security-p0-drills-20260605/sandbox-postmortem.json",
+      "finding_ids": []
+    },
+    {
+      "scenario_id": "data_exfiltration",
+      "status": "not_run_example",
+      "public_url_path": "/status/incidents/example-nfr-s-data",
+      "sections": {
+        "what_happened": "Static example only.",
+        "timeline": "Static example only.",
+        "impact": "Static example only.",
+        "detection": "Static example only.",
+        "mitigation": "Static example only.",
+        "root_cause": "Static example only.",
+        "follow_ups": "Static example only.",
+        "prevention": "Static example only."
+      },
+      "artifact_path": "reports/nfr-security-p0-drills/example-nfr-security-p0-drills-20260605/data-postmortem.json",
+      "finding_ids": []
+    },
+    {
+      "scenario_id": "billing_ledger_corruption",
+      "status": "not_run_example",
+      "public_url_path": "/status/incidents/example-nfr-s-billing",
+      "sections": {
+        "what_happened": "Static example only.",
+        "timeline": "Static example only.",
+        "impact": "Static example only.",
+        "detection": "Static example only.",
+        "mitigation": "Static example only.",
+        "root_cause": "Static example only.",
+        "follow_ups": "Static example only.",
+        "prevention": "Static example only."
+      },
+      "artifact_path": "reports/nfr-security-p0-drills/example-nfr-security-p0-drills-20260605/billing-postmortem.json",
+      "finding_ids": []
+    }
+  ],
+  "findings": [],
+  "redaction_reviewed": false,
+  "release_approved": false,
+  "real_incident_occurred": false,
+  "real_drill_executed": false,
+  "real_public_postmortem_published": false,
+  "real_external_notification_sent": false,
+  "real_customer_impact": false,
+  "real_refund_or_compensation_executed": false
+}

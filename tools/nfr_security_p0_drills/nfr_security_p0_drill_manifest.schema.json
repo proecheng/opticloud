@@ -1,0 +1,474 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Story 9.4 NFR-S P0 drill manifest",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "source_story",
+    "drill_version",
+    "run_id",
+    "example_only",
+    "generated_by",
+    "commit_sha",
+    "cadence_mode",
+    "period",
+    "scenario_results",
+    "source_snapshots",
+    "sop_executions",
+    "containment_actions",
+    "timeline_records",
+    "postmortem_templates",
+    "findings",
+    "redaction_reviewed",
+    "release_approved",
+    "real_incident_occurred",
+    "real_drill_executed",
+    "real_public_postmortem_published",
+    "real_external_notification_sent",
+    "real_customer_impact",
+    "real_refund_or_compensation_executed"
+  ],
+  "properties": {
+    "source_story": {
+      "const": "9.4",
+      "type": "string"
+    },
+    "drill_version": {
+      "const": "nfr_security_p0_drills_v1",
+      "type": "string"
+    },
+    "run_id": {
+      "pattern": "^[a-z0-9][a-z0-9._-]{2,63}$",
+      "type": "string"
+    },
+    "example_only": {
+      "type": "boolean"
+    },
+    "generated_by": {
+      "type": "string"
+    },
+    "commit_sha": {
+      "pattern": "^[0-9a-f]{7,40}$",
+      "type": "string"
+    },
+    "cadence_mode": {
+      "$ref": "#/$defs/cadenceMode"
+    },
+    "period": {
+      "$ref": "#/$defs/period"
+    },
+    "scenario_results": {
+      "items": {
+        "$ref": "#/$defs/scenarioResult"
+      },
+      "type": "array"
+    },
+    "source_snapshots": {
+      "items": {
+        "$ref": "#/$defs/sourceSnapshot"
+      },
+      "type": "array"
+    },
+    "sop_executions": {
+      "items": {
+        "$ref": "#/$defs/sopExecution"
+      },
+      "type": "array"
+    },
+    "containment_actions": {
+      "items": {
+        "$ref": "#/$defs/containmentAction"
+      },
+      "type": "array"
+    },
+    "timeline_records": {
+      "items": {
+        "$ref": "#/$defs/timelineRecord"
+      },
+      "type": "array"
+    },
+    "postmortem_templates": {
+      "items": {
+        "$ref": "#/$defs/postmortemTemplate"
+      },
+      "type": "array"
+    },
+    "findings": {
+      "items": {
+        "$ref": "#/$defs/finding"
+      },
+      "type": "array"
+    },
+    "redaction_reviewed": {
+      "type": "boolean"
+    },
+    "release_approved": {
+      "type": "boolean"
+    },
+    "real_incident_occurred": {
+      "type": "boolean"
+    },
+    "real_drill_executed": {
+      "type": "boolean"
+    },
+    "real_public_postmortem_published": {
+      "type": "boolean"
+    },
+    "real_external_notification_sent": {
+      "type": "boolean"
+    },
+    "real_customer_impact": {
+      "type": "boolean"
+    },
+    "real_refund_or_compensation_executed": {
+      "type": "boolean"
+    }
+  },
+  "$defs": {
+    "cadenceMode": {
+      "enum": [
+        "quarterly",
+        "annual_lite"
+      ],
+      "type": "string"
+    },
+    "scenarioId": {
+      "enum": [
+        "sandbox_privilege_escape",
+        "data_exfiltration",
+        "billing_ledger_corruption"
+      ],
+      "type": "string"
+    },
+    "drillStatus": {
+      "enum": [
+        "not_run_example",
+        "passed",
+        "failed",
+        "blocked",
+        "not_applicable"
+      ],
+      "type": "string"
+    },
+    "period": {
+      "additionalProperties": false,
+      "properties": {
+        "start_date": {
+          "pattern": "^20[0-9]{2}-[0-9]{2}-[0-9]{2}$",
+          "type": "string"
+        },
+        "end_date": {
+          "pattern": "^20[0-9]{2}-[0-9]{2}-[0-9]{2}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "start_date",
+        "end_date"
+      ],
+      "type": "object"
+    },
+    "scenarioResult": {
+      "additionalProperties": true,
+      "properties": {
+        "scenario_id": {
+          "$ref": "#/$defs/scenarioId"
+        },
+        "status": {
+          "$ref": "#/$defs/drillStatus"
+        },
+        "allowed_drill_mode": {
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        },
+        "finding_ids": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "scenario_id",
+        "status",
+        "allowed_drill_mode",
+        "summary",
+        "finding_ids"
+      ],
+      "type": "object"
+    },
+    "sourceSnapshot": {
+      "additionalProperties": true,
+      "properties": {
+        "scenario_id": {
+          "$ref": "#/$defs/scenarioId"
+        },
+        "substrate_id": {
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/drillStatus"
+        },
+        "artifact_path": {
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        },
+        "finding_ids": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "scenario_id",
+        "substrate_id",
+        "status",
+        "artifact_path",
+        "summary",
+        "finding_ids"
+      ],
+      "type": "object"
+    },
+    "sopExecution": {
+      "additionalProperties": true,
+      "properties": {
+        "scenario_id": {
+          "$ref": "#/$defs/scenarioId"
+        },
+        "gate_id": {
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/drillStatus"
+        },
+        "artifact_path": {
+          "type": "string"
+        },
+        "finding_ids": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "scenario_id",
+        "gate_id",
+        "status",
+        "artifact_path",
+        "finding_ids"
+      ],
+      "type": "object"
+    },
+    "containmentAction": {
+      "additionalProperties": true,
+      "properties": {
+        "scenario_id": {
+          "$ref": "#/$defs/scenarioId"
+        },
+        "status": {
+          "$ref": "#/$defs/drillStatus"
+        },
+        "decision": {
+          "type": "string"
+        },
+        "artifact_path": {
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        },
+        "finding_ids": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "scenario_id",
+        "status",
+        "decision",
+        "artifact_path",
+        "summary",
+        "finding_ids"
+      ],
+      "type": "object"
+    },
+    "timelineRecord": {
+      "additionalProperties": true,
+      "properties": {
+        "scenario_id": {
+          "$ref": "#/$defs/scenarioId"
+        },
+        "status": {
+          "$ref": "#/$defs/drillStatus"
+        },
+        "p0_declared_utc": {
+          "type": "string"
+        },
+        "incident_commander_assigned_utc": {
+          "type": "string"
+        },
+        "containment_started_utc": {
+          "type": "string"
+        },
+        "status_page_decision_utc": {
+          "type": "string"
+        },
+        "postmortem_due_utc": {
+          "type": "string"
+        },
+        "artifact_path": {
+          "type": "string"
+        },
+        "finding_ids": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "scenario_id",
+        "status",
+        "p0_declared_utc",
+        "incident_commander_assigned_utc",
+        "containment_started_utc",
+        "status_page_decision_utc",
+        "postmortem_due_utc",
+        "artifact_path",
+        "finding_ids"
+      ],
+      "type": "object"
+    },
+    "postmortemTemplate": {
+      "additionalProperties": true,
+      "properties": {
+        "scenario_id": {
+          "$ref": "#/$defs/scenarioId"
+        },
+        "status": {
+          "$ref": "#/$defs/drillStatus"
+        },
+        "public_url_path": {
+          "type": "string"
+        },
+        "sections": {
+          "type": "object"
+        },
+        "artifact_path": {
+          "type": "string"
+        },
+        "finding_ids": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "scenario_id",
+        "status",
+        "public_url_path",
+        "sections",
+        "artifact_path",
+        "finding_ids"
+      ],
+      "type": "object"
+    },
+    "finding": {
+      "additionalProperties": true,
+      "properties": {
+        "finding_id": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "severity": {
+          "enum": [
+            "P0",
+            "P1",
+            "P2",
+            "P3"
+          ],
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "open",
+            "in_progress",
+            "resolved",
+            "deferred"
+          ],
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        },
+        "ticket_refs": {
+          "items": {
+            "$ref": "#/$defs/ticketRef"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "finding_id",
+        "source",
+        "severity",
+        "status",
+        "summary",
+        "ticket_refs"
+      ],
+      "type": "object"
+    },
+    "ticketRef": {
+      "additionalProperties": true,
+      "properties": {
+        "ticket_id": {
+          "type": "string"
+        },
+        "owner": {
+          "type": "string"
+        },
+        "severity": {
+          "enum": [
+            "P0",
+            "P1",
+            "P2",
+            "P3"
+          ],
+          "type": "string"
+        },
+        "due_date": {
+          "pattern": "^20[0-9]{2}-[0-9]{2}-[0-9]{2}$",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "open",
+            "in_progress",
+            "resolved",
+            "deferred"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "ticket_id",
+        "owner",
+        "severity",
+        "due_date",
+        "status"
+      ],
+      "type": "object"
+    }
+  }
+}
