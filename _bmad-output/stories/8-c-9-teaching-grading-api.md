@@ -3,7 +3,7 @@ story_key: 8-c-9-teaching-grading-api
 epic_num: 8
 story_num: C.9
 epic_name: Teaching + Provider Routing + Legal + Algorithm Library
-status: code-review
+status: done
 baseline_commit: 2ff7e83fe3cd26615acca1514c397ae982256712
 priority: High
 type: Teaching Mode Grading API
@@ -24,7 +24,7 @@ sources:
 
 # Story 8.C.9 - Teaching Mode Grading API
 
-Status: code-review
+Status: done
 
 ## Story
 
@@ -292,7 +292,7 @@ Status: PASS after fixes. Story is ready for development.
 
 Date: 2026-06-04
 
-Outcome: APPROVED FOR PR after fixes. Story remains `code-review` until GitHub CI, merge, remote branch deletion and local `main` sync complete.
+Outcome: APPROVED FOR PR after fixes. Closure completed after GitHub CI, merge, remote branch deletion and local `main` sync.
 
 Findings fixed:
 
@@ -331,6 +331,7 @@ GPT-5 Codex
 - 2026-06-04 - Post-implementation code review found and fixed validation-value redaction for opaque refs and added an explicit teaching grading item owner index.
 - 2026-06-04 - Local validation re-run after review fixes: teaching grading + teaching mode tests (20 passed), web helper tests (2 passed), solver ruff check/format, solver mypy, web typecheck and `git diff --check`.
 - 2026-06-04 - PR #169 initial CI found full-repo mypy redundant-cast failures in existing touched files; removed redundant casts and validated with CI-equivalent `uv run mypy apps packages`.
+- 2026-06-04 - PR #169 passed GitHub CI, was squash-merged to `main` as `6779e34`, remote branch `codex/8-c-9-teaching-grading-api` was deleted, and local `main` was synced.
 
 ### Completion Notes List
 
@@ -345,6 +346,7 @@ GPT-5 Codex
 - Solver ruff/format, solver mypy, web typecheck and diff check pass locally.
 - Post-implementation code review completed locally; findings fixed and gates re-run.
 - PR #169 initial CI mypy failure fixed locally; CI-equivalent mypy now passes.
+- PR #169 passed CI, merged, remote branch deleted, and local `main` synced; story is now closed through separate status-sync commit.
 
 ### File List
 
@@ -371,3 +373,4 @@ GPT-5 Codex
 - 2026-06-04 - Implemented Teaching Mode Grading API backend persistence/routes/rubric/idempotency and web API helper types; local gates pass; status moved to code-review.
 - 2026-06-04 - Post-implementation code review completed locally; fixed opaque-ref validation redaction and item owner index; gates pass.
 - 2026-06-04 - Fixed PR #169 CI mypy redundant-cast failures; CI-equivalent mypy and local gates pass.
+- 2026-06-04 - PR #169 passed CI, merged to main, remote branch deleted, local main synced; story marked done.
