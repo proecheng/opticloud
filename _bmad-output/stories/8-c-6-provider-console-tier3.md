@@ -3,7 +3,7 @@ story_key: 8-c-6-provider-console-tier3
 epic_num: 8
 story_num: C.6
 epic_name: Teaching + Provider Routing + Legal + Algorithm Library
-status: code-review
+status: done
 baseline_commit: b1766cdce0f213ad3be6d7f5400c0d5a3185d119
 priority: High
 type: Provider Console Tier 3 operational closure
@@ -27,7 +27,7 @@ sources:
 
 # Story 8.C.6 - Provider Console Tier 3
 
-Status: code-review
+Status: done
 
 ## Story
 
@@ -131,11 +131,11 @@ Story 8.C.2 已交付 `/console/routing-history`：它通过用户手动输入 s
   - [x] Keep API client tests unchanged or strengthen them if needed.
   - [x] Verify no dependency, backend, migration, OpenAPI generated artifact, or infra manifest diff exists.
 
-- [ ] T4: Review, gates, and GitHub sync (AC: 37-39)
+- [x] T4: Review, gates, and GitHub sync (AC: 37-39)
   - [x] Run local quality gates and fix failures.
   - [x] Run post-implementation code review and fix/document findings.
-  - [ ] Commit, push, create PR, wait for CI, merge, delete remote branch, and sync local `main`.
-  - [ ] Mark story and sprint status `done` only after merge/sync through a separate status-sync commit.
+  - [x] Commit, push, create PR, wait for CI, merge, delete remote branch, and sync local `main`.
+  - [x] Mark story and sprint status `done` only after merge/sync through a separate status-sync commit.
 
 ## Dev Notes
 
@@ -268,6 +268,9 @@ GPT-5 Codex
 - 2026-06-04 - Review fixes applied: frontmatter set to in-progress, Routing History content wrapped in Suspense, Provider Console clears prior data on new submitted context with regression coverage.
 - 2026-06-04 - Final local gates after review fixes passed: focused web tests 19 passed, full web regression 235 passed, web typecheck passed, `git diff --check` passed.
 - 2026-06-04 - Story and sprint status moved to code-review pending GitHub sync.
+- 2026-06-04 - PR #166 passed GitHub CI after lint trailing-whitespace fix; checks included changes, lint, ts-typecheck, e2e, matrix-detect, build-and-sbom (auth-service), error-i18n-validation, and gtm-toolkit-validation.
+- 2026-06-04 - PR #166 squash-merged to `main` at merge commit `2434f55beb0c0e8f2df2c6c1dc043dbd1c3fdc66`; remote feature branch deleted; local `main` synced to `origin/main`.
+- 2026-06-04 - Story and sprint status marked `done` via separate status-sync commit after merge/sync closure.
 
 ### Completion Notes List
 
@@ -279,7 +282,9 @@ GPT-5 Codex
 - Provider Console Tier 3 operational overview and safe Routing History handoff implemented.
 - Routing History page now displays Provider Console query context as read-only guidance without auto-querying or filling credentials.
 - Post-implementation code review completed; all patch findings fixed.
-- Focused and full local gates passed; GitHub sync remains.
+- Focused and full local gates passed.
+- GitHub CI passed; PR #166 merged; remote feature branch deleted; local `main` synced.
+- Story closed as `done` after merge/sync in a separate status-sync commit.
 
 ### File List
 
@@ -297,6 +302,7 @@ GPT-5 Codex
 - 2026-06-04 - Story status moved to in-progress for implementation.
 - 2026-06-04 - Implemented Provider Console Tier 3 operational overview, safe Routing History handoff, routing-history context hint, and focused tests.
 - 2026-06-04 - Completed post-implementation code review, fixed 3 patch findings, and moved story to code-review pending GitHub sync.
+- 2026-06-04 - PR #166 passed CI, merged to main, remote branch deleted, local main synced; story status moved to done in separate status-sync commit.
 
 ## Post-Implementation Code Review (AI)
 
