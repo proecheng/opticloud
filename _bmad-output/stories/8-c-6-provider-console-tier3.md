@@ -31,8 +31,8 @@ Status: code-review
 
 ## Story
 
-**作为** Provider 运营人员或内部 Provider success/SRE 人员，  
-**我希望** 现有 `/console/providers` 在只读聚合数据之上给出 Tier 3 operational overview、跨 section 风险提示和安全的 Routing History handoff，  
+**作为** Provider 运营人员或内部 Provider success/SRE 人员，
+**我希望** 现有 `/console/providers` 在只读聚合数据之上给出 Tier 3 operational overview、跨 section 风险提示和安全的 Routing History handoff，
 **从而** 在不新增 Provider ownership、凭据桥接、后端聚合、写操作或敏感数据展示的前提下，能从 Provider Marketplace 面板闭环到单次 optimization routing history 排查。
 
 ## Context
