@@ -3,7 +3,7 @@ story_key: 8-c-5-algorithm-capability-card
 epic_num: 8
 story_num: C.5
 epic_name: Teaching + Provider Routing + Legal + Algorithm Library
-status: in-progress
+status: done
 baseline_commit: 0e2137c8285daec224074ef7c603f3be16ee8cfb
 priority: High
 type: UX-DR1 CapabilityCard component for benchmark library
@@ -28,7 +28,7 @@ sources:
 
 # Story 8.C.5 - CapabilityCard for 算例库
 
-Status: in-progress
+Status: done
 
 ## Story
 
@@ -141,11 +141,11 @@ Story 8.C.4 已交付 O11 经典算例库最小闭环：公开 `GET /v1/benchmar
   - [x] Keep filters, import aside, import error state, API calls, no-submit, and storage hygiene page-owned.
   - [x] Update focused page tests for the component-backed card list.
 
-- [ ] T4: Review, gates, and GitHub sync (AC: 37-39)
+- [x] T4: Review, gates, and GitHub sync (AC: 37-39)
   - [x] Run local quality gates and fix failures.
   - [x] Run post-implementation code review and fix/document findings.
-  - [ ] Commit, push, create PR, wait for CI, merge, delete remote branch, and sync local `main`.
-  - [ ] Mark story and sprint status `done` only after merge/sync through a separate status-sync commit.
+  - [x] Commit, push, create PR, wait for CI, merge, delete remote branch, and sync local `main`.
+  - [x] Mark story and sprint status `done` only after merge/sync through a separate status-sync commit.
 
 ## Dev Notes
 
@@ -248,6 +248,7 @@ GPT-5 Codex
 - 2026-06-04 - Integrated `CapabilityCard` into `/algorithms/benchmarks` while preserving page-owned filters, import payload aside, import errors, no-submit, and storage hygiene.
 - 2026-06-04 - Local gates passed: `pnpm --filter @opticloud/ui test -- src/components/CapabilityCard/index.test.tsx`, `pnpm --filter @opticloud/ui test -- src/components/CapabilityCard/index.a11y.test.tsx`, `pnpm --filter @opticloud/ui test:a11y`, `pnpm --filter @opticloud/ui typecheck`, `pnpm --filter @opticloud/web test -- src/app/algorithms/benchmarks/page.test.tsx src/lib/api-benchmark-library.test.ts`, `pnpm --filter @opticloud/web typecheck`, and `git diff --check`.
 - 2026-06-04 - Post-implementation code review found missing explicit missing/malformed `source_url` evidence; added unit/story coverage and reran gates successfully.
+- 2026-06-04 - PR #165 passed GitHub CI, squash-merged to `main` at `7799554444dedb8ca24bf90cf2a47d28b8bd467e`, remote branch was deleted, and local `main` synced.
 
 ### Completion Notes List
 
@@ -260,6 +261,7 @@ GPT-5 Codex
 - Added presentation-only `CapabilityCard` with backend snake_case prop model, safe source-link handling, per-card import callback/loading state, payload omission, Storybook, unit tests, and axe coverage.
 - Replaced `/algorithms/benchmarks` inline benchmark card body with `CapabilityCard` while preserving semantic list structure, filters, import aside, import errors, no auto-submit, and storage hygiene.
 - Post-implementation code review completed; source URL missing/malformed coverage gap was fixed.
+- PR #165 passed GitHub CI, merged to `main`, remote branch cleanup completed, local `main` synced, and this separate status-sync marks the story done.
 
 ### File List
 
@@ -282,6 +284,7 @@ GPT-5 Codex
 - 2026-06-04 - Round 3 pre-implementation review revised generated heading ids, list semantics, and import-error closure.
 - 2026-06-04 - Story status moved to in-progress after exactly three pre-implementation review rounds.
 - 2026-06-04 - Implemented `CapabilityCard`, UI package tests/a11y/stories, benchmark page integration, focused page tests, local gates, and post-review source URL coverage fix.
+- 2026-06-04 - PR #165 passed CI, merged to `main`, branch cleanup and local sync completed; story status moved to `done`.
 
 ## Post-Implementation Code Review
 
