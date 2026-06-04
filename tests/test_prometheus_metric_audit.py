@@ -97,9 +97,7 @@ def test_contract_pins_nfr_o_scope_metric_catalog_and_repo_state() -> None:
     assert contract["audit_version"] == "prometheus_business_metric_audit_v1"
     assert contract["standard_cadence"] == "quarterly"
     assert contract["lite_cadence"] == "annual"
-    assert [item["metric_id"] for item in contract["metric_catalog"]] == list(
-        validator.METRIC_IDS
-    )
+    assert [item["metric_id"] for item in contract["metric_catalog"]] == list(validator.METRIC_IDS)
     latency = next(item for item in contract["metric_catalog"] if item["metric_id"] == "latency")
     assert latency["required_percentiles"] == list(validator.LATENCY_PERCENTILES)
     assert contract["observed_repo_state"] == validator.discover_repo_state()
@@ -406,7 +404,9 @@ def test_ci_workflow_validation_rejects_filter_block_drift() -> None:
 
     errors = validator.validate_ci_workflow(mutated)
 
-    _assert_invalid(errors, "prometheus_metric_audit filter missing 'tools/prometheus_metric_audit/**'")
+    _assert_invalid(
+        errors, "prometheus_metric_audit filter missing 'tools/prometheus_metric_audit/**'"
+    )
 
 
 def test_ci_workflow_validation_rejects_app_source_filter_drift() -> None:
