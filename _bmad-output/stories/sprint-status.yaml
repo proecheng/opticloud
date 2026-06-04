@@ -265,9 +265,9 @@ development_status:
   8-c-9-teaching-grading-api: done             # 2026-06-04 - Teaching Grading API shipped; PR #169 passed CI, merged to main, remote branch deleted, local main synced
 
   # ===== Epic 9: NFR Governance (7 stories) =====
-  epic-9: backlog
+  epic-9: in-progress
 
-  9-1-axe-core-quarterly-audit: backlog
+  9-1-axe-core-quarterly-audit: code-review
   9-2-prometheus-metric-audit: backlog
   9-3-nfr-cost-alerts: backlog
   9-4-nfr-s-p0-drills: backlog
