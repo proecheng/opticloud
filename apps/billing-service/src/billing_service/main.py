@@ -18,6 +18,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.responses import Response
 
 from billing_service import __version__
+from billing_service.legal_routes import legal_router
 from billing_service.problem_details import billing_problem_response
 from billing_service.routes import billing_router
 
@@ -39,6 +40,7 @@ app = FastAPI(
 
 
 app.include_router(billing_router)
+app.include_router(legal_router)
 
 
 def _field_path_from_validation_loc(loc: Any) -> str:

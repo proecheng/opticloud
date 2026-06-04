@@ -198,6 +198,12 @@ export default function RoutingHistoryPage(): JSX.Element {
               Routing History
             </Link>
             <Link
+              href="/console/legal-inquiry"
+              className="text-muted-foreground hover:text-foreground"
+            >
+              Legal Inquiry
+            </Link>
+            <Link
               href="/console/audit-logs"
               className="text-muted-foreground hover:text-foreground"
             >
