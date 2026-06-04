@@ -3,7 +3,7 @@ story_key: 8-c-7-classroom-plan-v1-stub
 epic_num: 8
 story_num: C.7
 epic_name: Teaching + Provider Routing + Legal + Algorithm Library
-status: ready-for-dev
+status: done
 baseline_commit: 6c9d03bd6dcb97878ab2a58841a0fb1db386b03f
 priority: High
 type: Classroom Plan v1 stub
@@ -25,7 +25,7 @@ sources:
 
 # Story 8.C.7 - Classroom Plan v1 stub
 
-Status: code-review
+Status: done
 
 ## Story
 
@@ -140,11 +140,11 @@ Story 8.C.1 已交付 `mode=teaching` API 教学折扣和 Notebook 链接，但�
   - [x] Update Academic Provider Handbook / FAQ to reference `/console/classroom` as v1 planning stub, not full product.
   - [x] Verify no package/lockfile/backend/migration/OpenAPI/infra diff exists.
 
-- [ ] T4: Review, gates, and GitHub sync (AC: 36-38)
+- [x] T4: Review, gates, and GitHub sync (AC: 36-38)
   - [x] Run local quality gates and fix failures.
   - [x] Run post-implementation code review and fix/document findings.
-  - [ ] Commit, push, create PR, wait for CI, merge, delete remote branch, and sync local `main`.
-  - [ ] Mark story and sprint status `done` only after merge/sync through a separate status-sync commit.
+  - [x] Commit, push, create PR, wait for CI, merge, delete remote branch, and sync local `main`.
+  - [x] Mark story and sprint status `done` only after merge/sync through a separate status-sync commit.
 
 ## Dev Notes
 
@@ -253,6 +253,9 @@ GPT-5 Codex
 - 2026-06-04 - Review fix applied: helper input accepts `unknown`, normalizes non-string values safely, and regression test covers non-string malformed input.
 - 2026-06-04 - Post-review focused tests passed: 26 passed; web typecheck passed; `git diff --check` passed.
 - 2026-06-04 - Story and sprint status moved to code-review pending GitHub sync.
+- 2026-06-04 - PR #167 passed GitHub CI: changes, lint, ts-typecheck, e2e, matrix-detect, build-and-sbom (auth-service), error-i18n-validation, and gtm-toolkit-validation passed; unrelated service jobs were skipped by matrix.
+- 2026-06-04 - PR #167 squash-merged to `main` at merge commit `98ff7b082732216ee853f156f23e95ff6add9726`; remote feature branch deleted; local `main` synced to `origin/main`.
+- 2026-06-04 - Story and sprint status marked `done` via separate status-sync commit after merge/sync closure.
 
 ### Completion Notes List
 
@@ -268,6 +271,8 @@ GPT-5 Codex
 - Focused tests, web typecheck and diff check pass locally.
 - Full web regression passed.
 - Post-implementation code review completed; malformed non-string helper input finding fixed and verified.
+- GitHub CI passed; PR #167 merged; remote branch deleted; local `main` synced.
+- Story closed as `done` after merge/sync in this separate status-sync.
 
 ### File List
 
@@ -293,6 +298,7 @@ GPT-5 Codex
 - 2026-06-04 - Story status moved to in-progress after pre-implementation review closure.
 - 2026-06-04 - Implemented Classroom Plan v1 helper/page, scoped Console nav links, docs updates and focused tests.
 - 2026-06-04 - Completed post-implementation code review, fixed non-string malformed input handling, and moved story to code-review pending GitHub sync.
+- 2026-06-04 - PR #167 passed CI, merged to `main`, branch cleanup and local sync completed; story status moved to `done`.
 
 ## Post-Implementation Code Review
 
