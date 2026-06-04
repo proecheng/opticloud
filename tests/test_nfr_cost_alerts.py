@@ -54,7 +54,9 @@ def _real_manifest_from_example() -> dict[str, Any]:
     for evaluation in manifest["redline_evaluations"]:
         evaluation["status"] = "passed"
         evaluation["observed_value"] = 0.01
-    runway = next(item for item in manifest["redline_evaluations"] if item["redline_id"] == "runway_months")
+    runway = next(
+        item for item in manifest["redline_evaluations"] if item["redline_id"] == "runway_months"
+    )
     runway["observed_value"] = 12
     for snapshot in manifest["source_snapshots"]:
         snapshot["status"] = "passed"
@@ -140,7 +142,9 @@ def test_example_manifest_is_static_only_and_not_real_evidence() -> None:
     manifest = _load_json(EXAMPLE_MANIFEST_PATH)
 
     assert (
-        validator.validate_manifest(manifest, contract, source="nfr-cost-example", real_evidence=False)
+        validator.validate_manifest(
+            manifest, contract, source="nfr-cost-example", real_evidence=False
+        )
         == []
     )
     errors = validator.validate_manifest(
@@ -236,9 +240,7 @@ def test_manifest_requires_all_redline_evaluations_and_payloads() -> None:
         item for item in manifest["dingtalk_payloads"] if item["redline_id"] != "gpu_idle_rate"
     ]
     manifest["linear_payloads"] = [
-        item
-        for item in manifest["linear_payloads"]
-        if item["redline_id"] != "refund_issued_rate"
+        item for item in manifest["linear_payloads"] if item["redline_id"] != "refund_issued_rate"
     ]
 
     errors = validator.validate_manifest(
@@ -424,7 +426,9 @@ def test_ci_workflow_validation_rejects_filter_block_drift() -> None:
 def test_ci_workflow_validation_rejects_prometheus_handoff_filter_drift() -> None:
     validator = _load_validator()
     workflow = CI_WORKFLOW_PATH.read_text(encoding="utf-8")
-    mutated = workflow.replace("              - 'scripts/validate_prometheus_metric_audit.py'\n", "")
+    mutated = workflow.replace(
+        "              - 'scripts/validate_prometheus_metric_audit.py'\n", ""
+    )
 
     errors = validator.validate_ci_workflow(mutated)
 
