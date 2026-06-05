@@ -3,7 +3,7 @@
 # Source: epics.md (21 Epics / 192 Stories, post AE rounds)
 # Path B unlock node sequence (5 + J1 vertical slice 4 锚点 + Critical Gaps)
 
-last_updated: 2026-06-04
+last_updated: 2026-06-05
 
 # ===== STATUS DEFINITIONS =====
 # backlog            — not yet started
@@ -270,7 +270,7 @@ development_status:
   9-1-axe-core-quarterly-audit: done           # 2026-06-04 - Quarterly a11y audit governance shipped; PR #170 passed CI, merged to main, remote branch deleted, local main synced
   9-2-prometheus-metric-audit: done           # 2026-06-04 - Prometheus metric audit governance shipped; PR #171 passed CI, merged to main, remote branch deleted, local main synced
   9-3-nfr-cost-alerts: done           # 2026-06-04 - NFR-COST red-line alert governance shipped; PR #172 passed CI, merged to main, remote branch deleted, local main synced
-  9-4-nfr-s-p0-drills: backlog
+  9-4-nfr-s-p0-drills: code-review
   9-5-wcag-2-2-upgrade-path: backlog           # FR7
   9-6-error-i18n-audit: backlog
   9-7-governance-dashboard: backlog

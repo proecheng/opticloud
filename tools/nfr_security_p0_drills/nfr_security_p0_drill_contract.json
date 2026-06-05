@@ -1,0 +1,241 @@
+{
+  "drill_version": "nfr_security_p0_drills_v1",
+  "source_story": "9.4",
+  "nfr": "NFR-S",
+  "standard_cadence": "quarterly",
+  "lite_cadence": "annual",
+  "postmortem_sla_hours": 24,
+  "p0_zero_tolerance": true,
+  "evidence": {
+    "report_directory": "reports/nfr-security-p0-drills",
+    "manifest_filename": "drill_manifest.json",
+    "schema_path": "tools/nfr_security_p0_drills/nfr_security_p0_drill_manifest.schema.json",
+    "example_manifest_path": "tools/nfr_security_p0_drills/nfr_security_p0_drill_manifest.example.json"
+  },
+  "cadence_modes": [
+    "quarterly",
+    "annual_lite"
+  ],
+  "drill_statuses": [
+    "not_run_example",
+    "passed",
+    "failed",
+    "blocked",
+    "not_applicable"
+  ],
+  "required_sop_gates": [
+    "declare_p0",
+    "assign_incident_commander",
+    "containment_decision",
+    "evidence_redaction",
+    "postmortem_owner",
+    "ticket_closure_review"
+  ],
+  "timeline_fields": [
+    "p0_declared_utc",
+    "incident_commander_assigned_utc",
+    "containment_started_utc",
+    "status_page_decision_utc",
+    "postmortem_due_utc"
+  ],
+  "postmortem_sections": [
+    "what_happened",
+    "timeline",
+    "impact",
+    "detection",
+    "mitigation",
+    "root_cause",
+    "follow_ups",
+    "prevention"
+  ],
+  "scenario_catalog": [
+    {
+      "scenario_id": "sandbox_privilege_escape",
+      "p0_class": "sandbox escape or privilege escalation",
+      "trigger_hypothesis": "sandboxed code attempts container escape, host namespace access, Docker socket access, or privilege escalation",
+      "owner": "Security",
+      "primary_substrate": "infra/sandbox-security/audit_plan.json",
+      "allowed_drill_modes": [
+        "tabletop",
+        "redacted_staging_walkthrough"
+      ],
+      "required_sop_gates": [
+        "declare_p0",
+        "assign_incident_commander",
+        "containment_decision",
+        "evidence_redaction",
+        "postmortem_owner",
+        "ticket_closure_review"
+      ],
+      "containment_decision_fields": [
+        "freeze_sandbox_runner",
+        "disable_chat_code_execution",
+        "block_provider_callbacks",
+        "preserve_redacted_evidence"
+      ],
+      "timeline_fields": [
+        "p0_declared_utc",
+        "incident_commander_assigned_utc",
+        "containment_started_utc",
+        "status_page_decision_utc",
+        "postmortem_due_utc"
+      ],
+      "postmortem_sections": [
+        "what_happened",
+        "timeline",
+        "impact",
+        "detection",
+        "mitigation",
+        "root_cause",
+        "follow_ups",
+        "prevention"
+      ],
+      "stop_ship_rule": "Any failed or blocked sandbox escape drill gate is P0/P1/P2 stop-ship until ticket-backed closure.",
+      "boundary": "M3.7 static CI does not prove real gVisor, AppArmor, seccomp, Kubernetes, or kernel enforcement."
+    },
+    {
+      "scenario_id": "data_exfiltration",
+      "p0_class": "unauthorized access to customer or user data",
+      "trigger_hypothesis": "unauthorized actor gains access to customer data, uploaded files, prompts, provider payloads, or tenant-scoped records",
+      "owner": "Security / Privacy",
+      "primary_substrate": "apps/web/src/lib/status-page.ts",
+      "allowed_drill_modes": [
+        "tabletop",
+        "redacted_staging_walkthrough"
+      ],
+      "required_sop_gates": [
+        "declare_p0",
+        "assign_incident_commander",
+        "containment_decision",
+        "evidence_redaction",
+        "postmortem_owner",
+        "ticket_closure_review"
+      ],
+      "containment_decision_fields": [
+        "revoke_suspect_access",
+        "freeze_export_or_download_paths",
+        "notify_privacy_owner",
+        "preserve_redacted_evidence"
+      ],
+      "timeline_fields": [
+        "p0_declared_utc",
+        "incident_commander_assigned_utc",
+        "containment_started_utc",
+        "status_page_decision_utc",
+        "postmortem_due_utc"
+      ],
+      "postmortem_sections": [
+        "what_happened",
+        "timeline",
+        "impact",
+        "detection",
+        "mitigation",
+        "root_cause",
+        "follow_ups",
+        "prevention"
+      ],
+      "stop_ship_rule": "Any failed or blocked data exfiltration drill gate is P0/P1/P2 stop-ship until ticket-backed closure.",
+      "boundary": "Evidence must not contain raw customer data, raw uploaded files, prompts, provider payloads, production hostnames, or customer-identifying dimensions."
+    },
+    {
+      "scenario_id": "billing_ledger_corruption",
+      "p0_class": "Credits, refund, subscription, or ledger amount inconsistency",
+      "trigger_hypothesis": "credit ledger, refund, topup, subscription, or Saga state diverges from expected balance and reconciliation invariants",
+      "owner": "Billing / Finance",
+      "primary_substrate": "infra/local-init/03-billing-schema.sql",
+      "allowed_drill_modes": [
+        "tabletop",
+        "redacted_staging_walkthrough"
+      ],
+      "required_sop_gates": [
+        "declare_p0",
+        "assign_incident_commander",
+        "containment_decision",
+        "evidence_redaction",
+        "postmortem_owner",
+        "ticket_closure_review"
+      ],
+      "containment_decision_fields": [
+        "freeze_billing_writes",
+        "pause_topups_and_refunds",
+        "run_reconciliation",
+        "preserve_redacted_evidence"
+      ],
+      "timeline_fields": [
+        "p0_declared_utc",
+        "incident_commander_assigned_utc",
+        "containment_started_utc",
+        "status_page_decision_utc",
+        "postmortem_due_utc"
+      ],
+      "postmortem_sections": [
+        "what_happened",
+        "timeline",
+        "impact",
+        "detection",
+        "mitigation",
+        "root_cause",
+        "follow_ups",
+        "prevention"
+      ],
+      "stop_ship_rule": "Any failed or blocked billing ledger drill gate is P0/P1/P2 stop-ship until ticket-backed closure.",
+      "boundary": "Evidence must not contain raw ledger rows, raw SQL dumps, tenant ids, user ids, customer ids, payment data, or customer-identifying dimensions."
+    }
+  ],
+  "observed_repo_state": {
+    "sandbox": {
+      "audit_plan_sha256": "0f6f20d8:17c760ad:1407c734:5c5585a8:4e9c0713:8ac72828:c32899fd:3d05bc4f",
+      "attack_scenarios_sha256": "5d6e5f7e:9b7a29cf:319dd574:10053e8c:850c59ef:c252df61:f85f9970:01422154",
+      "validator_path": "scripts/validate_sandbox_security_audit.py",
+      "static_ci_only": true
+    },
+    "incident_postmortem": {
+      "j3_contract_sha256": "2c900041:6347eb1c:ecefe5ef:5d860691:aa5e091a:3bced6b5:c378b78d:1944661c",
+      "status_page_model_sha256": "82eabb55:b01ffe4c:545cb20e:00032e8c:5e4e07e6:c7451aad:a7d02bf3:5798b75a",
+      "public_postmortem_route_exists": true,
+      "j3_validator_path": "scripts/validate_j3_incident_contract.py"
+    },
+    "billing": {
+      "ledger_schema_sha256": "6b2d8ce3:b2b8add4:4decb0e0:5671f6aa:69584c75:33a9aca5:42e9ee17:a25357a9",
+      "models_sha256": "6d8efe4c:6262d3eb:494ea96e:fc6d046d:e920404e:18e425ee:bbad2bab:3bdf4ff3",
+      "saga_orchestrator_sha256": "6e1def21:bce63a79:276793d1:e8cf840b:a770b934:aff8ea24:65302430:d876523c",
+      "routes_sha256": "936383c4:f3caaba4:49218a21:7952e569:28bb825e:e2a20dcb:d53dbf6f:ced46e19",
+      "credit_transactions_table": true,
+      "saga_instances_table": true,
+      "credit_transaction_model": true,
+      "refund_paths_present": true
+    },
+    "ci": {
+      "workflow_path": ".github/workflows/ci.yml",
+      "related_filters": [
+        "j3_incident_contract",
+        "sandbox_security_audit",
+        "nfr_security_p0_drills"
+      ]
+    }
+  },
+  "boundaries": {
+    "real_p0_incident_proven": false,
+    "real_exploit_execution_proven": false,
+    "real_data_breach_proven": false,
+    "real_billing_ledger_corruption_proven": false,
+    "real_customer_impact_proven": false,
+    "real_public_postmortem_published": false,
+    "real_external_ticket_created": false,
+    "real_external_notification_sent": false,
+    "real_refund_or_compensation_executed": false,
+    "release_approval_proven": false
+  },
+  "disallowed_static_completion_claims": [
+    "real_incident_occurred",
+    "real_drill_executed",
+    "real_public_postmortem_published",
+    "real_external_notification_sent",
+    "real_customer_impact",
+    "real_refund_or_compensation_executed",
+    "release_approved",
+    "production_release_approved",
+    "security_signoff_completed",
+    "external_ticket_created"
+  ]
+}
