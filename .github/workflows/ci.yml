@@ -56,6 +56,7 @@ jobs:
       prometheus_metric_audit: ${{ steps.filter.outputs.prometheus_metric_audit }}
       nfr_cost_alerts: ${{ steps.filter.outputs.nfr_cost_alerts }}
       nfr_security_p0_drills: ${{ steps.filter.outputs.nfr_security_p0_drills }}
+      wcag_2_2_upgrade_path: ${{ steps.filter.outputs.wcag_2_2_upgrade_path }}
       web: ${{ steps.filter.outputs.web }}
       ci_or_root: ${{ steps.filter.outputs.ci_or_root }}
     steps:
@@ -121,6 +122,16 @@ jobs:
               - 'apps/billing-service/src/billing_service/models.py'
               - 'apps/billing-service/src/billing_service/saga_orchestrator.py'
               - 'apps/billing-service/src/billing_service/routes.py'
+            wcag_2_2_upgrade_path:
+              - 'packages/ui/**'
+              - 'tools/wcag_2_2_upgrade/**'
+              - 'scripts/validate_wcag_2_2_upgrade_path.py'
+              - 'tests/test_wcag_2_2_upgrade_path.py'
+              - 'docs/runbooks/wcag-2-2-upgrade-path.md'
+              - 'reports/wcag-2-2-upgrade/**'
+              - 'tools/a11y_audit/**'
+              - 'scripts/validate_a11y_quarterly_audit.py'
+              - '.github/workflows/ci.yml'
             python_sdk:
               - 'packages/python-sdk/**'
               - 'tests/fixtures/sdk-rfc7807-preservation.json'
@@ -1056,6 +1067,43 @@ jobs:
           done
       - name: Run NFR-S P0 drill tests
         run: uv run pytest tests/test_nfr_security_p0_drills.py -v
+
+  # ===== WCAG 2.2 upgrade path validation (Story 9.5) =====
+  wcag-2-2-upgrade-path-validation:
+    needs: changes
+    if: needs.changes.outputs.wcag_2_2_upgrade_path == 'true' || needs.changes.outputs.ui == 'true' || needs.changes.outputs.ci_or_root == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: pip install uv==${{ env.UV_VERSION }}
+      - run: uv sync --all-packages --extra dev
+      - name: Validate WCAG 2.2 upgrade path contract
+        run: uv run python scripts/validate_wcag_2_2_upgrade_path.py
+      - name: Validate real WCAG 2.2 upgrade evidence manifests when present
+        run: |
+          shopt -s globstar nullglob
+          manifests=(reports/wcag-2-2-upgrade/**/upgrade_manifest.json)
+          for manifest in "${manifests[@]}"; do
+            uv run python scripts/validate_wcag_2_2_upgrade_path.py --evidence "$manifest"
+          done
+      - name: Run WCAG 2.2 upgrade path tests
+        run: uv run pytest tests/test_wcag_2_2_upgrade_path.py -v
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - run: pnpm install --frozen-lockfile
+      - name: Run WCAG 2.2 hook readiness tests
+        run: pnpm --filter @opticloud/ui test -- src/hooks/useA11y.wcag22.test.tsx
+      - name: Run UI axe gate
+        run: pnpm --filter @opticloud/ui test:a11y
+      - name: Run UI typecheck
+        run: pnpm --filter @opticloud/ui typecheck
 
   # ===== Critic confidence calibration validation (Story M3.5a) =====
   critic-calibration-validation:

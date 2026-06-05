@@ -34,6 +34,19 @@ export interface UseA11yOptions {
   liveRegion?: "off" | "polite" | "assertive";
   /** ARIA role override (default inferred). */
   role?: string;
+  /** WCAG 2.2 v1.5+ readiness metadata and lightweight behavior. */
+  wcag22?: UseA11yWcag22Options;
+}
+
+export type Wcag22FocusNotObscuredMode = "minimum" | "enhanced";
+
+export interface UseA11yWcag22Options {
+  /** P78 2.4.11/2.4.12 readiness: keep focused descendants scrolled into view. */
+  focusNotObscured?: Wcag22FocusNotObscuredMode;
+  /** P78 3.2.6 readiness: stable global help affordance id for the surface. */
+  consistentHelpId?: string;
+  /** P78 2.5.7 readiness: non-drag alternative id or component name. */
+  draggingAlternative?: string;
 }
 
 export interface UseA11yResult {
@@ -54,6 +67,7 @@ export function useA11y(options: UseA11yOptions): UseA11yResult {
     restoreFocus = false,
     liveRegion = "off",
     role,
+    wcag22,
   } = options;
 
   // Stable ID for ARIA linking
@@ -116,6 +130,18 @@ export function useA11y(options: UseA11yOptions): UseA11yResult {
     return () => document.removeEventListener("keydown", trapFocusHandler);
   }, [trapFocus, trapFocusHandler]);
 
+  useEffect(() => {
+    if (!wcag22?.focusNotObscured) return;
+    const container = containerRef.current;
+    if (!container) return;
+    const onFocusIn = (event: FocusEvent): void => {
+      if (!(event.target instanceof HTMLElement)) return;
+      event.target.scrollIntoView({ block: "nearest", inline: "nearest" });
+    };
+    container.addEventListener("focusin", onFocusIn);
+    return () => container.removeEventListener("focusin", onFocusIn);
+  }, [wcag22?.focusNotObscured]);
+
   // Dev warning: missing aria-label (i18n key)
   if (process.env.NODE_ENV !== "production" && !ariaLabel) {
     // biome-ignore lint/suspicious/noConsole: dev-only warning
@@ -129,6 +155,9 @@ export function useA11y(options: UseA11yOptions): UseA11yResult {
     "aria-describedby": ariaDescription ? `${id}-desc` : undefined,
     id,
     role,
+    "data-wcag22-focus-not-obscured": wcag22?.focusNotObscured,
+    "data-wcag22-consistent-help-id": wcag22?.consistentHelpId,
+    "data-wcag22-dragging-alternative": wcag22?.draggingAlternative,
   };
   if (liveRegion !== "off") {
     attrs["aria-live"] = liveRegion;

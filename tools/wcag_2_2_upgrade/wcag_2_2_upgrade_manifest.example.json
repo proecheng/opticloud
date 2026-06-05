@@ -1,0 +1,152 @@
+{
+  "source_story": "9.5",
+  "upgrade_version": "wcag_2_2_upgrade_path_v1",
+  "run_id": "example-wcag-2-2-upgrade-20260605",
+  "example_only": true,
+  "generated_by": "Story 9.5 static example; not real WCAG 2.2 conformance, third-party audit, production approval, or complete component refactor evidence",
+  "commit_sha": "0000000",
+  "cadence_mode": "v1_5_readiness",
+  "period": {
+    "start_date": "2026-06-01",
+    "end_date": "2026-06-30"
+  },
+  "criteria_evaluations": [
+    {
+      "criterion_id": "2.4.11",
+      "status": "not_run_example",
+      "level": "AA",
+      "summary": "Static example only. Focus Not Obscured Minimum requires redacted v1.5+ evidence.",
+      "finding_ids": []
+    },
+    {
+      "criterion_id": "2.4.12",
+      "status": "not_run_example",
+      "level": "AAA",
+      "summary": "Static example only. Enhanced focus behavior is project Tier 1.5+ readiness, not a full AA claim.",
+      "finding_ids": []
+    },
+    {
+      "criterion_id": "2.5.7",
+      "status": "not_run_example",
+      "level": "AA",
+      "summary": "Static example only. Dragging alternatives require redacted component evidence.",
+      "finding_ids": []
+    },
+    {
+      "criterion_id": "3.2.6",
+      "status": "not_run_example",
+      "level": "A",
+      "summary": "Static example only. Console consistent help placement requires v1.5+ rollout evidence.",
+      "finding_ids": []
+    }
+  ],
+  "hook_v2_checks": [
+    {
+      "check_id": "focus_not_obscured",
+      "status": "not_run_example",
+      "summary": "Static example only. useA11y v2 focus-not-obscured readiness must be verified by tests.",
+      "finding_ids": []
+    },
+    {
+      "check_id": "consistent_help_id",
+      "status": "not_run_example",
+      "summary": "Static example only. Consistent help ids must be verified against Console rollout evidence.",
+      "finding_ids": []
+    },
+    {
+      "check_id": "dragging_alternative",
+      "status": "not_run_example",
+      "summary": "Static example only. Dragging alternatives must be verified by component evidence.",
+      "finding_ids": []
+    }
+  ],
+  "component_refactor_checks": [
+    {
+      "component": "useA11y",
+      "status": "not_run_example",
+      "summary": "Static example only. Hook v2 readiness is structurally validated by CI.",
+      "finding_ids": []
+    },
+    {
+      "component": "ConfirmationModal",
+      "status": "not_run_example",
+      "summary": "Static example only. Modal focus-not-obscured readiness requires component evidence.",
+      "finding_ids": []
+    },
+    {
+      "component": "ExcelDropZone",
+      "status": "not_run_example",
+      "summary": "Static example only. Drop zone dragging alternative requires component evidence.",
+      "finding_ids": []
+    },
+    {
+      "component": "FilePicker",
+      "status": "not_run_example",
+      "summary": "Static example only. File picker is the non-drag input alternative substrate.",
+      "finding_ids": []
+    },
+    {
+      "component": "Console consistent help placement",
+      "status": "not_run_example",
+      "summary": "Static example only. Full Console help placement remains a v1.5+ evidence-gated rollout.",
+      "finding_ids": []
+    }
+  ],
+  "source_snapshots": [
+    {
+      "snapshot_id": "use_a11y",
+      "status": "not_run_example",
+      "artifact_path": "reports/wcag-2-2-upgrade/example-wcag-2-2-upgrade-20260605/use-a11y.json",
+      "summary": "Static example only. Source state is discovered by validator.",
+      "finding_ids": []
+    },
+    {
+      "snapshot_id": "confirmation_modal",
+      "status": "not_run_example",
+      "artifact_path": "reports/wcag-2-2-upgrade/example-wcag-2-2-upgrade-20260605/confirmation-modal.json",
+      "summary": "Static example only. Source state is discovered by validator.",
+      "finding_ids": []
+    },
+    {
+      "snapshot_id": "excel_drop_zone",
+      "status": "not_run_example",
+      "artifact_path": "reports/wcag-2-2-upgrade/example-wcag-2-2-upgrade-20260605/excel-drop-zone.json",
+      "summary": "Static example only. Source state is discovered by validator.",
+      "finding_ids": []
+    },
+    {
+      "snapshot_id": "file_picker",
+      "status": "not_run_example",
+      "artifact_path": "reports/wcag-2-2-upgrade/example-wcag-2-2-upgrade-20260605/file-picker.json",
+      "summary": "Static example only. Source state is discovered by validator.",
+      "finding_ids": []
+    },
+    {
+      "snapshot_id": "ui_package",
+      "status": "not_run_example",
+      "artifact_path": "reports/wcag-2-2-upgrade/example-wcag-2-2-upgrade-20260605/ui-package.json",
+      "summary": "Static example only. Source state is discovered by validator.",
+      "finding_ids": []
+    },
+    {
+      "snapshot_id": "story_9_1",
+      "status": "not_run_example",
+      "artifact_path": "reports/wcag-2-2-upgrade/example-wcag-2-2-upgrade-20260605/story-9-1.json",
+      "summary": "Static example only. Story 9.1 remains WCAG 2.1 AA upstream.",
+      "finding_ids": []
+    },
+    {
+      "snapshot_id": "ci_workflow",
+      "status": "not_run_example",
+      "artifact_path": "reports/wcag-2-2-upgrade/example-wcag-2-2-upgrade-20260605/ci-workflow.json",
+      "summary": "Static example only. CI wiring is validated by script.",
+      "finding_ids": []
+    }
+  ],
+  "findings": [],
+  "redaction_reviewed": false,
+  "release_approved": false,
+  "real_wcag_2_2_conformance_claimed": false,
+  "real_third_party_audit_completed": false,
+  "real_component_refactor_completed": false
+}
