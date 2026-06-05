@@ -81,7 +81,7 @@
         "packages/i18n/errors.zh-CN.yaml",
         "packages/i18n/errors.en-US.yaml"
       ],
-      "key_count": 90
+      "key_count": 91
     },
     "solver_error_catalog": {
       "path": "apps/solver-orchestrator/src/solver_orchestrator/error_catalog.py",
@@ -96,6 +96,7 @@
         "errors.404.not_found",
         "errors.409.cancellation_not_allowed",
         "errors.409.idempotency_body_mismatch",
+        "errors.409.provider_migration_required",
         "errors.409.rerun_not_allowed",
         "errors.410.voucher_expired",
         "errors.422.anonymous_requires_reproducible",

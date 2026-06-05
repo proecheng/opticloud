@@ -858,7 +858,9 @@ async def test_migrated_rerun_idempotency_replays_provider_migration_metadata(
     second_body = second.json()
     assert second_body["optimization_id"] == first_body["optimization_id"]
     assert second_body["provider_migration"] == first_body["provider_migration"]
-    assert second_body["reproducibility"]["voucher_id"] == first_body["reproducibility"]["voucher_id"]
+    assert (
+        second_body["reproducibility"]["voucher_id"] == first_body["reproducibility"]["voucher_id"]
+    )
 
 
 async def test_normal_rerun_omits_provider_migration_response(

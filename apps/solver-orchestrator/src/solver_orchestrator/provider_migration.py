@@ -123,9 +123,9 @@ def _algorithm_capability_tags(algo: Algorithm) -> tuple[str, ...]:
     return default_capability_tags(str(algo["task_type"]))
 
 
-def build_catalog_provider_snapshot(items: list[Algorithm] | None = None) -> tuple[
-    ProviderCapabilitySnapshot, ...
-]:
+def build_catalog_provider_snapshot(
+    items: list[Algorithm] | None = None,
+) -> tuple[ProviderCapabilitySnapshot, ...]:
     """Build the local provider/capability snapshot from solver-orchestrator catalog."""
     source = CATALOG if items is None else items
     rows: list[ProviderCapabilitySnapshot] = []
@@ -244,7 +244,9 @@ def _source_status(source_row: ProviderCapabilitySnapshot | None) -> ProviderLif
     return "unavailable" if source_row is None else source_row.lifecycle_status
 
 
-def _source_tags(source_row: ProviderCapabilitySnapshot | None, *, task_type: str) -> tuple[str, ...]:
+def _source_tags(
+    source_row: ProviderCapabilitySnapshot | None, *, task_type: str
+) -> tuple[str, ...]:
     if source_row is not None:
         return source_row.capability_tags
     return default_capability_tags(task_type)
@@ -255,7 +257,9 @@ def resolve_provider_migration(
     locked_model_version: dict[str, Any],
     task_type: str,
     locked_solver: str,
-    snapshot: list[ProviderCapabilitySnapshot] | tuple[ProviderCapabilitySnapshot, ...] | None = None,
+    snapshot: list[ProviderCapabilitySnapshot]
+    | tuple[ProviderCapabilitySnapshot, ...]
+    | None = None,
 ) -> ProviderMigrationResult:
     """Resolve whether rerun should keep or migrate the locked Provider."""
     rows = build_catalog_provider_snapshot() if snapshot is None else tuple(snapshot)

@@ -282,8 +282,12 @@ Modified:
    - Risk: `409 Provider Migration Required` could drift into a generic/idempotency conflict shape.
    - Resolution: added `provider_migration_required` to `ERROR_CATALOG` and `TITLE_TO_KEY`.
 
+3. Finding: GitHub CI caught missing i18n dictionary entries and audit-contract drift for the new remediation key.
+   - Risk: dependency consistency failure in the Story 9.6 error-i18n audit gate.
+   - Resolution: added `errors.409.provider_migration_required` to zh/en dictionaries and updated the error-i18n audit observed repo state.
+
 ### Review Result
 
 - No remaining blocking findings after fixes.
-- Validation evidence: focused provider-migration/rerun tests `22 passed`; full solver-orchestrator suite `369 passed`; targeted ruff passed; `uv run mypy apps packages` passed; `git diff --check` passed.
+- Validation evidence: focused provider-migration/rerun tests `22 passed`; full solver-orchestrator suite `369 passed`; targeted ruff passed; `uv run mypy apps packages` passed; `uv run python scripts/validate_error_i18n_audit.py` passed; `git diff --check` passed.
 - Story intentionally remains `code-review` until GitHub PR CI passes, PR is merged, remote branch is deleted, and local `main` is synced. Final `done` status will be a separate status-sync commit.
