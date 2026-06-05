@@ -171,7 +171,7 @@ def parse_coder_completion(
             formulator_preview.task_type,
             field_path="formulator_preview.variables",
             message="structured formulation is required before code generation",
-            remediation_hint_key="chat.coder.formulator_extracted_required",
+            remediation_hint_key="errors.chat_coder.formulator_extracted_required",
         )
 
     if _looks_like_deterministic_text(text):
@@ -222,7 +222,7 @@ def parse_coder_completion(
             formulator_preview.task_type,
             field_path="artifact",
             message="code artifact schema is invalid",
-            remediation_hint_key="chat.coder.artifact_invalid",
+            remediation_hint_key="errors.chat_coder.artifact_invalid",
         )
 
     validation_errors = validate_code_artifact(artifact, original_message=original_message)
@@ -271,7 +271,7 @@ def generate_code_with_llm(
                 formulator_preview.task_type,
                 field_path="formulator_preview.variables",
                 message="structured formulation is required before code generation",
-                remediation_hint_key="chat.coder.formulator_extracted_required",
+                remediation_hint_key="errors.chat_coder.formulator_extracted_required",
             ),
             coder_invoked=False,
         )
@@ -281,7 +281,7 @@ def generate_code_with_llm(
                 formulator_preview.task_type,
                 field_path="coder.model",
                 message="supported model alias is required",
-                remediation_hint_key="chat.coder.model_required",
+                remediation_hint_key="errors.chat_coder.model_required",
             ),
             coder_invoked=False,
         )
@@ -299,7 +299,7 @@ def generate_code_with_llm(
                 formulator_preview.task_type,
                 field_path="coder.prompt",
                 message="safe coder prompt is required",
-                remediation_hint_key="chat.coder.prompt_invalid",
+                remediation_hint_key="errors.chat_coder.prompt_invalid",
             ),
             coder_invoked=False,
         )
@@ -312,7 +312,7 @@ def generate_code_with_llm(
                 formulator_preview.task_type,
                 field_path="coder.completion",
                 message="code generation completion is unavailable",
-                remediation_hint_key="chat.coder.completion_unavailable",
+                remediation_hint_key="errors.chat_coder.completion_unavailable",
             ),
             coder_invoked=True,
         )
@@ -323,7 +323,7 @@ def generate_code_with_llm(
                 formulator_preview.task_type,
                 field_path="coder.completion",
                 message="code generation completion did not finish safely",
-                remediation_hint_key="chat.coder.completion_unavailable",
+                remediation_hint_key="errors.chat_coder.completion_unavailable",
             ),
             coder_invoked=True,
         )
@@ -338,7 +338,7 @@ def generate_code_with_llm(
             formulator_preview.task_type,
             field_path="coder.completion",
             message="code generation completion is invalid",
-            remediation_hint_key="chat.coder.completion_invalid",
+            remediation_hint_key="errors.chat_coder.completion_invalid",
         )
 
     return CoderRouteResult(preview=preview, coder_invoked=True)
@@ -595,7 +595,7 @@ def _non_extracted_preview(formulator_preview: FormulatorPreview) -> CoderPrevie
         formulator_preview.task_type,
         field_path="formulator_preview.variables",
         message="structured formulation is required before code generation",
-        remediation_hint_key="chat.coder.formulator_extracted_required",
+        remediation_hint_key="errors.chat_coder.formulator_extracted_required",
     )
 
 
@@ -609,7 +609,7 @@ def _skipped_preview(task_type: TaskType) -> CoderPreview:
             CoderValidationError(
                 field_path="formulator_preview.task_type",
                 message="formulator task_type is unknown",
-                remediation_hint_key="chat.coder.task_type_required",
+                remediation_hint_key="errors.chat_coder.task_type_required",
             )
         ],
         supported_task_types=list(SUPPORTED_TASK_TYPES),

@@ -297,7 +297,7 @@ def generate_language_response_with_llm(
                     _validation_error(
                         "language.model",
                         "supported model alias is required",
-                        "chat.language.model_required",
+                        remediation_hint_key="errors.chat_language.model_required",
                     )
                 ],
                 file_context_attached=file_context_attached,
@@ -326,7 +326,7 @@ def generate_language_response_with_llm(
                     _validation_error(
                         "language.prompt",
                         "safe language prompt is required",
-                        "chat.language.prompt_invalid",
+                        remediation_hint_key="errors.chat_language.prompt_invalid",
                     )
                 ],
                 file_context_attached=file_context_attached,
@@ -347,7 +347,7 @@ def generate_language_response_with_llm(
                     _validation_error(
                         "language.completion",
                         "language completion is unavailable",
-                        "chat.language.completion_unavailable",
+                        remediation_hint_key="errors.chat_language.completion_unavailable",
                     )
                 ],
                 file_context_attached=file_context_attached,
@@ -366,7 +366,7 @@ def generate_language_response_with_llm(
                     _validation_error(
                         "language.completion",
                         "language completion did not finish safely",
-                        "chat.language.completion_unavailable",
+                        remediation_hint_key="errors.chat_language.completion_unavailable",
                     )
                 ],
                 file_context_attached=file_context_attached,
@@ -390,7 +390,7 @@ def generate_language_response_with_llm(
                 _validation_error(
                     "language.completion",
                     "language completion used deterministic fallback",
-                    "chat.language.fallback_used",
+                    remediation_hint_key="errors.chat_language.fallback_used",
                 )
             ],
             file_context_attached=file_context_attached,

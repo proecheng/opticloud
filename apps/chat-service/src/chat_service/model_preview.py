@@ -157,7 +157,7 @@ def _collect_validation_errors(
             _validation_error(
                 "human_review.reason_code",
                 "human review is required before model confirmation",
-                "chat.model_preview.human_review_required",
+                remediation_hint_key="errors.chat_model_preview.human_review_required",
             )
         )
     errors.extend(_copy_errors(prefix="sandbox_preview", errors=sandbox_preview.validation_errors))
@@ -167,7 +167,7 @@ def _collect_validation_errors(
             _validation_error(
                 "model_preview.task_type",
                 "upstream preview task types must match before model confirmation",
-                "chat.model_preview.dependency_drift",
+                remediation_hint_key="errors.chat_model_preview.dependency_drift",
             )
         )
     if formulator_preview.task_type == "unknown":
@@ -175,7 +175,7 @@ def _collect_validation_errors(
             _validation_error(
                 "model_preview.task_type",
                 "known task type is required before model confirmation",
-                "chat.model_preview.task_type_required",
+                remediation_hint_key="errors.chat_model_preview.task_type_required",
             )
         )
     if sandbox_preview.status == "succeeded" and not sandbox_invoked:
@@ -183,7 +183,7 @@ def _collect_validation_errors(
             _validation_error(
                 "model_preview.sandbox_invoked",
                 "succeeded sandbox preview must have sandbox invocation evidence",
-                "chat.model_preview.sandbox_invocation_required",
+                remediation_hint_key="errors.chat_model_preview.sandbox_invocation_required",
             )
         )
 

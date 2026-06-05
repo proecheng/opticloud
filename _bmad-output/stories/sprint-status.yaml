@@ -272,7 +272,7 @@ development_status:
   9-3-nfr-cost-alerts: done           # 2026-06-04 - NFR-COST red-line alert governance shipped; PR #172 passed CI, merged to main, remote branch deleted, local main synced
   9-4-nfr-s-p0-drills: done           # 2026-06-05 - NFR-S P0 drill governance shipped; PR #173 passed CI, merged to main, remote branch deleted, local main synced
   9-5-wcag-2-2-upgrade-path: done               # 2026-06-05 - WCAG 2.2 upgrade path governance shipped; PR #174 passed CI, merged to main, remote branch deleted, local main synced
-  9-6-error-i18n-audit: backlog
+  9-6-error-i18n-audit: code-review
   9-7-governance-dashboard: backlog
   9-8-graded-protection-evidence: backlog      # TT7
 

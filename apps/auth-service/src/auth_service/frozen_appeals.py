@@ -199,7 +199,7 @@ def build_frozen_auth_error() -> dict[str, object]:
                 "field_path": "account",
                 "value": None,
                 "constraint": "frozen",
-                "remediation_hint_key": "auth.frozen.appeal",
+                "remediation_hint_key": "errors.auth_frozen.appeal",
             }
         ],
     }

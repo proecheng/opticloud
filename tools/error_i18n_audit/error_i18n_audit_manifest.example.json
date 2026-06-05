@@ -1,0 +1,77 @@
+{
+  "source_story": "9.6",
+  "audit_version": "error_i18n_quarterly_audit_v1",
+  "run_id": "example-error-i18n-audit-20260605",
+  "example_only": true,
+  "generated_by": "static example manifest for Story 9.6",
+  "commit_sha": "a698b7e",
+  "cadence_mode": "quarterly",
+  "period": {
+    "start_date": "2026-04-01",
+    "end_date": "2026-06-30"
+  },
+  "scan_results": [
+    {
+      "scan_class": "typescript_problem_detail",
+      "status": "not_run_example",
+      "hardcoded_error_string_count": 0,
+      "artifact_path": null,
+      "notes": "Example only. Real quarterly audit must run scripts/error_message_i18n_single_source.py.",
+      "finding_ids": []
+    },
+    {
+      "scan_class": "i18n_dictionary_parity",
+      "status": "not_run_example",
+      "hardcoded_error_string_count": 0,
+      "artifact_path": null,
+      "notes": "Example only. Real evidence must include zh/en dictionary parity result.",
+      "finding_ids": []
+    },
+    {
+      "scan_class": "solver_error_catalog",
+      "status": "not_run_example",
+      "hardcoded_error_string_count": 0,
+      "artifact_path": null,
+      "notes": "Example only. Real evidence must include solver ERROR_CATALOG parity.",
+      "finding_ids": []
+    },
+    {
+      "scan_class": "billing_problem_details",
+      "status": "not_run_example",
+      "hardcoded_error_string_count": 0,
+      "artifact_path": null,
+      "notes": "Example only. Real evidence must include billing RFC 7807 helper key coverage.",
+      "finding_ids": []
+    },
+    {
+      "scan_class": "shared_rfc7807_helper",
+      "status": "not_run_example",
+      "hardcoded_error_string_count": 0,
+      "artifact_path": null,
+      "notes": "Example only. Real evidence must include shared helper shape review.",
+      "finding_ids": []
+    },
+    {
+      "scan_class": "sdk_preservation_fixture",
+      "status": "not_run_example",
+      "hardcoded_error_string_count": 0,
+      "artifact_path": null,
+      "notes": "Example only. Real evidence must include SDK fixture key parity.",
+      "finding_ids": []
+    },
+    {
+      "scan_class": "legacy_http_exception_register",
+      "status": "not_run_example",
+      "hardcoded_error_string_count": 0,
+      "legacy_public_http_exception_count": 170,
+      "artifact_path": null,
+      "notes": "Example only. Real evidence must create ticket-backed findings for the legacy public HTTPException backlog until migrated.",
+      "finding_ids": []
+    }
+  ],
+  "findings": [],
+  "redaction_reviewed": false,
+  "release_approved": false,
+  "real_quarterly_audit_completed": false,
+  "real_full_codebase_migration_completed": false
+}

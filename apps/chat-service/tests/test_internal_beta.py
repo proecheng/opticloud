@@ -195,7 +195,7 @@ def test_vrptw_message_returns_internal_beta_contract(monkeypatch: pytest.Monkey
             {
                 "field_path": "variables",
                 "message": "structured variables missing from deterministic completion",
-                "remediation_hint_key": "chat.formulator.variables_required",
+                "remediation_hint_key": "errors.chat_formulator.variables_required",
             }
         ],
         "supported_task_types": ["lp", "vrptw", "prediction", "schedule", "inventory", "unknown"],
@@ -209,7 +209,7 @@ def test_vrptw_message_returns_internal_beta_contract(monkeypatch: pytest.Monkey
             {
                 "field_path": "formulator_preview.variables",
                 "message": "structured formulation is required before code generation",
-                "remediation_hint_key": "chat.coder.formulator_extracted_required",
+                "remediation_hint_key": "errors.chat_coder.formulator_extracted_required",
             }
         ],
         "supported_task_types": ["lp", "vrptw", "prediction", "schedule", "inventory", "unknown"],
@@ -241,7 +241,7 @@ def test_vrptw_message_returns_internal_beta_contract(monkeypatch: pytest.Monkey
             {
                 "field_path": "coder_preview.artifact",
                 "message": "generated code artifact is required before critic validation",
-                "remediation_hint_key": "chat.critic.artifact_required",
+                "remediation_hint_key": "errors.chat_critic.artifact_required",
             }
         ],
         "supported_task_types": ["lp", "vrptw", "prediction", "schedule", "inventory", "unknown"],
@@ -270,7 +270,7 @@ def test_vrptw_message_returns_internal_beta_contract(monkeypatch: pytest.Monkey
             {
                 "field_path": "coder_preview.artifact",
                 "message": "generated code artifact is required before sandbox execution",
-                "remediation_hint_key": "chat.sandbox.artifact_required",
+                "remediation_hint_key": "errors.chat_sandbox.artifact_required",
             }
         ],
         "contract_version": "sandbox-runner-p58-p62-local-v1",
@@ -347,27 +347,27 @@ def test_vrptw_message_returns_internal_beta_contract(monkeypatch: pytest.Monkey
             {
                 "field_path": "formulator_preview.variables",
                 "message": "structured variables missing from deterministic completion",
-                "remediation_hint_key": "chat.formulator.variables_required",
+                "remediation_hint_key": "errors.chat_formulator.variables_required",
             },
             {
                 "field_path": "coder_preview.formulator_preview.variables",
                 "message": "structured formulation is required before code generation",
-                "remediation_hint_key": "chat.coder.formulator_extracted_required",
+                "remediation_hint_key": "errors.chat_coder.formulator_extracted_required",
             },
             {
                 "field_path": "critic_preview.coder_preview.artifact",
                 "message": "code artifact is required before critic validation",
-                "remediation_hint_key": "chat.critic.artifact_required",
+                "remediation_hint_key": "errors.chat_critic.artifact_required",
             },
             {
                 "field_path": "human_review.reason_code",
                 "message": "human review is required before model confirmation",
-                "remediation_hint_key": "chat.model_preview.human_review_required",
+                "remediation_hint_key": "errors.chat_model_preview.human_review_required",
             },
             {
                 "field_path": "sandbox_preview.coder_preview.artifact",
                 "message": "code artifact is required before sandbox execution",
-                "remediation_hint_key": "chat.sandbox.artifact_required",
+                "remediation_hint_key": "errors.chat_sandbox.artifact_required",
             },
         ],
     }
@@ -406,7 +406,7 @@ def test_vrptw_message_returns_internal_beta_contract(monkeypatch: pytest.Monkey
         {
             "field_path": "language.completion",
             "message": "language completion used deterministic fallback",
-            "remediation_hint_key": "chat.language.fallback_used",
+            "remediation_hint_key": "errors.chat_language.fallback_used",
         }
     ]
     assert language_preview["supported_locales"] == ["zh-CN", "en-US", "mixed"]

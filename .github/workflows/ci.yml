@@ -49,6 +49,7 @@ jobs:
       gtm_toolkit: ${{ steps.filter.outputs.gtm_toolkit }}
       gurobi_benchmark: ${{ steps.filter.outputs.gurobi_benchmark }}
       error_i18n: ${{ steps.filter.outputs.error_i18n }}
+      error_i18n_audit: ${{ steps.filter.outputs.error_i18n_audit }}
       contract_tests: ${{ steps.filter.outputs.contract_tests }}
       blue_green_deploy: ${{ steps.filter.outputs.blue_green_deploy }}
       aigc_filter: ${{ steps.filter.outputs.aigc_filter }}
@@ -270,6 +271,30 @@ jobs:
               - 'packages/shared-ts/src/**'
               - '.pre-commit-config.yaml'
               - 'package.json'
+              - '.github/workflows/ci.yml'
+            error_i18n_audit:
+              - 'tools/error_i18n_audit/**'
+              - 'scripts/validate_error_i18n_audit.py'
+              - 'tests/test_error_i18n_audit.py'
+              - 'docs/runbooks/error-i18n-audit.md'
+              - 'reports/error-i18n-audit/**'
+              - 'packages/i18n/**'
+              - 'scripts/error_message_i18n_single_source.py'
+              - 'tests/test_error_i18n_single_source.py'
+              - 'apps/web/src/**'
+              - 'packages/ui/src/**'
+              - 'packages/shared-ts/src/**'
+              - 'packages/*/src/**/*.py'
+              - 'packages/*/src/**/*.ts'
+              - 'packages/*/src/**/*.tsx'
+              - 'packages/shared-py/**/*.py'
+              - 'apps/solver-orchestrator/src/solver_orchestrator/error_catalog.py'
+              - 'apps/solver-orchestrator/src/solver_orchestrator/error_responses.py'
+              - 'apps/billing-service/src/billing_service/problem_details.py'
+              - 'apps/billing-service/src/billing_service/main.py'
+              - 'apps/*/src/**/*.py'
+              - 'packages/shared-py/opticloud_shared/errors/**'
+              - 'tests/fixtures/sdk-rfc7807-preservation.json'
               - '.github/workflows/ci.yml'
             blue_green_deploy:
               - 'scripts/deploy/**'
@@ -912,6 +937,34 @@ jobs:
       - name: Validate error i18n single-source gate
         run: uv run python scripts/error_message_i18n_single_source.py
       - name: Run error i18n tests
+        run: uv run pytest tests/test_error_i18n_single_source.py -v
+
+  # ===== Error i18n quarterly audit validation (Story 9.6 / FG1.3) =====
+  error-i18n-audit-validation:
+    needs: changes
+    if: needs.changes.outputs.error_i18n_audit == 'true' || needs.changes.outputs.error_i18n == 'true' || needs.changes.outputs.web == 'true' || needs.changes.outputs.ui == 'true' || needs.changes.outputs.shared_ts == 'true' || needs.changes.outputs.ci_or_root == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: pip install uv==${{ env.UV_VERSION }}
+      - run: uv sync --all-packages --extra dev
+      - name: Validate error i18n audit contract
+        run: uv run python scripts/validate_error_i18n_audit.py
+      - name: Validate real error i18n audit evidence manifests when present
+        run: |
+          shopt -s globstar nullglob
+          manifests=(reports/error-i18n-audit/**/audit_manifest.json)
+          for manifest in "${manifests[@]}"; do
+            uv run python scripts/validate_error_i18n_audit.py --evidence "$manifest"
+          done
+      - name: Run error i18n audit tests
+        run: uv run pytest tests/test_error_i18n_audit.py -v
+      - name: Validate error i18n single-source gate
+        run: uv run python scripts/error_message_i18n_single_source.py
+      - name: Run error i18n single-source tests
         run: uv run pytest tests/test_error_i18n_single_source.py -v
 
   # ===== Gurobi LP benchmark package validation (Story M4.5b) =====

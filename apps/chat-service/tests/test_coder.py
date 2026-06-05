@@ -141,7 +141,7 @@ def test_parse_coder_completion_returns_sanitized_reported_validation_errors() -
                     {
                         "field_path": "artifact.code",
                         "message": "objective terms need clarification",
-                        "remediation_hint_key": "chat.coder.objective_required",
+                        "remediation_hint_key": "errors.chat_coder.objective_required",
                     }
                 ],
             }

@@ -3,39 +3,368 @@
 # from production problem-detail code.
 
 errors:
+  400:
+    billing_http_error:
+      title: "计费请求无效"
+      detail: "计费服务拒绝了当前请求。"
+      remediation: "检查请求字段、幂等键和计费上下文后重试。"
+    invalid_benchmark_library_option:
+      title: "经典算例库选项无效"
+      detail: "经典算例库导入选项未通过校验。"
+      remediation: "选择已发布且可导入的经典算例后重试。"
+    invalid_json:
+      title: "JSON 格式无效"
+      detail: "请求体不是有效的 JSON。"
+      remediation: "修正 JSON 语法后重新提交。"
+    unsupported_fallback_solver:
+      title: "不支持的备用求解器"
+      detail: "fallback_chain 中存在不支持的求解器。"
+      remediation: "从算法目录中选择当前 task_type 支持的备用求解器。"
+    unsupported_solver:
+      title: "不支持的求解器"
+      detail: "当前 task_type 不支持指定求解器。"
+      remediation: "查看算法目录并选择支持的 solver。"
+  401:
+    authorization_required:
+      title: "需要认证"
+      detail: "请求缺少有效认证信息。"
+      remediation: "提供有效 API Key 或重新登录后重试。"
+    billing_http_error:
+      title: "计费认证失败"
+      detail: "计费服务无法验证当前请求身份。"
+      remediation: "检查认证头或内部服务认证配置后重试。"
   402:
+    billing_http_error:
+      title: "计费支付条件未满足"
+      detail: "计费服务要求补足 Credits 或支付条件。"
+      remediation: "前往充值页补足 Credits 后重试。"
     topup:
       title: "Credits 不足"
       detail: "当前 Credits 余额不足，无法完成本次请求。"
       remediation: "前往充值页补足 Credits 后重试。"
+  403:
+    billing_http_error:
+      title: "计费权限不足"
+      detail: "当前账户或套餐无权执行该计费操作。"
+      remediation: "确认账户权限或升级套餐后重试。"
+    insufficient_scope:
+      title: "权限不足"
+      detail: "当前 API Key 缺少执行此操作所需的 scope。"
+      remediation: "创建或切换具备所需 scope 的 API Key。"
+    unaudited_self_algorithm:
+      title: "自研算法未完成审计"
+      detail: "自研算法在审计通过前不可用于该请求。"
+      remediation: "完成自研算法审计，或选择已审计的算法。"
+  404:
+    billing_http_error:
+      title: "计费资源不存在"
+      detail: "请求的计费资源不存在或不可见。"
+      remediation: "确认资源 ID、账户和权限后重试。"
+    not_found:
+      title: "资源不存在"
+      detail: "请求的资源不存在或当前账户不可见。"
+      remediation: "确认资源 ID 和访问权限后重试。"
+  409:
+    billing_http_error:
+      title: "计费请求冲突"
+      detail: "计费请求与现有状态或幂等记录冲突。"
+      remediation: "检查幂等键、账单状态或预算状态后重试。"
+    cancellation_not_allowed:
+      title: "不允许取消"
+      detail: "当前任务状态不允许取消。"
+      remediation: "仅对 queued 或 in_progress 状态的任务发起取消。"
+    idempotency_body_mismatch:
+      title: "幂等键冲突"
+      detail: "同一幂等键被用于不同请求内容。"
+      remediation: "保持请求体一致，或使用新的 Idempotency-Key。"
+    monthly_budget_paused:
+      title: "月度预算已暂停"
+      detail: "当前账户因月度预算规则暂停了计费请求。"
+      remediation: "调整预算设置或等待新预算周期后重试。"
+    rerun_not_allowed:
+      title: "不允许重新运行"
+      detail: "该复现凭证或源任务不满足重新运行条件。"
+      remediation: "确认凭证状态、所有权和复现窗口后重试。"
+  410:
+    voucher_expired:
+      title: "复现凭证已过期"
+      detail: "该复现凭证已超过允许的重新运行窗口。"
+      remediation: "使用仍在有效期内的复现凭证。"
   422:
-    invalid_prediction_data:
-      title: "预测数据无效"
-      detail: "预测请求数据未通过字段校验。"
-      remediation: "检查字段路径、取值范围和数据格式后重新提交。"
+    anonymous_requires_reproducible:
+      title: "匿名选项无效"
+      detail: "匿名凭证要求同时启用 reproducible。"
+      remediation: "设置 options.reproducible=true 后再启用匿名。"
+    billing_http_error:
+      title: "计费请求未通过校验"
+      detail: "计费请求字段或业务规则未通过校验。"
+      remediation: "检查字段路径、取值范围和计费状态后重试。"
+    billing_not_supported_for_async_optimizations:
+      title: "异步优化暂不支持计费请求头"
+      detail: "异步优化请求不能携带计费 charge header。"
+      remediation: "移除计费请求头，或改用同步优化流程。"
+    billing_not_supported_for_predictions:
+      title: "预测暂不支持计费请求头"
+      detail: "预测请求当前不接受计费 charge header。"
+      remediation: "移除计费请求头后重新提交预测请求。"
+    billing_not_supported_for_rerun:
+      title: "重新运行不接受计费请求头"
+      detail: "复现重新运行请求不能携带计费 charge header。"
+      remediation: "移除计费请求头后重新提交 rerun 请求。"
+    billing_reserve_failed:
+      title: "计费预留失败"
+      detail: "求解前计费预留未能成功完成。"
+      remediation: "检查 Credits 余额、charge id 和计费服务状态后重试。"
+    infeasible:
+      title: "线性规划不可行"
+      detail: "输入约束无法同时满足。"
+      remediation: "检查约束矩阵、边界和业务规则后重新提交。"
+    invalid_body:
+      title: "请求体无效"
+      detail: "该操作要求空请求体或特定请求体结构。"
+      remediation: "按接口文档调整请求体后重试。"
+    invalid_budget_request:
+      title: "预算请求无效"
+      detail: "预算请求未通过校验。"
+      remediation: "检查预算金额、周期和账户上下文后重试。"
+    invalid_execution_mode:
+      title: "执行模式无效"
+      detail: "mode 必须是支持的执行模式。"
+      remediation: "使用 sync、async 或 teaching 中的有效模式。"
     invalid_job_template:
       title: "作业模板无效"
       detail: "作业模板版本或参数变更未通过校验。"
       remediation: "检查模板参数路径和值类型后重新保存。"
+    invalid_lp_input:
+      title: "线性规划输入无效"
+      detail: "线性规划输入未通过字段或业务校验。"
+      remediation: "检查目标函数、约束矩阵和变量边界后重试。"
+    invalid_prediction_data:
+      title: "预测数据无效"
+      detail: "预测请求数据未通过字段校验。"
+      remediation: "检查字段路径、取值范围和数据格式后重新提交。"
+    invalid_request_body:
+      title: "请求体校验失败"
+      detail: "请求体未通过 schema 校验。"
+      remediation: "根据 errors[] 中的 field_path 修正字段后重试。"
+    invalid_uuid:
+      title: "UUID 无效"
+      detail: "请求中的 UUID 字段格式无效。"
+      remediation: "提供合法 UUID 格式的字段值。"
+    request_validation:
+      title: "请求校验失败"
+      detail: "FastAPI 请求校验未通过。"
+      remediation: "根据 errors[] 中的字段路径和约束修正请求。"
+    solver_error:
+      title: "求解失败"
+      detail: "求解器未能产出有效结果。"
+      remediation: "检查输入模型，或尝试备用求解器后重试。"
     source_task_not_completed:
       title: "源任务未完成"
       detail: "只有已完成的优化或预测任务可以保存为模板。"
       remediation: "等待源任务完成后再创建或更新模板。"
+    unbounded:
+      title: "线性规划无界"
+      detail: "目标函数在当前约束下无有限最优解。"
+      remediation: "补充边界约束或检查目标函数方向。"
+    unsupported_prediction_family:
+      title: "不支持的预测模型族"
+      detail: "预测 family 不在当前支持列表中。"
+      remediation: "选择 arima 或 chronos 等已支持模型族。"
+    unsupported_task_type:
+      title: "不支持的任务类型"
+      detail: "请求的 task_type 未在算法目录中启用。"
+      remediation: "查看算法目录并选择已支持的 task_type。"
   429:
     rate_limit_exceeded:
       title: "请求频率超限"
       detail: "当前套餐的请求频率额度已用尽。"
       remediation: "稍后重试，或升级套餐以获得更高频率额度。"
+  500:
+    catalog_error:
+      title: "算法目录错误"
+      detail: "必需的算法目录条目不可用。"
+      remediation: "保留 request_id 并联系支持排查目录配置。"
+  501:
+    not_implemented:
+      title: "暂未实现"
+      detail: "该 task_type 在当前里程碑暂未实现。"
+      remediation: "选择已实现的任务类型，或关注后续版本。"
   503:
+    billing_http_error:
+      title: "计费服务暂不可用"
+      detail: "计费服务暂时无法处理当前请求。"
+      remediation: "稍后重试；若持续失败，请联系支持并提供 request_id。"
     rate_limit_unavailable:
       title: "限流服务暂不可用"
       detail: "系统暂时无法确认请求频率额度。"
       remediation: "稍后重试；若持续失败，请联系支持并提供 request_id。"
+  504:
+    solver_timeout:
+      title: "求解超时"
+      detail: "求解器超过了允许的运行时间。"
+      remediation: "降低问题规模、增加 max_solve_seconds 或尝试备用求解器。"
+  auth_frozen:
+    appeal:
+      title: "账户已冻结"
+      detail: "账户已冻结，需要先完成申诉才能继续登录。"
+      remediation: "打开冻结账户申诉流程，并提交所需验证信息。"
+  billing_warning:
+    balance_low:
+      title: "余额偏低提醒"
+      detail: "当前余额低于预计最高费用。"
+      remediation: "确认前请充值 Credits，或降低本次请求成本。"
+    p5_call:
+      title: "高成本请求提醒"
+      detail: "预计最高费用超过高成本阈值。"
+      remediation: "检查费用估算，并确认该请求确实需要继续。"
+    p5_call_and_balance_low:
+      title: "高成本且余额偏低提醒"
+      detail: "本次估算费用较高，且当前余额可能不足。"
+      remediation: "确认前请充值 Credits，或降低本次请求成本。"
+  chat_coder:
+    artifact_invalid:
+      title: "代码产物无效"
+      detail: "生成的代码产物不符合所需 schema。"
+      remediation: "完成结构化建模后重新生成代码产物。"
+    completion_invalid:
+      title: "代码生成结果无效"
+      detail: "代码生成结果无法被安全解析。"
+      remediation: "使用更清晰的结构化建模结果重试代码生成。"
+    completion_unavailable:
+      title: "代码生成暂不可用"
+      detail: "代码生成暂不可用，或未能安全结束。"
+      remediation: "稍后重试，或在生成不可用时使用模板预览。"
+    formulator_extracted_required:
+      title: "需要结构化建模"
+      detail: "代码生成前需要完成结构化建模。"
+      remediation: "先完成变量、目标函数或约束的结构化提取。"
+    model_required:
+      title: "需要代码生成模型"
+      detail: "代码生成需要支持的模型别名。"
+      remediation: "请求代码生成前请选择受支持的模型别名。"
+    objective_required:
+      title: "需要代码生成目标函数"
+      detail: "代码生成前需要进一步明确目标函数项。"
+      remediation: "在结构化建模中补充目标函数项后重新生成代码。"
+    prompt_invalid:
+      title: "代码生成提示无效"
+      detail: "代码生成提示未通过安全 schema 校验。"
+      remediation: "基于结构化且已脱敏的建模数据重新构造提示。"
+    task_type_required:
+      title: "需要代码生成任务类型"
+      detail: "代码生成前需要明确的任务类型。"
+      remediation: "先将消息路由到受支持的任务类型，再生成代码。"
+  chat_critic:
+    artifact_required:
+      title: "需要评审代码产物"
+      detail: "评审前需要已生成的代码产物。"
+      remediation: "先生成安全的代码产物，再运行评审。"
+    completion_invalid:
+      title: "评审结果无效"
+      detail: "评审结果无法被安全接受。"
+      remediation: "重试评审，或在校验成功前保持代码为预览状态。"
+    completion_unavailable:
+      title: "评审暂不可用"
+      detail: "评审暂不可用，或未能安全结束。"
+      remediation: "稍后重试，并在评审完成前保持内部预览状态。"
+    model_required:
+      title: "需要评审模型"
+      detail: "评审需要支持的模型别名。"
+      remediation: "请求评审前请选择受支持的模型别名。"
+    prompt_invalid:
+      title: "评审提示无效"
+      detail: "评审提示未通过安全 schema 校验。"
+      remediation: "基于生成产物元数据重新构造提示，避免携带不安全内容。"
+    task_type_drift:
+      title: "评审任务类型漂移"
+      detail: "生成产物中的任务标记与路由任务不一致。"
+      remediation: "针对当前路由任务重新生成产物后再评审。"
+  chat_formulator:
+    task_type_required:
+      title: "需要建模任务类型"
+      detail: "结构化建模前需要明确的任务类型。"
+      remediation: "先将消息路由到受支持的任务类型，再提取建模信息。"
+    variables_required:
+      title: "需要建模变量"
+      detail: "建模预览需要结构化变量。"
+      remediation: "继续前请提供变量，并提供目标函数或约束。"
+  chat_language:
+    completion_unavailable:
+      title: "语言生成暂不可用"
+      detail: "语言生成暂不可用，或未能安全结束。"
+      remediation: "稍后重试，或使用兜底语言预览。"
+    fallback_used:
+      title: "已使用语言兜底"
+      detail: "语言预览使用了确定性兜底内容。"
+      remediation: "继续前请检查兜底预览。"
+    model_required:
+      title: "需要语言生成模型"
+      detail: "语言预览需要支持的模型别名。"
+      remediation: "请求语言预览前请选择受支持的模型别名。"
+    prompt_invalid:
+      title: "语言提示无效"
+      detail: "语言提示未通过安全 schema 校验。"
+      remediation: "基于受限预览元数据重新构造语言提示。"
+  chat_model_preview:
+    dependency_drift:
+      title: "模型预览依赖漂移"
+      detail: "上游预览任务类型不一致。"
+      remediation: "重新生成预览，使建模、代码、评审和沙箱任务类型一致。"
+    human_review_required:
+      title: "需要人工复核"
+      detail: "确认模型前需要人工复核。"
+      remediation: "等待人工复核完成后再确认模型。"
+    sandbox_invocation_required:
+      title: "需要沙箱调用证据"
+      detail: "成功的沙箱预览必须包含沙箱调用证据。"
+      remediation: "重新运行沙箱执行，并在预览中保留调用证据。"
+    task_type_required:
+      title: "需要模型预览任务类型"
+      detail: "确认模型前需要明确的任务类型。"
+      remediation: "先将消息路由到受支持的任务类型，并重新生成预览。"
+  chat_sandbox:
+    artifact_required:
+      title: "需要沙箱代码产物"
+      detail: "沙箱执行前需要已生成的代码产物。"
+      remediation: "先生成安全的代码产物，再运行沙箱。"
+    critic_checks_required:
+      title: "需要通过评审检查"
+      detail: "所有评审检查通过后才能执行沙箱。"
+      remediation: "修复评审发现的问题，并重新校验后再运行沙箱。"
+    critic_validated_required:
+      title: "需要评审验证"
+      detail: "沙箱执行前需要已验证的评审预览。"
+      remediation: "先运行评审验证，并等待通过后再执行沙箱。"
+    invalid_input_path:
+      title: "沙箱输入路径无效"
+      detail: "沙箱输入路径未通过策略校验。"
+      remediation: "在沙箱请求中使用安全的相对输入路径。"
+    llm_self_loop_blocked:
+      title: "沙箱阻止 LLM 自调用"
+      detail: "沙箱策略阻止会调用 LLM 或外部 provider 的代码。"
+      remediation: "移除 provider 调用，保持本地执行后重试。"
+    logs_stream_deferred:
+      title: "沙箱日志流暂缓"
+      detail: "当前沙箱执行路径不支持实时日志流。"
+      remediation: "关闭实时日志流运行，并在执行后查看受限日志摘录。"
+    network_disabled:
+      title: "沙箱网络已禁用"
+      detail: "沙箱策略阻止网络访问。"
+      remediation: "从生成产物中移除网络访问后重试。"
+    result_budget_exceeded:
+      title: "沙箱结果超出预算"
+      detail: "沙箱结果文件超出允许预算。"
+      remediation: "减少输出文件大小或生成的结果文件数量。"
+    task_type_required:
+      title: "需要沙箱任务类型"
+      detail: "沙箱执行前需要明确的任务类型。"
+      remediation: "先路由并为受支持的任务类型生成代码，再运行沙箱。"
+    unsupported_binary_payload:
+      title: "沙箱不支持二进制输入"
+      detail: "沙箱输入文件不支持二进制内容。"
+      remediation: "提供 UTF-8 文本输入文件，或移除二进制内容后重试。"
   fallback:
-    request_failed:
-      title: "请求失败"
-      detail: "服务返回了无法识别的错误响应。"
-      remediation: "保留 request_id 并联系支持排查。"
     network_error:
       title: "网络错误"
       detail: "客户端无法解析服务错误响应。"
@@ -44,6 +373,10 @@ errors:
       title: "预测请求失败"
       detail: "预测请求在客户端或服务调用过程中失败。"
       remediation: "检查输入数据和网络连接后重试。"
+    request_failed:
+      title: "请求失败"
+      detail: "服务返回了无法识别的错误响应。"
+      remediation: "保留 request_id 并联系支持排查。"
   chat_csv:
     add_header:
       title: "CSV 缺少表头"

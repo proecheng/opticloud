@@ -1,0 +1,186 @@
+{
+  "source_story": "9.6",
+  "audit_version": "error_i18n_quarterly_audit_v1",
+  "rule_id": "error-message-i18n-single-source",
+  "fg": "FG1.3",
+  "nfr": "NFR-COMPLIANCE",
+  "standard_cadence": "quarterly",
+  "evidence": {
+    "report_directory": "reports/error-i18n-audit",
+    "manifest_filename": "audit_manifest.json"
+  },
+  "scan_classes": [
+    {
+      "scan_class": "typescript_problem_detail",
+      "owner": "Frontend",
+      "scope": "Production TS/TSX RFC 7807 problem-detail object construction under apps/web/src, packages/ui/src, and packages/shared-ts/src.",
+      "hardcoded_count_required_zero": true
+    },
+    {
+      "scan_class": "i18n_dictionary_parity",
+      "owner": "Platform",
+      "scope": "packages/i18n/errors.zh-CN.yaml and errors.en-US.yaml key parity and required title/detail/remediation fields.",
+      "hardcoded_count_required_zero": true
+    },
+    {
+      "scan_class": "solver_error_catalog",
+      "owner": "Solver API",
+      "scope": "apps/solver-orchestrator/src/solver_orchestrator/error_catalog.py remediation_hint_key parity with packages/i18n.",
+      "hardcoded_count_required_zero": true
+    },
+    {
+      "scan_class": "billing_problem_details",
+      "owner": "Billing",
+      "scope": "Billing-service RFC 7807 helper and exception handlers require registered generic billing error keys.",
+      "hardcoded_count_required_zero": true
+    },
+    {
+      "scan_class": "shared_rfc7807_helper",
+      "owner": "Platform",
+      "scope": "Shared opticloud_shared RFC 7807 helper remains shape-only and does not introduce unregistered user-facing keys.",
+      "hardcoded_count_required_zero": true
+    },
+    {
+      "scan_class": "sdk_preservation_fixture",
+      "owner": "SDK",
+      "scope": "SDK RFC 7807 preservation fixture remediation_hint_key values remain registered in packages/i18n.",
+      "hardcoded_count_required_zero": true
+    },
+    {
+      "scan_class": "legacy_http_exception_register",
+      "owner": "Platform",
+      "scope": "Existing production FastAPI HTTPException(detail=literal) public backlog register, discovered and pinned but not migrated by this story.",
+      "hardcoded_count_required_zero": false
+    }
+  ],
+  "hardcoded_count_definition": {
+    "counted": [
+      "Public FG1.3 RFC 7807 title/detail strings in production TypeScript problem-detail construction.",
+      "Production remediation_hint_key values missing from the zh/en i18n dictionaries.",
+      "Solver RFC 7807 catalog remediation keys missing from the zh/en i18n dictionaries."
+    ],
+    "excluded": [
+      "Test files and fixtures except the SDK preservation fixture key parity check.",
+      "Storybook stories and story markdown.",
+      "Internal Python ValueError, RuntimeError, AssertionError, CLI diagnostics, and developer-only validation messages.",
+      "Legacy public HTTPException(detail=literal) entries while they are registered as findings/backlog in real evidence."
+    ]
+  },
+  "observed_repo_state": {
+    "typescript_single_source_gate": {
+      "rule_id": "error-message-i18n-single-source",
+      "path": "scripts/error_message_i18n_single_source.py",
+      "source_roots": [
+        "apps/web/src",
+        "packages/ui/src",
+        "packages/shared-ts/src"
+      ]
+    },
+    "i18n_dictionaries": {
+      "paths": [
+        "packages/i18n/errors.zh-CN.yaml",
+        "packages/i18n/errors.en-US.yaml"
+      ],
+      "key_count": 90
+    },
+    "solver_error_catalog": {
+      "path": "apps/solver-orchestrator/src/solver_orchestrator/error_catalog.py",
+      "remediation_hint_keys": [
+        "errors.400.invalid_benchmark_library_option",
+        "errors.400.invalid_json",
+        "errors.400.unsupported_fallback_solver",
+        "errors.400.unsupported_solver",
+        "errors.401.authorization_required",
+        "errors.403.insufficient_scope",
+        "errors.403.unaudited_self_algorithm",
+        "errors.404.not_found",
+        "errors.409.cancellation_not_allowed",
+        "errors.409.idempotency_body_mismatch",
+        "errors.409.rerun_not_allowed",
+        "errors.410.voucher_expired",
+        "errors.422.anonymous_requires_reproducible",
+        "errors.422.billing_not_supported_for_async_optimizations",
+        "errors.422.billing_not_supported_for_predictions",
+        "errors.422.billing_not_supported_for_rerun",
+        "errors.422.billing_reserve_failed",
+        "errors.422.infeasible",
+        "errors.422.invalid_body",
+        "errors.422.invalid_execution_mode",
+        "errors.422.invalid_lp_input",
+        "errors.422.invalid_prediction_data",
+        "errors.422.invalid_request_body",
+        "errors.422.invalid_uuid",
+        "errors.422.solver_error",
+        "errors.422.source_task_not_completed",
+        "errors.422.unbounded",
+        "errors.422.unsupported_prediction_family",
+        "errors.422.unsupported_task_type",
+        "errors.429.rate_limit_exceeded",
+        "errors.500.catalog_error",
+        "errors.501.not_implemented",
+        "errors.503.rate_limit_unavailable",
+        "errors.504.solver_timeout"
+      ]
+    },
+    "billing_problem_details": {
+      "paths": [
+        "apps/billing-service/src/billing_service/problem_details.py",
+        "apps/billing-service/src/billing_service/main.py"
+      ],
+      "required_keys": [
+        "errors.400.billing_http_error",
+        "errors.401.billing_http_error",
+        "errors.402.billing_http_error",
+        "errors.403.billing_http_error",
+        "errors.404.billing_http_error",
+        "errors.409.billing_http_error",
+        "errors.422.billing_http_error",
+        "errors.422.request_validation",
+        "errors.503.billing_http_error"
+      ]
+    },
+    "shared_rfc7807_helper": {
+      "path": "packages/shared-py/opticloud_shared/errors/rfc7807.py"
+    },
+    "sdk_preservation_fixture": {
+      "path": "tests/fixtures/sdk-rfc7807-preservation.json",
+      "remediation_hint_keys": [
+        "errors.422.invalid_prediction_data"
+      ]
+    },
+    "legacy_http_exception_register": {
+      "total_count": 170,
+      "by_file": {
+        "apps/auth-service/src/auth_service/account_merge.py": 14,
+        "apps/auth-service/src/auth_service/admin_routes.py": 2,
+        "apps/auth-service/src/auth_service/frozen_appeals.py": 12,
+        "apps/auth-service/src/auth_service/routes.py": 38,
+        "apps/billing-service/src/billing_service/auth_dep.py": 9,
+        "apps/capability-registry/src/capability_registry/routes.py": 89,
+        "apps/chat-service/src/chat_service/main.py": 2,
+        "apps/solver-orchestrator/src/solver_orchestrator/auth.py": 4
+      }
+    }
+  },
+  "boundaries": {
+    "full_backend_runtime_migration_claimed": false,
+    "real_quarterly_audit_completed": false,
+    "real_external_ticket_created": false,
+    "production_release_approved": false,
+    "legacy_public_http_exception_migration_completed": false
+  },
+  "disallowed_static_completion_claims": [
+    "legacy_http_exception_migration_completed",
+    "production_release_approved",
+    "real_external_ticket_created",
+    "real_full_codebase_migration_completed",
+    "real_production_release_approved",
+    "real_quarterly_audit_completed",
+    "release_approved"
+  ],
+  "handoffs": [
+    "Story 8.B.5 owns the single-source TS gate foundation.",
+    "Story 8.B.6 owns SDK errors[] preservation.",
+    "Story 9.7 owns the unified governance dashboard."
+  ]
+}

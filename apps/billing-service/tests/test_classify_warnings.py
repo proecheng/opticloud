@@ -32,7 +32,7 @@ def test_p5_call_only_high_cost_balance_fine() -> None:
     warnings = _classify("6.00", "50.00")
     assert len(warnings) == 1
     assert warnings[0].kind == "p5_call"
-    assert warnings[0].remediation_hint_key == "warnings.p5_call"
+    assert warnings[0].remediation_hint_key == "errors.billing_warning.p5_call"
     assert "6.00" in warnings[0].message
     assert "3.00" in warnings[0].message
 
@@ -42,7 +42,7 @@ def test_balance_low_only_cheap_call_low_balance() -> None:
     warnings = _classify("1.00", "0.50")
     assert len(warnings) == 1
     assert warnings[0].kind == "balance_low"
-    assert warnings[0].remediation_hint_key == "warnings.balance_low"
+    assert warnings[0].remediation_hint_key == "errors.billing_warning.balance_low"
 
 
 def test_combined_p5_and_balance_low_merges_into_one_warning() -> None:

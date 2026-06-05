@@ -2,39 +2,368 @@
 # Keys must remain identical to errors.zh-CN.yaml.
 
 errors:
+  400:
+    billing_http_error:
+      title: "Invalid Billing Request"
+      detail: "The billing service rejected the current request."
+      remediation: "Check request fields, idempotency key, and billing context before retrying."
+    invalid_benchmark_library_option:
+      title: "Invalid Benchmark Library Option"
+      detail: "The benchmark library import option failed validation."
+      remediation: "Select a published importable benchmark, then retry."
+    invalid_json:
+      title: "Invalid JSON"
+      detail: "The request body is not valid JSON."
+      remediation: "Fix the JSON syntax and resubmit."
+    unsupported_fallback_solver:
+      title: "Unsupported Fallback Solver"
+      detail: "fallback_chain contains an unsupported solver."
+      remediation: "Choose fallback solvers supported for the requested task_type."
+    unsupported_solver:
+      title: "Unsupported Solver"
+      detail: "The requested task_type does not support the specified solver."
+      remediation: "Check the algorithm catalog and choose a supported solver."
+  401:
+    authorization_required:
+      title: "Authentication Required"
+      detail: "The request is missing valid authentication."
+      remediation: "Provide a valid API key or sign in again before retrying."
+    billing_http_error:
+      title: "Billing Authentication Failed"
+      detail: "The billing service could not authenticate the current request."
+      remediation: "Check authentication headers or internal service authentication configuration."
   402:
+    billing_http_error:
+      title: "Billing Payment Required"
+      detail: "The billing service requires additional Credits or payment conditions."
+      remediation: "Top up Credits, then retry the request."
     topup:
       title: "Insufficient Credits"
       detail: "The current Credits balance is not enough to complete this request."
       remediation: "Top up Credits, then retry the request."
+  403:
+    billing_http_error:
+      title: "Billing Forbidden"
+      detail: "The current account or plan cannot perform this billing operation."
+      remediation: "Confirm account permissions or upgrade the plan before retrying."
+    insufficient_scope:
+      title: "Insufficient Scope"
+      detail: "The current API key does not have the required scope."
+      remediation: "Create or switch to an API key with the required scope."
+    unaudited_self_algorithm:
+      title: "Unaudited Self Algorithm"
+      detail: "The self-developed algorithm cannot be used before audit approval."
+      remediation: "Complete the self-audit or choose an audited algorithm."
+  404:
+    billing_http_error:
+      title: "Billing Resource Not Found"
+      detail: "The requested billing resource does not exist or is not visible."
+      remediation: "Confirm the resource ID, account, and permissions before retrying."
+    not_found:
+      title: "Not Found"
+      detail: "The requested resource does not exist or is not visible to the current account."
+      remediation: "Confirm the resource ID and access permissions before retrying."
+  409:
+    billing_http_error:
+      title: "Billing Conflict"
+      detail: "The billing request conflicts with existing state or an idempotency record."
+      remediation: "Check the idempotency key, billing state, or budget state before retrying."
+    cancellation_not_allowed:
+      title: "Cancellation Not Allowed"
+      detail: "The current task status does not allow cancellation."
+      remediation: "Cancel only tasks that are queued or in_progress."
+    idempotency_body_mismatch:
+      title: "Idempotency Conflict"
+      detail: "The same idempotency key was used with different request content."
+      remediation: "Keep the request body identical, or use a new Idempotency-Key."
+    monthly_budget_paused:
+      title: "Monthly Budget Paused"
+      detail: "The account has paused billing requests because of monthly budget rules."
+      remediation: "Adjust budget settings or wait for the next budget period."
+    rerun_not_allowed:
+      title: "Rerun Not Allowed"
+      detail: "The voucher or source task is not eligible for rerun."
+      remediation: "Confirm voucher status, ownership, and the rerun window before retrying."
+  410:
+    voucher_expired:
+      title: "Voucher Expired"
+      detail: "The reproduction voucher is outside the allowed rerun window."
+      remediation: "Use a reproduction voucher that is still within the valid window."
   422:
-    invalid_prediction_data:
-      title: "Invalid Prediction Data"
-      detail: "The prediction request data failed field validation."
-      remediation: "Check the field path, value range, and data format before resubmitting."
+    anonymous_requires_reproducible:
+      title: "Invalid Anonymous Option"
+      detail: "Anonymous vouchers require reproducible to be enabled."
+      remediation: "Set options.reproducible=true before enabling anonymous mode."
+    billing_http_error:
+      title: "Billing Validation Failed"
+      detail: "The billing request failed field or business-rule validation."
+      remediation: "Check field paths, value ranges, and billing state before retrying."
+    billing_not_supported_for_async_optimizations:
+      title: "Billing Not Supported For Async Optimizations"
+      detail: "Async optimization requests cannot carry a billing charge header."
+      remediation: "Remove the billing header, or use the synchronous optimization flow."
+    billing_not_supported_for_predictions:
+      title: "Billing Not Supported For Predictions"
+      detail: "Prediction requests do not currently accept billing charge headers."
+      remediation: "Remove the billing header and submit the prediction request again."
+    billing_not_supported_for_rerun:
+      title: "Billing Not Supported For Rerun"
+      detail: "Reproduction rerun requests cannot carry a billing charge header."
+      remediation: "Remove the billing header and submit the rerun request again."
+    billing_reserve_failed:
+      title: "Billing Reserve Failed"
+      detail: "The pre-solve billing reservation did not complete successfully."
+      remediation: "Check Credits balance, charge id, and billing service state before retrying."
+    infeasible:
+      title: "LP Infeasible"
+      detail: "The input constraints cannot be satisfied together."
+      remediation: "Check constraint matrices, bounds, and business rules before resubmitting."
+    invalid_body:
+      title: "Invalid Body"
+      detail: "This operation requires an empty body or a specific body shape."
+      remediation: "Adjust the request body according to the API documentation."
+    invalid_budget_request:
+      title: "Invalid Budget Request"
+      detail: "The budget request failed validation."
+      remediation: "Check the budget amount, cadence, and account context before retrying."
+    invalid_execution_mode:
+      title: "Invalid Execution Mode"
+      detail: "mode must be a supported execution mode."
+      remediation: "Use one of sync, async, or teaching."
     invalid_job_template:
       title: "Invalid Job Template"
       detail: "The job template version or parameter change failed validation."
       remediation: "Check the template parameter path and value type before saving again."
+    invalid_lp_input:
+      title: "Invalid LP Input"
+      detail: "The linear programming input failed field or business validation."
+      remediation: "Check objective, constraint matrix, and variable bounds before retrying."
+    invalid_prediction_data:
+      title: "Invalid Prediction Data"
+      detail: "The prediction request data failed field validation."
+      remediation: "Check the field path, value range, and data format before resubmitting."
+    invalid_request_body:
+      title: "Invalid Request Body"
+      detail: "The request body failed schema validation."
+      remediation: "Use errors[] field_path values to correct fields before retrying."
+    invalid_uuid:
+      title: "Invalid UUID"
+      detail: "A UUID field in the request has an invalid format."
+      remediation: "Provide a valid UUID value."
+    request_validation:
+      title: "Request Validation Error"
+      detail: "FastAPI request validation failed."
+      remediation: "Use errors[] field paths and constraints to correct the request."
+    solver_error:
+      title: "Solver Error"
+      detail: "The solver did not produce a valid result."
+      remediation: "Check the input model, or retry with a fallback solver."
     source_task_not_completed:
       title: "Source Task Not Completed"
       detail: "Only completed optimization or prediction tasks can be saved as templates."
       remediation: "Wait for the source task to complete before creating or updating the template."
+    unbounded:
+      title: "LP Unbounded"
+      detail: "The objective has no finite optimum under the current constraints."
+      remediation: "Add bounds or check the objective direction."
+    unsupported_prediction_family:
+      title: "Unsupported Prediction Family"
+      detail: "The prediction family is not currently supported."
+      remediation: "Choose a supported family such as arima or chronos."
+    unsupported_task_type:
+      title: "Unsupported Task Type"
+      detail: "The requested task_type is not enabled in the algorithm catalog."
+      remediation: "Check the algorithm catalog and choose a supported task_type."
   429:
     rate_limit_exceeded:
       title: "Rate Limit Exceeded"
       detail: "The request-rate quota for the current plan has been exhausted."
       remediation: "Retry later, or upgrade the plan for a higher request-rate quota."
+  500:
+    catalog_error:
+      title: "Catalog Error"
+      detail: "A required algorithm catalog entry is unavailable."
+      remediation: "Keep the request_id and contact support to investigate catalog configuration."
+  501:
+    not_implemented:
+      title: "Not Implemented"
+      detail: "This task_type is not implemented in the current milestone."
+      remediation: "Choose an implemented task type, or watch for a future release."
   503:
+    billing_http_error:
+      title: "Billing Service Unavailable"
+      detail: "The billing service cannot handle this request right now."
+      remediation: "Retry later; if the issue continues, contact support with the request_id."
     rate_limit_unavailable:
       title: "Rate Limit Unavailable"
       detail: "The system cannot confirm request-rate quota at this time."
       remediation: "Retry later; if the issue continues, contact support with the request_id."
+  504:
+    solver_timeout:
+      title: "Solver Timeout"
+      detail: "The solver exceeded the allowed runtime."
+      remediation: "Reduce problem size, increase max_solve_seconds, or try a fallback solver."
+  auth_frozen:
+    appeal:
+      title: "Account Frozen"
+      detail: "The account is frozen and requires an appeal before sign-in can continue."
+      remediation: "Open the frozen-account appeal flow and submit the requested verification."
+  billing_warning:
+    balance_low:
+      title: "Low Balance Warning"
+      detail: "The current balance is below the estimated maximum charge."
+      remediation: "Top up Credits or reduce the request cost before confirming."
+    p5_call:
+      title: "High Cost Warning"
+      detail: "The estimated maximum charge exceeds the high-cost threshold."
+      remediation: "Review the estimate and confirm that the request should proceed."
+    p5_call_and_balance_low:
+      title: "High Cost And Low Balance Warning"
+      detail: "The estimate is high and the current balance may be insufficient."
+      remediation: "Top up Credits or reduce request cost before confirming."
+  chat_coder:
+    artifact_invalid:
+      title: "Invalid Code Artifact"
+      detail: "The generated code artifact did not match the required schema."
+      remediation: "Regenerate the code artifact after completing the structured formulation."
+    completion_invalid:
+      title: "Invalid Code Completion"
+      detail: "The code generation completion could not be safely parsed."
+      remediation: "Retry code generation with a clearer structured formulation."
+    completion_unavailable:
+      title: "Code Completion Unavailable"
+      detail: "Code generation completion is currently unavailable or did not finish safely."
+      remediation: "Retry later or use the template preview while generation is unavailable."
+    formulator_extracted_required:
+      title: "Formulation Required"
+      detail: "Structured formulation is required before code generation."
+      remediation: "Complete formulation extraction with variables and objective or constraints."
+    model_required:
+      title: "Coder Model Required"
+      detail: "A supported coder model alias is required."
+      remediation: "Select a supported model alias before requesting code generation."
+    objective_required:
+      title: "Coder Objective Required"
+      detail: "Objective terms require clarification before code generation."
+      remediation: "Provide objective terms in the structured formulation before regenerating code."
+    prompt_invalid:
+      title: "Coder Prompt Invalid"
+      detail: "The coder prompt failed safe schema validation."
+      remediation: "Rebuild the prompt from structured, redacted formulation data."
+    task_type_required:
+      title: "Coder Task Type Required"
+      detail: "A known task type is required before code generation."
+      remediation: "Route the message to a supported task type before generating code."
+  chat_critic:
+    artifact_required:
+      title: "Critic Artifact Required"
+      detail: "A generated code artifact is required before critic validation."
+      remediation: "Generate a safe code artifact before running critic validation."
+    completion_invalid:
+      title: "Invalid Critic Completion"
+      detail: "The critic completion could not be safely accepted."
+      remediation: "Retry critic validation or keep the code in preview until validation succeeds."
+    completion_unavailable:
+      title: "Critic Completion Unavailable"
+      detail: "Critic completion is currently unavailable or did not finish safely."
+      remediation: "Retry later and keep the code in internal preview until validation completes."
+    model_required:
+      title: "Critic Model Required"
+      detail: "A supported critic model alias is required."
+      remediation: "Select a supported model alias before requesting critic validation."
+    prompt_invalid:
+      title: "Critic Prompt Invalid"
+      detail: "The critic prompt failed safe schema validation."
+      remediation: "Rebuild the prompt from generated artifact metadata without unsafe payloads."
+    task_type_drift:
+      title: "Critic Task Type Drift"
+      detail: "The generated artifact task marker does not match the routed task."
+      remediation: "Regenerate the artifact for the routed task before critic validation."
+  chat_formulator:
+    task_type_required:
+      title: "Formulator Task Type Required"
+      detail: "A known task type is required before formulation extraction."
+      remediation: "Route the message to a supported task type before extracting formulation."
+    variables_required:
+      title: "Formulator Variables Required"
+      detail: "Structured variables are required for the formulation preview."
+      remediation: "Provide variables and either objective or constraints before continuing."
+  chat_language:
+    completion_unavailable:
+      title: "Language Completion Unavailable"
+      detail: "Language completion is currently unavailable or did not finish safely."
+      remediation: "Retry later or use the fallback language preview."
+    fallback_used:
+      title: "Language Fallback Used"
+      detail: "The language preview used deterministic fallback content."
+      remediation: "Review the fallback preview before continuing."
+    model_required:
+      title: "Language Model Required"
+      detail: "A supported language model alias is required."
+      remediation: "Select a supported model alias before requesting the language preview."
+    prompt_invalid:
+      title: "Language Prompt Invalid"
+      detail: "The language prompt failed safe schema validation."
+      remediation: "Rebuild the language prompt from bounded preview metadata."
+  chat_model_preview:
+    dependency_drift:
+      title: "Model Preview Dependency Drift"
+      detail: "Upstream preview task types do not match."
+      remediation: "Regenerate previews so formulator, coder, critic, and sandbox task types align."
+    human_review_required:
+      title: "Human Review Required"
+      detail: "Human review is required before model confirmation."
+      remediation: "Wait for human review before confirming the model."
+    sandbox_invocation_required:
+      title: "Sandbox Invocation Required"
+      detail: "A succeeded sandbox preview must include sandbox invocation evidence."
+      remediation: "Rerun sandbox execution and keep the invocation evidence with the preview."
+    task_type_required:
+      title: "Model Preview Task Type Required"
+      detail: "A known task type is required before model confirmation."
+      remediation: "Route the message to a supported task type and regenerate the preview."
+  chat_sandbox:
+    artifact_required:
+      title: "Sandbox Artifact Required"
+      detail: "A generated code artifact is required before sandbox execution."
+      remediation: "Generate a safe code artifact before running the sandbox."
+    critic_checks_required:
+      title: "Sandbox Critic Checks Required"
+      detail: "All critic checks must pass before sandbox execution."
+      remediation: "Resolve critic findings and rerun validation before sandbox execution."
+    critic_validated_required:
+      title: "Sandbox Critic Validation Required"
+      detail: "A validated critic preview is required before sandbox execution."
+      remediation: "Run critic validation and wait for a validated preview before sandbox execution."
+    invalid_input_path:
+      title: "Sandbox Input Path Invalid"
+      detail: "A sandbox input path failed policy validation."
+      remediation: "Use a relative safe input path within the sandbox request."
+    llm_self_loop_blocked:
+      title: "Sandbox LLM Self Loop Blocked"
+      detail: "Sandbox policy blocked code that would call an LLM or external provider."
+      remediation: "Remove provider calls and keep execution local before retrying."
+    logs_stream_deferred:
+      title: "Sandbox Log Streaming Deferred"
+      detail: "Live log streaming is not available for this sandbox execution path."
+      remediation: "Run without live log streaming and inspect bounded excerpts after execution."
+    network_disabled:
+      title: "Sandbox Network Disabled"
+      detail: "Sandbox policy blocks network access."
+      remediation: "Remove network access from the generated artifact before retrying."
+    result_budget_exceeded:
+      title: "Sandbox Result Budget Exceeded"
+      detail: "The sandbox result files exceed the allowed budget."
+      remediation: "Reduce output file size or number of generated result files."
+    task_type_required:
+      title: "Sandbox Task Type Required"
+      detail: "A known task type is required before sandbox execution."
+      remediation: "Route and generate code for a supported task type before running the sandbox."
+    unsupported_binary_payload:
+      title: "Sandbox Binary Payload Unsupported"
+      detail: "Sandbox input files do not support binary payloads."
+      remediation: "Provide UTF-8 text input files or remove binary content before retrying."
   fallback:
-    request_failed:
-      title: "Request Failed"
-      detail: "The service returned an unrecognized error response."
-      remediation: "Keep the request_id and contact support for investigation."
     network_error:
       title: "Network Error"
       detail: "The client could not parse the service error response."
@@ -43,6 +372,10 @@ errors:
       title: "Prediction Request Failed"
       detail: "The prediction request failed during client-side handling or service invocation."
       remediation: "Check the input data and network connection, then retry."
+    request_failed:
+      title: "Request Failed"
+      detail: "The service returned an unrecognized error response."
+      remediation: "Keep the request_id and contact support for investigation."
   chat_csv:
     add_header:
       title: "CSV Header Missing"
