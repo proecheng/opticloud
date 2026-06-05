@@ -1,0 +1,428 @@
+{
+  "source_story": "9.8",
+  "evidence_version": "graded_protection_evidence_v1",
+  "run_id": "example-graded-protection-evidence-20260605",
+  "example_only": true,
+  "generated_by": "static example only",
+  "commit_sha": "5b35ff3",
+  "track_mode": "standard_m5",
+  "period": {
+    "cadence": "quarterly",
+    "started_on": "2026-04-01",
+    "ended_on": "2026-06-30"
+  },
+  "overall_gate_status": "not_run",
+  "domain_results": [
+    {
+      "domain_id": "system_scope",
+      "status": "not_run_example",
+      "artifact_classes": ["scope_statement"],
+      "finding_ids": []
+    },
+    {
+      "domain_id": "asset_and_network_boundary",
+      "status": "not_run_example",
+      "artifact_classes": ["asset_inventory_snapshot", "network_boundary_diagram_redacted"],
+      "finding_ids": []
+    },
+    {
+      "domain_id": "identity_and_access_control",
+      "status": "not_run_example",
+      "artifact_classes": ["access_control_matrix"],
+      "finding_ids": []
+    },
+    {
+      "domain_id": "security_audit_and_logging",
+      "status": "not_run_example",
+      "artifact_classes": ["audit_log_retention_statement"],
+      "finding_ids": []
+    },
+    {
+      "domain_id": "data_protection_and_backup",
+      "status": "not_run_example",
+      "artifact_classes": ["backup_restore_evidence"],
+      "finding_ids": []
+    },
+    {
+      "domain_id": "vulnerability_and_incident_response",
+      "status": "not_run_example",
+      "artifact_classes": ["vulnerability_scan_summary", "incident_drill_summary"],
+      "finding_ids": []
+    },
+    {
+      "domain_id": "operations_and_change_management",
+      "status": "not_run_example",
+      "artifact_classes": ["change_management_sample"],
+      "finding_ids": []
+    },
+    {
+      "domain_id": "legal_and_third_party_review",
+      "status": "not_run_example",
+      "artifact_classes": ["third_party_assessment_tracker", "legal_signoff_record"],
+      "finding_ids": []
+    },
+    {
+      "domain_id": "timestamp_and_blockchain_preservation",
+      "status": "not_run_example",
+      "artifact_classes": ["tsa_timestamp_receipt", "blockchain_preservation_receipt"],
+      "finding_ids": []
+    },
+    {
+      "domain_id": "governance_dashboard_handoff",
+      "status": "not_run_example",
+      "artifact_classes": ["finding_register", "dashboard_handoff_record"],
+      "finding_ids": []
+    }
+  ],
+  "artifact_results": [
+    {
+      "artifact_id": "artifact-scope-statement",
+      "artifact_class": "scope_statement",
+      "domain_id": "system_scope",
+      "status": "not_run_example",
+      "artifact_path": "reports/graded-protection-evidence/example-graded-protection-evidence-20260605/artifact-scope-statement.json",
+      "evidence_mode": "contract_static",
+      "finding_ids": []
+    },
+    {
+      "artifact_id": "artifact-asset-inventory-snapshot",
+      "artifact_class": "asset_inventory_snapshot",
+      "domain_id": "asset_and_network_boundary",
+      "status": "not_run_example",
+      "artifact_path": "reports/graded-protection-evidence/example-graded-protection-evidence-20260605/artifact-asset-inventory-snapshot.json",
+      "evidence_mode": "contract_static",
+      "finding_ids": []
+    },
+    {
+      "artifact_id": "artifact-network-boundary-diagram-redacted",
+      "artifact_class": "network_boundary_diagram_redacted",
+      "domain_id": "asset_and_network_boundary",
+      "status": "not_run_example",
+      "artifact_path": "reports/graded-protection-evidence/example-graded-protection-evidence-20260605/artifact-network-boundary-diagram-redacted.json",
+      "evidence_mode": "contract_static",
+      "finding_ids": []
+    },
+    {
+      "artifact_id": "artifact-access-control-matrix",
+      "artifact_class": "access_control_matrix",
+      "domain_id": "identity_and_access_control",
+      "status": "not_run_example",
+      "artifact_path": "reports/graded-protection-evidence/example-graded-protection-evidence-20260605/artifact-access-control-matrix.json",
+      "evidence_mode": "contract_static",
+      "finding_ids": []
+    },
+    {
+      "artifact_id": "artifact-audit-log-retention-statement",
+      "artifact_class": "audit_log_retention_statement",
+      "domain_id": "security_audit_and_logging",
+      "status": "not_run_example",
+      "artifact_path": "reports/graded-protection-evidence/example-graded-protection-evidence-20260605/artifact-audit-log-retention-statement.json",
+      "evidence_mode": "contract_static",
+      "finding_ids": []
+    },
+    {
+      "artifact_id": "artifact-backup-restore-evidence",
+      "artifact_class": "backup_restore_evidence",
+      "domain_id": "data_protection_and_backup",
+      "status": "not_run_example",
+      "artifact_path": "reports/graded-protection-evidence/example-graded-protection-evidence-20260605/artifact-backup-restore-evidence.json",
+      "evidence_mode": "contract_static",
+      "finding_ids": []
+    },
+    {
+      "artifact_id": "artifact-vulnerability-scan-summary",
+      "artifact_class": "vulnerability_scan_summary",
+      "domain_id": "vulnerability_and_incident_response",
+      "status": "not_run_example",
+      "artifact_path": "reports/graded-protection-evidence/example-graded-protection-evidence-20260605/artifact-vulnerability-scan-summary.json",
+      "evidence_mode": "contract_static",
+      "finding_ids": []
+    },
+    {
+      "artifact_id": "artifact-incident-drill-summary",
+      "artifact_class": "incident_drill_summary",
+      "domain_id": "vulnerability_and_incident_response",
+      "status": "not_run_example",
+      "artifact_path": "reports/graded-protection-evidence/example-graded-protection-evidence-20260605/artifact-incident-drill-summary.json",
+      "evidence_mode": "contract_static",
+      "finding_ids": []
+    },
+    {
+      "artifact_id": "artifact-change-management-sample",
+      "artifact_class": "change_management_sample",
+      "domain_id": "operations_and_change_management",
+      "status": "not_run_example",
+      "artifact_path": "reports/graded-protection-evidence/example-graded-protection-evidence-20260605/artifact-change-management-sample.json",
+      "evidence_mode": "contract_static",
+      "finding_ids": []
+    },
+    {
+      "artifact_id": "artifact-third-party-assessment-tracker",
+      "artifact_class": "third_party_assessment_tracker",
+      "domain_id": "legal_and_third_party_review",
+      "status": "not_run_example",
+      "artifact_path": "reports/graded-protection-evidence/example-graded-protection-evidence-20260605/artifact-third-party-assessment-tracker.json",
+      "evidence_mode": "contract_static",
+      "finding_ids": []
+    },
+    {
+      "artifact_id": "artifact-legal-signoff-record",
+      "artifact_class": "legal_signoff_record",
+      "domain_id": "legal_and_third_party_review",
+      "status": "not_run_example",
+      "artifact_path": "reports/graded-protection-evidence/example-graded-protection-evidence-20260605/artifact-legal-signoff-record.json",
+      "evidence_mode": "contract_static",
+      "finding_ids": []
+    },
+    {
+      "artifact_id": "artifact-tsa-timestamp-receipt",
+      "artifact_class": "tsa_timestamp_receipt",
+      "domain_id": "timestamp_and_blockchain_preservation",
+      "status": "not_run_example",
+      "artifact_path": "reports/graded-protection-evidence/example-graded-protection-evidence-20260605/artifact-tsa-timestamp-receipt.json",
+      "evidence_mode": "contract_static",
+      "finding_ids": []
+    },
+    {
+      "artifact_id": "artifact-blockchain-preservation-receipt",
+      "artifact_class": "blockchain_preservation_receipt",
+      "domain_id": "timestamp_and_blockchain_preservation",
+      "status": "not_run_example",
+      "artifact_path": "reports/graded-protection-evidence/example-graded-protection-evidence-20260605/artifact-blockchain-preservation-receipt.json",
+      "evidence_mode": "contract_static",
+      "finding_ids": []
+    },
+    {
+      "artifact_id": "artifact-finding-register",
+      "artifact_class": "finding_register",
+      "domain_id": "governance_dashboard_handoff",
+      "status": "not_run_example",
+      "artifact_path": "reports/graded-protection-evidence/example-graded-protection-evidence-20260605/artifact-finding-register.json",
+      "evidence_mode": "contract_static",
+      "finding_ids": []
+    },
+    {
+      "artifact_id": "artifact-dashboard-handoff-record",
+      "artifact_class": "dashboard_handoff_record",
+      "domain_id": "governance_dashboard_handoff",
+      "status": "not_run_example",
+      "artifact_path": "reports/graded-protection-evidence/example-graded-protection-evidence-20260605/artifact-dashboard-handoff-record.json",
+      "evidence_mode": "contract_static",
+      "finding_ids": []
+    }
+  ],
+  "hash_manifest": [
+    {
+      "artifact_id": "artifact-scope-statement",
+      "artifact_class": "scope_statement",
+      "artifact_path": "reports/graded-protection-evidence/example-graded-protection-evidence-20260605/artifact-scope-statement.json",
+      "sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+      "generated_date": "2026-06-05",
+      "retention_class": "governance_evidence_5y",
+      "evidence_mode": "contract_static"
+    },
+    {
+      "artifact_id": "artifact-asset-inventory-snapshot",
+      "artifact_class": "asset_inventory_snapshot",
+      "artifact_path": "reports/graded-protection-evidence/example-graded-protection-evidence-20260605/artifact-asset-inventory-snapshot.json",
+      "sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+      "generated_date": "2026-06-05",
+      "retention_class": "governance_evidence_5y",
+      "evidence_mode": "contract_static"
+    },
+    {
+      "artifact_id": "artifact-network-boundary-diagram-redacted",
+      "artifact_class": "network_boundary_diagram_redacted",
+      "artifact_path": "reports/graded-protection-evidence/example-graded-protection-evidence-20260605/artifact-network-boundary-diagram-redacted.json",
+      "sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+      "generated_date": "2026-06-05",
+      "retention_class": "governance_evidence_5y",
+      "evidence_mode": "contract_static"
+    },
+    {
+      "artifact_id": "artifact-access-control-matrix",
+      "artifact_class": "access_control_matrix",
+      "artifact_path": "reports/graded-protection-evidence/example-graded-protection-evidence-20260605/artifact-access-control-matrix.json",
+      "sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+      "generated_date": "2026-06-05",
+      "retention_class": "governance_evidence_5y",
+      "evidence_mode": "contract_static"
+    },
+    {
+      "artifact_id": "artifact-audit-log-retention-statement",
+      "artifact_class": "audit_log_retention_statement",
+      "artifact_path": "reports/graded-protection-evidence/example-graded-protection-evidence-20260605/artifact-audit-log-retention-statement.json",
+      "sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+      "generated_date": "2026-06-05",
+      "retention_class": "governance_evidence_5y",
+      "evidence_mode": "contract_static"
+    },
+    {
+      "artifact_id": "artifact-backup-restore-evidence",
+      "artifact_class": "backup_restore_evidence",
+      "artifact_path": "reports/graded-protection-evidence/example-graded-protection-evidence-20260605/artifact-backup-restore-evidence.json",
+      "sha256": "6666666666666666666666666666666666666666666666666666666666666666",
+      "generated_date": "2026-06-05",
+      "retention_class": "governance_evidence_5y",
+      "evidence_mode": "contract_static"
+    },
+    {
+      "artifact_id": "artifact-vulnerability-scan-summary",
+      "artifact_class": "vulnerability_scan_summary",
+      "artifact_path": "reports/graded-protection-evidence/example-graded-protection-evidence-20260605/artifact-vulnerability-scan-summary.json",
+      "sha256": "7777777777777777777777777777777777777777777777777777777777777777",
+      "generated_date": "2026-06-05",
+      "retention_class": "governance_evidence_5y",
+      "evidence_mode": "contract_static"
+    },
+    {
+      "artifact_id": "artifact-incident-drill-summary",
+      "artifact_class": "incident_drill_summary",
+      "artifact_path": "reports/graded-protection-evidence/example-graded-protection-evidence-20260605/artifact-incident-drill-summary.json",
+      "sha256": "8888888888888888888888888888888888888888888888888888888888888888",
+      "generated_date": "2026-06-05",
+      "retention_class": "governance_evidence_5y",
+      "evidence_mode": "contract_static"
+    },
+    {
+      "artifact_id": "artifact-change-management-sample",
+      "artifact_class": "change_management_sample",
+      "artifact_path": "reports/graded-protection-evidence/example-graded-protection-evidence-20260605/artifact-change-management-sample.json",
+      "sha256": "9999999999999999999999999999999999999999999999999999999999999999",
+      "generated_date": "2026-06-05",
+      "retention_class": "governance_evidence_5y",
+      "evidence_mode": "contract_static"
+    },
+    {
+      "artifact_id": "artifact-third-party-assessment-tracker",
+      "artifact_class": "third_party_assessment_tracker",
+      "artifact_path": "reports/graded-protection-evidence/example-graded-protection-evidence-20260605/artifact-third-party-assessment-tracker.json",
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "generated_date": "2026-06-05",
+      "retention_class": "governance_evidence_5y",
+      "evidence_mode": "contract_static"
+    },
+    {
+      "artifact_id": "artifact-legal-signoff-record",
+      "artifact_class": "legal_signoff_record",
+      "artifact_path": "reports/graded-protection-evidence/example-graded-protection-evidence-20260605/artifact-legal-signoff-record.json",
+      "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "generated_date": "2026-06-05",
+      "retention_class": "governance_evidence_5y",
+      "evidence_mode": "contract_static"
+    },
+    {
+      "artifact_id": "artifact-tsa-timestamp-receipt",
+      "artifact_class": "tsa_timestamp_receipt",
+      "artifact_path": "reports/graded-protection-evidence/example-graded-protection-evidence-20260605/artifact-tsa-timestamp-receipt.json",
+      "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "generated_date": "2026-06-05",
+      "retention_class": "governance_evidence_5y",
+      "evidence_mode": "contract_static"
+    },
+    {
+      "artifact_id": "artifact-blockchain-preservation-receipt",
+      "artifact_class": "blockchain_preservation_receipt",
+      "artifact_path": "reports/graded-protection-evidence/example-graded-protection-evidence-20260605/artifact-blockchain-preservation-receipt.json",
+      "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "generated_date": "2026-06-05",
+      "retention_class": "governance_evidence_5y",
+      "evidence_mode": "contract_static"
+    },
+    {
+      "artifact_id": "artifact-finding-register",
+      "artifact_class": "finding_register",
+      "artifact_path": "reports/graded-protection-evidence/example-graded-protection-evidence-20260605/artifact-finding-register.json",
+      "sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "generated_date": "2026-06-05",
+      "retention_class": "governance_evidence_5y",
+      "evidence_mode": "contract_static"
+    },
+    {
+      "artifact_id": "artifact-dashboard-handoff-record",
+      "artifact_class": "dashboard_handoff_record",
+      "artifact_path": "reports/graded-protection-evidence/example-graded-protection-evidence-20260605/artifact-dashboard-handoff-record.json",
+      "sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "generated_date": "2026-06-05",
+      "retention_class": "governance_evidence_5y",
+      "evidence_mode": "contract_static"
+    }
+  ],
+  "preservation_receipts": [
+    {
+      "provider": "tsa_rfc3161",
+      "artifact_id": "artifact-tsa-timestamp-receipt",
+      "hash_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "timestamp_utc": "2026-06-05T00:00:00Z",
+      "policy_oid_or_profile": "example-rfc3161-policy",
+      "tsa_certificate_ref": "redacted-tsa-certificate-ref",
+      "receipt_artifact_path": "reports/graded-protection-evidence/example-graded-protection-evidence-20260605/artifact-tsa-timestamp-receipt.json",
+      "verification_status": "not_run_example",
+      "finding_ids": []
+    },
+    {
+      "provider": "antchain",
+      "artifact_id": "artifact-blockchain-preservation-receipt",
+      "hash_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "chain_receipt_id": "example-antchain-receipt",
+      "preserved_at_utc": "2026-06-05T00:00:00Z",
+      "receipt_artifact_path": "reports/graded-protection-evidence/example-graded-protection-evidence-20260605/artifact-blockchain-preservation-receipt.json",
+      "verification_status": "not_run_example",
+      "finding_ids": []
+    },
+    {
+      "provider": "tencent_zhixin_chain",
+      "artifact_id": "artifact-blockchain-preservation-receipt",
+      "hash_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "chain_receipt_id": "example-tencent-zhixin-receipt",
+      "preserved_at_utc": "2026-06-05T00:00:00Z",
+      "receipt_artifact_path": "reports/graded-protection-evidence/example-graded-protection-evidence-20260605/artifact-blockchain-preservation-receipt.json",
+      "verification_status": "not_run_example",
+      "finding_ids": []
+    }
+  ],
+  "legal_reviews": [
+    {
+      "role": "Legal",
+      "status": "not_run_example",
+      "artifact_path": "reports/graded-protection-evidence/example-graded-protection-evidence-20260605/legal-review-legal.json",
+      "finding_ids": []
+    },
+    {
+      "role": "Compliance",
+      "status": "not_run_example",
+      "artifact_path": "reports/graded-protection-evidence/example-graded-protection-evidence-20260605/legal-review-compliance.json",
+      "finding_ids": []
+    },
+    {
+      "role": "Security",
+      "status": "not_run_example",
+      "artifact_path": "reports/graded-protection-evidence/example-graded-protection-evidence-20260605/legal-review-security.json",
+      "finding_ids": []
+    },
+    {
+      "role": "SRE",
+      "status": "not_run_example",
+      "artifact_path": "reports/graded-protection-evidence/example-graded-protection-evidence-20260605/legal-review-sre.json",
+      "finding_ids": []
+    }
+  ],
+  "findings": [],
+  "dashboard_handoff": {
+    "dashboard_version": "governance_dashboard_v1",
+    "manifest_path": "reports/governance-dashboard/example-governance-dashboard-20260605/dashboard_manifest.json",
+    "status": "not_run",
+    "finding_ids": [],
+    "graded_protection_handoff_complete": false
+  },
+  "redaction_reviewed": false,
+  "release_approved": false,
+  "real_assessment_institution_engaged": false,
+  "real_public_security_filing_completed": false,
+  "real_mlps_level_2_certificate_obtained": false,
+  "real_tsa_timestamp_issued": false,
+  "real_blockchain_preservation_completed": false,
+  "real_legal_signoff_completed": false,
+  "real_evidence_aggregation_completed": false,
+  "certificate_artifact_id": ""
+}

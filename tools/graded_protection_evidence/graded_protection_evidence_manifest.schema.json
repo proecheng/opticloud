@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opticloud.local/schemas/graded-protection-evidence-manifest.schema.json",
+  "title": "Story 9.8 graded protection evidence manifest",
+  "type": "object",
+  "required": [
+    "source_story",
+    "evidence_version",
+    "run_id",
+    "example_only",
+    "generated_by",
+    "commit_sha",
+    "track_mode",
+    "period",
+    "overall_gate_status",
+    "domain_results",
+    "artifact_results",
+    "hash_manifest",
+    "preservation_receipts",
+    "legal_reviews",
+    "findings",
+    "dashboard_handoff",
+    "redaction_reviewed",
+    "release_approved",
+    "real_assessment_institution_engaged",
+    "real_public_security_filing_completed",
+    "real_mlps_level_2_certificate_obtained",
+    "real_tsa_timestamp_issued",
+    "real_blockchain_preservation_completed",
+    "real_legal_signoff_completed",
+    "real_evidence_aggregation_completed",
+    "certificate_artifact_id"
+  ],
+  "$defs": {
+    "domainId": {
+      "type": "string",
+      "enum": [
+        "system_scope",
+        "asset_and_network_boundary",
+        "identity_and_access_control",
+        "security_audit_and_logging",
+        "data_protection_and_backup",
+        "vulnerability_and_incident_response",
+        "operations_and_change_management",
+        "legal_and_third_party_review",
+        "timestamp_and_blockchain_preservation",
+        "governance_dashboard_handoff"
+      ]
+    },
+    "artifactClass": {
+      "type": "string",
+      "enum": [
+        "scope_statement",
+        "asset_inventory_snapshot",
+        "network_boundary_diagram_redacted",
+        "access_control_matrix",
+        "audit_log_retention_statement",
+        "backup_restore_evidence",
+        "vulnerability_scan_summary",
+        "incident_drill_summary",
+        "change_management_sample",
+        "third_party_assessment_tracker",
+        "legal_signoff_record",
+        "tsa_timestamp_receipt",
+        "blockchain_preservation_receipt",
+        "finding_register",
+        "dashboard_handoff_record"
+      ]
+    },
+    "legalRole": {
+      "type": "string",
+      "enum": ["Legal", "Compliance", "Security", "SRE"]
+    },
+    "gateStatus": {
+      "type": "string",
+      "enum": ["green", "yellow", "red", "unknown", "not_run"]
+    },
+    "artifactStatus": {
+      "type": "string",
+      "enum": ["not_run_example", "present", "missing", "stale", "failed", "deferred"]
+    },
+    "trackMode": {
+      "type": "string",
+      "enum": ["standard_m5", "simplified_v1_5"]
+    },
+    "evidenceMode": {
+      "type": "string",
+      "enum": ["contract_static", "redacted_manifest", "manual_review"]
+    }
+  },
+  "additionalProperties": true
+}
