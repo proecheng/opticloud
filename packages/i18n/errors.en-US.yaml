@@ -80,6 +80,10 @@ errors:
       title: "Monthly Budget Paused"
       detail: "The account has paused billing requests because of monthly budget rules."
       remediation: "Adjust budget settings or wait for the next budget period."
+    provider_migration_required:
+      title: "Provider Migration Required"
+      detail: "The reproduction voucher locked provider requires migration, but no matching active equivalent provider is available."
+      remediation: "Confirm the locked provider, task type, solver, and capability tags before retrying."
     rerun_not_allowed:
       title: "Rerun Not Allowed"
       detail: "The voucher or source task is not eligible for rerun."

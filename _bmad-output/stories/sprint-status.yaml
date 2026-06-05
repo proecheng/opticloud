@@ -193,7 +193,7 @@ development_status:
   # ===== Epic 6.A/B/C: Reproducibility (13 stories) =====
   epic-6-a: in-progress
   epic-6-b: in-progress
-  epic-6-c: backlog
+  epic-6-c: in-progress
 
   6-a-1-citation-bibtex: done                  # 2026-05-20 — FR R5 v1 必上 ship: opens Epic 6.A; 8 hand-curated BibTeX entries on Algorithm catalog (huangfu2018 × 2, perron2024ortools @software, perron2011constraint LNCS 6876, ansari2024chronos arXiv, box1976time, hochreiter1997long, aqgs2025opticloud @software w/ Apache 2.0); CitationSchema mirrored on AlgorithmSchema + OptimizationResponse (defaults None); `_build_success_response` does (provider_id, task_type)-keyed catalog lookup at response time with try/except guard so malformed rows degrade to citation=null not 500; /v1/optimizations/demo LP-optimal branch routes citation through CitationSchema for parity; /algorithms/[k_algo] gains 📚 引用本算法 section w/ 学者信息 line + `encodeURI`-wrapped DOI/URL links + reused CodeBlock w/ new label+ariaLabel props for "BibTeX"; +11 backend tests (47 → 60; catalog signature/braces/key-pinning/`\&` LaTeX-safety/AQGS @software/LP demo+auth/422 RFC 7807/MILP-disambiguation/unknown-provider-degradation) + 2 Playwright (highs-lp DOI path + aqgs URL-only path); 3 reviewer-layer code review (Blind Hunter + Edge Case + Acceptance Auditor) → 11 patches applied + 3 deferred to deferred-work.md + 6 dismissed; bundle delta /algorithms/[k_algo] +0.22 KB; sprint-status BUNDLED into PR-29 commits (lesson from 1.5/PR#28)
   6-a-2-bibtex-academic-page: done             # 2026-05-20 — /academic SSR BibTeX Landing 页 + shared CodeBlock + landing 学术合作 link; 5 Playwright cases; post-code-review patches applied
@@ -209,7 +209,7 @@ development_status:
   6-b-6-voucher-5y-sla-tracking: done          # 2026-05-22 — TT4 ship: 5y Repro / Image archival clock now explicitly starts at `reproduction_vouchers.created_at` UTC; added Repro Image Restore SOP with evidence/exception/drill steps; aligned handbook, FAQ, paper template, whitepaper outline, legal-template index, and runbooks index; docs-only; link/stale wording/diff-check passed after code-review link patch
   6-b-7-bitwise-reproducibility-test: done         # 2026-05-22 — E11 ship: quarterly voucher bitwise reproducibility audit framework with deterministic 5% sampling, strict canonical SHA-256 result comparison, LP/highs live rerun support, explicit skipped coverage, JSON/Markdown CLI reports, redaction/no-side-effect tests, runbook, and generated report ignore; +10 audit tests, solver suite 116 passed, ruff/mypy/diff-check passed after code-review patches
 
-  6-c-1-auto-migrate-provider: backlog         # v2
+  6-c-1-auto-migrate-provider: code-review     # 2026-06-05 — Provider migration resolver + rerun preflight implemented; local gates passed, awaiting code review
   6-c-2-30d-exit-notification: backlog
   6-c-3-capability-vocab-design: backlog
   6-c-4-equivalent-matching: backlog

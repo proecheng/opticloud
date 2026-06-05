@@ -81,6 +81,10 @@ errors:
       title: "月度预算已暂停"
       detail: "当前账户因月度预算规则暂停了计费请求。"
       remediation: "调整预算设置或等待新预算周期后重试。"
+    provider_migration_required:
+      title: "需要 Provider 迁移"
+      detail: "复现凭证锁定的 Provider 需要迁移，但当前没有匹配的活跃等效 Provider。"
+      remediation: "确认锁定 Provider、任务类型、求解器和能力标签后再重试。"
     rerun_not_allowed:
       title: "不允许重新运行"
       detail: "该复现凭证或源任务不满足重新运行条件。"
