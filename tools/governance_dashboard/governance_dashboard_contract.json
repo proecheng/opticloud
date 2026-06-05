@@ -1,0 +1,294 @@
+{
+  "dashboard_version": "governance_dashboard_v1",
+  "source_story": "9.7",
+  "epic": 9,
+  "standard_cadence": "quarterly",
+  "dashboard_intent": "grafana_ready_governance_overview",
+  "evidence": {
+    "report_directory": "reports/governance-dashboard",
+    "manifest_filename": "dashboard_manifest.json",
+    "schema_path": "tools/governance_dashboard/governance_dashboard_manifest.schema.json",
+    "example_manifest_path": "tools/governance_dashboard/governance_dashboard_manifest.example.json"
+  },
+  "viewer_roles": [
+    "PM",
+    "Security",
+    "UX",
+    "SRE",
+    "Compliance"
+  ],
+  "kpi_groups": [
+    "a11y",
+    "cost",
+    "compliance",
+    "observability",
+    "security",
+    "error_i18n"
+  ],
+  "upstream_sources": [
+    {
+      "source_id": "a11y_quarterly_audit",
+      "story_id": "9.1",
+      "owner": "UX",
+      "contract_path": "tools/a11y_audit/quarterly_a11y_contract.json",
+      "validator_path": "scripts/validate_a11y_quarterly_audit.py",
+      "runbook_path": "docs/runbooks/quarterly-a11y-audit.md",
+      "evidence_report_directory": "reports/a11y-quarterly",
+      "manifest_filename": "audit_manifest.json",
+      "ci_job_name": "ui-a11y-audit-validation",
+      "dashboard_handoff_boundary": "Dashboard reads redacted audit status only; it does not claim a real quarterly panel completed."
+    },
+    {
+      "source_id": "prometheus_metric_audit",
+      "story_id": "9.2",
+      "owner": "SRE",
+      "contract_path": "tools/prometheus_metric_audit/business_metric_audit_contract.json",
+      "validator_path": "scripts/validate_prometheus_metric_audit.py",
+      "runbook_path": "docs/runbooks/prometheus-metric-audit.md",
+      "evidence_report_directory": "reports/prometheus-metric-audit",
+      "manifest_filename": "audit_manifest.json",
+      "ci_job_name": "prometheus-metric-audit-validation",
+      "dashboard_handoff_boundary": "Dashboard reads metric audit evidence only; it does not prove live Prometheus scraping."
+    },
+    {
+      "source_id": "nfr_cost_alerts",
+      "story_id": "9.3",
+      "owner": "PM",
+      "contract_path": "tools/nfr_cost_alerts/nfr_cost_alert_contract.json",
+      "validator_path": "scripts/validate_nfr_cost_alerts.py",
+      "runbook_path": "docs/runbooks/nfr-cost-alerts.md",
+      "evidence_report_directory": "reports/nfr-cost-alerts",
+      "manifest_filename": "alert_manifest.json",
+      "ci_job_name": "nfr-cost-alerts-validation",
+      "dashboard_handoff_boundary": "Dashboard shows redline status only; it does not prove real Alertmanager, DingTalk, or Linear delivery."
+    },
+    {
+      "source_id": "nfr_security_p0_drills",
+      "story_id": "9.4",
+      "owner": "Security",
+      "contract_path": "tools/nfr_security_p0_drills/nfr_security_p0_drill_contract.json",
+      "validator_path": "scripts/validate_nfr_security_p0_drills.py",
+      "runbook_path": "docs/runbooks/nfr-security-p0-drills.md",
+      "evidence_report_directory": "reports/nfr-security-p0-drills",
+      "manifest_filename": "drill_manifest.json",
+      "ci_job_name": "nfr-security-p0-drills-validation",
+      "dashboard_handoff_boundary": "Dashboard shows drill state only; it does not prove a real P0 incident or exploit execution."
+    },
+    {
+      "source_id": "wcag_2_2_upgrade_path",
+      "story_id": "9.5",
+      "owner": "UX",
+      "contract_path": "tools/wcag_2_2_upgrade/wcag_2_2_upgrade_contract.json",
+      "validator_path": "scripts/validate_wcag_2_2_upgrade_path.py",
+      "runbook_path": "docs/runbooks/wcag-2-2-upgrade-path.md",
+      "evidence_report_directory": "reports/wcag-2-2-upgrade",
+      "manifest_filename": "upgrade_manifest.json",
+      "ci_job_name": "wcag-2-2-upgrade-path-validation",
+      "dashboard_handoff_boundary": "Dashboard shows P78 readiness only; it does not prove full WCAG 2.2 AA conformance."
+    },
+    {
+      "source_id": "error_i18n_audit",
+      "story_id": "9.6",
+      "owner": "Compliance",
+      "contract_path": "tools/error_i18n_audit/error_i18n_audit_contract.json",
+      "validator_path": "scripts/validate_error_i18n_audit.py",
+      "runbook_path": "docs/runbooks/error-i18n-audit.md",
+      "evidence_report_directory": "reports/error-i18n-audit",
+      "manifest_filename": "audit_manifest.json",
+      "ci_job_name": "error-i18n-audit-validation",
+      "dashboard_handoff_boundary": "Dashboard shows error i18n audit state only; it does not claim legacy HTTPException migration completed."
+    }
+  ],
+  "panel_catalog": [
+    {
+      "panel_id": "quarterly-axe-violation-status",
+      "title": "Quarterly axe violation status",
+      "kpi_group": "a11y",
+      "viewer_roles": ["PM", "UX", "SRE"],
+      "upstream_source_id": "a11y_quarterly_audit",
+      "freshness_sla_days": 100,
+      "data_source_mode": "evidence_manifest",
+      "query_or_transform": "Read automated_axe.status and violation_count from the latest redacted a11y audit manifest.",
+      "stop_ship_severities": ["P0", "P1", "P2"],
+      "runbook_path": "docs/runbooks/quarterly-a11y-audit.md"
+    },
+    {
+      "panel_id": "wcag-2-2-upgrade-readiness",
+      "title": "WCAG 2.2 P78 upgrade readiness",
+      "kpi_group": "a11y",
+      "viewer_roles": ["PM", "UX", "Compliance"],
+      "upstream_source_id": "wcag_2_2_upgrade_path",
+      "freshness_sla_days": 100,
+      "data_source_mode": "evidence_manifest",
+      "query_or_transform": "Read criteria, hook, and component readiness from the latest redacted WCAG 2.2 upgrade manifest.",
+      "stop_ship_severities": ["P0", "P1", "P2"],
+      "runbook_path": "docs/runbooks/wcag-2-2-upgrade-path.md"
+    },
+    {
+      "panel_id": "prometheus-metric-coverage",
+      "title": "Prometheus metric coverage",
+      "kpi_group": "observability",
+      "viewer_roles": ["PM", "SRE", "Compliance"],
+      "upstream_source_id": "prometheus_metric_audit",
+      "freshness_sla_days": 100,
+      "data_source_mode": "evidence_manifest",
+      "query_or_transform": "Read metric_coverage, scrape_targets, PromQL snapshots, and Grafana review status from the latest redacted metric audit manifest.",
+      "stop_ship_severities": ["P0", "P1", "P2"],
+      "runbook_path": "docs/runbooks/prometheus-metric-audit.md"
+    },
+    {
+      "panel_id": "nfr-cost-redline-state",
+      "title": "NFR-COST redline state",
+      "kpi_group": "cost",
+      "viewer_roles": ["PM", "SRE", "Compliance"],
+      "upstream_source_id": "nfr_cost_alerts",
+      "freshness_sla_days": 100,
+      "data_source_mode": "evidence_manifest",
+      "query_or_transform": "Read redline_evaluations, alert state, and routing payload readiness from the latest redacted NFR-COST alert manifest.",
+      "stop_ship_severities": ["P0", "P1", "P2"],
+      "runbook_path": "docs/runbooks/nfr-cost-alerts.md"
+    },
+    {
+      "panel_id": "nfr-security-p0-drill-state",
+      "title": "NFR-S P0 drill state",
+      "kpi_group": "security",
+      "viewer_roles": ["PM", "Security", "SRE", "Compliance"],
+      "upstream_source_id": "nfr_security_p0_drills",
+      "freshness_sla_days": 100,
+      "data_source_mode": "evidence_manifest",
+      "query_or_transform": "Read scenario results, SOP gates, containment, and 24h postmortem timeline state from the latest redacted P0 drill manifest.",
+      "stop_ship_severities": ["P0", "P1", "P2"],
+      "runbook_path": "docs/runbooks/nfr-security-p0-drills.md"
+    },
+    {
+      "panel_id": "error-i18n-audit-state",
+      "title": "FG1.3 error i18n audit state",
+      "kpi_group": "error_i18n",
+      "viewer_roles": ["PM", "SRE", "Compliance"],
+      "upstream_source_id": "error_i18n_audit",
+      "freshness_sla_days": 100,
+      "data_source_mode": "evidence_manifest",
+      "query_or_transform": "Read scan_results, hardcoded error string count, dictionary parity, and legacy backlog state from the latest redacted error i18n audit manifest.",
+      "stop_ship_severities": ["P0", "P1", "P2"],
+      "runbook_path": "docs/runbooks/error-i18n-audit.md"
+    },
+    {
+      "panel_id": "compliance-governance-rollup",
+      "title": "Compliance governance rollup",
+      "kpi_group": "compliance",
+      "viewer_roles": ["PM", "Security", "UX", "SRE", "Compliance"],
+      "upstream_source_id": "error_i18n_audit",
+      "freshness_sla_days": 100,
+      "data_source_mode": "manual_review",
+      "query_or_transform": "Roll up unresolved source findings and source freshness across all governance contracts.",
+      "stop_ship_severities": ["P0", "P1", "P2"],
+      "runbook_path": "docs/runbooks/governance-dashboard.md"
+    }
+  ],
+  "rollup_statuses": [
+    "green",
+    "yellow",
+    "red",
+    "unknown",
+    "not_run"
+  ],
+  "source_snapshot_statuses": [
+    "not_run_example",
+    "current",
+    "stale",
+    "missing",
+    "failed"
+  ],
+  "panel_statuses": [
+    "not_run_example",
+    "green",
+    "yellow",
+    "red",
+    "unknown"
+  ],
+  "allowed_data_source_modes": [
+    "contract_static",
+    "evidence_manifest",
+    "manual_review"
+  ],
+  "stop_ship_rollup_rules": {
+    "unresolved_p0_p1_p2_forces_red": true,
+    "stale_required_source_forces_at_least_yellow": true,
+    "missing_required_source_forces_red": true
+  },
+  "observed_upstream_state": {
+    "a11y_quarterly_audit": {
+      "source_story": "9.1",
+      "version_key": "audit_version",
+      "version": "quarterly_a11y_audit_v1",
+      "contract_path": "tools/a11y_audit/quarterly_a11y_contract.json",
+      "evidence_report_directory": "reports/a11y-quarterly",
+      "manifest_filename": "audit_manifest.json",
+      "boundaries_false": ["disabled_user_panel_completion_claim", "real_panel_completed", "real_quarterly_audit_completed", "third_party_audit_completed", "wcag_2_2_in_scope"]
+    },
+    "prometheus_metric_audit": {
+      "source_story": "9.2",
+      "version_key": "audit_version",
+      "version": "prometheus_business_metric_audit_v1",
+      "contract_path": "tools/prometheus_metric_audit/business_metric_audit_contract.json",
+      "evidence_report_directory": "reports/prometheus-metric-audit",
+      "manifest_filename": "audit_manifest.json",
+      "boundaries_false": ["alert_automation_in_scope", "live_production_scrape_proven", "real_external_ticket_created", "real_grafana_dashboard_published", "real_quarterly_review_completed", "status_page_coverage_claimed", "unified_governance_dashboard_in_scope", "uptime_sla_approved"]
+    },
+    "nfr_cost_alerts": {
+      "source_story": "9.3",
+      "version_key": "alert_version",
+      "version": "nfr_cost_redline_alerts_v1",
+      "contract_path": "tools/nfr_cost_alerts/nfr_cost_alert_contract.json",
+      "evidence_report_directory": "reports/nfr-cost-alerts",
+      "manifest_filename": "alert_manifest.json",
+      "boundaries_false": ["external_delivery_in_scope", "finance_approval_completed", "live_prometheus_rule_loaded", "real_alertmanager_fired", "real_dingtalk_delivered", "real_linear_created", "real_production_breach_observed", "release_approved", "unified_governance_dashboard_in_scope"]
+    },
+    "nfr_security_p0_drills": {
+      "source_story": "9.4",
+      "version_key": "drill_version",
+      "version": "nfr_security_p0_drills_v1",
+      "contract_path": "tools/nfr_security_p0_drills/nfr_security_p0_drill_contract.json",
+      "evidence_report_directory": "reports/nfr-security-p0-drills",
+      "manifest_filename": "drill_manifest.json",
+      "boundaries_false": ["real_billing_ledger_corruption_proven", "real_customer_impact_proven", "real_data_breach_proven", "real_exploit_execution_proven", "real_external_notification_sent", "real_external_ticket_created", "real_p0_incident_proven", "real_public_postmortem_published", "real_refund_or_compensation_executed", "release_approval_proven"]
+    },
+    "wcag_2_2_upgrade_path": {
+      "source_story": "9.5",
+      "version_key": "upgrade_version",
+      "version": "wcag_2_2_upgrade_path_v1",
+      "contract_path": "tools/wcag_2_2_upgrade/wcag_2_2_upgrade_contract.json",
+      "evidence_report_directory": "reports/wcag-2-2-upgrade",
+      "manifest_filename": "upgrade_manifest.json",
+      "boundaries_false": ["all_components_refactored", "full_wcag_2_2_aa_conformance_proven", "production_release_approved", "real_disabled_user_panel_completed", "third_party_audit_completed"]
+    },
+    "error_i18n_audit": {
+      "source_story": "9.6",
+      "version_key": "audit_version",
+      "version": "error_i18n_quarterly_audit_v1",
+      "contract_path": "tools/error_i18n_audit/error_i18n_audit_contract.json",
+      "evidence_report_directory": "reports/error-i18n-audit",
+      "manifest_filename": "audit_manifest.json",
+      "boundaries_false": ["full_backend_runtime_migration_claimed", "legacy_public_http_exception_migration_completed", "production_release_approved", "real_external_ticket_created", "real_quarterly_audit_completed"]
+    }
+  },
+  "boundaries": {
+    "real_grafana_dashboard_published": false,
+    "real_datasource_connected": false,
+    "real_role_review_completed": false,
+    "real_evidence_aggregation_completed": false,
+    "production_release_approved": false,
+    "real_external_ticket_created": false
+  },
+  "disallowed_static_completion_claims": [
+    "all_source_findings_resolved",
+    "external_ticket_created",
+    "production_release_approved",
+    "real_datasource_connected",
+    "real_evidence_aggregation_completed",
+    "real_external_ticket_created",
+    "real_grafana_dashboard_published",
+    "real_role_review_completed",
+    "release_approved"
+  ]
+}

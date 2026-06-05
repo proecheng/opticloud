@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Governance Dashboard Manifest",
+  "type": "object",
+  "required": [
+    "source_story",
+    "dashboard_version",
+    "run_id",
+    "example_only",
+    "generated_by",
+    "commit_sha",
+    "cadence_mode",
+    "period",
+    "overall_rollup_status",
+    "kpi_rollups",
+    "source_snapshots",
+    "panel_results",
+    "grafana_reviews",
+    "role_reviews",
+    "findings",
+    "redaction_reviewed",
+    "release_approved",
+    "real_grafana_dashboard_published",
+    "real_datasource_connected",
+    "real_role_review_completed",
+    "real_evidence_aggregation_completed"
+  ],
+  "$defs": {
+    "sourceId": {
+      "type": "string",
+      "enum": [
+        "a11y_quarterly_audit",
+        "prometheus_metric_audit",
+        "nfr_cost_alerts",
+        "nfr_security_p0_drills",
+        "wcag_2_2_upgrade_path",
+        "error_i18n_audit"
+      ]
+    },
+    "kpiGroup": {
+      "type": "string",
+      "enum": [
+        "a11y",
+        "cost",
+        "compliance",
+        "observability",
+        "security",
+        "error_i18n"
+      ]
+    },
+    "viewerRole": {
+      "type": "string",
+      "enum": [
+        "PM",
+        "Security",
+        "UX",
+        "SRE",
+        "Compliance"
+      ]
+    },
+    "ticketRef": {
+      "type": "object",
+      "required": ["ticket_id", "owner", "severity", "due_date", "status"]
+    }
+  }
+}

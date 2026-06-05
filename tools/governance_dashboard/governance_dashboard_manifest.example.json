@@ -1,0 +1,62 @@
+{
+  "source_story": "9.7",
+  "dashboard_version": "governance_dashboard_v1",
+  "run_id": "example-governance-dashboard-20260605",
+  "example_only": true,
+  "generated_by": "Story 9.7 static example; not real Grafana publication, datasource connection, role review, evidence aggregation, external ticket, or production release approval",
+  "commit_sha": "0000000",
+  "cadence_mode": "quarterly",
+  "period": {
+    "start_date": "2026-04-01",
+    "end_date": "2026-06-30"
+  },
+  "overall_rollup_status": "not_run",
+  "kpi_rollups": [
+    { "kpi_group": "a11y", "status": "not_run", "summary": "Static example only.", "finding_ids": [] },
+    { "kpi_group": "cost", "status": "not_run", "summary": "Static example only.", "finding_ids": [] },
+    { "kpi_group": "compliance", "status": "not_run", "summary": "Static example only.", "finding_ids": [] },
+    { "kpi_group": "observability", "status": "not_run", "summary": "Static example only.", "finding_ids": [] },
+    { "kpi_group": "security", "status": "not_run", "summary": "Static example only.", "finding_ids": [] },
+    { "kpi_group": "error_i18n", "status": "not_run", "summary": "Static example only.", "finding_ids": [] }
+  ],
+  "source_snapshots": [
+    { "source_id": "a11y_quarterly_audit", "status": "not_run_example", "artifact_path": "reports/governance-dashboard/example-governance-dashboard-20260605/a11y-quarterly-audit.json", "summary": "Static example only.", "finding_ids": [] },
+    { "source_id": "prometheus_metric_audit", "status": "not_run_example", "artifact_path": "reports/governance-dashboard/example-governance-dashboard-20260605/prometheus-metric-audit.json", "summary": "Static example only.", "finding_ids": [] },
+    { "source_id": "nfr_cost_alerts", "status": "not_run_example", "artifact_path": "reports/governance-dashboard/example-governance-dashboard-20260605/nfr-cost-alerts.json", "summary": "Static example only.", "finding_ids": [] },
+    { "source_id": "nfr_security_p0_drills", "status": "not_run_example", "artifact_path": "reports/governance-dashboard/example-governance-dashboard-20260605/nfr-security-p0-drills.json", "summary": "Static example only.", "finding_ids": [] },
+    { "source_id": "wcag_2_2_upgrade_path", "status": "not_run_example", "artifact_path": "reports/governance-dashboard/example-governance-dashboard-20260605/wcag-2-2-upgrade-path.json", "summary": "Static example only.", "finding_ids": [] },
+    { "source_id": "error_i18n_audit", "status": "not_run_example", "artifact_path": "reports/governance-dashboard/example-governance-dashboard-20260605/error-i18n-audit.json", "summary": "Static example only.", "finding_ids": [] }
+  ],
+  "panel_results": [
+    { "panel_id": "quarterly-axe-violation-status", "kpi_group": "a11y", "upstream_source_id": "a11y_quarterly_audit", "status": "not_run_example", "data_source_mode": "evidence_manifest", "query_or_transform": "Static example only.", "artifact_path": "reports/governance-dashboard/example-governance-dashboard-20260605/quarterly-axe-violation-status.json", "finding_ids": [] },
+    { "panel_id": "wcag-2-2-upgrade-readiness", "kpi_group": "a11y", "upstream_source_id": "wcag_2_2_upgrade_path", "status": "not_run_example", "data_source_mode": "evidence_manifest", "query_or_transform": "Static example only.", "artifact_path": "reports/governance-dashboard/example-governance-dashboard-20260605/wcag-2-2-upgrade-readiness.json", "finding_ids": [] },
+    { "panel_id": "prometheus-metric-coverage", "kpi_group": "observability", "upstream_source_id": "prometheus_metric_audit", "status": "not_run_example", "data_source_mode": "evidence_manifest", "query_or_transform": "Static example only.", "artifact_path": "reports/governance-dashboard/example-governance-dashboard-20260605/prometheus-metric-coverage.json", "finding_ids": [] },
+    { "panel_id": "nfr-cost-redline-state", "kpi_group": "cost", "upstream_source_id": "nfr_cost_alerts", "status": "not_run_example", "data_source_mode": "evidence_manifest", "query_or_transform": "Static example only.", "artifact_path": "reports/governance-dashboard/example-governance-dashboard-20260605/nfr-cost-redline-state.json", "finding_ids": [] },
+    { "panel_id": "nfr-security-p0-drill-state", "kpi_group": "security", "upstream_source_id": "nfr_security_p0_drills", "status": "not_run_example", "data_source_mode": "evidence_manifest", "query_or_transform": "Static example only.", "artifact_path": "reports/governance-dashboard/example-governance-dashboard-20260605/nfr-security-p0-drill-state.json", "finding_ids": [] },
+    { "panel_id": "error-i18n-audit-state", "kpi_group": "error_i18n", "upstream_source_id": "error_i18n_audit", "status": "not_run_example", "data_source_mode": "evidence_manifest", "query_or_transform": "Static example only.", "artifact_path": "reports/governance-dashboard/example-governance-dashboard-20260605/error-i18n-audit-state.json", "finding_ids": [] },
+    { "panel_id": "compliance-governance-rollup", "kpi_group": "compliance", "upstream_source_id": "error_i18n_audit", "status": "not_run_example", "data_source_mode": "manual_review", "query_or_transform": "Static example only.", "artifact_path": "reports/governance-dashboard/example-governance-dashboard-20260605/compliance-governance-rollup.json", "finding_ids": [] }
+  ],
+  "grafana_reviews": [
+    { "panel_id": "quarterly-axe-violation-status", "status": "not_run_example", "reviewer_role": "UX", "artifact_path": "reports/governance-dashboard/example-governance-dashboard-20260605/quarterly-axe-violation-status.png", "finding_ids": [] },
+    { "panel_id": "wcag-2-2-upgrade-readiness", "status": "not_run_example", "reviewer_role": "UX", "artifact_path": "reports/governance-dashboard/example-governance-dashboard-20260605/wcag-2-2-upgrade-readiness.png", "finding_ids": [] },
+    { "panel_id": "prometheus-metric-coverage", "status": "not_run_example", "reviewer_role": "SRE", "artifact_path": "reports/governance-dashboard/example-governance-dashboard-20260605/prometheus-metric-coverage.png", "finding_ids": [] },
+    { "panel_id": "nfr-cost-redline-state", "status": "not_run_example", "reviewer_role": "PM", "artifact_path": "reports/governance-dashboard/example-governance-dashboard-20260605/nfr-cost-redline-state.png", "finding_ids": [] },
+    { "panel_id": "nfr-security-p0-drill-state", "status": "not_run_example", "reviewer_role": "Security", "artifact_path": "reports/governance-dashboard/example-governance-dashboard-20260605/nfr-security-p0-drill-state.png", "finding_ids": [] },
+    { "panel_id": "error-i18n-audit-state", "status": "not_run_example", "reviewer_role": "Compliance", "artifact_path": "reports/governance-dashboard/example-governance-dashboard-20260605/error-i18n-audit-state.png", "finding_ids": [] },
+    { "panel_id": "compliance-governance-rollup", "status": "not_run_example", "reviewer_role": "Compliance", "artifact_path": "reports/governance-dashboard/example-governance-dashboard-20260605/compliance-governance-rollup.png", "finding_ids": [] }
+  ],
+  "role_reviews": [
+    { "viewer_role": "PM", "status": "not_run_example", "summary": "Static example only.", "finding_ids": [] },
+    { "viewer_role": "Security", "status": "not_run_example", "summary": "Static example only.", "finding_ids": [] },
+    { "viewer_role": "UX", "status": "not_run_example", "summary": "Static example only.", "finding_ids": [] },
+    { "viewer_role": "SRE", "status": "not_run_example", "summary": "Static example only.", "finding_ids": [] },
+    { "viewer_role": "Compliance", "status": "not_run_example", "summary": "Static example only.", "finding_ids": [] }
+  ],
+  "findings": [],
+  "redaction_reviewed": false,
+  "release_approved": false,
+  "real_grafana_dashboard_published": false,
+  "real_datasource_connected": false,
+  "real_role_review_completed": false,
+  "real_evidence_aggregation_completed": false
+}

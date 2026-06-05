@@ -58,6 +58,7 @@ jobs:
       nfr_cost_alerts: ${{ steps.filter.outputs.nfr_cost_alerts }}
       nfr_security_p0_drills: ${{ steps.filter.outputs.nfr_security_p0_drills }}
       wcag_2_2_upgrade_path: ${{ steps.filter.outputs.wcag_2_2_upgrade_path }}
+      governance_dashboard: ${{ steps.filter.outputs.governance_dashboard }}
       web: ${{ steps.filter.outputs.web }}
       ci_or_root: ${{ steps.filter.outputs.ci_or_root }}
     steps:
@@ -133,6 +134,43 @@ jobs:
               - 'tools/a11y_audit/**'
               - 'scripts/validate_a11y_quarterly_audit.py'
               - '.github/workflows/ci.yml'
+            governance_dashboard:
+              - 'tools/governance_dashboard/**'
+              - 'scripts/validate_governance_dashboard.py'
+              - 'tests/test_governance_dashboard.py'
+              - 'docs/runbooks/governance-dashboard.md'
+              - 'reports/governance-dashboard/**'
+              - '.github/workflows/ci.yml'
+              - 'tools/a11y_audit/**'
+              - 'scripts/validate_a11y_quarterly_audit.py'
+              - 'tests/test_a11y_quarterly_audit.py'
+              - 'docs/runbooks/quarterly-a11y-audit.md'
+              - 'reports/a11y-quarterly/**'
+              - 'tools/prometheus_metric_audit/**'
+              - 'scripts/validate_prometheus_metric_audit.py'
+              - 'tests/test_prometheus_metric_audit.py'
+              - 'docs/runbooks/prometheus-metric-audit.md'
+              - 'reports/prometheus-metric-audit/**'
+              - 'tools/nfr_cost_alerts/**'
+              - 'scripts/validate_nfr_cost_alerts.py'
+              - 'tests/test_nfr_cost_alerts.py'
+              - 'docs/runbooks/nfr-cost-alerts.md'
+              - 'reports/nfr-cost-alerts/**'
+              - 'tools/nfr_security_p0_drills/**'
+              - 'scripts/validate_nfr_security_p0_drills.py'
+              - 'tests/test_nfr_security_p0_drills.py'
+              - 'docs/runbooks/nfr-security-p0-drills.md'
+              - 'reports/nfr-security-p0-drills/**'
+              - 'tools/wcag_2_2_upgrade/**'
+              - 'scripts/validate_wcag_2_2_upgrade_path.py'
+              - 'tests/test_wcag_2_2_upgrade_path.py'
+              - 'docs/runbooks/wcag-2-2-upgrade-path.md'
+              - 'reports/wcag-2-2-upgrade/**'
+              - 'tools/error_i18n_audit/**'
+              - 'scripts/validate_error_i18n_audit.py'
+              - 'tests/test_error_i18n_audit.py'
+              - 'docs/runbooks/error-i18n-audit.md'
+              - 'reports/error-i18n-audit/**'
             python_sdk:
               - 'packages/python-sdk/**'
               - 'tests/fixtures/sdk-rfc7807-preservation.json'
@@ -1157,6 +1195,30 @@ jobs:
         run: pnpm --filter @opticloud/ui test:a11y
       - name: Run UI typecheck
         run: pnpm --filter @opticloud/ui typecheck
+
+  # ===== Cross-cutting governance dashboard validation (Story 9.7) =====
+  governance-dashboard-validation:
+    needs: changes
+    if: needs.changes.outputs.governance_dashboard == 'true' || needs.changes.outputs.ci_or_root == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: pip install uv==${{ env.UV_VERSION }}
+      - run: uv sync --all-packages --extra dev
+      - name: Validate governance dashboard contract
+        run: uv run python scripts/validate_governance_dashboard.py
+      - name: Validate real governance dashboard evidence manifests when present
+        run: |
+          shopt -s globstar nullglob
+          manifests=(reports/governance-dashboard/**/dashboard_manifest.json)
+          for manifest in "${manifests[@]}"; do
+            uv run python scripts/validate_governance_dashboard.py --evidence "$manifest"
+          done
+      - name: Run governance dashboard tests
+        run: uv run pytest tests/test_governance_dashboard.py -v
 
   # ===== Critic confidence calibration validation (Story M3.5a) =====
   critic-calibration-validation:
