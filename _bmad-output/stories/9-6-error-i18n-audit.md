@@ -3,7 +3,7 @@ story_key: 9-6-error-i18n-audit
 epic_num: 9
 story_num: 6
 epic_name: NFR Governance
-status: code-review
+status: done
 baseline_commit: a698b7e9e518b6a39368b65af3a68fcae7090b92
 priority: High
 type: FG1.3 error i18n quarterly audit governance
@@ -29,7 +29,7 @@ sources:
 
 # Story 9.6 - 错误码 i18n 单源 ESLint Enforcement Audit
 
-Status: code-review
+Status: done
 
 ## Story
 
@@ -154,11 +154,11 @@ Story 8.B.5 已交付：
   - [x] Add `error_i18n_audit` output/path filter and validation job to `.github/workflows/ci.yml`.
   - [x] Ensure 8.B.5 gate/test run inside the 9.6 audit job.
 
-- [ ] T5: Gates, review, and GitHub sync (AC: 29-33)
+- [x] T5: Gates, review, and GitHub sync (AC: 29-33)
   - [x] Run local validation gates.
   - [x] Run post-implementation code review and fix/document findings.
-  - [ ] Commit, push, create PR, wait for CI, merge, delete remote branch, and sync local `main`.
-  - [ ] Mark story and sprint status `done` only after merge/sync through a separate status-sync commit.
+  - [x] Commit, push, create PR, wait for CI, merge, delete remote branch, and sync local `main`.
+  - [x] Mark story and sprint status `done` only after merge/sync through a separate status-sync commit.
 
 ## Dev Notes
 
@@ -251,6 +251,8 @@ GPT-5 Codex
 - 2026-06-05 - Post-implementation code review finding 2 fixed: production `remediation_hint_key` scanning only covered solver/billing/shared/SDK subsets and missed auth/chat/billing keys plus helper-position arguments. Migrated production keys to `errors.*`, added chat schema namespace validation, added production source scanner with bounded dynamic template expansion, and expanded zh/en dictionaries to 90 keys.
 - 2026-06-05 - Post-review gates passed: `uv run python scripts/validate_error_i18n_audit.py`; `uv run pytest tests/test_error_i18n_audit.py -q` (23 passed); `uv run python scripts/error_message_i18n_single_source.py`; `uv run pytest tests/test_error_i18n_single_source.py -q` (9 passed); `uv run ruff check ...`; `git diff --check`.
 - 2026-06-05 - Targeted post-review tests passed: auth frozen appeals (10 passed), billing warning classification (6 passed with service PYTHONPATH), chat coder/internal-beta/model-preview/language-response (69 passed with service PYTHONPATH).
+- 2026-06-05 - PR #175 passed GitHub CI, squash-merged to `main` at `a90cd59`, remote branch `codex/9-6-error-i18n-audit` was deleted, and local `main` was synced.
+- 2026-06-05 - Separate status-sync commit prepared after merge/sync to mark Story 9.6 and sprint status `done`.
 
 ### Completion Notes List
 
@@ -260,7 +262,7 @@ GPT-5 Codex
 - Added Story 9.6 error i18n audit governance assets, validator, tests, runbook, CI hard gate, and dictionary parity coverage.
 - Story moved to code-review after local implementation gates passed; `done` remains blocked until post-review, PR CI, merge, remote branch deletion, local main sync, and separate status-sync commit.
 - Post-implementation code review completed. Fixed CI path filter drift and production remediation key audit blind spots, including auth frozen appeal, billing warnings, chat coder/critic/formulator/sandbox/model-preview/language default keys, bounded dynamic templates, and schema-level `errors.*` enforcement for chat validation errors.
-- Local post-review gates passed; `done` remains blocked until commit, push, PR CI, merge, remote branch deletion, local main sync, and separate status-sync commit.
+- PR #175 passed CI and merged. Story and sprint status now marked `done` in this separate post-merge status-sync.
 
 ### Post-Implementation Code Review
 
@@ -315,3 +317,4 @@ Residual risk:
 - 2026-06-05 - Implemented error i18n quarterly audit governance assets, validator, tests, dictionary parity, runbook, and CI hard gate.
 - 2026-06-05 - Story status moved to code-review after local implementation gates passed.
 - 2026-06-05 - Addressed post-implementation code review findings for CI coverage and production `remediation_hint_key` namespace/dictionary enforcement.
+- 2026-06-05 - PR #175 passed CI, merged to `main`, remote branch deleted, local `main` synced, and Story 9.6 marked `done` through a separate status-sync commit.
