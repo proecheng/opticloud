@@ -101,14 +101,9 @@ def test_contract_pins_scope_scan_classes_and_observed_state() -> None:
     assert contract["source_story"] == "9.6"
     assert contract["audit_version"] == "error_i18n_quarterly_audit_v1"
     assert contract["rule_id"] == "error-message-i18n-single-source"
-    assert [item["scan_class"] for item in contract["scan_classes"]] == list(
-        validator.SCAN_CLASSES
-    )
+    assert [item["scan_class"] for item in contract["scan_classes"]] == list(validator.SCAN_CLASSES)
     assert contract["observed_repo_state"] == validator.discover_repo_state()
-    assert (
-        contract["observed_repo_state"]["legacy_http_exception_register"]["total_count"]
-        == 170
-    )
+    assert contract["observed_repo_state"]["legacy_http_exception_register"]["total_count"] == 170
 
 
 def test_contract_rejects_scan_class_and_observed_state_drift() -> None:
@@ -250,10 +245,13 @@ def test_production_remediation_key_register_is_discovered_and_pinned() -> None:
     assert "errors.chat_sandbox.{error_code.value}" in discovered["dynamic_templates"]
     assert "errors.422.{result.status}" in discovered["dynamic_templates"]
     assert "errors.{status_code}.billing_http_error" in discovered["dynamic_templates"]
-    assert validator.validate_production_remediation_keys(
-        validator.dictionary_key_set(),
-        discovered=discovered,
-    ) == []
+    assert (
+        validator.validate_production_remediation_keys(
+            validator.dictionary_key_set(),
+            discovered=discovered,
+        )
+        == []
+    )
 
 
 def test_production_remediation_key_validation_rejects_non_errors_namespace() -> None:

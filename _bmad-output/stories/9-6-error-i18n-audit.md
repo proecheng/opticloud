@@ -33,8 +33,8 @@ Status: code-review
 
 ## Story
 
-**作为** FG1.3 错误合同维护者和季度治理 owner，  
-**我希望** 8.B.5 的 `error-message-i18n-single-source` gate 升级为全仓季度审计闭环，覆盖前端 RFC 7807 problem-detail 构造、共享 i18n 字典、Python RFC 7807 目录/响应 builder、SDK preservation fixture、审计证据 manifest、runbook 和 CI hard gate，  
+**作为** FG1.3 错误合同维护者和季度治理 owner，
+**我希望** 8.B.5 的 `error-message-i18n-single-source` gate 升级为全仓季度审计闭环，覆盖前端 RFC 7807 problem-detail 构造、共享 i18n 字典、Python RFC 7807 目录/响应 builder、SDK preservation fixture、审计证据 manifest、runbook 和 CI hard gate，
 **从而** 每次季度审计能证明“被纳入 FG1.3 公共错误合同的硬编码 user-visible error string 数 = 0”，并把历史/新发现 drift 以 ticket-backed findings 闭环，而不是让裸 `title` / `detail` / `remediation_hint_key` 再次散落。
 
 ## Context
