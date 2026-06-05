@@ -3,7 +3,7 @@ story_key: 9-7-governance-dashboard
 epic_num: 9
 story_num: 7
 epic_name: NFR Governance
-status: code-review
+status: done
 baseline_commit: b2fe321dadeff8afba30a3bf4fd313c3b1e5eb79
 priority: High
 type: Cross-cutting governance dashboard contract
@@ -29,7 +29,7 @@ sources:
 
 # Story 9.7 - Cross-cutting Governance Dashboard
 
-Status: code-review
+Status: done
 
 ## Story
 
@@ -147,11 +147,11 @@ Story 9.1-9.6 已交付一组静态 governance contracts、validators、runbooks
   - [x] Ensure upstream 9.1-9.6 governance asset changes trigger the dashboard validator.
   - [x] Confirm no new dependencies or out-of-scope implementation files are modified.
 
-- [ ] T4: Gates, review, and GitHub sync (AC: 29-33)
+- [x] T4: Gates, review, and GitHub sync (AC: 29-33)
   - [x] Run local validation gates.
   - [x] Run post-implementation code review and fix/document findings.
-  - [ ] Commit, push, create PR, wait for CI, merge, delete remote branch, and sync local `main`.
-  - [ ] Mark story and sprint status `done` only after merge/sync through a separate status-sync commit.
+  - [x] Commit, push, create PR, wait for CI, merge, delete remote branch, and sync local `main`.
+  - [x] Mark story and sprint status `done` only after merge/sync through a separate status-sync commit.
 
 ## Dev Notes
 
@@ -259,6 +259,7 @@ GPT-5 Codex
 - 2026-06-05 - Local gates passed: `uv run python scripts/validate_governance_dashboard.py`, `uv run pytest tests/test_governance_dashboard.py -q` (17 passed), and `git diff --check`.
 - 2026-06-05 - Post-implementation code review fixed real-evidence boundary so real evidence does not require or imply real Grafana publication/datasource connection; focused test count is now 18.
 - 2026-06-05 - Post-review gates passed: `uv run python scripts/validate_governance_dashboard.py`, `uv run pytest tests/test_governance_dashboard.py -q` (18 passed), `uv run ruff check scripts/validate_governance_dashboard.py tests/test_governance_dashboard.py`, and `git diff --check`.
+- 2026-06-05 - PR #176 CI passed, PR merged to `main` as `38eb965bcf6a286b41379b4b61059b8bd7affff6`, remote branch `codex/9-7-governance-dashboard` deleted, and local `main` synced before status-sync.
 
 ### Completion Notes List
 
@@ -267,7 +268,8 @@ GPT-5 Codex
 - Story moved to in-progress after exactly three pre-implementation review rounds.
 - Added Story 9.7 cross-cutting governance dashboard assets, validator, tests, runbook, and CI hard gate.
 - Post-implementation code review completed. Fixed real-evidence boundary so dashboard evidence can prove redacted aggregation/role review without falsely requiring real Grafana publication or datasource connection.
-- Story moved to code-review after local gates passed; `done` remains blocked until PR CI, merge, remote branch deletion, local main sync, and separate status-sync commit.
+- PR #176 passed CI, merged to `main`, remote branch was deleted, and local `main` was synced.
+- Story moved to `done` only after merge/sync through this separate status-sync commit.
 
 ## Post-Implementation Code Review
 
@@ -302,3 +304,4 @@ Residual risk:
 - 2026-06-05 - Story status moved to in-progress after exactly three pre-implementation review rounds.
 - 2026-06-05 - Implemented governance dashboard contract, manifest schema/example, validator, tests, runbook, and CI hard gate.
 - 2026-06-05 - Post-implementation review fixed real-evidence Grafana publication/datasource fake-completion boundary; story moved to `code-review` pending GitHub sync.
+- 2026-06-05 - PR #176 passed CI, merged to `main`, remote story branch deleted, local `main` synced, and story moved to `done` in separate status-sync.
