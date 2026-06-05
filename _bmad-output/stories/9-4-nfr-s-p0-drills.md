@@ -3,7 +3,7 @@ story_key: 9-4-nfr-s-p0-drills
 epic_num: 9
 story_num: 4
 epic_name: NFR Governance
-status: code-review
+status: done
 baseline_commit: a82010578fdde4ba83eafc9d330bc3e72ff2922e
 priority: High
 type: NFR-S quarterly P0 security drill governance
@@ -28,7 +28,7 @@ sources:
 
 # Story 9.4 - NFR-S P0 Quarterly Drills
 
-Status: code-review
+Status: done
 
 ## Story
 
@@ -148,11 +148,11 @@ PRD §2.4 将三类 P0 安全事件定义为：沙箱越权、数据外泄、资
   - [x] Ensure sandbox, incident/postmortem, and billing substrate changes trigger the validator.
   - [x] Confirm no new dependencies or out-of-scope implementation files are modified.
 
-- [ ] T5: Gates, review, and GitHub sync (AC: 29-32)
+- [x] T5: Gates, review, and GitHub sync (AC: 29-32)
   - [x] Run local validation gates.
   - [x] Run post-implementation code review and fix/document findings.
-  - [ ] Commit, push, create PR, wait for CI, merge, delete remote branch, and sync local `main`.
-  - [ ] Mark story and sprint status `done` only after merge/sync through a separate status-sync commit.
+  - [x] Commit, push, create PR, wait for CI, merge, delete remote branch, and sync local `main`.
+  - [x] Mark story and sprint status `done` only after merge/sync through a separate status-sync commit.
 
 ## Dev Notes
 
@@ -267,6 +267,8 @@ GPT-5 Codex
 - 2026-06-05 - Post-review gates passed: `uv run python scripts/validate_nfr_security_p0_drills.py`, `uv run pytest tests/test_nfr_security_p0_drills.py -q`, and `git diff --check`.
 - 2026-06-05 - CI lint follow-up: grouped observed SHA-256 fingerprints to avoid detect-secrets false positives while preserving drift checks; accepted ruff-format output.
 - 2026-06-05 - Local follow-up gates passed: validator, focused tests, `git diff --check`, and targeted detect-secrets over all Story 9.4 files. Full local pre-commit was blocked by Windows pagefile exhaustion after non-secret hooks passed.
+- 2026-06-05 - PR #173 passed GitHub CI, merged to `main`, remote branch `codex/9-4-nfr-s-p0-drills` was deleted, and local `main` was synced to `origin/main`.
+- 2026-06-05 - Separate status-sync commit prepared after merge/sync to mark Story 9.4 and sprint status `done`.
 
 ### Completion Notes List
 
@@ -278,6 +280,7 @@ GPT-5 Codex
 - Story moved to code-review after local implementation gates passed; `done` remains blocked until post-review, PR CI, merge, remote branch deletion, local main sync, and separate status-sync commit.
 - Post-implementation review patches completed; focused test count is now 18.
 - CI lint follow-up keeps `observed_repo_state` exact by comparing grouped SHA-256 fingerprints instead of continuous high-entropy hex strings.
+- PR #173 passed CI and merged. Story and sprint status now marked `done` in this separate post-merge status-sync.
 
 ### File List
 
@@ -302,3 +305,4 @@ GPT-5 Codex
 - 2026-06-05 - Story status moved to code-review after local implementation gates passed.
 - 2026-06-05 - Post-implementation review tightened real-evidence status, period-date, duplicate SOP-gate, real-claim boundary, and duplicate scenario-record validation.
 - 2026-06-05 - CI lint follow-up grouped repo-state SHA-256 values and applied ruff-format output.
+- 2026-06-05 - Status-sync after PR #173 merge marked Story 9.4 done.
