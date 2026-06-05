@@ -3,7 +3,7 @@ story_key: 9-8-graded-protection-evidence
 epic_num: 9
 story_num: 8
 epic_name: NFR Governance
-status: code-review
+status: done
 baseline_commit: 5b35ff3e4d6dd4f533c953d803df378bd13d857c
 priority: High
 type: Compliance evidence aggregation contract
@@ -23,7 +23,7 @@ sources:
 
 # Story 9.8 - Graded Protection Evidence Auto-Aggregation Pipeline
 
-Status: code-review
+Status: done
 
 ## Story
 
@@ -147,11 +147,11 @@ PRD 合规要求明确：等保 2.0 二级 M3 启动评测、M5 末取证；标�
   - [x] Ensure Story 9.7 dashboard asset changes trigger the 9.8 validator.
   - [x] Confirm no new dependencies or out-of-scope implementation files are modified.
 
-- [ ] T4: Gates, review, and GitHub sync (AC: 37-41)
+- [x] T4: Gates, review, and GitHub sync (AC: 37-41)
   - [x] Run local validation gates.
   - [x] Run post-implementation code review and fix/document findings.
-  - [ ] Commit, push, create PR, wait for CI, merge, delete remote branch, and sync local `main`.
-  - [ ] Mark story and sprint status `done` only after merge/sync through a separate status-sync commit.
+  - [x] Commit, push, create PR, wait for CI, merge, delete remote branch, and sync local `main`.
+  - [x] Mark story and sprint status `done` only after merge/sync through a separate status-sync commit.
 
 ## Dev Notes
 
@@ -255,6 +255,7 @@ GPT-5 Codex
 - Local gates passed: `uv run python scripts/validate_graded_protection_evidence.py`, `uv run pytest tests/test_graded_protection_evidence.py -q` (18 passed), `uv run ruff check scripts/validate_graded_protection_evidence.py tests/test_graded_protection_evidence.py`, `uv run ruff format --check scripts/validate_graded_protection_evidence.py tests/test_graded_protection_evidence.py`, and `git diff --check`.
 - Post-implementation code review fixed status-enum gaps for legal review and preservation receipt verification statuses; focused test count is now 19.
 - Post-review gates passed: `uv run python scripts/validate_graded_protection_evidence.py`, `uv run pytest tests/test_graded_protection_evidence.py -q` (19 passed), `uv run ruff check scripts/validate_graded_protection_evidence.py tests/test_graded_protection_evidence.py`, and `uv run ruff format --check scripts/validate_graded_protection_evidence.py tests/test_graded_protection_evidence.py`.
+- PR #177 CI passed, PR merged to `main` as `afeff9f842a246362f98ff220e365f5b0a64908b`, remote branch `codex/9-8-graded-protection-evidence` deleted, and local `main` synced before status-sync.
 
 ### Completion Notes List
 
@@ -265,7 +266,8 @@ GPT-5 Codex
 - Story moved to in-progress after exactly three pre-implementation review rounds.
 - Added Story 9.8 graded-protection evidence assets, validator, tests, runbook, and CI hard gate.
 - Post-implementation code review completed. Fixed legal-review and preservation-receipt status enum gaps so misspelled static or real evidence statuses cannot bypass validation.
-- Story moved to code-review after local gates passed; `done` remains blocked until PR CI, merge, remote branch deletion, local main sync, and separate status-sync commit.
+- PR #177 passed CI, merged to `main`, remote branch was deleted, and local `main` was synced.
+- Story moved to `done` only after merge/sync through this separate status-sync commit.
 
 ## Post-Implementation Code Review
 
@@ -301,3 +303,4 @@ Residual risk:
 - 2026-06-05 - Story status moved to in-progress after exactly three pre-implementation review rounds.
 - 2026-06-05 - Implemented graded-protection evidence contract, manifest schema/example, validator, tests, runbook, and CI hard gate.
 - 2026-06-05 - Post-implementation review fixed legal-review and preservation-receipt status enum gaps; story moved to `code-review` pending GitHub sync.
+- 2026-06-05 - PR #177 passed CI, merged to `main`, remote story branch deleted, local `main` synced, and story moved to `done` in separate status-sync.

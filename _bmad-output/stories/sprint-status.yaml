@@ -274,7 +274,7 @@ development_status:
   9-5-wcag-2-2-upgrade-path: done               # 2026-06-05 - WCAG 2.2 upgrade path governance shipped; PR #174 passed CI, merged to main, remote branch deleted, local main synced
   9-6-error-i18n-audit: done               # 2026-06-05 - Error i18n quarterly audit governance shipped; PR #175 passed CI, merged to main, remote branch deleted, local main synced
   9-7-governance-dashboard: done              # 2026-06-05 - Governance dashboard contract shipped; PR #176 passed CI, merged to main, remote branch deleted, local main synced
-  9-8-graded-protection-evidence: code-review      # TT7
+  9-8-graded-protection-evidence: done      # 2026-06-05 - Graded protection evidence contract shipped; PR #177 passed CI, merged to main, remote branch deleted, local main synced
 
 # ===== Statistics =====
 # Total stories: ~192 (per epics.md)
