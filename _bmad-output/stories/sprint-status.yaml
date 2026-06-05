@@ -265,7 +265,7 @@ development_status:
   8-c-9-teaching-grading-api: done             # 2026-06-04 - Teaching Grading API shipped; PR #169 passed CI, merged to main, remote branch deleted, local main synced
 
   # ===== Epic 9: NFR Governance (7 stories) =====
-  epic-9: in-progress
+  epic-9: done
 
   9-1-axe-core-quarterly-audit: done           # 2026-06-04 - Quarterly a11y audit governance shipped; PR #170 passed CI, merged to main, remote branch deleted, local main synced
   9-2-prometheus-metric-audit: done           # 2026-06-04 - Prometheus metric audit governance shipped; PR #171 passed CI, merged to main, remote branch deleted, local main synced
