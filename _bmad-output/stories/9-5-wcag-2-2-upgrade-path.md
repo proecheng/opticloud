@@ -3,7 +3,7 @@ story_key: 9-5-wcag-2-2-upgrade-path
 epic_num: 9
 story_num: 5
 epic_name: NFR Governance
-status: code-review
+status: done
 baseline_commit: 1e9d3468dc5c48c9aee068f461466c88a5a4619a
 priority: High
 type: NFR-A WCAG 2.2 v1.5+ upgrade path governance
@@ -30,7 +30,7 @@ sources:
 
 # Story 9.5 - WCAG 2.2 Upgrade Path v1.5+
 
-Status: code-review
+Status: done
 
 ## Story
 
@@ -164,11 +164,11 @@ Story 9.1 已建立 WCAG 2.1 AA v1 的季度 a11y audit governance、6 a11y prof
   - [x] Add `wcag-2-2-upgrade-path-validation` job.
   - [x] Ensure Story 9.1 a11y substrate changes trigger the validator.
 
-- [ ] T5: Gates, review, and GitHub sync (AC: 32-35)
+- [x] T5: Gates, review, and GitHub sync (AC: 32-35)
   - [x] Run local validation gates.
   - [x] Run post-implementation code review and fix/document findings.
-  - [ ] Commit, push, create PR, wait for CI, merge, delete remote branch, and sync local `main`.
-  - [ ] Mark story and sprint status `done` only after merge/sync through a separate status-sync commit.
+  - [x] Commit, push, create PR, wait for CI, merge, delete remote branch, and sync local `main`.
+  - [x] Mark story and sprint status `done` only after merge/sync through a separate status-sync commit.
 
 ## Dev Notes
 
@@ -277,6 +277,8 @@ GPT-5 Codex
 - 2026-06-05 - Local gates passed: `uv run python scripts/validate_wcag_2_2_upgrade_path.py`, `uv run pytest tests/test_wcag_2_2_upgrade_path.py -q`, `pnpm --filter @opticloud/ui test -- src/hooks/useA11y.wcag22.test.tsx`, `pnpm --filter @opticloud/ui test:a11y`, `pnpm --filter @opticloud/ui typecheck`, and `git diff --check`.
 - 2026-06-05 - Post-implementation code review found real-evidence status-enum and CI filter-block validation gaps; patched validator and added regression coverage.
 - 2026-06-05 - Post-review gates passed: `uv run python scripts/validate_wcag_2_2_upgrade_path.py`, `uv run pytest tests/test_wcag_2_2_upgrade_path.py -q` (15 passed), `pnpm --filter @opticloud/ui test -- src/hooks/useA11y.wcag22.test.tsx`, `pnpm --filter @opticloud/ui test:a11y`, `pnpm --filter @opticloud/ui typecheck`, `uv run ruff check scripts/validate_wcag_2_2_upgrade_path.py tests/test_wcag_2_2_upgrade_path.py`, and `git diff --check`.
+- 2026-06-05 - PR #174 passed GitHub CI, squash-merged to `main` at `6e2ba43`, remote branch `codex/9-5-wcag-2-2-upgrade-path` was deleted, and local `main` was synced.
+- 2026-06-05 - Separate status-sync commit prepared after merge/sync to mark Story 9.5 and sprint status `done`.
 
 ### Completion Notes List
 
@@ -287,6 +289,7 @@ GPT-5 Codex
 - Added non-breaking Standard a11y Hook v2 readiness options and minimal P78 component evidence.
 - Story moved to code-review after local implementation gates passed; `done` remains blocked until post-review, PR CI, merge, remote branch deletion, local main sync, and separate status-sync commit.
 - Post-implementation review patches completed; focused Python test count is now 15.
+- PR #174 passed CI and merged. Story and sprint status now marked `done` in this separate post-merge status-sync.
 
 ### File List
 
@@ -328,9 +331,9 @@ Findings:
 - No remaining issue found against AC 21-25: `useA11y` exposes non-breaking WCAG 2.2 readiness options, focused hook tests pass, `ConfirmationModal` opts into focus-not-obscured readiness, and `ExcelDropZone` records a `FilePicker` non-drag alternative.
 - No remaining issue found against AC 26-31: CI path filter/job are present, no new dependency was added, and no backend/database/OpenAPI/business-logic file was modified.
 - AC 32-33 closed locally: validation gates pass and post-implementation review findings are fixed.
-- AC 34-35 remain blocked by required GitHub sync sequence: PR CI, merge, remote branch deletion, local `main` sync, then separate status-sync commit.
+- AC 34-35 closed: PR #174 passed GitHub CI, was squash-merged to `main`, remote branch was deleted, local `main` was synced, and this separate status-sync marks the story `done`.
 
-Outcome: PASS after fixes; awaiting GitHub sync.
+Outcome: PASS after fixes.
 
 ## Change Log
 
@@ -342,3 +345,4 @@ Outcome: PASS after fixes; awaiting GitHub sync.
 - 2026-06-05 - Implemented WCAG 2.2 upgrade-path governance assets, validator, tests, runbook, CI hard gate, and Standard a11y Hook v2 readiness.
 - 2026-06-05 - Story status moved to code-review after local implementation gates passed.
 - 2026-06-05 - Post-implementation review tightened real-evidence row status enums and CI filter-block drift coverage.
+- 2026-06-05 - PR #174 passed CI, merged to main, remote branch deleted, local main synced; story moved to `done`.
