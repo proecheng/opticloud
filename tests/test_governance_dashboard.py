@@ -271,9 +271,7 @@ def test_manifest_requires_all_sources_kpis_panels_and_roles() -> None:
         item for item in manifest["kpi_rollups"] if item["kpi_group"] != "security"
     ]
     manifest["panel_results"] = [
-        item
-        for item in manifest["panel_results"]
-        if item["panel_id"] != "error-i18n-audit-state"
+        item for item in manifest["panel_results"] if item["panel_id"] != "error-i18n-audit-state"
     ]
     manifest["role_reviews"] = [
         item for item in manifest["role_reviews"] if item["viewer_role"] != "Compliance"
