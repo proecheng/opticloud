@@ -67,7 +67,13 @@ export function ExcelDropZone({
   maxSizeBytes = 5 * 1024 * 1024,
 }: ExcelDropZoneProps): JSX.Element {
   const [isOver, setIsOver] = useState(false);
-  const a11y = useA11y({ ariaLabel });
+  const a11y = useA11y({
+    ariaLabel,
+    ariaDescription: `${ariaLabel}.instructions`,
+    wcag22: {
+      draggingAlternative: "FilePicker",
+    },
+  });
 
   const reportReject = (reason: ExcelRejectReason): void => {
     if (onReject) {
@@ -119,7 +125,7 @@ export function ExcelDropZone({
       </div>
       {/* 老张-2 中文 UX 微调 — 友好版 Brand Voice "实证克制" */}
       <p className="mb-2 text-lg font-medium">把 .xlsx 拖到这里</p>
-      <p className="mb-4 text-sm text-muted-foreground">
+      <p id={`${a11y.id}-desc`} className="mb-4 text-sm text-muted-foreground">
         ≤5 MB / 50K 行 · 本地识别 VRPTW / 排班 / 库存预测模板
       </p>
       <FilePicker

@@ -1,0 +1,154 @@
+{
+  "upgrade_version": "wcag_2_2_upgrade_path_v1",
+  "source_story": "9.5",
+  "nfr": "NFR-A",
+  "baseline_standard": "WCAG 2.1 AA v1",
+  "target_gate": "WCAG 2.2 v1.5+ project engineering gate",
+  "w3c_wcag_2_2": {
+    "recommendation_date": "2023-10-05",
+    "total_new_success_criteria": 9,
+    "official_references": [
+      "https://www.w3.org/TR/WCAG22/",
+      "https://www.w3.org/WAI/standards-guidelines/wcag/new-in-22/"
+    ]
+  },
+  "project_p78_criteria": [
+    {
+      "criterion_id": "2.4.11",
+      "name": "Focus Not Obscured (Minimum)",
+      "level": "AA",
+      "ux_reference": "UX Spec AA8",
+      "packages_ui_impact": "Modal and dropdown overlay layer",
+      "implementation_story": "Story 9.5"
+    },
+    {
+      "criterion_id": "2.4.12",
+      "name": "Focus Not Obscured (Enhanced)",
+      "level": "AAA",
+      "ux_reference": "UX Spec AA8 Tier 1.5+",
+      "packages_ui_impact": "Modal stack management",
+      "implementation_story": "Story 9.5 v1.5+"
+    },
+    {
+      "criterion_id": "2.5.7",
+      "name": "Dragging Movements",
+      "level": "AA",
+      "ux_reference": "UX Spec ExcelDropZone",
+      "packages_ui_impact": "ExcelDropZone and non-drag file picker alternative",
+      "implementation_story": "Story 9.5 readiness and Story 3.E.1 v1.5+ enhancement"
+    },
+    {
+      "criterion_id": "3.2.6",
+      "name": "Consistent Help",
+      "level": "A",
+      "ux_reference": "UX Spec EP4 Help & Documentation",
+      "packages_ui_impact": "Console consistent help affordance placement",
+      "implementation_story": "Story 9.5 audit and v1.5+ rollout"
+    }
+  ],
+  "deferred_wcag_2_2_criteria": [
+    "2.4.13",
+    "2.5.8",
+    "3.3.7",
+    "3.3.8",
+    "3.3.9"
+  ],
+  "full_wcag_2_2_aa_blockers": [
+    "2.5.8",
+    "3.3.8"
+  ],
+  "upstream_story": {
+    "story": "9.1",
+    "contract_path": "tools/a11y_audit/quarterly_a11y_contract.json",
+    "scope": "WCAG 2.1 AA quarterly audit upstream; Story 9.5 does not mutate Story 9.1 scope"
+  },
+  "standard_a11y_hook_v2_readiness": [
+    {
+      "check_id": "focus_not_obscured",
+      "criterion_ids": [
+        "2.4.11",
+        "2.4.12"
+      ],
+      "required_marker": "UseA11yOptions.wcag22.focusNotObscured"
+    },
+    {
+      "check_id": "consistent_help_id",
+      "criterion_ids": [
+        "3.2.6"
+      ],
+      "required_marker": "UseA11yOptions.wcag22.consistentHelpId"
+    },
+    {
+      "check_id": "dragging_alternative",
+      "criterion_ids": [
+        "2.5.7"
+      ],
+      "required_marker": "UseA11yOptions.wcag22.draggingAlternative"
+    }
+  ],
+  "component_refactor_targets": [
+    "useA11y",
+    "ConfirmationModal",
+    "ExcelDropZone",
+    "FilePicker",
+    "Console consistent help placement"
+  ],
+  "evidence": {
+    "report_directory": "reports/wcag-2-2-upgrade",
+    "manifest_filename": "upgrade_manifest.json",
+    "schema_path": "tools/wcag_2_2_upgrade/wcag_2_2_upgrade_manifest.schema.json",
+    "example_manifest_path": "tools/wcag_2_2_upgrade/wcag_2_2_upgrade_manifest.example.json"
+  },
+  "observed_ui_state": {
+    "use_a11y": {
+      "path": "packages/ui/src/hooks/useA11y.ts",
+      "has_wcag22_option": true,
+      "has_focus_not_obscured_option": true,
+      "has_consistent_help_id_option": true,
+      "has_dragging_alternative_option": true,
+      "has_focus_scroll_behavior": true
+    },
+    "confirmation_modal": {
+      "path": "packages/ui/src/components/ConfirmationModal/index.tsx",
+      "uses_focus_not_obscured": true
+    },
+    "excel_drop_zone": {
+      "path": "packages/ui/src/components/ExcelDropZone/index.tsx",
+      "uses_file_picker_alternative": true,
+      "declares_dragging_alternative": true,
+      "links_visible_instructions": true
+    },
+    "file_picker": {
+      "path": "packages/ui/src/components/FilePicker/index.tsx",
+      "has_file_input": true,
+      "requires_aria_label": true
+    },
+    "ui_package": {
+      "path": "packages/ui/package.json",
+      "exports_use_a11y": true,
+      "test_a11y_uses_vitest": true
+    },
+    "story_9_1": {
+      "path": "tools/a11y_audit/quarterly_a11y_contract.json",
+      "points_to_story_9_5": true,
+      "wcag_2_2_in_story_9_1_scope": false
+    }
+  },
+  "boundaries": {
+    "full_wcag_2_2_aa_conformance_proven": false,
+    "third_party_audit_completed": false,
+    "real_disabled_user_panel_completed": false,
+    "all_components_refactored": false,
+    "production_release_approved": false
+  },
+  "disallowed_static_completion_claims": [
+    "real_wcag_2_2_conformance_claimed",
+    "real_third_party_audit_completed",
+    "real_component_refactor_completed",
+    "release_approved",
+    "production_release_approved",
+    "external_ticket_created",
+    "annual_audit_completed"
+  ],
+  "boundary_statement": "This P78 4-criteria engineering gate does not prove full WCAG 2.2 AA conformance."
+}

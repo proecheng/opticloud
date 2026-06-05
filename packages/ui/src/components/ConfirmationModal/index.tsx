@@ -67,6 +67,9 @@ export function ConfirmationModal({
     trapFocus: true,
     escapeToClose: onClose,
     restoreFocus: true,
+    wcag22: {
+      focusNotObscured: "minimum",
+    },
   });
 
   if (!open) return null;

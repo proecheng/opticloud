@@ -1,0 +1,362 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Story 9.5 WCAG 2.2 upgrade path manifest",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "source_story",
+    "upgrade_version",
+    "run_id",
+    "example_only",
+    "generated_by",
+    "commit_sha",
+    "cadence_mode",
+    "period",
+    "criteria_evaluations",
+    "hook_v2_checks",
+    "component_refactor_checks",
+    "source_snapshots",
+    "findings",
+    "redaction_reviewed",
+    "release_approved",
+    "real_wcag_2_2_conformance_claimed",
+    "real_third_party_audit_completed",
+    "real_component_refactor_completed"
+  ],
+  "properties": {
+    "source_story": {
+      "const": "9.5",
+      "type": "string"
+    },
+    "upgrade_version": {
+      "const": "wcag_2_2_upgrade_path_v1",
+      "type": "string"
+    },
+    "run_id": {
+      "pattern": "^[a-z0-9][a-z0-9._-]{2,63}$",
+      "type": "string"
+    },
+    "example_only": {
+      "type": "boolean"
+    },
+    "generated_by": {
+      "type": "string"
+    },
+    "commit_sha": {
+      "pattern": "^[0-9a-f]{7,40}$",
+      "type": "string"
+    },
+    "cadence_mode": {
+      "$ref": "#/$defs/cadenceMode"
+    },
+    "period": {
+      "$ref": "#/$defs/period"
+    },
+    "criteria_evaluations": {
+      "items": {
+        "$ref": "#/$defs/criteriaEvaluation"
+      },
+      "type": "array"
+    },
+    "hook_v2_checks": {
+      "items": {
+        "$ref": "#/$defs/hookV2Check"
+      },
+      "type": "array"
+    },
+    "component_refactor_checks": {
+      "items": {
+        "$ref": "#/$defs/componentRefactorCheck"
+      },
+      "type": "array"
+    },
+    "source_snapshots": {
+      "items": {
+        "$ref": "#/$defs/sourceSnapshot"
+      },
+      "type": "array"
+    },
+    "findings": {
+      "items": {
+        "$ref": "#/$defs/finding"
+      },
+      "type": "array"
+    },
+    "redaction_reviewed": {
+      "type": "boolean"
+    },
+    "release_approved": {
+      "type": "boolean"
+    },
+    "real_wcag_2_2_conformance_claimed": {
+      "type": "boolean"
+    },
+    "real_third_party_audit_completed": {
+      "type": "boolean"
+    },
+    "real_component_refactor_completed": {
+      "type": "boolean"
+    }
+  },
+  "$defs": {
+    "cadenceMode": {
+      "enum": [
+        "v1_5_readiness",
+        "quarterly",
+        "annual_lite"
+      ],
+      "type": "string"
+    },
+    "projectCriterionId": {
+      "enum": [
+        "2.4.11",
+        "2.4.12",
+        "2.5.7",
+        "3.2.6"
+      ],
+      "type": "string"
+    },
+    "hookCheckId": {
+      "enum": [
+        "focus_not_obscured",
+        "consistent_help_id",
+        "dragging_alternative"
+      ],
+      "type": "string"
+    },
+    "componentTarget": {
+      "enum": [
+        "useA11y",
+        "ConfirmationModal",
+        "ExcelDropZone",
+        "FilePicker",
+        "Console consistent help placement"
+      ],
+      "type": "string"
+    },
+    "sourceSnapshotId": {
+      "enum": [
+        "use_a11y",
+        "confirmation_modal",
+        "excel_drop_zone",
+        "file_picker",
+        "ui_package",
+        "story_9_1",
+        "ci_workflow"
+      ],
+      "type": "string"
+    },
+    "checkStatus": {
+      "enum": [
+        "not_run_example",
+        "passed",
+        "failed",
+        "blocked",
+        "not_applicable"
+      ],
+      "type": "string"
+    },
+    "snapshotStatus": {
+      "enum": [
+        "not_run_example",
+        "current",
+        "stale"
+      ],
+      "type": "string"
+    },
+    "period": {
+      "additionalProperties": false,
+      "properties": {
+        "start_date": {
+          "pattern": "^20[0-9]{2}-[0-9]{2}-[0-9]{2}$",
+          "type": "string"
+        },
+        "end_date": {
+          "pattern": "^20[0-9]{2}-[0-9]{2}-[0-9]{2}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "start_date",
+        "end_date"
+      ],
+      "type": "object"
+    },
+    "criteriaEvaluation": {
+      "additionalProperties": true,
+      "properties": {
+        "criterion_id": {
+          "$ref": "#/$defs/projectCriterionId"
+        },
+        "status": {
+          "$ref": "#/$defs/checkStatus"
+        },
+        "level": {
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        },
+        "finding_ids": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "criterion_id",
+        "status",
+        "level",
+        "summary",
+        "finding_ids"
+      ],
+      "type": "object"
+    },
+    "hookV2Check": {
+      "additionalProperties": true,
+      "properties": {
+        "check_id": {
+          "$ref": "#/$defs/hookCheckId"
+        },
+        "status": {
+          "$ref": "#/$defs/checkStatus"
+        },
+        "summary": {
+          "type": "string"
+        },
+        "finding_ids": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "check_id",
+        "status",
+        "summary",
+        "finding_ids"
+      ],
+      "type": "object"
+    },
+    "componentRefactorCheck": {
+      "additionalProperties": true,
+      "properties": {
+        "component": {
+          "$ref": "#/$defs/componentTarget"
+        },
+        "status": {
+          "$ref": "#/$defs/checkStatus"
+        },
+        "summary": {
+          "type": "string"
+        },
+        "finding_ids": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "component",
+        "status",
+        "summary",
+        "finding_ids"
+      ],
+      "type": "object"
+    },
+    "sourceSnapshot": {
+      "additionalProperties": true,
+      "properties": {
+        "snapshot_id": {
+          "$ref": "#/$defs/sourceSnapshotId"
+        },
+        "status": {
+          "$ref": "#/$defs/snapshotStatus"
+        },
+        "artifact_path": {
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        },
+        "finding_ids": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "snapshot_id",
+        "status",
+        "artifact_path",
+        "summary",
+        "finding_ids"
+      ],
+      "type": "object"
+    },
+    "ticketRef": {
+      "additionalProperties": true,
+      "properties": {
+        "ticket_id": {
+          "type": "string"
+        },
+        "owner": {
+          "type": "string"
+        },
+        "severity": {
+          "type": "string"
+        },
+        "due_date": {
+          "pattern": "^20[0-9]{2}-[0-9]{2}-[0-9]{2}$",
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "ticket_id",
+        "owner",
+        "severity",
+        "due_date",
+        "status"
+      ],
+      "type": "object"
+    },
+    "finding": {
+      "additionalProperties": true,
+      "properties": {
+        "finding_id": {
+          "type": "string"
+        },
+        "severity": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        },
+        "ticket_refs": {
+          "items": {
+            "$ref": "#/$defs/ticketRef"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "finding_id",
+        "severity",
+        "status",
+        "summary",
+        "ticket_refs"
+      ],
+      "type": "object"
+    }
+  }
+}
