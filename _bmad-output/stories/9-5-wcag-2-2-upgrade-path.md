@@ -34,8 +34,8 @@ Status: code-review
 
 ## Story
 
-**作为** Frontend / NFR-A owner，  
-**我希望** WCAG 2.1 AA v1 到 WCAG 2.2 v1.5+ 的升级路径被固化为项目合同、证据 schema、Standard a11y Hook v2 readiness、组件重构清单、runbook 和 CI gate，  
+**作为** Frontend / NFR-A owner，
+**我希望** WCAG 2.1 AA v1 到 WCAG 2.2 v1.5+ 的升级路径被固化为项目合同、证据 schema、Standard a11y Hook v2 readiness、组件重构清单、runbook 和 CI gate，
 **从而** Story 9.5 不再停留在 FR7 forward reference 里，也不会把“4 项工程化 criteria 的升级路径准备”伪造成完整 WCAG 2.2 AA 合规声明。
 
 ## Context
