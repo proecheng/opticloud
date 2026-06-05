@@ -1,0 +1,199 @@
+{
+  "source_story": "9.8",
+  "evidence_version": "graded_protection_evidence_v1",
+  "epic": 9,
+  "target_level": "mlps_level_2",
+  "cadence": "quarterly",
+  "pipeline_intent": "offline_evidence_aggregation",
+  "assessment_start_target": "M3",
+  "certification_target": "M5",
+  "standard_track_target": "M5",
+  "simplified_track_target": "v1.5",
+  "external_references": [
+    {
+      "source_name": "GB/T 22239-2019",
+      "reference_type": "standard",
+      "url": "https://openstd.samr.gov.cn/bzgk/std/newGbInfo?hcno=BAFB47E8874764186BDB7865E8344DAF",
+      "retrieved_at": "2026-06-05",
+      "scope_note": "Reference-only baseline for classified protection of cybersecurity.",
+      "not_legal_advice": true
+    },
+    {
+      "source_name": "RFC 3161 Time-Stamp Protocol",
+      "reference_type": "protocol",
+      "url": "https://datatracker.ietf.org/doc/html/rfc3161",
+      "retrieved_at": "2026-06-05",
+      "scope_note": "Reference-only protocol context for TSA receipt fields.",
+      "not_legal_advice": true
+    },
+    {
+      "source_name": "Supreme People's Court Internet Court Evidence Rule",
+      "reference_type": "judicial_rule",
+      "url": "https://www.court.gov.cn/zixun/xiangqing/116981.html",
+      "retrieved_at": "2026-06-05",
+      "scope_note": "Reference-only context for electronic signature, trusted timestamp, hash, and blockchain evidence authenticity review.",
+      "not_legal_advice": true
+    }
+  ],
+  "evidence": {
+    "report_directory": "reports/graded-protection-evidence",
+    "manifest_filename": "evidence_manifest.json",
+    "schema_path": "tools/graded_protection_evidence/graded_protection_evidence_manifest.schema.json",
+    "example_manifest_path": "tools/graded_protection_evidence/graded_protection_evidence_manifest.example.json"
+  },
+  "required_domains": [
+    "system_scope",
+    "asset_and_network_boundary",
+    "identity_and_access_control",
+    "security_audit_and_logging",
+    "data_protection_and_backup",
+    "vulnerability_and_incident_response",
+    "operations_and_change_management",
+    "legal_and_third_party_review",
+    "timestamp_and_blockchain_preservation",
+    "governance_dashboard_handoff"
+  ],
+  "required_artifact_classes": [
+    "scope_statement",
+    "asset_inventory_snapshot",
+    "network_boundary_diagram_redacted",
+    "access_control_matrix",
+    "audit_log_retention_statement",
+    "backup_restore_evidence",
+    "vulnerability_scan_summary",
+    "incident_drill_summary",
+    "change_management_sample",
+    "third_party_assessment_tracker",
+    "legal_signoff_record",
+    "tsa_timestamp_receipt",
+    "blockchain_preservation_receipt",
+    "finding_register",
+    "dashboard_handoff_record"
+  ],
+  "domain_artifact_map": [
+    {
+      "domain_id": "system_scope",
+      "artifact_classes": ["scope_statement"]
+    },
+    {
+      "domain_id": "asset_and_network_boundary",
+      "artifact_classes": ["asset_inventory_snapshot", "network_boundary_diagram_redacted"]
+    },
+    {
+      "domain_id": "identity_and_access_control",
+      "artifact_classes": ["access_control_matrix"]
+    },
+    {
+      "domain_id": "security_audit_and_logging",
+      "artifact_classes": ["audit_log_retention_statement"]
+    },
+    {
+      "domain_id": "data_protection_and_backup",
+      "artifact_classes": ["backup_restore_evidence"]
+    },
+    {
+      "domain_id": "vulnerability_and_incident_response",
+      "artifact_classes": ["vulnerability_scan_summary", "incident_drill_summary"]
+    },
+    {
+      "domain_id": "operations_and_change_management",
+      "artifact_classes": ["change_management_sample"]
+    },
+    {
+      "domain_id": "legal_and_third_party_review",
+      "artifact_classes": ["third_party_assessment_tracker", "legal_signoff_record"]
+    },
+    {
+      "domain_id": "timestamp_and_blockchain_preservation",
+      "artifact_classes": ["tsa_timestamp_receipt", "blockchain_preservation_receipt"]
+    },
+    {
+      "domain_id": "governance_dashboard_handoff",
+      "artifact_classes": ["finding_register", "dashboard_handoff_record"]
+    }
+  ],
+  "preservation_provider_options": [
+    {
+      "provider": "tsa_rfc3161",
+      "external_call_in_scope": false,
+      "required_when_claimed_flag": "real_tsa_timestamp_issued"
+    },
+    {
+      "provider": "antchain",
+      "external_call_in_scope": false,
+      "required_when_claimed_flag": "real_blockchain_preservation_completed"
+    },
+    {
+      "provider": "tencent_zhixin_chain",
+      "external_call_in_scope": false,
+      "required_when_claimed_flag": "real_blockchain_preservation_completed"
+    }
+  ],
+  "legal_review_roles": ["Legal", "Compliance", "Security", "SRE"],
+  "gate_statuses": ["green", "yellow", "red", "unknown", "not_run"],
+  "artifact_statuses": ["not_run_example", "present", "missing", "stale", "failed", "deferred"],
+  "track_modes": ["standard_m5", "simplified_v1_5"],
+  "allowed_evidence_modes": ["contract_static", "redacted_manifest", "manual_review"],
+  "disallowed_evidence_modes": [
+    "external_network",
+    "tsa_api",
+    "blockchain_api",
+    "assessment_vendor_api",
+    "legal_esign_api"
+  ],
+  "stop_ship_rules": {
+    "missing_required_domain_forces_red": true,
+    "failed_redaction_forces_red": true,
+    "missing_legal_review_after_real_run_forces_red": true,
+    "missing_selected_preservation_receipt_after_real_run_forces_at_least_yellow": true,
+    "unresolved_p0_p1_p2_forces_red": true,
+    "standard_m5_release_requires_mlps_level_2_certificate": true,
+    "simplified_v1_5_certificate_deferral_requires_finding": true
+  },
+  "observed_dashboard_state": {
+    "source_story": "9.7",
+    "dashboard_version": "governance_dashboard_v1",
+    "dashboard_intent": "grafana_ready_governance_overview",
+    "evidence_report_directory": "reports/governance-dashboard",
+    "manifest_filename": "dashboard_manifest.json",
+    "boundaries_false": [
+      "production_release_approved",
+      "real_datasource_connected",
+      "real_evidence_aggregation_completed",
+      "real_external_ticket_created",
+      "real_grafana_dashboard_published",
+      "real_role_review_completed"
+    ]
+  },
+  "boundaries": {
+    "real_assessment_institution_engaged": false,
+    "real_public_security_filing_completed": false,
+    "real_mlps_level_2_certificate_obtained": false,
+    "real_tsa_timestamp_issued": false,
+    "real_blockchain_preservation_completed": false,
+    "real_legal_signoff_completed": false,
+    "real_evidence_aggregation_completed": false,
+    "real_external_ticket_created": false,
+    "production_release_approved": false
+  },
+  "disallowed_static_completion_claims": [
+    "all_findings_resolved",
+    "assessment_institution_engaged",
+    "blockchain_preservation_completed",
+    "external_ticket_created",
+    "legal_signoff_completed",
+    "mlps_level_2_certificate_obtained",
+    "production_release_approved",
+    "public_security_filing_completed",
+    "real_assessment_institution_engaged",
+    "real_blockchain_preservation_completed",
+    "real_evidence_aggregation_completed",
+    "real_external_ticket_created",
+    "real_legal_signoff_completed",
+    "real_mlps_level_2_certificate_obtained",
+    "real_public_security_filing_completed",
+    "real_tsa_timestamp_issued",
+    "release_approved",
+    "tsa_timestamp_issued"
+  ]
+}
