@@ -4,7 +4,7 @@ baseline_commit: c6d17c0ee337c366e8f747992bddd813d8a0be6c
 
 # Story 6.C.1: Auto-migrate to Equivalent Provider
 
-Status: code-review
+Status: done
 
 ## Story
 
@@ -236,6 +236,7 @@ GPT-5 Codex
 - 2026-06-05 - Red phase: `test_provider_migration.py` failed because `solver_orchestrator.provider_migration` did not exist.
 - 2026-06-05 - Green phase: implemented local provider migration resolver and rerun preflight, then fixed tag normalization and RFC7807 error-key behavior.
 - 2026-06-05 - Validation: focused provider-migration/rerun tests, ruff, mypy, `git diff --check`, and full solver-orchestrator tests passed.
+- 2026-06-05 - GitHub closure: PR #178 CI passed, PR merged to `main`, remote feature branch deleted, and local `main` synced before final done status update.
 
 ### Completion Notes List
 
@@ -246,6 +247,7 @@ GPT-5 Codex
 - Migrated reruns lock the child optimization/voucher reproducibility metadata to the selected equivalent provider while preserving source optimization/voucher rows and normal active-provider rerun response shape.
 - Added resolver and rerun regressions for migration success, no-equivalent atomic failure, idempotency replay, normal rerun omission of migration metadata, ranking, and catalog snapshot behavior.
 - Validation passed: focused tests `22 passed`; solver-orchestrator suite `369 passed`; ruff passed; mypy passed; `git diff --check` passed.
+- GitHub closure completed through PR #178; this status update is intentionally separate from implementation and PR merge commits.
 
 ### File List
 
@@ -264,6 +266,7 @@ Modified:
 
 - 2026-06-05 - Created Story 6.C.1 implementation-ready context and completed three pre-implementation adversarial review rounds.
 - 2026-06-05 - Implemented provider auto-migration resolver, rerun preflight integration, RFC7807 provider-migration error catalog entry, and regression coverage; story moved to code-review.
+- 2026-06-05 - PR #178 passed CI, merged to `main`, remote branch was deleted, local `main` synced, and story marked done in a separate status-sync commit.
 
 ## Post-Implementation Code Review
 
@@ -290,4 +293,4 @@ Modified:
 
 - No remaining blocking findings after fixes.
 - Validation evidence: focused provider-migration/rerun tests `22 passed`; full solver-orchestrator suite `369 passed`; targeted ruff passed; `uv run mypy apps packages` passed; `uv run python scripts/validate_error_i18n_audit.py` passed; `git diff --check` passed.
-- Story intentionally remains `code-review` until GitHub PR CI passes, PR is merged, remote branch is deleted, and local `main` is synced. Final `done` status will be a separate status-sync commit.
+- GitHub closure complete: PR #178 CI passed, PR merged, remote branch deleted, and local `main` synced before this final `done` status-sync change.
