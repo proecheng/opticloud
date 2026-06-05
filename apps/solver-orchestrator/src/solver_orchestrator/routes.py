@@ -75,6 +75,10 @@ from solver_orchestrator.models import (
     TeachingGradingIdempotencyKey,
     TeachingGradingItem,
 )
+from solver_orchestrator.provider_migration import (
+    ProviderMigrationStatus,
+    resolve_provider_migration,
+)
 from solver_orchestrator.provider_routing import (
     ProviderRouteMetadata,
     ProviderRouteResult,
@@ -1020,6 +1024,10 @@ def _build_rerun_response_content(
             archive_restore=archive_restore,
         )
     )
+    system_payload = _optimization_system_payload(opt)
+    provider_migration = system_payload.get("provider_migration")
+    if isinstance(provider_migration, dict) and provider_migration.get("status") == "migrated":
+        content["provider_migration"] = dict(provider_migration)
     return content
 
 
@@ -4278,9 +4286,47 @@ async def rerun_reproduction(
         )
 
     clean_payload_dict = clean_payload.model_dump(by_alias=True)
+    provider_migration = resolve_provider_migration(
+        locked_model_version=dict(voucher.locked_model_version),
+        task_type=clean_payload.task_type,
+        locked_solver=voucher.locked_solver,
+    )
+    if provider_migration.status is ProviderMigrationStatus.NO_EQUIVALENT:
+        migration_detail = provider_migration.response_metadata or {}
+        source_provider = migration_detail.get("source_provider")
+        source_provider_id = (
+            source_provider.get("provider_id")
+            if isinstance(source_provider, dict)
+            else voucher.locked_model_version.get("provider_id")
+        )
+        return _rfc7807_error(
+            title="Provider Migration Required",
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                f"locked provider '{source_provider_id}' requires migration for "
+                f"task_type '{clean_payload.task_type}' and locked_solver "
+                f"'{voucher.locked_solver}', but no active equivalent provider matched"
+            ),
+            errors=[
+                ErrorDetail(
+                    field_path="reproducibility.locked_model_version.provider_id",
+                    value=source_provider_id,
+                    constraint="must have an active equivalent provider with matching capability tags",
+                    remediation_hint_key="errors.409.provider_migration_required",
+                )
+            ],
+            error_key="provider_migration_required",
+            request_id=request_id,
+        )
+
+    selected_model_version = (
+        provider_migration.selected_model_version
+        if provider_migration.selected_model_version is not None
+        else dict(voucher.locked_model_version)
+    )
     rerun_reproducibility = _build_reproducibility_payload(
         request_body=clean_payload_dict,
-        model_version=dict(voucher.locked_model_version),
+        model_version=dict(selected_model_version),
         locked_solver=voucher.locked_solver,
         anonymous=voucher.anonymous,
     )
@@ -4291,7 +4337,11 @@ async def rerun_reproduction(
         api_key_id=api_key_id,
         task_type=clean_payload.task_type,
         status="in_progress",
-        input_payload=_attach_reproducibility_metadata(clean_payload_dict, rerun_reproducibility),
+        input_payload=_attach_system_metadata(
+            clean_payload_dict,
+            reproducibility=rerun_reproducibility,
+            provider_migration=provider_migration.response_metadata,
+        ),
         idempotency_key=idempotency_key,
     )
     session.add(rerun_opt)
@@ -4302,7 +4352,7 @@ async def rerun_reproduction(
         max_solve_seconds=clean_payload.options.max_solve_seconds,
     )
     rerun_opt.solve_seconds = result.solve_seconds
-    rerun_opt.model_version = dict(voucher.locked_model_version)
+    rerun_opt.model_version = dict(selected_model_version)
 
     if result.status == "optimal":
         rerun_opt.status = "completed"

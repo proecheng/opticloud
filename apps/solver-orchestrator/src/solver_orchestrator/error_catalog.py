@@ -29,6 +29,7 @@ API_KEYS_URL = "https://console.opticloud.cn/api-keys"
 REQUEST_HELP_URL = f"{DOCS_BASE_URL}/invalid_request_body"
 IDEMPOTENCY_URL = f"{DOCS_BASE_URL}/idempotency_conflict"
 REPRO_RERUN_URL = f"{DOCS_BASE_URL}/reproducibility-rerun"
+PROVIDER_MIGRATION_URL = f"{DOCS_BASE_URL}/provider-migration-required"
 PLAN_UPGRADE_URL = "https://console.opticloud.cn/billing/plans"
 
 
@@ -195,6 +196,20 @@ ERROR_CATALOG: dict[str, ErrorCatalogEntry] = {
         remediation_hint_key="errors.409.rerun_not_allowed",
         next_action_url=REPRO_RERUN_URL,
         default_field_path="path.voucher_id",
+        default_value="[redacted]",
+    ),
+    "provider_migration_required": _entry(
+        "provider_migration_required",
+        slug="provider_migration_required",
+        status=409,
+        title_en="Provider Migration Required",
+        title_zh="需要 Provider 迁移",
+        detail_en="{detail}",
+        detail_zh="{detail}",
+        constraint="an active equivalent provider must exist before rerun",
+        remediation_hint_key="errors.409.provider_migration_required",
+        next_action_url=PROVIDER_MIGRATION_URL,
+        default_field_path="reproducibility.locked_model_version.provider_id",
         default_value="[redacted]",
     ),
     "voucher_expired": _entry(
@@ -529,6 +544,7 @@ TITLE_TO_KEY: dict[str, str] = {
     "Idempotency Conflict": "idempotency_conflict",
     "Cancellation Not Allowed": "cancellation_not_allowed",
     "Rerun Not Allowed": "rerun_not_allowed",
+    "Provider Migration Required": "provider_migration_required",
     "Voucher Expired": "voucher_expired",
     "Rate Limit Exceeded": "rate_limit_exceeded",
     "Rate Limit Unavailable": "rate_limit_unavailable",

@@ -13,11 +13,12 @@ from datetime import UTC, datetime, timedelta
 
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
-from solver_orchestrator import billing_client
+from solver_orchestrator import billing_client, provider_migration
 from solver_orchestrator.config import settings
 from solver_orchestrator.db import get_session
 from solver_orchestrator.main import app
 from solver_orchestrator.models import IdempotencyKey, Optimization, ReproductionVoucher
+from solver_orchestrator.provider_migration import ProviderCapabilitySnapshot
 from solver_orchestrator.repro import generate_reproduction_voucher_id
 from solver_orchestrator.routes import (
     _add_calendar_years_utc,
@@ -258,8 +259,15 @@ async def _seed_manual_rerun_candidate(
     voucher_status: str = "issued",
     created_at: datetime | None = None,
     locked_solver: str | None = None,
+    model_version: dict[str, object] | None = None,
 ) -> tuple[Optimization, ReproductionVoucher]:
     now = created_at or datetime.now(UTC)
+    selected_model_version = model_version or {
+        "provider_id": "highs" if task_type == "lp" else "chronos-t5",
+        "kind": "open_source",
+        "version": "1.7.0",
+        "provider_url": "https://highs.dev/",
+    }
     opt = Optimization(
         user_id=auth_user_id,
         api_key_id=auth_key_id,
@@ -270,12 +278,7 @@ async def _seed_manual_rerun_candidate(
             "st": {"A": [[1.0]], "b": [1.0]},
             "minimize": {"c": [1.0]},
         },
-        model_version={
-            "provider_id": "highs" if task_type == "lp" else "chronos-t5",
-            "kind": "open_source",
-            "version": "1.7.0",
-            "provider_url": "https://highs.dev/",
-        },
+        model_version=dict(selected_model_version),
         solution={"x": [0.0]},
         objective=0.0,
         solve_seconds=0.01,
@@ -310,6 +313,27 @@ async def _seed_manual_rerun_candidate(
         await s.commit()
 
     return opt, voucher
+
+
+def _provider_snapshot(
+    *,
+    provider_id: str,
+    version: str,
+    status: provider_migration.ProviderLifecycleStatus,
+    tags: tuple[str, ...] = ("lp", "linear_programming"),
+    supported_solvers: tuple[str, ...] = ("highs",),
+) -> ProviderCapabilitySnapshot:
+    return ProviderCapabilitySnapshot(
+        k_algo=f"{provider_id}-lp",
+        task_type="lp",
+        provider_id=provider_id,
+        provider_kind="open_source",
+        provider_url=f"https://providers.example/{provider_id}",
+        version=version,
+        lifecycle_status=status,
+        supported_solvers=supported_solvers,
+        capability_tags=tags,
+    )
 
 
 async def test_rerun_success_creates_linked_voucher_and_preserves_source(
@@ -649,6 +673,206 @@ async def test_rerun_rejects_unavailable_locked_solver_without_new_rows(
     assert resp.status_code == 501, resp.text
     assert resp.json()["title"] == "Not Implemented"
     assert await _count_rows(db_engine) == before
+
+
+async def test_rerun_migrates_exited_provider_to_equivalent_active_provider(
+    client_with_db: AsyncClient, api_key, db_engine, monkeypatch
+) -> None:
+    auth, user_id = api_key
+    maker = async_sessionmaker(db_engine, expire_on_commit=False, class_=AsyncSession)
+    async with maker() as s:
+        key_id = (
+            await s.execute(
+                text("SELECT id FROM api_keys WHERE user_id = :uid LIMIT 1"), {"uid": user_id}
+            )
+        ).scalar_one()
+
+    source_model = {
+        "provider_id": "legacy-highs",
+        "kind": "open_source",
+        "version": "1.7.0",
+        "provider_url": "https://legacy.example/highs",
+    }
+    source_opt, source_voucher = await _seed_manual_rerun_candidate(
+        db_engine,
+        auth_user_id=user_id,
+        auth_key_id=key_id,
+        model_version=source_model,
+    )
+    monkeypatch.setattr(
+        provider_migration,
+        "build_catalog_provider_snapshot",
+        lambda: (
+            _provider_snapshot(provider_id="legacy-highs", version="1.7.0", status="exiting"),
+            _provider_snapshot(provider_id="highs-active", version="1.7.1", status="active"),
+        ),
+    )
+    counts_before = await _count_rows(db_engine)
+
+    resp = await client_with_db.post(
+        f"/v1/reproduce/{source_voucher.voucher_id}/rerun",
+        headers={"Authorization": auth},
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["rerun_of_voucher_id"] == source_voucher.voucher_id
+    assert body["source_optimization_id"] == str(source_opt.id)
+    assert body["model_version"]["provider_id"] == "highs-active"
+    assert body["reproducibility"]["locked_model_version"]["provider_id"] == "highs-active"
+    assert body["provider_migration"]["status"] == "migrated"
+    assert body["provider_migration"]["source_provider"]["provider_id"] == "legacy-highs"
+    assert body["provider_migration"]["selected_provider"]["provider_id"] == "highs-active"
+
+    async with maker() as s:
+        child = (
+            await s.execute(
+                select(ReproductionVoucher).where(
+                    ReproductionVoucher.voucher_id == body["reproducibility"]["voucher_id"]
+                )
+            )
+        ).scalar_one()
+        source_after = (
+            await s.execute(
+                select(ReproductionVoucher).where(
+                    ReproductionVoucher.voucher_id == source_voucher.voucher_id
+                )
+            )
+        ).scalar_one()
+        rerun_opt = await s.get(Optimization, uuid.UUID(body["optimization_id"]))
+        assert rerun_opt is not None
+
+    assert child.parent_voucher_id == source_after.id
+    assert child.locked_model_version["provider_id"] == "highs-active"
+    assert source_after.locked_model_version == source_model
+    assert rerun_opt.model_version is not None
+    assert rerun_opt.model_version["provider_id"] == "highs-active"
+    assert await _count_rows(db_engine) == {
+        **counts_before,
+        "optimizations": counts_before["optimizations"] + 1,
+        "vouchers": counts_before["vouchers"] + 1,
+    }
+
+
+async def test_rerun_provider_migration_no_equivalent_does_not_write_or_solve(
+    client_with_db: AsyncClient, api_key, db_engine, monkeypatch
+) -> None:
+    auth, user_id = api_key
+    maker = async_sessionmaker(db_engine, expire_on_commit=False, class_=AsyncSession)
+    async with maker() as s:
+        key_id = (
+            await s.execute(
+                text("SELECT id FROM api_keys WHERE user_id = :uid LIMIT 1"), {"uid": user_id}
+            )
+        ).scalar_one()
+
+    _, source_voucher = await _seed_manual_rerun_candidate(
+        db_engine,
+        auth_user_id=user_id,
+        auth_key_id=key_id,
+        model_version={
+            "provider_id": "legacy-highs",
+            "kind": "open_source",
+            "version": "1.7.0",
+            "provider_url": "https://legacy.example/highs",
+        },
+    )
+    monkeypatch.setattr(
+        provider_migration,
+        "build_catalog_provider_snapshot",
+        lambda: (
+            _provider_snapshot(provider_id="legacy-highs", version="1.7.0", status="retired"),
+            _provider_snapshot(
+                provider_id="wrong-capability",
+                version="1.7.1",
+                status="active",
+                tags=("vrptw", "time_windows"),
+            ),
+        ),
+    )
+
+    def _solve_should_not_run(*args, **kwargs):
+        raise AssertionError("solver should not run when provider migration has no equivalent")
+
+    monkeypatch.setattr(
+        "solver_orchestrator.routes.solvers.solve_from_request", _solve_should_not_run
+    )
+    counts_before = await _count_rows(db_engine)
+
+    resp = await client_with_db.post(
+        f"/v1/reproduce/{source_voucher.voucher_id}/rerun",
+        headers={"Authorization": auth, "Idempotency-Key": f"no-equivalent-{uuid.uuid4()}"},
+    )
+    assert resp.status_code == 409, resp.text
+    body = resp.json()
+    assert body["title"] == "Provider Migration Required"
+    assert "legacy-highs" in body["detail"]
+    assert await _count_rows(db_engine) == counts_before
+
+
+async def test_migrated_rerun_idempotency_replays_provider_migration_metadata(
+    client_with_db: AsyncClient, api_key, db_engine, monkeypatch
+) -> None:
+    auth, user_id = api_key
+    maker = async_sessionmaker(db_engine, expire_on_commit=False, class_=AsyncSession)
+    async with maker() as s:
+        key_id = (
+            await s.execute(
+                text("SELECT id FROM api_keys WHERE user_id = :uid LIMIT 1"), {"uid": user_id}
+            )
+        ).scalar_one()
+
+    _, source_voucher = await _seed_manual_rerun_candidate(
+        db_engine,
+        auth_user_id=user_id,
+        auth_key_id=key_id,
+        model_version={
+            "provider_id": "legacy-highs",
+            "kind": "open_source",
+            "version": "1.7.0",
+            "provider_url": "https://legacy.example/highs",
+        },
+    )
+    monkeypatch.setattr(
+        provider_migration,
+        "build_catalog_provider_snapshot",
+        lambda: (
+            _provider_snapshot(provider_id="legacy-highs", version="1.7.0", status="deprecated"),
+            _provider_snapshot(provider_id="highs-active", version="1.7.1", status="active"),
+        ),
+    )
+    key = f"migration-replay-{uuid.uuid4()}"
+    headers = {"Authorization": auth, "Idempotency-Key": key}
+
+    first = await client_with_db.post(
+        f"/v1/reproduce/{source_voucher.voucher_id}/rerun",
+        headers=headers,
+    )
+    assert first.status_code == 200, first.text
+    second = await client_with_db.post(
+        f"/v1/reproduce/{source_voucher.voucher_id}/rerun",
+        headers=headers,
+    )
+    assert second.status_code == 200, second.text
+
+    first_body = first.json()
+    second_body = second.json()
+    assert second_body["optimization_id"] == first_body["optimization_id"]
+    assert second_body["provider_migration"] == first_body["provider_migration"]
+    assert second_body["reproducibility"]["voucher_id"] == first_body["reproducibility"]["voucher_id"]
+
+
+async def test_normal_rerun_omits_provider_migration_response(
+    client_with_db: AsyncClient, api_key, monkeypatch
+) -> None:
+    auth, _ = api_key
+    source = await _seed_reproducible_run(client_with_db, auth, monkeypatch)
+
+    resp = await client_with_db.post(
+        f"/v1/reproduce/{source['reproducibility']['voucher_id']}/rerun",
+        headers={"Authorization": auth},
+    )
+    assert resp.status_code == 200, resp.text
+    assert "provider_migration" not in resp.json()
 
 
 async def test_rerun_does_not_call_billing_helpers(

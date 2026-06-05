@@ -1,6 +1,10 @@
+---
+baseline_commit: c6d17c0ee337c366e8f747992bddd813d8a0be6c
+---
+
 # Story 6.C.1: Auto-migrate to Equivalent Provider
 
-Status: ready-for-dev
+Status: code-review
 
 ## Story
 
@@ -68,31 +72,31 @@ so that the 5-year reproducibility promise continues without manual provider sel
 
 ## Tasks / Subtasks
 
-- [ ] Build pure provider migration resolver. (AC: 1, 2, 5)
-  - [ ] Add provider/capability snapshot types and normalized tag derivation from the existing solver catalog.
-  - [ ] Model provider lifecycle statuses and migration result statuses without adding DB schema or service calls.
-  - [ ] Implement deterministic equivalent filtering and ranking.
-  - [ ] Return JSON-safe audit metadata for migrated and no-equivalent outcomes.
+- [x] Build pure provider migration resolver. (AC: 1, 2, 5)
+  - [x] Add provider/capability snapshot types and normalized tag derivation from the existing solver catalog.
+  - [x] Model provider lifecycle statuses and migration result statuses without adding DB schema or service calls.
+  - [x] Implement deterministic equivalent filtering and ranking.
+  - [x] Return JSON-safe audit metadata for migrated and no-equivalent outcomes.
 
-- [ ] Wire migration preflight into rerun. (AC: 1, 3, 4, 5)
-  - [ ] Invoke migration preflight after existing rerun eligibility checks and before rerun row insertion.
-  - [ ] Use the selected provider model version for rerun reproducibility payload, rerun optimization `model_version`, and child voucher lock.
-  - [ ] Persist migration metadata only inside the rerun optimization `_system` payload.
-  - [ ] Expose top-level `provider_migration` only in rerun responses for migrated reruns and idempotency replay.
-  - [ ] Return RFC7807 `409 Provider Migration Required` for no-equivalent without creating rows or calling solver/billing/provider services.
+- [x] Wire migration preflight into rerun. (AC: 1, 3, 4, 5)
+  - [x] Invoke migration preflight after existing rerun eligibility checks and before rerun row insertion.
+  - [x] Use the selected provider model version for rerun reproducibility payload, rerun optimization `model_version`, and child voucher lock.
+  - [x] Persist migration metadata only inside the rerun optimization `_system` payload.
+  - [x] Expose top-level `provider_migration` only in rerun responses for migrated reruns and idempotency replay.
+  - [x] Return RFC7807 `409 Provider Migration Required` for no-equivalent without creating rows or calling solver/billing/provider services.
 
-- [ ] Add resolver and rerun regression tests. (AC: 2, 3, 4, 5, 7)
-  - [ ] Cover pure resolver match, no-match, tag/solver/status rejection, and deterministic ranking.
-  - [ ] Cover migrated rerun success, source preservation, child voucher lock, anonymous inheritance, idempotency replay, and no-billing behavior.
-  - [ ] Cover no-equivalent failure with row-count assertions and no solver execution.
-  - [ ] Cover normal rerun and standard optimization/demo/GET response shape regressions.
+- [x] Add resolver and rerun regression tests. (AC: 2, 3, 4, 5, 7)
+  - [x] Cover pure resolver match, no-match, tag/solver/status rejection, and deterministic ranking.
+  - [x] Cover migrated rerun success, source preservation, child voucher lock, anonymous inheritance, idempotency replay, and no-billing behavior.
+  - [x] Cover no-equivalent failure with row-count assertions and no solver execution.
+  - [x] Cover normal rerun and standard optimization/demo/GET response shape regressions.
 
-- [ ] Validate and update workflow records. (AC: 7, 8)
-  - [ ] Run focused tests for provider migration and rerun.
-  - [ ] Run broader solver tests as feasible.
-  - [ ] Run `uv run mypy apps packages`.
-  - [ ] Run `git diff --check`.
-  - [ ] Update Dev Agent Record, File List, Change Log, and post-implementation review notes.
+- [x] Validate and update workflow records. (AC: 7, 8)
+  - [x] Run focused tests for provider migration and rerun.
+  - [x] Run broader solver tests as feasible.
+  - [x] Run `uv run mypy apps packages`.
+  - [x] Run `git diff --check`.
+  - [x] Update Dev Agent Record, File List, Change Log, and post-implementation review notes.
 
 ## Dev Notes
 
@@ -229,20 +233,57 @@ GPT-5 Codex
 
 - 2026-06-05 - Rebased existing local 6.C.1 draft branch onto `origin/main` after preserving the draft in a local commit.
 - 2026-06-05 - Rewrote story from current Epic 6.C, PRD R4/R7, Story 6.B.3/6.B.4/6.B.7 rerun context, Story 7.A.1 capability-registry boundary, and current solver-orchestrator routing code.
+- 2026-06-05 - Red phase: `test_provider_migration.py` failed because `solver_orchestrator.provider_migration` did not exist.
+- 2026-06-05 - Green phase: implemented local provider migration resolver and rerun preflight, then fixed tag normalization and RFC7807 error-key behavior.
+- 2026-06-05 - Validation: focused provider-migration/rerun tests, ruff, mypy, `git diff --check`, and full solver-orchestrator tests passed.
 
 ### Completion Notes List
 
 - Story context created for equivalent-provider auto-migration within the existing solver-orchestrator rerun boundary.
 - Exactly three pre-implementation adversarial review rounds completed and revisions reflected in the document before implementation.
+- Added `solver_orchestrator.provider_migration` with local catalog snapshot derivation, normalized capability tags, lifecycle states, deterministic equivalent filtering/ranking, and JSON-safe migration metadata.
+- Wired provider migration into `POST /v1/reproduce/{voucher_id}/rerun` after existing eligibility checks and before rerun row insertion; no-equivalent failures return `409 Provider Migration Required` without durable writes or solver execution.
+- Migrated reruns lock the child optimization/voucher reproducibility metadata to the selected equivalent provider while preserving source optimization/voucher rows and normal active-provider rerun response shape.
+- Added resolver and rerun regressions for migration success, no-equivalent atomic failure, idempotency replay, normal rerun omission of migration metadata, ranking, and catalog snapshot behavior.
+- Validation passed: focused tests `22 passed`; solver-orchestrator suite `369 passed`; ruff passed; mypy passed; `git diff --check` passed.
 
 ### File List
 
 Created:
 - `_bmad-output/stories/6-c-1-auto-migrate-provider.md`
+- `apps/solver-orchestrator/src/solver_orchestrator/provider_migration.py`
+- `apps/solver-orchestrator/tests/test_provider_migration.py`
 
 Modified:
 - `_bmad-output/stories/sprint-status.yaml`
+- `apps/solver-orchestrator/src/solver_orchestrator/error_catalog.py`
+- `apps/solver-orchestrator/src/solver_orchestrator/routes.py`
+- `apps/solver-orchestrator/tests/test_reproduction_rerun.py`
 
 ### Change Log
 
 - 2026-06-05 - Created Story 6.C.1 implementation-ready context and completed three pre-implementation adversarial review rounds.
+- 2026-06-05 - Implemented provider auto-migration resolver, rerun preflight integration, RFC7807 provider-migration error catalog entry, and regression coverage; story moved to code-review.
+
+## Post-Implementation Code Review
+
+### Scope
+
+- Reviewed provider migration resolver, rerun route integration, RFC7807 catalog mapping, and provider-migration/rerun regression coverage against AC 1-8.
+- Checked boundary risks: service boundary to capability-registry, durable-write ordering, no-equivalent atomicity, normal-rerun response drift, standard optimization response leakage, source/child voucher consistency, and deterministic ranking.
+
+### Findings
+
+1. Finding: default capability tags initially included `k_algo`, which made absent-source-provider migrations too strict and could block valid task-equivalent active providers when the retired provider no longer appears in the local snapshot.
+   - Risk: AC 1/2 failure for absent snapshot rows; no-equivalent false negatives during provider exit.
+   - Resolution: default tag derivation now uses task-level tags only, with LP normalized to `lp` + `linear_programming`; added `test_missing_source_provider_uses_task_capability_tags_for_equivalent_match` and updated the current HiGHS catalog snapshot regression.
+
+2. Finding: RFC7807 title normalization needed a dedicated `provider_migration_required` catalog key.
+   - Risk: `409 Provider Migration Required` could drift into a generic/idempotency conflict shape.
+   - Resolution: added `provider_migration_required` to `ERROR_CATALOG` and `TITLE_TO_KEY`.
+
+### Review Result
+
+- No remaining blocking findings after fixes.
+- Validation evidence: focused provider-migration/rerun tests `22 passed`; full solver-orchestrator suite `369 passed`; targeted ruff passed; `uv run mypy apps packages` passed; `git diff --check` passed.
+- Story intentionally remains `code-review` until GitHub PR CI passes, PR is merged, remote branch is deleted, and local `main` is synced. Final `done` status will be a separate status-sync commit.
