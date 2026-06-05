@@ -62,7 +62,7 @@ class Warning:
 
     kind: str  # "balance_low" | "p5_call" | "p5_call_and_balance_low"
     message: str
-    remediation_hint_key: str  # "warnings.{kind}"
+    remediation_hint_key: str  # "errors.billing_warning.{kind}"
 
 
 _MESSAGE_TEMPLATES: dict[str, str] = {
@@ -74,6 +74,11 @@ _MESSAGE_TEMPLATES: dict[str, str] = {
         "Estimated max charge ¥{estimated:.2f} exceeds the high-cost threshold ¥{threshold:.2f} "
         "AND your balance ¥{balance:.2f} is insufficient"
     ),
+}
+_REMEDIATION_HINT_KEYS: dict[str, str] = {
+    "balance_low": "errors.billing_warning.balance_low",
+    "p5_call": "errors.billing_warning.p5_call",
+    "p5_call_and_balance_low": "errors.billing_warning.p5_call_and_balance_low",
 }
 
 
@@ -108,7 +113,13 @@ def classify_warnings(
     message = _MESSAGE_TEMPLATES[kind].format(
         balance=balance, estimated=estimated_amount, threshold=p5_call_threshold
     )
-    return [Warning(kind=kind, message=message, remediation_hint_key=f"warnings.{kind}")]
+    return [
+        Warning(
+            kind=kind,
+            message=message,
+            remediation_hint_key=_REMEDIATION_HINT_KEYS[kind],
+        )
+    ]
 
 
 __all__ = ["Warning", "classify_warnings", "compute_charge_amount"]

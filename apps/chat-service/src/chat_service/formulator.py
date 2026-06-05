@@ -108,7 +108,7 @@ def parse_formulator_completion(
             confidence=0.4,
             field_path="variables",
             message="structured variables missing from deterministic completion",
-            remediation_hint_key="chat.formulator.variables_required",
+            remediation_hint_key="errors.chat_formulator.variables_required",
         )
 
     payload = _parse_json_payload(text)
@@ -160,7 +160,7 @@ def parse_formulator_completion(
             FormulatorValidationError(
                 field_path="variables",
                 message="structured variables are required",
-                remediation_hint_key="chat.formulator.variables_required",
+                remediation_hint_key="errors.chat_formulator.variables_required",
             )
         ]
 
@@ -345,7 +345,7 @@ def _fallback_preview(task_type: TaskType) -> FormulatorPreview:
         confidence=0.35,
         field_path="variables",
         message="structured variables are required",
-        remediation_hint_key="chat.formulator.variables_required",
+        remediation_hint_key="errors.chat_formulator.variables_required",
     )
 
 
@@ -389,7 +389,7 @@ def _skipped_preview() -> FormulatorPreview:
             FormulatorValidationError(
                 field_path="task_type",
                 message="router task_type is unknown",
-                remediation_hint_key="chat.formulator.task_type_required",
+                remediation_hint_key="errors.chat_formulator.task_type_required",
             )
         ],
         supported_task_types=list(SUPPORTED_TASK_TYPES),

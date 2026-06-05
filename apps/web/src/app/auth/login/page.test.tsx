@@ -72,7 +72,7 @@ describe("LoginPage frozen appeal CTA", () => {
             field_path: "account",
             value: null,
             constraint: "frozen",
-            remediation_hint_key: "auth.frozen.appeal",
+            remediation_hint_key: "errors.auth_frozen.appeal",
           },
         ],
         next_action_url:

@@ -307,7 +307,7 @@ def _needs_clarification_formulator_preview() -> FormulatorPreview:
             {
                 "field_path": "variables",
                 "message": "structured variables are required",
-                "remediation_hint_key": "chat.formulator.variables_required",
+                "remediation_hint_key": "errors.chat_formulator.variables_required",
             }
         ],
         supported_task_types=SUPPORTED_TASK_TYPES,

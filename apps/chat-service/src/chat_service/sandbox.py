@@ -75,7 +75,7 @@ def generate_sandbox_preview(
                 error=SandboxValidationError(
                     field_path="coder_preview.artifact",
                     message="generated code artifact is required before sandbox execution",
-                    remediation_hint_key="chat.sandbox.artifact_required",
+                    remediation_hint_key="errors.chat_sandbox.artifact_required",
                 ),
             ),
             sandbox_invoked=False,
@@ -147,25 +147,25 @@ def _skip_reason(
         return SandboxValidationError(
             field_path="coder_preview.task_type",
             message="known task_type is required before sandbox execution",
-            remediation_hint_key="chat.sandbox.task_type_required",
+            remediation_hint_key="errors.chat_sandbox.task_type_required",
         )
     if coder_preview.status != "generated" or coder_preview.artifact is None:
         return SandboxValidationError(
             field_path="coder_preview.artifact",
             message="generated code artifact is required before sandbox execution",
-            remediation_hint_key="chat.sandbox.artifact_required",
+            remediation_hint_key="errors.chat_sandbox.artifact_required",
         )
     if critic_preview.status != "validated":
         return SandboxValidationError(
             field_path="critic_preview.status",
             message="validated critic preview is required before sandbox execution",
-            remediation_hint_key="chat.sandbox.critic_validated_required",
+            remediation_hint_key="errors.chat_sandbox.critic_validated_required",
         )
     if not all(check.passed for check in critic_preview.checks.values()):
         return SandboxValidationError(
             field_path="critic_preview.checks",
             message="all critic checks must pass before sandbox execution",
-            remediation_hint_key="chat.sandbox.critic_checks_required",
+            remediation_hint_key="errors.chat_sandbox.critic_checks_required",
         )
     return None
 
@@ -212,7 +212,7 @@ def _policy_blocked_preview(
             SandboxValidationError(
                 field_path="sandbox_runner.policy",
                 message=_bounded_message(message),
-                remediation_hint_key=f"chat.sandbox.{error_code.value}",
+                remediation_hint_key=f"errors.chat_sandbox.{error_code.value}",
             )
         ],
         contract_version=SANDBOX_CONTRACT_VERSION,

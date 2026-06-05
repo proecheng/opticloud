@@ -182,7 +182,7 @@ def generate_critic_validation_with_llm(
                 threshold=threshold,
                 field_path="critic.model",
                 message="supported model alias is required",
-                remediation_hint_key="chat.critic.model_required",
+                remediation_hint_key="errors.chat_critic.model_required",
             )
         )
 
@@ -200,7 +200,7 @@ def generate_critic_validation_with_llm(
                 threshold=threshold,
                 field_path="critic.prompt",
                 message="safe critic prompt is required",
-                remediation_hint_key="chat.critic.prompt_invalid",
+                remediation_hint_key="errors.chat_critic.prompt_invalid",
             )
         )
 
@@ -213,7 +213,7 @@ def generate_critic_validation_with_llm(
                 threshold=threshold,
                 field_path="critic.completion",
                 message="critic completion is unavailable",
-                remediation_hint_key="chat.critic.completion_unavailable",
+                remediation_hint_key="errors.chat_critic.completion_unavailable",
             ),
             critic_llm_invoked=True,
         )
@@ -225,7 +225,7 @@ def generate_critic_validation_with_llm(
                 threshold=threshold,
                 field_path="critic.completion",
                 message="critic completion did not finish safely",
-                remediation_hint_key="chat.critic.completion_unavailable",
+                remediation_hint_key="errors.chat_critic.completion_unavailable",
             ),
             critic_llm_invoked=True,
         )
@@ -237,7 +237,7 @@ def generate_critic_validation_with_llm(
                 threshold=threshold,
                 field_path="critic.completion",
                 message="critic completion is unsafe",
-                remediation_hint_key="chat.critic.completion_invalid",
+                remediation_hint_key="errors.chat_critic.completion_invalid",
             ),
             critic_llm_invoked=True,
         )
@@ -325,7 +325,7 @@ def _skipped_preview(
             CriticValidationError(
                 field_path="coder_preview.artifact",
                 message="generated code artifact is required before critic validation",
-                remediation_hint_key="chat.critic.artifact_required",
+                remediation_hint_key="errors.chat_critic.artifact_required",
             )
         ],
         supported_task_types=list(SUPPORTED_TASK_TYPES),
@@ -402,7 +402,7 @@ def _business_logic_failure_preview(
             CriticValidationError(
                 field_path="artifact.code",
                 message="artifact task marker must match the routed task",
-                remediation_hint_key="chat.critic.task_type_drift",
+                remediation_hint_key="errors.chat_critic.task_type_drift",
             )
         ],
         supported_task_types=list(SUPPORTED_TASK_TYPES),

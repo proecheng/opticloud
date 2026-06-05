@@ -163,7 +163,7 @@ async def test_frozen_auth_responses_include_next_action_url(
         assert payload["detail"] == "account frozen"
         assert payload["title"] == "账户已冻结"
         assert payload["next_action_url"] == "/auth/frozen-appeal"
-        assert payload["errors"][0]["remediation_hint_key"] == "auth.frozen.appeal"
+        assert payload["errors"][0]["remediation_hint_key"] == "errors.auth_frozen.appeal"
 
 
 async def test_frozen_user_with_existing_jwt_still_cannot_use_protected_routes(

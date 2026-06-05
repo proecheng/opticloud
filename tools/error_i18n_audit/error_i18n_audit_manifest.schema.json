@@ -1,0 +1,132 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:opticloud:schemas:error-i18n-audit-manifest",
+  "title": "OptiCloud Error i18n Quarterly Audit Manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "audit_version",
+    "cadence_mode",
+    "commit_sha",
+    "example_only",
+    "findings",
+    "generated_by",
+    "period",
+    "real_full_codebase_migration_completed",
+    "real_quarterly_audit_completed",
+    "redaction_reviewed",
+    "release_approved",
+    "run_id",
+    "scan_results",
+    "source_story"
+  ],
+  "properties": {
+    "source_story": { "const": "9.6" },
+    "audit_version": { "const": "error_i18n_quarterly_audit_v1" },
+    "run_id": { "type": "string" },
+    "example_only": { "type": "boolean" },
+    "generated_by": { "type": "string" },
+    "commit_sha": { "type": "string" },
+    "cadence_mode": { "const": "quarterly" },
+    "period": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["start_date", "end_date"],
+      "properties": {
+        "start_date": { "type": "string" },
+        "end_date": { "type": "string" }
+      }
+    },
+    "scan_results": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/scanResult" }
+    },
+    "findings": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/finding" }
+    },
+    "redaction_reviewed": { "type": "boolean" },
+    "release_approved": { "type": "boolean" },
+    "real_quarterly_audit_completed": { "type": "boolean" },
+    "real_full_codebase_migration_completed": { "type": "boolean" }
+  },
+  "$defs": {
+    "scanClass": {
+      "enum": [
+        "typescript_problem_detail",
+        "i18n_dictionary_parity",
+        "solver_error_catalog",
+        "billing_problem_details",
+        "shared_rfc7807_helper",
+        "sdk_preservation_fixture",
+        "legacy_http_exception_register"
+      ]
+    },
+    "scanStatus": {
+      "enum": [
+        "not_run_example",
+        "passed",
+        "failed",
+        "missing_with_ticket",
+        "stale"
+      ]
+    },
+    "scanResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scan_class",
+        "status",
+        "hardcoded_error_string_count",
+        "finding_ids"
+      ],
+      "properties": {
+        "scan_class": { "$ref": "#/$defs/scanClass" },
+        "status": { "$ref": "#/$defs/scanStatus" },
+        "hardcoded_error_string_count": { "type": "integer", "minimum": 0 },
+        "legacy_public_http_exception_count": { "type": "integer", "minimum": 0 },
+        "artifact_path": { "type": ["string", "null"] },
+        "notes": { "type": "string" },
+        "finding_ids": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "finding_id",
+        "source",
+        "severity",
+        "status",
+        "summary",
+        "ticket_refs"
+      ],
+      "properties": {
+        "finding_id": { "type": "string" },
+        "source": { "$ref": "#/$defs/scanClass" },
+        "severity": { "enum": ["P0", "P1", "P2", "P3"] },
+        "status": { "enum": ["open", "in_progress", "deferred", "resolved"] },
+        "summary": { "type": "string" },
+        "ticket_refs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/ticketRef" }
+        }
+      }
+    },
+    "ticketRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ticket_id", "owner", "severity", "due_date", "status"],
+      "properties": {
+        "ticket_id": { "type": "string" },
+        "owner": { "type": "string" },
+        "severity": { "enum": ["P0", "P1", "P2", "P3"] },
+        "due_date": { "type": "string" },
+        "status": { "enum": ["open", "in_progress", "deferred", "resolved"] }
+      }
+    }
+  }
+}

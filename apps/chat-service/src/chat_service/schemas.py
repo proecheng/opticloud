@@ -476,6 +476,12 @@ def _is_safe_number(value: int | float) -> bool:
     return math.isfinite(numeric) and abs(numeric) <= _WHAT_IF_NUMBER_ABS_MAX
 
 
+def _validate_remediation_hint_key(value: str | None) -> str | None:
+    if value is not None and not value.startswith("errors."):
+        raise ValueError("remediation_hint_key must use errors.* namespace")
+    return value
+
+
 class RouterPreview(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -500,6 +506,11 @@ class FormulatorValidationError(BaseModel):
     message: str = Field(min_length=1, max_length=160)
     remediation_hint_key: str | None = Field(default=None, min_length=1, max_length=128)
 
+    @field_validator("remediation_hint_key")
+    @classmethod
+    def validate_remediation_namespace(cls, value: str | None) -> str | None:
+        return _validate_remediation_hint_key(value)
+
 
 class FormulatorPreview(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -521,6 +532,11 @@ class CoderValidationError(BaseModel):
     field_path: str = Field(min_length=1, max_length=128)
     message: str = Field(min_length=1, max_length=160)
     remediation_hint_key: str | None = Field(default=None, min_length=1, max_length=128)
+
+    @field_validator("remediation_hint_key")
+    @classmethod
+    def validate_remediation_namespace(cls, value: str | None) -> str | None:
+        return _validate_remediation_hint_key(value)
 
 
 class CoderCodeArtifact(BaseModel):
@@ -579,6 +595,11 @@ class CriticValidationError(BaseModel):
     message: str = Field(min_length=1, max_length=160)
     remediation_hint_key: str | None = Field(default=None, min_length=1, max_length=128)
 
+    @field_validator("remediation_hint_key")
+    @classmethod
+    def validate_remediation_namespace(cls, value: str | None) -> str | None:
+        return _validate_remediation_hint_key(value)
+
 
 class CriticCheck(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -629,6 +650,11 @@ class SandboxValidationError(BaseModel):
     field_path: str = Field(min_length=1, max_length=128)
     message: str = Field(min_length=1, max_length=160)
     remediation_hint_key: str | None = Field(default=None, min_length=1, max_length=128)
+
+    @field_validator("remediation_hint_key")
+    @classmethod
+    def validate_remediation_namespace(cls, value: str | None) -> str | None:
+        return _validate_remediation_hint_key(value)
 
 
 class SandboxResultFilePreview(BaseModel):
@@ -743,6 +769,11 @@ class ModelPreviewValidationError(BaseModel):
             raise ValueError("model preview validation errors must not leak internals")
         return value
 
+    @field_validator("remediation_hint_key")
+    @classmethod
+    def validate_remediation_namespace(cls, value: str | None) -> str | None:
+        return _validate_remediation_hint_key(value)
+
 
 class ModelPreviewAction(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -828,6 +859,11 @@ class HumanReviewValidationError(BaseModel):
     message: str = Field(min_length=1, max_length=160)
     remediation_hint_key: str | None = Field(default=None, min_length=1, max_length=128)
 
+    @field_validator("remediation_hint_key")
+    @classmethod
+    def validate_remediation_namespace(cls, value: str | None) -> str | None:
+        return _validate_remediation_hint_key(value)
+
 
 class HumanReviewPreview(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -875,6 +911,11 @@ class CriticConfidenceDisplayValidationError(BaseModel):
     field_path: str = Field(min_length=1, max_length=128)
     message: str = Field(min_length=1, max_length=160)
     remediation_hint_key: str | None = Field(default=None, min_length=1, max_length=128)
+
+    @field_validator("remediation_hint_key")
+    @classmethod
+    def validate_remediation_namespace(cls, value: str | None) -> str | None:
+        return _validate_remediation_hint_key(value)
 
 
 class CriticConfidenceDisplayPreview(BaseModel):
@@ -926,6 +967,11 @@ class LanguageValidationError(BaseModel):
     field_path: str = Field(min_length=1, max_length=128)
     message: str = Field(min_length=1, max_length=160)
     remediation_hint_key: str | None = Field(default=None, min_length=1, max_length=128)
+
+    @field_validator("remediation_hint_key")
+    @classmethod
+    def validate_remediation_namespace(cls, value: str | None) -> str | None:
+        return _validate_remediation_hint_key(value)
 
 
 class ChatDisclaimer(BaseModel):
