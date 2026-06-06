@@ -4,7 +4,7 @@ baseline_commit: adc459b99bed42e3671f180cabf8ade379b2a9f2
 epic_num: 6
 story_num: C.4
 epic_name: Auto-migration + Provider Exit v2
-status: code-review
+status: done
 priority: High
 type: equivalent provider matching
 created_by: bmad-create-story
@@ -25,7 +25,7 @@ sources:
 
 # Story 6.C.4 - Equivalent Matching Algorithm
 
-Status: code-review
+Status: done
 
 ## Story
 
@@ -135,9 +135,9 @@ Epic 6.C 的 R4 要求系统能 auto-migrate to equivalent Provider。Story 6.C.
 - [ ] T5: Post-implementation review and GitHub closure. (AC: 36-38)
   - [x] Run adversarial code review after implementation.
   - [x] Fix or document all findings.
-  - [ ] Commit implementation, push branch, create PR, wait for CI.
-  - [ ] Merge PR, delete remote branch, sync local `main`.
-  - [ ] Only after sync, make a separate status commit marking story/sprint done.
+  - [x] Commit implementation, push branch, create PR, wait for CI.
+  - [x] Merge PR, delete remote branch, sync local `main`.
+  - [x] Only after sync, make a separate status commit marking story/sprint done.
 
 ### Review Findings
 
@@ -281,6 +281,7 @@ GPT-5 Codex
 - 2026-06-06 - Local validation passed: focused equivalent tests `6 passed`; full capability-registry tests `67 passed`; error-i18n audit tests `23 passed`; ruff check/format passed; mypy passed; OpenAPI generation/drift passed; error-i18n audit validation passed; `git diff --check` passed.
 - 2026-06-06 - Post-implementation adversarial code review found two patch findings: source capabilities without canonical tags could be matched, and `include_source=true` needed direct regression coverage. Both were fixed.
 - 2026-06-06 - Final local validation after review fixes passed: full capability-registry tests `67 passed`; error-i18n audit tests `23 passed`; mypy passed; OpenAPI generation/drift passed; error-i18n audit validation passed; full pre-commit passed; `git diff --check` passed.
+- 2026-06-06 - GitHub PR #181 passed CI, merged to `main`, remote branch `codex/6-c-4-equivalent-matching` was deleted, local `main` was synced, and final story/sprint status sync was prepared as a separate post-merge commit.
 
 ### Completion Notes List
 
@@ -291,7 +292,7 @@ GPT-5 Codex
 - Added `GET /v1/capabilities/{k_algo}/equivalents` with tenant/global fallback, solver validation, cache support, Redis-unavailable fallback, and metadata privacy.
 - Added focused pure/API tests, regenerated capability-registry OpenAPI, and synchronized error-i18n audit legacy HTTPException pins for the new route literals.
 - Post-implementation review completed; fixed no-canonical-tag source rejection and added `include_source=true` regression coverage.
-- Implementation is ready for GitHub PR/CI closure; story remains `code-review` until merge/delete/sync completes.
+- PR #181 passed CI, was merged to `main`, the remote story branch was deleted, local `main` was synced, and this final post-merge status update marks the story done.
 
 ### File List
 
@@ -312,6 +313,7 @@ GPT-5 Codex
 - 2026-06-06 - Implementation started; story moved to in-progress.
 - 2026-06-06 - Implemented equivalent matching helper/API/tests and moved story to code-review after local validation.
 - 2026-06-06 - Completed post-implementation code review and fixed two patch findings.
+- 2026-06-06 - PR #181 passed CI and was merged; remote story branch deleted, local `main` synced, and story/sprint status marked done in a separate post-merge status update.
 
 ## Post-Implementation Code Review
 
