@@ -65,7 +65,7 @@ development_status:
   m4-5b-gurobi-benchmark-whitepaper: done       # E3 — 2026-05-27 methodology-ready 30 LP benchmark package + evidence-gated whitepaper; post-review placeholder/baseline fixes applied
 
   # ===== Epic 1: Account & Identity (12 stories) =====
-  epic-1: in-progress
+  epic-1: done
 
   1-1a-j1-signup-api-key: done                 # J1 Vertical Slice
   1-1b-j1-confirmation-modal-postman: done     # FG1.1
@@ -82,7 +82,7 @@ development_status:
   1-12-j7-fraud-freeze-vertical-slice: done        # J7 — 2026-05-24 frozen appeal recovery vertical slice; code review fixed existing-JWT freeze enforcement
 
   # ===== Epic 2: Algorithm Catalog (8 stories) =====
-  epic-2: in-progress
+  epic-2: done
 
   2-1-j1-algorithms-public-list: done          # J1 Vertical Slice
   2-2-algorithm-details: done                  # 2026-05-19 — /algorithms/[k_algo] FE detail page + Python/cURL snippets + 4 E2E + 3 backend tests; FR C2
@@ -94,7 +94,7 @@ development_status:
   2-8-unaudited-block: done                    # FR C8 — 2026-05-27 unaudited self algorithms hidden/blocked until §4.5 audit green
 
   # ===== Epic 3: Execution (14 stories) =====
-  epic-3: in-progress
+  epic-3: done
 
   3-1-j1-lp-solve: done                        # J1 Vertical Slice
   3-2-prediction-submission: done              # FR E2 — ARIMA / Chronos
@@ -112,7 +112,7 @@ development_status:
   3-14-mock-real-divergence-test: done      # Q-T1 — 2026-05-28 dedicated mock-real divergence contract suite; post-review dataclass-order/no-leak fixes applied
 
   # ===== Epic 3.E: Excel UX (9 stories) =====
-  epic-3-e: backlog
+  epic-3-e: done
 
   3-e-1-excel-drop-zone: done                  # 2026-05-19 — /console/excel + ExcelDropZone refactor (alert→onReject) + actionable hint + 教程 stub + 9 Vitest + 5 Playwright; FG1.2 老张 surface 入口
   3-e-2-excel-task-type-detect: done           # 2026-05-19 — browser-side parse (read-excel-file) + heuristic detect + ConfirmationModal w/ manual override + 50K-row cap + parse-error path; apps/web Vitest setup added; +9 Vitest + 4 Playwright; PMR6 ship
@@ -125,9 +125,9 @@ development_status:
   3-e-9-laozhang-vertical-slice-e2e: done
 
   # ===== Epic 4.A/B/C: Chat & NL (19 stories) — M3 AIGC gated =====
-  epic-4-a: in-progress
-  epic-4-b: in-progress
-  epic-4-c: in-progress
+  epic-4-a: done
+  epic-4-b: done
+  epic-4-c: done
 
   4-a-1-nl-chat-input-internal-beta: done
   4-a-2-router-llm-intent: done
@@ -152,10 +152,10 @@ development_status:
   4-c-6-chat-interface-tier2: done
 
   # ===== Epic 5.A/B/C/D: Billing (27 stories) =====
-  epic-5-a: in-progress
-  epic-5-b: in-progress
-  epic-5-c: in-progress
-  epic-5-d: in-progress
+  epic-5-a: done
+  epic-5-b: done
+  epic-5-c: done
+  epic-5-d: done
 
   5-a-0a-saga-implementation: done             # N5 unlock — 2026-05-18 (16 tests; 4 invariants; 7-state machine wired to DB; outbox emit; idempotent)
   5-a-0b-saga-contract-fixtures: done          # 2026-05-30 — shared Saga contract fixture catalog: 52 deterministic fixtures (50 executable + 2 paused_by_budget stubs), billing DB execution tests, offline contract stub; post-review validator hardening applied
@@ -191,8 +191,8 @@ development_status:
   5-d-7-invoice-budget-tier2-component: done             # 2026-06-01 - invoice/budget Tier 2 cards shipped; PR #133 passed CI, merged to main, remote branch deleted, local main synced
 
   # ===== Epic 6.A/B/C: Reproducibility (13 stories) =====
-  epic-6-a: in-progress
-  epic-6-b: in-progress
+  epic-6-a: done
+  epic-6-b: done
   epic-6-c: done
 
   6-a-1-citation-bibtex: done                  # 2026-05-20 — FR R5 v1 必上 ship: opens Epic 6.A; 8 hand-curated BibTeX entries on Algorithm catalog (huangfu2018 × 2, perron2024ortools @software, perron2011constraint LNCS 6876, ansari2024chronos arXiv, box1976time, hochreiter1997long, aqgs2025opticloud @software w/ Apache 2.0); CitationSchema mirrored on AlgorithmSchema + OptimizationResponse (defaults None); `_build_success_response` does (provider_id, task_type)-keyed catalog lookup at response time with try/except guard so malformed rows degrade to citation=null not 500; /v1/optimizations/demo LP-optimal branch routes citation through CitationSchema for parity; /algorithms/[k_algo] gains 📚 引用本算法 section w/ 学者信息 line + `encodeURI`-wrapped DOI/URL links + reused CodeBlock w/ new label+ariaLabel props for "BibTeX"; +11 backend tests (47 → 60; catalog signature/braces/key-pinning/`\&` LaTeX-safety/AQGS @software/LP demo+auth/422 RFC 7807/MILP-disambiguation/unknown-provider-degradation) + 2 Playwright (highs-lp DOI path + aqgs URL-only path); 3 reviewer-layer code review (Blind Hunter + Edge Case + Acceptance Auditor) → 11 patches applied + 3 deferred to deferred-work.md + 6 dismissed; bundle delta /algorithms/[k_algo] +0.22 KB; sprint-status BUNDLED into PR-29 commits (lesson from 1.5/PR#28)
@@ -215,7 +215,7 @@ development_status:
   6-c-4-equivalent-matching: done             # 2026-06-06 - capability equivalent matching shipped; PR #181 passed CI, merged to main, remote branch deleted, local main synced
 
   # ===== Epic 7.A/B: Provider (15 stories) =====
-  epic-7-a: in-progress
+  epic-7-a: done
   epic-7-b: done
 
   7-a-1-capability-registry-v1-schema: done
@@ -232,9 +232,9 @@ development_status:
   7-b-9-provider-console-tier3: done             # 2026-06-02 - Provider Console Tier 3 shipped; PR #144 passed CI, merged to main, remote branch deleted, local main synced
 
   # ===== Epic 8.A/B/C: Observability & Compliance (22 stories) =====
-  epic-8-a: in-progress
-  epic-8-b: in-progress
-  epic-8-c: in-progress
+  epic-8-a: done
+  epic-8-b: done
+  epic-8-c: done
 
   8-a-1-public-status-page: done               # 2026-06-02 - Public status page shipped; PR #145 passed CI, merged to main, remote branch deleted, local main synced
   8-a-2-incident-subscribe: done              # 2026-06-02 - Incident subscription fanout shipped; PR #146 passed CI, merged to main, remote branch deleted, local main synced
