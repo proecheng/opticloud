@@ -6,6 +6,7 @@ import hashlib
 import json
 import math
 import numbers
+import secrets
 import time
 import uuid
 from dataclasses import dataclass
@@ -40,6 +41,7 @@ from solver_orchestrator.catalog import (
     publishable_catalog_items,
     self_audit_passed,
 )
+from solver_orchestrator.config import settings
 from solver_orchestrator.db import get_session
 from solver_orchestrator.error_responses import PROBLEM_JSON, build_problem_response
 from solver_orchestrator.fallback_execution import (
@@ -74,6 +76,10 @@ from solver_orchestrator.models import (
     TeachingGradingBatch,
     TeachingGradingIdempotencyKey,
     TeachingGradingItem,
+)
+from solver_orchestrator.provider_exit_notifications import (
+    ProviderExitPlanInput,
+    create_provider_exit_plan,
 )
 from solver_orchestrator.provider_migration import (
     ProviderMigrationStatus,
@@ -113,6 +119,8 @@ from solver_orchestrator.schemas import (
     PredictionQuantiles,
     PredictionRequest,
     PredictionResponse,
+    ProviderExitPlanCreateRequest,
+    ProviderExitPlanCreateResponse,
     ReproducibilitySchema,
     TeachingGradingBatchCreateRequest,
     TeachingGradingBatchResponse,
@@ -142,6 +150,22 @@ BATCH_COUNT_STATUSES = ("queued", "in_progress", "completed", "failed", "timeout
 TEACHING_GRADING_RUBRIC_VERSION = "teaching-grading-v1"
 TEACHING_GRADING_MAX_SCORE = Decimal("100.00")
 TEACHING_GRADING_CRITERION_POINTS = Decimal("25.00")
+ADMIN_ENDPOINTS_DISABLED_DETAIL = "admin endpoints disabled (ADMIN_SECRET not configured)"
+ADMIN_INVALID_HEADER_DETAIL = "missing or invalid X-Admin-Secret"
+
+
+def require_admin_secret(x_admin_secret: str | None = Header(default=None)) -> None:
+    """Gate solver admin endpoints. Empty ADMIN_SECRET disables the surface."""
+    if not settings.admin_secret:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=ADMIN_ENDPOINTS_DISABLED_DETAIL,
+        )
+    if x_admin_secret is None or not secrets.compare_digest(x_admin_secret, settings.admin_secret):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=ADMIN_INVALID_HEADER_DETAIL,
+        )
 
 
 @dataclass(frozen=True)
@@ -156,6 +180,47 @@ class _BatchValidatedTask:
     model_version: dict[str, Any]
     provider_route: ProviderRouteMetadata
     execution_mode: dict[str, object]
+
+
+@router.post(
+    "/admin/provider-exits",
+    response_model=ProviderExitPlanCreateResponse,
+    tags=["admin"],
+    summary="Create >=30d Provider exit voucher-holder notification plan",
+)
+async def admin_create_provider_exit_plan(
+    body: ProviderExitPlanCreateRequest,
+    _auth: None = Depends(require_admin_secret),
+    session: AsyncSession = Depends(get_session),
+) -> ProviderExitPlanCreateResponse:
+    try:
+        result = await create_provider_exit_plan(
+            session,
+            ProviderExitPlanInput(
+                provider_id=body.provider_id,
+                effective_at=body.effective_at,
+                reason=body.reason,
+                replacement_provider_id=body.replacement_provider_id,
+                public_message=body.public_message,
+                severity=body.severity,
+                announcement_status=body.status,
+            ),
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(exc),
+        ) from exc
+    return ProviderExitPlanCreateResponse(
+        exit_plan_id=result.exit_plan_id,
+        provider_id=result.provider_id,
+        effective_at=result.effective_at,
+        affected_users=result.affected_users,
+        affected_vouchers=result.affected_vouchers,
+        notification_requests_created=result.notification_requests_created,
+        status_url=result.status_url,
+        announcement_id=result.announcement_id,
+    )
 
 
 # ===== Story 0.7: Health =====

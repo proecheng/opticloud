@@ -8,6 +8,14 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+CONTROL_CHARACTERS = frozenset(chr(i) for i in range(32)) | {"\x7f"}
+
+
+def reject_control_characters(value: str, field_name: str) -> None:
+    if any(character in CONTROL_CHARACTERS for character in value):
+        raise ValueError(f"{field_name} contains unsupported control characters")
+
+
 # ===== Story 2.1: GET /v1/algorithms =====
 
 
@@ -128,6 +136,69 @@ class BenchmarkImportResponseSchema(BaseModel):
     dataset_ref: str
     disclaimer_zh: str
     disclaimer_en: str
+
+
+# ===== Story 6.C.2: Provider exit notification admin contract =====
+
+
+class ProviderExitPlanCreateRequest(BaseModel):
+    """Internal Provider exit request that fans out >=30d voucher-holder notices."""
+
+    provider_id: str = Field(
+        ...,
+        min_length=2,
+        max_length=96,
+        pattern=r"^[a-z0-9][a-z0-9_.:-]{1,94}$",
+    )
+    effective_at: datetime
+    reason: str = Field(..., min_length=1, max_length=255)
+    replacement_provider_id: str | None = Field(
+        default=None,
+        min_length=2,
+        max_length=96,
+        pattern=r"^[a-z0-9][a-z0-9_.:-]{1,94}$",
+    )
+    public_message: str | None = Field(default=None, max_length=500)
+    severity: Literal["minor", "major"] = "major"
+    status: Literal["identified", "monitoring"] = "identified"
+
+    @field_validator("provider_id", "replacement_provider_id", mode="before")
+    @classmethod
+    def normalize_provider_id(cls, value: object) -> object:
+        if not isinstance(value, str):
+            return value
+        return value.strip().lower()
+
+    @field_validator("reason")
+    @classmethod
+    def normalize_reason(cls, value: str) -> str:
+        reject_control_characters(value, "reason")
+        stripped = " ".join(value.strip().split())
+        if not stripped:
+            raise ValueError("reason must not be blank")
+        return stripped
+
+    @field_validator("public_message")
+    @classmethod
+    def normalize_public_message(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        reject_control_characters(value, "public_message")
+        stripped = " ".join(value.strip().split())
+        if not stripped:
+            return None
+        return stripped
+
+
+class ProviderExitPlanCreateResponse(BaseModel):
+    exit_plan_id: uuid.UUID
+    provider_id: str
+    effective_at: datetime
+    affected_users: int
+    affected_vouchers: int
+    notification_requests_created: int
+    status_url: str
+    announcement_id: str
 
 
 # ===== Story 3.1: POST /v1/optimizations =====

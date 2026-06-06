@@ -27,6 +27,11 @@ class SolverSettings(BaseSettings):
     # Service
     service_name: str = "solver-orchestrator"
     service_port: int = Field(default=8002, alias="SOLVER_ORCHESTRATOR_PORT")
+    admin_secret: str = Field(
+        default="",
+        alias="ADMIN_SECRET",
+        description="X-Admin-Secret header value for solver admin endpoints; empty disables them.",
+    )
 
     # Solver tuning (CRG2 — cold/warm start)
     highs_prewarm: bool = Field(default=True, description="Pre-warm HiGHS at startup")
