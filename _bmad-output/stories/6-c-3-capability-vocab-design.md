@@ -271,7 +271,7 @@ GPT-5 Codex
 - 2026-06-06 - Local validation passed: focused vocab tests `5 passed`; full capability-registry tests `60 passed`; ruff check/format passed; mypy passed; OpenAPI drift passed; `git diff --check` passed.
 - 2026-06-06 - Post-implementation adversarial code review found two patch findings: alias response lacked audit timestamps and blank `task_type` list filter shared the same cache key as no filter. Both were fixed, with tenant alias override regression added.
 - 2026-06-06 - Final local validation after review fixes passed: focused vocab tests `6 passed`; full capability-registry tests `61 passed`; ruff check/format passed; mypy passed; OpenAPI drift passed; `git diff --check` passed.
-- 2026-06-06 - CI remediation completed: fixed story trailing whitespace and synchronized the error-i18n audit legacy HTTPException register baseline for the new capability-registry routes. Validation passed: `uv run python scripts/validate_error_i18n_audit.py`; `uv tool run pre-commit run --all-files --show-diff-on-failure`; `git diff --check`.
+- 2026-06-06 - CI remediation completed: fixed story trailing whitespace and synchronized the error-i18n audit legacy HTTPException register baseline/test pins for the new capability-registry routes. Validation passed: `uv run python scripts/validate_error_i18n_audit.py`; `uv run pytest tests/test_error_i18n_audit.py -v`; `uv tool run pre-commit run --all-files --show-diff-on-failure`; `git diff --check`.
 
 ### Completion Notes List
 
@@ -294,6 +294,7 @@ GPT-5 Codex
 - `infra/local-init/14-capability-registry.sql`
 - `packages/shared-ts/openapi/capability-registry.json`
 - `tools/error_i18n_audit/error_i18n_audit_contract.json`
+- `tests/test_error_i18n_audit.py`
 
 ## Change Log
 
