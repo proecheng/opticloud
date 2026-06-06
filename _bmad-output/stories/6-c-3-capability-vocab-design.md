@@ -4,7 +4,7 @@ baseline_commit: 17d958e50eda522b51188f7fcb029e757838ce75
 epic_num: 6
 story_num: C.3
 epic_name: Auto-migration + Provider Exit v2
-status: code-review
+status: done
 priority: High
 type: capability vocabulary governance
 created_by: bmad-create-story
@@ -25,7 +25,7 @@ sources:
 
 # Story 6.C.3 - Capability Vocabulary Design
 
-Status: code-review
+Status: done
 
 ## Story
 
@@ -272,6 +272,7 @@ GPT-5 Codex
 - 2026-06-06 - Post-implementation adversarial code review found two patch findings: alias response lacked audit timestamps and blank `task_type` list filter shared the same cache key as no filter. Both were fixed, with tenant alias override regression added.
 - 2026-06-06 - Final local validation after review fixes passed: focused vocab tests `6 passed`; full capability-registry tests `61 passed`; ruff check/format passed; mypy passed; OpenAPI drift passed; `git diff --check` passed.
 - 2026-06-06 - CI remediation completed: fixed story trailing whitespace and synchronized the error-i18n audit legacy HTTPException register baseline/test pins for the new capability-registry routes. Validation passed: `uv run python scripts/validate_error_i18n_audit.py`; `uv run pytest tests/test_error_i18n_audit.py -v`; `uv tool run pre-commit run --all-files --show-diff-on-failure`; `git diff --check`.
+- 2026-06-06 - GitHub closure completed: PR #180 passed CI, merged to `main`, remote branch deleted, and local `main` synced before status moved to done.
 
 ### Completion Notes List
 
@@ -282,6 +283,7 @@ GPT-5 Codex
 - Updated capability-registry API tests and OpenAPI spec; implementation is ready for post-implementation code review.
 - Post-implementation review completed; fixed alias response audit fields and normalized blank task_type filtering/cache keys.
 - PR CI remediation completed for lint trailing whitespace and error-i18n audit contract drift without marking the story done before merge/sync.
+- PR #180 closure completed; story is now marked done in the separate post-merge status-sync commit.
 
 ### File List
 
@@ -302,6 +304,7 @@ GPT-5 Codex
 - 2026-06-06 - Implemented capability vocab governance and moved story to code-review after local validation.
 - 2026-06-06 - Completed post-implementation code review and fixed two patch findings.
 - 2026-06-06 - Fixed PR CI lint and error-i18n audit contract drift.
+- 2026-06-06 - PR #180 merged and post-merge status synchronized to done.
 
 ## Post-Implementation Code Review
 

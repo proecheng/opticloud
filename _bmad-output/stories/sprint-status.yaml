@@ -211,7 +211,7 @@ development_status:
 
   6-c-1-auto-migrate-provider: done            # 2026-06-05 — Provider migration resolver + rerun preflight shipped; PR #178 passed CI, merged to main, remote branch deleted, local main synced
   6-c-2-30d-exit-notification: done           # 2026-06-06 — Provider exit >=30d notification control-plane shipped; PR #179 passed CI, merged to main, remote branch deleted, local main synced
-  6-c-3-capability-vocab-design: code-review
+  6-c-3-capability-vocab-design: done
   6-c-4-equivalent-matching: backlog
 
   # ===== Epic 7.A/B: Provider (15 stories) =====
