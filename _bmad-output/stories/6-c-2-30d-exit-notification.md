@@ -4,7 +4,7 @@ baseline_commit: f8b8d8e8a19e546792ec39012528ef8654648d12
 epic_num: 6
 story_num: C.2
 epic_name: Auto-migration + Provider Exit v2
-status: code-review
+status: done
 priority: High
 type: provider exit pre-notification
 created_by: bmad-create-story
@@ -26,7 +26,7 @@ sources:
 
 # Story 6.C.2 - >=30d Provider Exit Pre-Notification
 
-Status: code-review
+Status: done
 
 ## Story
 
@@ -131,12 +131,12 @@ Epic 6.C 的 R7 要求：Provider 提退出申请时，voucher holders 必须在
   - [x] Run focused tests plus Story 6.C.1 provider migration/rerun regressions.
   - [x] Run static/type gates and OpenAPI drift check if endpoint schemas affect generated contract.
 
-- [ ] T6: Post-implementation review and GitHub closure. (AC: 31-33)
+- [x] T6: Post-implementation review and GitHub closure. (AC: 31-33)
   - [x] Run adversarial code review after implementation.
   - [x] Fix/document findings.
-  - [ ] Commit implementation, push branch, create PR, wait for CI.
-  - [ ] Merge PR, delete remote branch, sync local `main`.
-  - [ ] Only after sync, make separate status commit marking story/sprint done.
+  - [x] Commit implementation, push branch, create PR, wait for CI.
+  - [x] Merge PR, delete remote branch, sync local `main`.
+  - [x] Only after sync, make separate status commit marking story/sprint done.
 
 ### Review Findings
 
@@ -282,6 +282,10 @@ GPT-5 Codex
 - 2026-06-06 - Post-implementation adversarial code review found one patch finding: 5-year voucher expiry must be evaluated per voucher rather than by subtracting 5 calendar years from `now`.
 - 2026-06-06 - Review finding fixed with SQL per-row expiry evaluation plus leap-day boundary regression; focused provider-exit tests now `8 passed`.
 - 2026-06-06 - Final pre-PR validation passed serially: focused provider-exit tests `8 passed`; Story 6.C.1 provider migration/rerun regression `22 passed`; solver-orchestrator suite `377 passed`; mypy passed; ruff check/format passed; OpenAPI generation/drift passed; `git diff --check` passed.
+- 2026-06-06 - PR #179 opened for `codex/6-c-2-30d-exit-notification`; GitHub CI initially failed on lint trailing whitespace and error i18n audit drift.
+- 2026-06-06 - CI fix commit pushed; GitHub checks passed for lint, error-i18n-audit-validation, solver-orchestrator-test, mypy, e2e, and required skipped/pass matrix.
+- 2026-06-06 - PR #179 merged to `main` as squash commit `004c1a6`; remote feature branch deleted; local `main` synced to `origin/main`.
+- 2026-06-06 - This story/sprint `done` update is recorded after merge/delete/sync as the required separate status-sync commit.
 
 ### Completion Notes List
 
@@ -291,8 +295,9 @@ GPT-5 Codex
 - Added solver-owned Provider exit plan, per-user notification request, and status announcement persistence in `02-solver-schema.sql` with ORM parity.
 - Fan-out selects only issued, non-expired vouchers for the exiting provider, excludes deleted/merged/frozen accounts, deduplicates by user, and emits pointer-safe outbox payloads with channels exactly `["email", "in_app"]`.
 - Status announcement is a public-safe contract/outbox request only; no live `/status` fetch, email provider, inbox, auth-service preference, or capability matching work was added.
-- Implementation gates passed and story is ready for post-implementation code review; GitHub closure and final `done` status remain pending.
-- Post-implementation review completed; one patch finding fixed and documented. GitHub PR/CI/merge closure and final separate status-sync commit remain pending.
+- Implementation gates passed; post-implementation code review completed with one patch finding fixed and documented.
+- PR #179 passed GitHub CI, merged to `main` as `004c1a6`, remote branch `codex/6-c-2-30d-exit-notification` was deleted, and local `main` is synced to `origin/main`.
+- Story and sprint status are now marked `done` in this separate post-merge status-sync commit.
 
 ### File List
 
@@ -312,3 +317,4 @@ GPT-5 Codex
 - 2026-06-06 - Implementation started; story moved to in-progress.
 - 2026-06-06 - Implemented Provider exit notification control-plane and moved story to code-review after local validation.
 - 2026-06-06 - Completed post-implementation review; fixed per-voucher 5-year expiry boundary issue.
+- 2026-06-06 - PR #179 passed CI, merged, remote branch deleted, local `main` synced; story/sprint marked done in separate status-sync commit.
