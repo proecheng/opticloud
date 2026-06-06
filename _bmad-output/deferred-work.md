@@ -25,3 +25,9 @@ Items surfaced by code reviews / retrospectives that are real but not blockers f
 - **Planning text still says 7.B has 13 stories** — current implementation closes P1-P8 through 7.B.1-9, with 7.B.9 consolidating the planned 7.B.9-13 Provider Console grouped scope. Update planning docs later to avoid future duplicate 7.B.10-13 creation.
 - **Provider Marketplace contracts are not real external operations** — application intake, shadow validation, rollout, payout, monthly batch, and Provider Console are safe contracts/projections. Public provider auth, ownership enforcement, real provider execution, live routing mutation, and payment settlement remain future work.
 - **Academic Provider Handbook / onboarding tier 1-3 remains unimplemented as a separate workstream** — planning mentioned it inside the 7.B.9-13 group, but 7.B.9 intentionally scoped to Provider Console aggregation. Promote only if product explicitly requires academic Provider onboarding beyond existing academic stories.
+
+---
+
+## Deferred from: blocked items triage (2026-06-06)
+
+- **Epic 0 remains open only due to external/process blocked items** — `0-0-sprint0-calibration-week`, `m0-legal-1-license-deliverable`, `m0-legal-status-tracking`, and `m0-aigc-status-tracking` require owner/legal/PM evidence or an explicit waiver. See `_bmad-output/stories/blocked-items-triage-2026-06-06.md`.

@@ -17,7 +17,7 @@ last_updated: 2026-06-06
 development_status:
 
   # ===== Epic 0: Foundation (26 stories) =====
-  epic-0: in-progress
+  epic-0: in-progress                         # only blocked external/process items remain; see blocked-items-triage-2026-06-06.md
 
   0-1-monorepo-scaffold: done
   0-2-docker-compose: done
@@ -33,10 +33,10 @@ development_status:
   0-11-storybook-chromatic: done
   0-12-a11y-hook-axe-core: done
   0-13-playwright-e2e: done                    # Q-T2 — 2026-05-18 (3 E2E tests pass, 28 total regression OK)
-  0-0-sprint0-calibration-week: blocked        # RE2-1 (team process, deferred)
-  m0-legal-1-license-deliverable: blocked      # E9 法务 (user said skip)
-  m0-legal-status-tracking: blocked            # RE2-8 (法务 process)
-  m0-aigc-status-tracking: blocked             # CM3 (AIGC filing process)
+  0-0-sprint0-calibration-week: blocked        # RE2-1 team process; see blocked-items-triage-2026-06-06.md
+  m0-legal-1-license-deliverable: blocked      # E9 legal signoff; user previously skipped; see blocked-items-triage-2026-06-06.md
+  m0-legal-status-tracking: blocked            # RE2-8 legal process tracking; see blocked-items-triage-2026-06-06.md
+  m0-aigc-status-tracking: blocked             # CM3 AIGC filing process; see blocked-items-triage-2026-06-06.md
   m2-0-saga-spike: done                        # RE6 — 2026-05-18 (ADR-0001 Hybrid Saga + ADR-0002 K8s sidecar; 8 state-machine tests; 33 total regression OK)
   m2-1-outbox-relayer: done                    # 2026-05-18 — sidecar relayer (asyncpg + Redis pub + LISTEN/NOTIFY); 8 integration tests; P95 lag < 500ms verified
   m2-2a-billing-critical-tests: done           # 2026-05-18 — 55 critical scenarios + S1 cross-tenant security fix; NFR-R4 v1.5 hard-gate evidence
