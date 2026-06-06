@@ -24,6 +24,10 @@ from starlette.responses import Response
 from capability_registry.cache import CAPABILITY_CACHE_PREFIX, CapabilityCache, cache_key
 from capability_registry.config import settings
 from capability_registry.db import get_session
+from capability_registry.equivalent_matching import (
+    EquivalentCapabilitySnapshot,
+    match_equivalent_capabilities,
+)
 from capability_registry.models import (
     Capability,
     CapabilityProvider,
@@ -49,6 +53,7 @@ from capability_registry.schemas import (
     CapabilityVocabTermResponse,
     CapabilityVocabTermStatus,
     CapabilityVocabTermUpsertRequest,
+    EquivalentCapabilityResponse,
     ModelVersion,
     OAuthFlowResponse,
     OAuthFlowUpsertRequest,
@@ -574,6 +579,59 @@ async def _capability_response(
     )
 
 
+async def _effective_capability_rows(
+    session: AsyncSession,
+    *,
+    tenant_id: uuid.UUID | None,
+) -> list[Capability]:
+    global_rows = (
+        await session.execute(
+            select(Capability).where(Capability.tenant_id.is_(None)).order_by(Capability.k_algo)
+        )
+    ).scalars()
+    rows_by_algo = {row.k_algo: row for row in global_rows}
+    if tenant_id is not None:
+        tenant_rows = (
+            await session.execute(
+                select(Capability)
+                .where(Capability.tenant_id == tenant_id)
+                .order_by(Capability.k_algo)
+            )
+        ).scalars()
+        for row in tenant_rows:
+            rows_by_algo[row.k_algo] = row
+    return sorted(rows_by_algo.values(), key=lambda item: item.k_algo)
+
+
+async def _equivalent_snapshot(
+    session: AsyncSession,
+    row: Capability,
+    *,
+    requested_tenant_id: uuid.UUID | None,
+) -> EquivalentCapabilitySnapshot:
+    provider = await _load_provider_row(
+        session,
+        provider_id=row.provider_id,
+        tenant_id=row.tenant_id,
+        allow_global_fallback=True,
+    )
+    tags = await _capability_tags(session, row.id)
+    return EquivalentCapabilitySnapshot(
+        k_algo=row.k_algo,
+        task_type=row.task_type,
+        provider_id=row.provider_id,
+        provider_kind=provider.kind if provider is not None else "",
+        provider_url=provider.provider_url if provider is not None else "",
+        provider_status=provider.status if provider is not None else None,
+        model_version=row.model_version,
+        capability_status=row.status,
+        supported_solvers=tuple(row.supported_solvers),
+        tags=tuple(tags),
+        metadata=dict(row.capability_metadata),
+        scope_source=_scope_source(row.tenant_id, requested_tenant_id),
+    )
+
+
 async def _oauth_response(
     row: ProviderOAuthFlow,
     *,
@@ -1004,6 +1062,85 @@ async def list_capabilities(
     ]
     await _cache_set(cache_backend, key, [item.model_dump(mode="json") for item in responses])
     return responses
+
+
+@router.get(
+    "/capabilities/{k_algo}/equivalents",
+    response_model=EquivalentCapabilityResponse,
+    tags=["capabilities"],
+)
+async def get_capability_equivalents(
+    k_algo: Annotated[str, Path(pattern=_PATH_ID_PATTERN)],
+    solver: str = Query(..., min_length=1),
+    tenant_id: uuid.UUID | None = Query(default=None),
+    max_results: int = Query(default=10, ge=1, le=50),
+    include_source: bool = Query(default=False),
+    session: AsyncSession = Depends(get_session),
+    cache_backend: CacheBackend = Depends(get_cache),
+) -> EquivalentCapabilityResponse:
+    normalized_solver = solver.strip()
+    if not normalized_solver:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="solver cannot be blank",
+        )
+    key = cache_key(
+        "capabilities:equivalents",
+        k_algo=k_algo,
+        tenant_id=tenant_id or "global",
+        solver=normalized_solver,
+        max_results=max_results,
+        include_source=include_source,
+    )
+    cached = await _cached(cache_backend, key)
+    if isinstance(cached, dict):
+        return EquivalentCapabilityResponse.model_validate(cached)
+
+    source_row = await _load_capability_row(
+        session,
+        k_algo=k_algo,
+        tenant_id=tenant_id,
+        allow_global_fallback=tenant_id is not None,
+    )
+    if source_row is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="capability not found")
+    if normalized_solver not in source_row.supported_solvers:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="solver is not supported by source capability",
+        )
+
+    effective_rows = await _effective_capability_rows(session, tenant_id=tenant_id)
+    source_snapshot = await _equivalent_snapshot(
+        session,
+        source_row,
+        requested_tenant_id=tenant_id,
+    )
+    if not source_snapshot.tags:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="source capability has no canonical tags",
+        )
+    candidate_snapshots = tuple(
+        [
+            await _equivalent_snapshot(
+                session,
+                row,
+                requested_tenant_id=tenant_id,
+            )
+            for row in effective_rows
+        ]
+    )
+    result = match_equivalent_capabilities(
+        source=source_snapshot,
+        candidates=candidate_snapshots,
+        solver=normalized_solver,
+        max_results=max_results,
+        include_source=include_source,
+    )
+    response = EquivalentCapabilityResponse.model_validate(result.to_response())
+    await _cache_set(cache_backend, key, response.model_dump(mode="json"))
+    return response
 
 
 @router.get("/capabilities/{k_algo}", response_model=CapabilityResponse, tags=["capabilities"])

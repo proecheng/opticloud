@@ -672,6 +672,228 @@ async def test_capability_vocab_write_auth_and_cache_invalidation(
     assert client.fake_cache.store == {}  # type: ignore[attr-defined]
 
 
+async def test_capability_equivalents_rank_by_precision_then_version(
+    client: AsyncClient,
+) -> None:
+    await seed_lp_vocab(client)
+    await client.put("/v1/providers/highs", json=provider_payload())
+    await client.put(
+        "/v1/providers/scipy",
+        json=provider_payload(
+            provider_id="scipy",
+            kind="open_source",
+            display_name="SciPy",
+            provider_url="https://scipy.org/",
+        ),
+    )
+    await client.put(
+        "/v1/providers/commercial-lp",
+        json=provider_payload(
+            provider_id="commercial-lp",
+            kind="commercial",
+            display_name="Commercial LP",
+            provider_url="https://commercial.example.com/",
+        ),
+    )
+    source = await client.put(
+        "/v1/capabilities/highs-lp",
+        json=capability_payload(
+            model_version="1.9.0",
+            tags=["lp"],
+            metadata={"matching": {"precision": 0.91}, "raw_request": "must stay private"},
+        ),
+    )
+    assert source.status_code == 200, source.text
+    scipy = await client.put(
+        "/v1/capabilities/scipy-lp",
+        json=capability_payload(
+            provider_id="scipy",
+            model_version="1.8.9",
+            tags=["lp"],
+            metadata={"matching": {"precision": 0.94}},
+        ),
+    )
+    assert scipy.status_code == 200, scipy.text
+    commercial = await client.put(
+        "/v1/capabilities/commercial-lp",
+        json=capability_payload(
+            provider_id="commercial-lp",
+            model_version="1.9.1",
+            tags=["lp"],
+            metadata={"matching": {"precision": 0.98}},
+        ),
+    )
+    assert commercial.status_code == 200, commercial.text
+
+    response = await client.get("/v1/capabilities/highs-lp/equivalents?solver=highs")
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["ranking_version"] == "capability-equivalent-matching-v1"
+    assert body["source"]["k_algo"] == "highs-lp"
+    assert body["solver"] == "highs"
+    assert body["required_tags"] == ["lp"]
+    assert [candidate["k_algo"] for candidate in body["candidates"]] == [
+        "commercial-lp",
+        "scipy-lp",
+    ]
+    assert body["candidates"][0]["rank"] == 1
+    assert body["candidates"][0]["precision"] == "0.980000"
+    assert body["candidates"][0]["score_breakdown"]["precision"] == "0.980000"
+    assert body["candidates"][0]["version_distance"]["parseable"] is True
+    assert "metadata" not in body["candidates"][0]
+    assert "raw_request" not in response.text
+
+
+async def test_capability_equivalents_reject_boundaries_and_keep_200_empty(
+    client: AsyncClient,
+) -> None:
+    await seed_lp_vocab(client)
+    await client.put("/v1/providers/highs", json=provider_payload())
+    await client.put(
+        "/v1/providers/inactive",
+        json=provider_payload(
+            provider_id="inactive",
+            display_name="Inactive LP",
+            provider_url="https://inactive.example.com/",
+            status="inactive",
+        ),
+    )
+    source = await client.put(
+        "/v1/capabilities/highs-lp",
+        json=capability_payload(tags=["lp"], metadata={"matching": {"precision": 0.9}}),
+    )
+    assert source.status_code == 200, source.text
+    inactive = await client.put(
+        "/v1/capabilities/inactive-lp",
+        json=capability_payload(
+            provider_id="inactive",
+            model_version="1.9.0",
+            tags=["lp"],
+            metadata={"matching": {"precision": 1.0}},
+        ),
+    )
+    assert inactive.status_code == 200, inactive.text
+
+    missing = await client.get("/v1/capabilities/missing/equivalents?solver=highs")
+    assert missing.status_code == 404
+
+    unsupported_solver = await client.get("/v1/capabilities/highs-lp/equivalents?solver=cbc")
+    assert unsupported_solver.status_code == 422
+
+    blank_solver = await client.get("/v1/capabilities/highs-lp/equivalents?solver=%20")
+    assert blank_solver.status_code == 422
+
+    empty = await client.get("/v1/capabilities/highs-lp/equivalents?solver=highs")
+    assert empty.status_code == 200, empty.text
+    body = empty.json()
+    assert body["candidates"] == []
+    assert body["rejection_counts"]["provider_not_active"] == 1
+
+    include_source = await client.get(
+        "/v1/capabilities/highs-lp/equivalents?solver=highs&include_source=true"
+    )
+    assert include_source.status_code == 200, include_source.text
+    assert [candidate["k_algo"] for candidate in include_source.json()["candidates"]] == [
+        "highs-lp"
+    ]
+
+    no_tag = await client.put(
+        "/v1/capabilities/no-tag-lp",
+        json=capability_payload(model_version="2.0.0", tags=[]),
+    )
+    assert no_tag.status_code == 200, no_tag.text
+    no_tag_response = await client.get("/v1/capabilities/no-tag-lp/equivalents?solver=highs")
+    assert no_tag_response.status_code == 422
+    assert "no canonical tags" in no_tag_response.text
+
+
+async def test_capability_equivalents_tenant_fallback_cache_and_invalid_precision(
+    client: AsyncClient,
+) -> None:
+    tenant_id = str(uuid.uuid4())
+    await seed_lp_vocab(client)
+    await seed_lp_vocab(client, tenant_id=tenant_id)
+    await client.put("/v1/providers/highs", json=provider_payload())
+    await client.put(
+        "/v1/providers/tenant-lp",
+        json=provider_payload(
+            tenant_id=tenant_id,
+            provider_id="tenant-lp",
+            display_name="Tenant LP",
+            provider_url="https://tenant.example.com/",
+        ),
+    )
+    await client.put(
+        "/v1/providers/bad-precision",
+        json=provider_payload(
+            provider_id="bad-precision",
+            display_name="Bad Precision",
+            provider_url="https://bad.example.com/",
+        ),
+    )
+    source = await client.put(
+        "/v1/capabilities/highs-lp",
+        json=capability_payload(tenant_id=tenant_id, tags=["lp"]),
+    )
+    assert source.status_code == 200, source.text
+    tenant_candidate = await client.put(
+        "/v1/capabilities/tenant-lp",
+        json=capability_payload(
+            tenant_id=tenant_id,
+            provider_id="tenant-lp",
+            model_version="1.9.0",
+            tags=["lp"],
+            metadata={"matching": {"precision": 0.95}},
+        ),
+    )
+    assert tenant_candidate.status_code == 200, tenant_candidate.text
+    invalid_precision = await client.put(
+        "/v1/capabilities/bad-precision-lp",
+        json=capability_payload(
+            provider_id="bad-precision",
+            model_version="1.9.0",
+            tags=["lp"],
+            metadata={"matching": {"precision": "excellent"}},
+        ),
+    )
+    assert invalid_precision.status_code == 200, invalid_precision.text
+
+    first = await client.get(
+        f"/v1/capabilities/highs-lp/equivalents?tenant_id={tenant_id}&solver=highs"
+    )
+    assert first.status_code == 200, first.text
+    assert [candidate["k_algo"] for candidate in first.json()["candidates"]] == ["tenant-lp"]
+    assert first.json()["rejection_counts"]["invalid_precision"] == 1
+    assert client.fake_cache.store  # type: ignore[attr-defined]
+
+    update = await client.put(
+        "/v1/capabilities/tenant-lp",
+        json=capability_payload(
+            tenant_id=tenant_id,
+            provider_id="tenant-lp",
+            model_version="1.9.0",
+            tags=["lp"],
+            metadata={"matching": {"precision": 0.99}},
+        ),
+    )
+    assert update.status_code == 200, update.text
+    assert client.fake_cache.store == {}  # type: ignore[attr-defined]
+
+    second = await client.get(
+        f"/v1/capabilities/highs-lp/equivalents?tenant_id={tenant_id}&solver=highs"
+    )
+    assert second.status_code == 200, second.text
+    assert second.json()["candidates"][0]["precision"] == "0.990000"
+
+    client.fake_cache.unavailable = True  # type: ignore[attr-defined]
+    fallback = await client.get(
+        f"/v1/capabilities/highs-lp/equivalents?tenant_id={tenant_id}&solver=highs"
+    )
+    assert fallback.status_code == 200, fallback.text
+    assert fallback.json()["candidates"][0]["k_algo"] == "tenant-lp"
+
+
 async def test_schema_constraints_prevent_duplicate_global_rows(engine: AsyncEngine) -> None:
     maker = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
     async with maker() as session:
