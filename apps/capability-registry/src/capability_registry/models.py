@@ -127,6 +127,97 @@ class CapabilityTag(Base):
     )
 
 
+class CapabilityVocabTerm(Base):
+    """Governed canonical capability vocabulary term."""
+
+    __tablename__ = "capability_vocab_terms"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()
+    )
+    tenant_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    tag: Mapped[str] = mapped_column(String(64), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="draft")
+    task_type: Mapped[str] = mapped_column(String(64), nullable=False, default="")
+    label_zh: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    label_en: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    description_zh: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    description_en: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    parent_tag: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    replaces_tag: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    term_metadata: Mapped[dict[str, Any]] = mapped_column(
+        "metadata", JSONB, nullable=False, default=dict
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    __table_args__ = (
+        Index(
+            "uq_capability_vocab_terms_global_tag",
+            "tag",
+            unique=True,
+            postgresql_where=text("tenant_id IS NULL"),
+        ),
+        Index(
+            "uq_capability_vocab_terms_tenant_tag",
+            "tenant_id",
+            "tag",
+            unique=True,
+            postgresql_where=text("tenant_id IS NOT NULL"),
+        ),
+        Index("idx_capability_vocab_terms_lookup", "tenant_id", "status", "task_type", "tag"),
+    )
+
+
+class CapabilityVocabAlias(Base):
+    """Alias that resolves provider-submitted vocab text to a canonical tag."""
+
+    __tablename__ = "capability_vocab_aliases"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()
+    )
+    tenant_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    alias: Mapped[str] = mapped_column(String(64), nullable=False)
+    canonical_tag: Mapped[str] = mapped_column(String(64), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="active")
+    alias_metadata: Mapped[dict[str, Any]] = mapped_column(
+        "metadata", JSONB, nullable=False, default=dict
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    __table_args__ = (
+        Index(
+            "uq_capability_vocab_aliases_global_alias",
+            "alias",
+            unique=True,
+            postgresql_where=text("tenant_id IS NULL"),
+        ),
+        Index(
+            "uq_capability_vocab_aliases_tenant_alias",
+            "tenant_id",
+            "alias",
+            unique=True,
+            postgresql_where=text("tenant_id IS NOT NULL"),
+        ),
+        Index(
+            "idx_capability_vocab_aliases_canonical",
+            "tenant_id",
+            "canonical_tag",
+            "status",
+        ),
+    )
+
+
 class ProviderOAuthFlow(Base):
     """Provider OAuth metadata stub.
 

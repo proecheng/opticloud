@@ -28,6 +28,8 @@ from capability_registry.models import (
     Capability,
     CapabilityProvider,
     CapabilityTag,
+    CapabilityVocabAlias,
+    CapabilityVocabTerm,
     ProviderApplication,
     ProviderApplicationEvaluationRequest,
     ProviderGradientRollout,
@@ -43,6 +45,10 @@ from capability_registry.models import (
 from capability_registry.schemas import (
     CapabilityResponse,
     CapabilityUpsertRequest,
+    CapabilityVocabAliasResponse,
+    CapabilityVocabTermResponse,
+    CapabilityVocabTermStatus,
+    CapabilityVocabTermUpsertRequest,
     ModelVersion,
     OAuthFlowResponse,
     OAuthFlowUpsertRequest,
@@ -281,6 +287,62 @@ async def _load_capability_row(
     ).scalar_one_or_none()
 
 
+async def _load_vocab_term_row(
+    session: AsyncSession,
+    *,
+    tag: str,
+    tenant_id: uuid.UUID | None,
+    allow_global_fallback: bool,
+) -> CapabilityVocabTerm | None:
+    if tenant_id is not None:
+        row = (
+            await session.execute(
+                select(CapabilityVocabTerm).where(
+                    CapabilityVocabTerm.tag == tag,
+                    CapabilityVocabTerm.tenant_id == tenant_id,
+                )
+            )
+        ).scalar_one_or_none()
+        if row is not None or not allow_global_fallback:
+            return row
+    return (
+        await session.execute(
+            select(CapabilityVocabTerm).where(
+                CapabilityVocabTerm.tag == tag,
+                CapabilityVocabTerm.tenant_id.is_(None),
+            )
+        )
+    ).scalar_one_or_none()
+
+
+async def _load_vocab_alias_row(
+    session: AsyncSession,
+    *,
+    alias: str,
+    tenant_id: uuid.UUID | None,
+    allow_global_fallback: bool,
+) -> CapabilityVocabAlias | None:
+    if tenant_id is not None:
+        row = (
+            await session.execute(
+                select(CapabilityVocabAlias).where(
+                    CapabilityVocabAlias.alias == alias,
+                    CapabilityVocabAlias.tenant_id == tenant_id,
+                )
+            )
+        ).scalar_one_or_none()
+        if row is not None or not allow_global_fallback:
+            return row
+    return (
+        await session.execute(
+            select(CapabilityVocabAlias).where(
+                CapabilityVocabAlias.alias == alias,
+                CapabilityVocabAlias.tenant_id.is_(None),
+            )
+        )
+    ).scalar_one_or_none()
+
+
 async def _provider_response(
     row: CapabilityProvider,
     *,
@@ -302,6 +364,159 @@ async def _provider_response(
         created_at=row.created_at,
         updated_at=row.updated_at,
     )
+
+
+def _vocab_alias_response(row: CapabilityVocabAlias) -> CapabilityVocabAliasResponse:
+    return CapabilityVocabAliasResponse(
+        id=row.id,
+        tenant_id=row.tenant_id,
+        alias=row.alias,
+        canonical_tag=row.canonical_tag,
+        status=cast(Any, row.status),
+        metadata=dict(row.alias_metadata),
+        created_at=row.created_at,
+        updated_at=row.updated_at,
+    )
+
+
+async def _vocab_aliases_for_term(
+    session: AsyncSession,
+    row: CapabilityVocabTerm,
+) -> list[CapabilityVocabAliasResponse]:
+    conditions: list[ColumnElement[bool]] = [
+        CapabilityVocabAlias.canonical_tag == row.tag,
+        (
+            CapabilityVocabAlias.tenant_id.is_(None)
+            if row.tenant_id is None
+            else CapabilityVocabAlias.tenant_id == row.tenant_id
+        ),
+    ]
+    aliases = (
+        await session.execute(
+            select(CapabilityVocabAlias).where(*conditions).order_by(CapabilityVocabAlias.alias)
+        )
+    ).scalars()
+    return [_vocab_alias_response(alias) for alias in aliases]
+
+
+async def _vocab_term_response(
+    session: AsyncSession,
+    row: CapabilityVocabTerm,
+    *,
+    requested_tenant_id: uuid.UUID | None,
+    include_aliases: bool,
+) -> CapabilityVocabTermResponse:
+    aliases = await _vocab_aliases_for_term(session, row) if include_aliases else []
+    return CapabilityVocabTermResponse(
+        id=row.id,
+        tenant_id=row.tenant_id,
+        tag=row.tag,
+        status=cast(Any, row.status),
+        task_type=row.task_type,
+        label_zh=row.label_zh,
+        label_en=row.label_en,
+        description_zh=row.description_zh,
+        description_en=row.description_en,
+        parent_tag=row.parent_tag,
+        replaces_tag=row.replaces_tag,
+        aliases=aliases,
+        metadata=dict(row.term_metadata),
+        scope_source=_scope_source(row.tenant_id, requested_tenant_id),
+        created_at=row.created_at,
+        updated_at=row.updated_at,
+    )
+
+
+async def _resolve_vocab_reference(
+    session: AsyncSession,
+    *,
+    tag: str,
+    tenant_id: uuid.UUID | None,
+    field_name: str,
+) -> None:
+    row = await _load_vocab_term_row(
+        session,
+        tag=tag,
+        tenant_id=tenant_id,
+        allow_global_fallback=tenant_id is not None,
+    )
+    if row is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"{field_name} vocab term not found",
+        )
+
+
+async def _canonical_tag_for_capability_input(
+    session: AsyncSession,
+    *,
+    tag: str,
+    tenant_id: uuid.UUID | None,
+) -> str:
+    term = await _load_vocab_term_row(
+        session,
+        tag=tag,
+        tenant_id=tenant_id,
+        allow_global_fallback=tenant_id is not None,
+    )
+    alias = await _load_vocab_alias_row(
+        session,
+        alias=tag,
+        tenant_id=tenant_id,
+        allow_global_fallback=tenant_id is not None,
+    )
+    if term is not None and term.status != "active":
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"capability vocab tag {tag} is not active",
+        )
+    if alias is not None and alias.status != "active":
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"capability vocab alias {tag} is not active",
+        )
+    if term is not None and alias is not None and alias.canonical_tag != term.tag:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"capability vocab input {tag} resolves ambiguously",
+        )
+    if term is not None:
+        return term.tag
+    if alias is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"capability vocab tag {tag} not found",
+        )
+    canonical = await _load_vocab_term_row(
+        session,
+        tag=alias.canonical_tag,
+        tenant_id=alias.tenant_id,
+        allow_global_fallback=alias.tenant_id is not None,
+    )
+    if canonical is None or canonical.status != "active":
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"canonical capability vocab tag {alias.canonical_tag} is not active",
+        )
+    return canonical.tag
+
+
+async def _resolve_capability_vocab_tags(
+    session: AsyncSession,
+    *,
+    tags: list[str],
+    tenant_id: uuid.UUID | None,
+) -> list[str]:
+    canonical: set[str] = set()
+    for tag in tags:
+        canonical.add(
+            await _canonical_tag_for_capability_input(
+                session,
+                tag=tag,
+                tenant_id=tenant_id,
+            )
+        )
+    return sorted(canonical)
 
 
 async def _capability_tags(session: AsyncSession, capability_id: uuid.UUID) -> list[str]:
@@ -503,6 +718,260 @@ async def upsert_provider(
     return await _provider_response(row, requested_tenant_id=body.tenant_id)
 
 
+@router.get(
+    "/capability-vocab/terms",
+    response_model=list[CapabilityVocabTermResponse],
+    tags=["capability-vocab"],
+)
+async def list_capability_vocab_terms(
+    tenant_id: uuid.UUID | None = Query(default=None),
+    status_filter: CapabilityVocabTermStatus | None = Query(default=None, alias="status"),
+    task_type: str | None = Query(default=None),
+    include_aliases: bool = Query(default=False),
+    session: AsyncSession = Depends(get_session),
+    cache_backend: CacheBackend = Depends(get_cache),
+) -> list[CapabilityVocabTermResponse]:
+    normalized_task_type = task_type.strip() if task_type is not None else None
+    if not normalized_task_type:
+        normalized_task_type = None
+    key = cache_key(
+        "capability-vocab:terms:list",
+        tenant_id=tenant_id or "global",
+        status=status_filter or "all",
+        task_type=normalized_task_type or "all",
+        include_aliases=include_aliases,
+    )
+    cached = await _cached(cache_backend, key)
+    if isinstance(cached, list):
+        return [CapabilityVocabTermResponse.model_validate(item) for item in cached]
+
+    global_rows = (
+        await session.execute(
+            select(CapabilityVocabTerm)
+            .where(CapabilityVocabTerm.tenant_id.is_(None))
+            .order_by(CapabilityVocabTerm.tag)
+        )
+    ).scalars()
+    rows_by_tag = {row.tag: row for row in global_rows}
+    if tenant_id is not None:
+        tenant_rows = (
+            await session.execute(
+                select(CapabilityVocabTerm)
+                .where(CapabilityVocabTerm.tenant_id == tenant_id)
+                .order_by(CapabilityVocabTerm.tag)
+            )
+        ).scalars()
+        for row in tenant_rows:
+            rows_by_tag[row.tag] = row
+    effective_rows = [
+        row
+        for row in rows_by_tag.values()
+        if (status_filter is None or row.status == status_filter)
+        and (normalized_task_type is None or row.task_type == normalized_task_type)
+    ]
+    responses = [
+        await _vocab_term_response(
+            session,
+            row,
+            requested_tenant_id=tenant_id,
+            include_aliases=include_aliases,
+        )
+        for row in sorted(effective_rows, key=lambda item: item.tag)
+    ]
+    await _cache_set(cache_backend, key, [item.model_dump(mode="json") for item in responses])
+    return responses
+
+
+@router.get(
+    "/capability-vocab/terms/{tag}",
+    response_model=CapabilityVocabTermResponse,
+    tags=["capability-vocab"],
+)
+async def get_capability_vocab_term(
+    tag: Annotated[str, Path(pattern=r"^[a-z0-9][a-z0-9_-]{0,63}$")],
+    tenant_id: uuid.UUID | None = Query(default=None),
+    include_aliases: bool = Query(default=True),
+    session: AsyncSession = Depends(get_session),
+    cache_backend: CacheBackend = Depends(get_cache),
+) -> CapabilityVocabTermResponse:
+    key = cache_key(
+        "capability-vocab:terms:detail",
+        tag=tag,
+        tenant_id=tenant_id or "global",
+        include_aliases=include_aliases,
+    )
+    cached = await _cached(cache_backend, key)
+    if isinstance(cached, dict):
+        return CapabilityVocabTermResponse.model_validate(cached)
+    row = await _load_vocab_term_row(
+        session,
+        tag=tag,
+        tenant_id=tenant_id,
+        allow_global_fallback=tenant_id is not None,
+    )
+    if row is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="capability vocab term not found",
+        )
+    response = await _vocab_term_response(
+        session,
+        row,
+        requested_tenant_id=tenant_id,
+        include_aliases=include_aliases,
+    )
+    await _cache_set(cache_backend, key, response.model_dump(mode="json"))
+    return response
+
+
+@router.put(
+    "/capability-vocab/terms/{tag}",
+    response_model=CapabilityVocabTermResponse,
+    tags=["capability-vocab"],
+)
+async def upsert_capability_vocab_term(
+    tag: Annotated[str, Path(pattern=r"^[a-z0-9][a-z0-9_-]{0,63}$")],
+    body: CapabilityVocabTermUpsertRequest,
+    x_internal_service_auth: str | None = Header(default=None, alias="X-Internal-Service-Auth"),
+    session: AsyncSession = Depends(get_session),
+    cache_backend: CacheBackend = Depends(get_cache),
+) -> CapabilityVocabTermResponse:
+    _require_write_auth(x_internal_service_auth)
+    _assert_path_id(body.tag, tag, "tag")
+    if body.parent_tag == tag:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="parent_tag cannot equal tag",
+        )
+    if body.replaces_tag == tag:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="replaces_tag cannot equal tag",
+        )
+    if body.parent_tag is not None:
+        await _resolve_vocab_reference(
+            session,
+            tag=body.parent_tag,
+            tenant_id=body.tenant_id,
+            field_name="parent_tag",
+        )
+    if body.replaces_tag is not None:
+        await _resolve_vocab_reference(
+            session,
+            tag=body.replaces_tag,
+            tenant_id=body.tenant_id,
+            field_name="replaces_tag",
+        )
+
+    alias_inputs = body.aliases
+    aliases_seen: set[str] = set()
+    for alias in alias_inputs:
+        if alias.alias == tag:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="alias cannot equal canonical tag",
+            )
+        if alias.alias in aliases_seen:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="duplicate alias in request",
+            )
+        aliases_seen.add(alias.alias)
+        existing_alias = await _load_vocab_alias_row(
+            session,
+            alias=alias.alias,
+            tenant_id=body.tenant_id,
+            allow_global_fallback=False,
+        )
+        if existing_alias is not None and existing_alias.canonical_tag != tag:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="capability vocab alias already points to another canonical tag",
+            )
+
+    row = await _load_vocab_term_row(
+        session,
+        tag=tag,
+        tenant_id=body.tenant_id,
+        allow_global_fallback=False,
+    )
+    now = datetime.now(UTC)
+    if row is None:
+        row = CapabilityVocabTerm(
+            tenant_id=body.tenant_id,
+            tag=tag,
+            status=body.status,
+            task_type=body.task_type,
+            label_zh=body.label_zh,
+            label_en=body.label_en,
+            description_zh=body.description_zh,
+            description_en=body.description_en,
+            parent_tag=body.parent_tag,
+            replaces_tag=body.replaces_tag,
+            term_metadata=body.metadata,
+            created_at=now,
+            updated_at=now,
+        )
+        session.add(row)
+    else:
+        row.status = body.status
+        row.task_type = body.task_type
+        row.label_zh = body.label_zh
+        row.label_en = body.label_en
+        row.description_zh = body.description_zh
+        row.description_en = body.description_en
+        row.parent_tag = body.parent_tag
+        row.replaces_tag = body.replaces_tag
+        row.term_metadata = body.metadata
+        row.updated_at = now
+    await session.flush()
+
+    existing_aliases = {
+        alias.alias: alias
+        for alias in (
+            await session.execute(
+                select(CapabilityVocabAlias).where(
+                    CapabilityVocabAlias.canonical_tag == tag,
+                    (
+                        CapabilityVocabAlias.tenant_id.is_(None)
+                        if body.tenant_id is None
+                        else CapabilityVocabAlias.tenant_id == body.tenant_id
+                    ),
+                )
+            )
+        ).scalars()
+    }
+    requested_aliases = {alias.alias for alias in alias_inputs}
+    for alias_value, stale_alias_row in existing_aliases.items():
+        if alias_value not in requested_aliases:
+            await session.delete(stale_alias_row)
+    for alias in alias_inputs:
+        alias_row = existing_aliases.get(alias.alias)
+        if alias_row is None:
+            alias_row = CapabilityVocabAlias(
+                tenant_id=body.tenant_id,
+                alias=alias.alias,
+                canonical_tag=tag,
+                status=alias.status,
+                alias_metadata=alias.metadata,
+                created_at=now,
+                updated_at=now,
+            )
+            session.add(alias_row)
+        else:
+            alias_row.status = alias.status
+            alias_row.alias_metadata = alias.metadata
+            alias_row.updated_at = now
+    await session.flush()
+    await _invalidate_cache(cache_backend)
+    return await _vocab_term_response(
+        session,
+        row,
+        requested_tenant_id=body.tenant_id,
+        include_aliases=True,
+    )
+
+
 @router.get("/capabilities", response_model=list[CapabilityResponse], tags=["capabilities"])
 async def list_capabilities(
     tenant_id: uuid.UUID | None = Query(default=None),
@@ -581,6 +1050,11 @@ async def upsert_capability(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="provider not found"
         )
+    canonical_tags = await _resolve_capability_vocab_tags(
+        session,
+        tags=body.tags,
+        tenant_id=body.tenant_id,
+    )
     row = await _load_capability_row(
         session,
         k_algo=k_algo,
@@ -621,7 +1095,7 @@ async def upsert_capability(
         row.updated_at = now
         await session.flush()
     await session.execute(delete(CapabilityTag).where(CapabilityTag.capability_id == row.id))
-    for tag in body.tags:
+    for tag in canonical_tags:
         session.add(CapabilityTag(capability_id=row.id, tag=tag, created_at=now))
     await session.flush()
     await _invalidate_cache(cache_backend)

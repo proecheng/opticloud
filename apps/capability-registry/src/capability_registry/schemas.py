@@ -56,6 +56,8 @@ ProviderRouteShareAction = Literal["created", "advance", "pause", "cancel"]
 ScopeSource = Literal["global", "tenant", "global_fallback"]
 ProviderDashboardScopeSource = Literal["global", "tenant"]
 ProviderRouteShareScopeSource = ProviderDashboardScopeSource
+CapabilityVocabTermStatus = Literal["draft", "active", "deprecated"]
+CapabilityVocabAliasStatus = Literal["active", "deprecated"]
 
 _ID_PATTERN = r"^[a-z0-9][a-z0-9-]{0,63}$"
 _BENCHMARK_SUITE_PATTERN = r"^[a-z0-9][a-z0-9_-]{0,63}$"
@@ -238,6 +240,116 @@ class CapabilityResponse(BaseModel):
     examples: list[dict[str, Any]]
     metadata: dict[str, Any]
     tags: list[str]
+    scope_source: ScopeSource
+    created_at: datetime
+    updated_at: datetime
+
+
+class CapabilityVocabAliasUpsertRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    alias: str = Field(..., min_length=1, max_length=64)
+    status: CapabilityVocabAliasStatus = "active"
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("alias")
+    @classmethod
+    def normalize_alias(cls, value: str) -> str:
+        return normalize_tag(value)
+
+    @field_validator("metadata")
+    @classmethod
+    def validate_alias_metadata(cls, value: dict[str, Any]) -> dict[str, Any]:
+        _reject_forbidden_reference_fields(value)
+        return value
+
+
+class CapabilityVocabTermUpsertRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    tenant_id: uuid.UUID | None = None
+    tag: str | None = Field(default=None, min_length=1, max_length=64)
+    status: CapabilityVocabTermStatus = "draft"
+    task_type: str = Field(default="", max_length=64)
+    label_zh: str = ""
+    label_en: str = ""
+    description_zh: str = ""
+    description_en: str = ""
+    parent_tag: str | None = None
+    replaces_tag: str | None = None
+    aliases: list[CapabilityVocabAliasUpsertRequest] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("tag", "parent_tag", "replaces_tag")
+    @classmethod
+    def normalize_optional_tag(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return normalize_tag(value)
+
+    @field_validator("task_type", "label_zh", "label_en", "description_zh", "description_en")
+    @classmethod
+    def strip_text(cls, value: str) -> str:
+        return value.strip()
+
+    @field_validator("metadata")
+    @classmethod
+    def validate_term_metadata(cls, value: dict[str, Any]) -> dict[str, Any]:
+        _reject_forbidden_reference_fields(value)
+        return value
+
+    @model_validator(mode="after")
+    def validate_active_term(self) -> CapabilityVocabTermUpsertRequest:
+        if self.parent_tag is not None and self.tag is not None and self.parent_tag == self.tag:
+            raise ValueError("parent_tag cannot equal tag")
+        if self.replaces_tag is not None and self.tag is not None and self.replaces_tag == self.tag:
+            raise ValueError("replaces_tag cannot equal tag")
+        if self.status == "active":
+            missing = [
+                field_name
+                for field_name in (
+                    "task_type",
+                    "label_zh",
+                    "label_en",
+                    "description_zh",
+                    "description_en",
+                )
+                if not getattr(self, field_name)
+            ]
+            if missing:
+                raise ValueError(f"active vocab terms require fields: {', '.join(missing)}")
+        return self
+
+
+class CapabilityVocabAliasResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: uuid.UUID
+    tenant_id: uuid.UUID | None = None
+    alias: str = Field(..., pattern=_TAG_PATTERN.pattern)
+    canonical_tag: str = Field(..., pattern=_TAG_PATTERN.pattern)
+    status: CapabilityVocabAliasStatus
+    metadata: dict[str, Any]
+    created_at: datetime
+    updated_at: datetime
+
+
+class CapabilityVocabTermResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: uuid.UUID
+    tenant_id: uuid.UUID | None = None
+    tag: str = Field(..., pattern=_TAG_PATTERN.pattern)
+    status: CapabilityVocabTermStatus
+    task_type: str
+    label_zh: str
+    label_en: str
+    description_zh: str
+    description_en: str
+    parent_tag: str | None = Field(default=None, pattern=_TAG_PATTERN.pattern)
+    replaces_tag: str | None = Field(default=None, pattern=_TAG_PATTERN.pattern)
+    aliases: list[CapabilityVocabAliasResponse] = Field(default_factory=list)
+    metadata: dict[str, Any]
     scope_source: ScopeSource
     created_at: datetime
     updated_at: datetime
