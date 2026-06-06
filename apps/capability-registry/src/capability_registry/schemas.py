@@ -245,6 +245,79 @@ class CapabilityResponse(BaseModel):
     updated_at: datetime
 
 
+class EquivalentVersionDistance(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    parseable: bool
+    distance: int | None = Field(default=None, ge=0)
+
+
+class EquivalentCapabilitySource(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    k_algo: str = Field(..., pattern=_ID_PATTERN)
+    provider_id: str = Field(..., pattern=_ID_PATTERN)
+    model_version: str = Field(..., min_length=1, max_length=64)
+    provider_kind: ProviderKind
+    provider_url: str = Field(..., min_length=1)
+    task_type: str = Field(..., min_length=1, max_length=64)
+    supported_solvers: list[str]
+    tags: list[str]
+    scope_source: ScopeSource
+
+
+class EquivalentCandidateScoreBreakdown(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    precision: str
+    version_distance: EquivalentVersionDistance
+    provider_kind: ProviderKind
+
+
+class EquivalentCapabilityCandidate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    rank: int = Field(..., ge=1)
+    k_algo: str = Field(..., pattern=_ID_PATTERN)
+    provider_id: str = Field(..., pattern=_ID_PATTERN)
+    model_version: str = Field(..., min_length=1, max_length=64)
+    provider_kind: ProviderKind
+    provider_url: str = Field(..., min_length=1)
+    task_type: str = Field(..., min_length=1, max_length=64)
+    supported_solvers: list[str]
+    tags: list[str]
+    precision: str
+    version_distance: EquivalentVersionDistance
+    score: str
+    score_breakdown: EquivalentCandidateScoreBreakdown
+    scope_source: ScopeSource
+
+
+class EquivalentRejectionCounts(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    source_excluded: int = Field(default=0, ge=0)
+    task_type_mismatch: int = Field(default=0, ge=0)
+    tag_mismatch: int = Field(default=0, ge=0)
+    solver_mismatch: int = Field(default=0, ge=0)
+    provider_missing: int = Field(default=0, ge=0)
+    provider_not_active: int = Field(default=0, ge=0)
+    capability_not_eligible: int = Field(default=0, ge=0)
+    invalid_precision: int = Field(default=0, ge=0)
+
+
+class EquivalentCapabilityResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    ranking_version: str
+    source: EquivalentCapabilitySource
+    solver: str
+    required_tags: list[str]
+    total_candidates_considered: int = Field(..., ge=0)
+    rejection_counts: EquivalentRejectionCounts
+    candidates: list[EquivalentCapabilityCandidate]
+
+
 class CapabilityVocabAliasUpsertRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

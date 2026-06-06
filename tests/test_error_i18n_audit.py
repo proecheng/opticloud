@@ -103,7 +103,7 @@ def test_contract_pins_scope_scan_classes_and_observed_state() -> None:
     assert contract["rule_id"] == "error-message-i18n-single-source"
     assert [item["scan_class"] for item in contract["scan_classes"]] == list(validator.SCAN_CLASSES)
     assert contract["observed_repo_state"] == validator.discover_repo_state()
-    assert contract["observed_repo_state"]["legacy_http_exception_register"]["total_count"] == 176
+    assert contract["observed_repo_state"]["legacy_http_exception_register"]["total_count"] == 180
 
 
 def test_contract_rejects_scan_class_and_observed_state_drift() -> None:
@@ -304,9 +304,9 @@ def test_legacy_http_exception_register_is_discovered_and_pinned() -> None:
     validator = _load_validator()
     register = validator.discover_legacy_http_exception_register()
 
-    assert register["total_count"] == 176
+    assert register["total_count"] == 180
     assert register["by_file"]["apps/auth-service/src/auth_service/routes.py"] == 38
-    assert register["by_file"]["apps/capability-registry/src/capability_registry/routes.py"] == 95
+    assert register["by_file"]["apps/capability-registry/src/capability_registry/routes.py"] == 99
 
 
 def test_real_evidence_requires_tickets_for_legacy_or_failed_scan() -> None:

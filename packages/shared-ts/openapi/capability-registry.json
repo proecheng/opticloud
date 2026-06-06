@@ -570,6 +570,345 @@
         "title": "CapabilityVocabTermUpsertRequest",
         "type": "object"
       },
+      "EquivalentCandidateScoreBreakdown": {
+        "additionalProperties": false,
+        "properties": {
+          "precision": {
+            "title": "Precision",
+            "type": "string"
+          },
+          "provider_kind": {
+            "enum": [
+              "self",
+              "open_source",
+              "external",
+              "commercial"
+            ],
+            "title": "Provider Kind",
+            "type": "string"
+          },
+          "version_distance": {
+            "$ref": "#/components/schemas/EquivalentVersionDistance"
+          }
+        },
+        "required": [
+          "precision",
+          "version_distance",
+          "provider_kind"
+        ],
+        "title": "EquivalentCandidateScoreBreakdown",
+        "type": "object"
+      },
+      "EquivalentCapabilityCandidate": {
+        "additionalProperties": false,
+        "properties": {
+          "k_algo": {
+            "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+            "title": "K Algo",
+            "type": "string"
+          },
+          "model_version": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Model Version",
+            "type": "string"
+          },
+          "precision": {
+            "title": "Precision",
+            "type": "string"
+          },
+          "provider_id": {
+            "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+            "title": "Provider Id",
+            "type": "string"
+          },
+          "provider_kind": {
+            "enum": [
+              "self",
+              "open_source",
+              "external",
+              "commercial"
+            ],
+            "title": "Provider Kind",
+            "type": "string"
+          },
+          "provider_url": {
+            "minLength": 1,
+            "title": "Provider Url",
+            "type": "string"
+          },
+          "rank": {
+            "minimum": 1.0,
+            "title": "Rank",
+            "type": "integer"
+          },
+          "scope_source": {
+            "enum": [
+              "global",
+              "tenant",
+              "global_fallback"
+            ],
+            "title": "Scope Source",
+            "type": "string"
+          },
+          "score": {
+            "title": "Score",
+            "type": "string"
+          },
+          "score_breakdown": {
+            "$ref": "#/components/schemas/EquivalentCandidateScoreBreakdown"
+          },
+          "supported_solvers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Supported Solvers",
+            "type": "array"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tags",
+            "type": "array"
+          },
+          "task_type": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Task Type",
+            "type": "string"
+          },
+          "version_distance": {
+            "$ref": "#/components/schemas/EquivalentVersionDistance"
+          }
+        },
+        "required": [
+          "rank",
+          "k_algo",
+          "provider_id",
+          "model_version",
+          "provider_kind",
+          "provider_url",
+          "task_type",
+          "supported_solvers",
+          "tags",
+          "precision",
+          "version_distance",
+          "score",
+          "score_breakdown",
+          "scope_source"
+        ],
+        "title": "EquivalentCapabilityCandidate",
+        "type": "object"
+      },
+      "EquivalentCapabilityResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/EquivalentCapabilityCandidate"
+            },
+            "title": "Candidates",
+            "type": "array"
+          },
+          "ranking_version": {
+            "title": "Ranking Version",
+            "type": "string"
+          },
+          "rejection_counts": {
+            "$ref": "#/components/schemas/EquivalentRejectionCounts"
+          },
+          "required_tags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Required Tags",
+            "type": "array"
+          },
+          "solver": {
+            "title": "Solver",
+            "type": "string"
+          },
+          "source": {
+            "$ref": "#/components/schemas/EquivalentCapabilitySource"
+          },
+          "total_candidates_considered": {
+            "minimum": 0.0,
+            "title": "Total Candidates Considered",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "ranking_version",
+          "source",
+          "solver",
+          "required_tags",
+          "total_candidates_considered",
+          "rejection_counts",
+          "candidates"
+        ],
+        "title": "EquivalentCapabilityResponse",
+        "type": "object"
+      },
+      "EquivalentCapabilitySource": {
+        "additionalProperties": false,
+        "properties": {
+          "k_algo": {
+            "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+            "title": "K Algo",
+            "type": "string"
+          },
+          "model_version": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Model Version",
+            "type": "string"
+          },
+          "provider_id": {
+            "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+            "title": "Provider Id",
+            "type": "string"
+          },
+          "provider_kind": {
+            "enum": [
+              "self",
+              "open_source",
+              "external",
+              "commercial"
+            ],
+            "title": "Provider Kind",
+            "type": "string"
+          },
+          "provider_url": {
+            "minLength": 1,
+            "title": "Provider Url",
+            "type": "string"
+          },
+          "scope_source": {
+            "enum": [
+              "global",
+              "tenant",
+              "global_fallback"
+            ],
+            "title": "Scope Source",
+            "type": "string"
+          },
+          "supported_solvers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Supported Solvers",
+            "type": "array"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tags",
+            "type": "array"
+          },
+          "task_type": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Task Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "k_algo",
+          "provider_id",
+          "model_version",
+          "provider_kind",
+          "provider_url",
+          "task_type",
+          "supported_solvers",
+          "tags",
+          "scope_source"
+        ],
+        "title": "EquivalentCapabilitySource",
+        "type": "object"
+      },
+      "EquivalentRejectionCounts": {
+        "additionalProperties": false,
+        "properties": {
+          "capability_not_eligible": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Capability Not Eligible",
+            "type": "integer"
+          },
+          "invalid_precision": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Invalid Precision",
+            "type": "integer"
+          },
+          "provider_missing": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Provider Missing",
+            "type": "integer"
+          },
+          "provider_not_active": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Provider Not Active",
+            "type": "integer"
+          },
+          "solver_mismatch": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Solver Mismatch",
+            "type": "integer"
+          },
+          "source_excluded": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Source Excluded",
+            "type": "integer"
+          },
+          "tag_mismatch": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Tag Mismatch",
+            "type": "integer"
+          },
+          "task_type_mismatch": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Task Type Mismatch",
+            "type": "integer"
+          }
+        },
+        "title": "EquivalentRejectionCounts",
+        "type": "object"
+      },
+      "EquivalentVersionDistance": {
+        "additionalProperties": false,
+        "properties": {
+          "distance": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Distance"
+          },
+          "parseable": {
+            "title": "Parseable",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "parseable"
+        ],
+        "title": "EquivalentVersionDistance",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -5500,6 +5839,98 @@
           }
         },
         "summary": "Upsert Capability",
+        "tags": [
+          "capabilities"
+        ]
+      }
+    },
+    "/v1/capabilities/{k_algo}/equivalents": {
+      "get": {
+        "operationId": "get_capability_equivalents_v1_capabilities__k_algo__equivalents_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "k_algo",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+              "title": "K Algo",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "solver",
+            "required": true,
+            "schema": {
+              "minLength": 1,
+              "title": "Solver",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "tenant_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tenant Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "max_results",
+            "required": false,
+            "schema": {
+              "default": 10,
+              "maximum": 50,
+              "minimum": 1,
+              "title": "Max Results",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "include_source",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Include Source",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EquivalentCapabilityResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Capability Equivalents",
         "tags": [
           "capabilities"
         ]
