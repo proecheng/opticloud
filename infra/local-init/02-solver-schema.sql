@@ -154,6 +154,209 @@ ALTER TABLE reproduction_vouchers
 CREATE INDEX IF NOT EXISTS idx_reproduction_vouchers_parent_voucher_id
     ON reproduction_vouchers(parent_voucher_id);
 
+-- Story 6.C.2: Provider exit >=30d notification control-plane.
+CREATE TABLE IF NOT EXISTS provider_exit_plans (
+    id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    provider_id             VARCHAR(96) NOT NULL,
+    effective_at            TIMESTAMPTZ NOT NULL,
+    status                  VARCHAR(32) NOT NULL DEFAULT 'scheduled',
+    reason                  VARCHAR(255) NOT NULL,
+    replacement_provider_id VARCHAR(96) NULL,
+    public_message          VARCHAR(500) NULL,
+    created_by              VARCHAR(64) NOT NULL DEFAULT 'admin-secret',
+    created_at              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT ck_provider_exit_plans_provider_id
+        CHECK (provider_id ~ '^[a-z0-9][a-z0-9_.:-]{1,94}$'),
+    CONSTRAINT ck_provider_exit_plans_replacement_provider_id
+        CHECK (
+            replacement_provider_id IS NULL
+            OR replacement_provider_id ~ '^[a-z0-9][a-z0-9_.:-]{1,94}$'
+        ),
+    CONSTRAINT ck_provider_exit_plans_status
+        CHECK (status IN ('scheduled', 'cancelled', 'completed'))
+);
+
+ALTER TABLE provider_exit_plans
+    DROP CONSTRAINT IF EXISTS ck_provider_exit_plans_provider_id;
+ALTER TABLE provider_exit_plans
+    ADD CONSTRAINT ck_provider_exit_plans_provider_id
+    CHECK (provider_id ~ '^[a-z0-9][a-z0-9_.:-]{1,94}$');
+
+ALTER TABLE provider_exit_plans
+    DROP CONSTRAINT IF EXISTS ck_provider_exit_plans_replacement_provider_id;
+ALTER TABLE provider_exit_plans
+    ADD CONSTRAINT ck_provider_exit_plans_replacement_provider_id
+    CHECK (
+        replacement_provider_id IS NULL
+        OR replacement_provider_id ~ '^[a-z0-9][a-z0-9_.:-]{1,94}$'
+    );
+
+ALTER TABLE provider_exit_plans
+    DROP CONSTRAINT IF EXISTS ck_provider_exit_plans_status;
+ALTER TABLE provider_exit_plans
+    ADD CONSTRAINT ck_provider_exit_plans_status
+    CHECK (status IN ('scheduled', 'cancelled', 'completed'));
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_provider_exit_plans_provider_effective
+    ON provider_exit_plans(provider_id, effective_at);
+
+CREATE INDEX IF NOT EXISTS idx_provider_exit_plans_provider_status
+    ON provider_exit_plans(provider_id, status);
+
+CREATE TABLE IF NOT EXISTS provider_exit_notification_requests (
+    id                          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    exit_plan_id                UUID NOT NULL REFERENCES provider_exit_plans(id) ON DELETE CASCADE,
+    user_id                     UUID NOT NULL,
+    provider_id                 VARCHAR(96) NOT NULL,
+    status_url                  TEXT NOT NULL,
+    affected_voucher_count      INTEGER NOT NULL,
+    channels                    TEXT[] NOT NULL DEFAULT ARRAY['email', 'in_app']::TEXT[],
+    email_requested             BOOLEAN NOT NULL DEFAULT TRUE,
+    in_app_requested            BOOLEAN NOT NULL DEFAULT TRUE,
+    webhook_requested           BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at                  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at                  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT ck_provider_exit_notification_requests_provider_id
+        CHECK (provider_id ~ '^[a-z0-9][a-z0-9_.:-]{1,94}$'),
+    CONSTRAINT ck_provider_exit_notification_requests_voucher_count
+        CHECK (affected_voucher_count >= 1),
+    CONSTRAINT ck_provider_exit_notification_requests_channels
+        CHECK (channels = ARRAY['email', 'in_app']::TEXT[]),
+    CONSTRAINT ck_provider_exit_notification_requests_channel_flags
+        CHECK (
+            email_requested = TRUE
+            AND in_app_requested = TRUE
+            AND webhook_requested = FALSE
+        )
+);
+
+ALTER TABLE provider_exit_notification_requests
+    DROP CONSTRAINT IF EXISTS ck_provider_exit_notification_requests_provider_id;
+ALTER TABLE provider_exit_notification_requests
+    ADD CONSTRAINT ck_provider_exit_notification_requests_provider_id
+    CHECK (provider_id ~ '^[a-z0-9][a-z0-9_.:-]{1,94}$');
+
+ALTER TABLE provider_exit_notification_requests
+    DROP CONSTRAINT IF EXISTS ck_provider_exit_notification_requests_voucher_count;
+ALTER TABLE provider_exit_notification_requests
+    ADD CONSTRAINT ck_provider_exit_notification_requests_voucher_count
+    CHECK (affected_voucher_count >= 1);
+
+ALTER TABLE provider_exit_notification_requests
+    DROP CONSTRAINT IF EXISTS ck_provider_exit_notification_requests_channels;
+ALTER TABLE provider_exit_notification_requests
+    ADD CONSTRAINT ck_provider_exit_notification_requests_channels
+    CHECK (channels = ARRAY['email', 'in_app']::TEXT[]);
+
+ALTER TABLE provider_exit_notification_requests
+    DROP CONSTRAINT IF EXISTS ck_provider_exit_notification_requests_channel_flags;
+ALTER TABLE provider_exit_notification_requests
+    ADD CONSTRAINT ck_provider_exit_notification_requests_channel_flags
+    CHECK (
+        email_requested = TRUE
+        AND in_app_requested = TRUE
+        AND webhook_requested = FALSE
+    );
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_provider_exit_notification_requests_plan_user
+    ON provider_exit_notification_requests(exit_plan_id, user_id);
+
+CREATE INDEX IF NOT EXISTS idx_provider_exit_notification_requests_user_created
+    ON provider_exit_notification_requests(user_id, created_at);
+
+CREATE TABLE IF NOT EXISTS provider_exit_status_announcements (
+    id                          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    exit_plan_id                UUID NOT NULL REFERENCES provider_exit_plans(id) ON DELETE CASCADE,
+    announcement_id             VARCHAR(128) NOT NULL,
+    provider_id                 VARCHAR(96) NOT NULL,
+    effective_at                TIMESTAMPTZ NOT NULL,
+    status_url                  TEXT NOT NULL,
+    title                       VARCHAR(255) NOT NULL,
+    summary                     VARCHAR(500) NOT NULL,
+    severity                    VARCHAR(16) NOT NULL,
+    announcement_status         VARCHAR(32) NOT NULL,
+    affected_user_count         INTEGER NOT NULL DEFAULT 0,
+    affected_voucher_count      INTEGER NOT NULL DEFAULT 0,
+    created_at                  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at                  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT ck_provider_exit_status_announcements_id
+        CHECK (announcement_id ~ '^provider-exit-[a-z0-9][a-z0-9_.:-]{1,110}$'),
+    CONSTRAINT ck_provider_exit_status_announcements_provider_id
+        CHECK (provider_id ~ '^[a-z0-9][a-z0-9_.:-]{1,94}$'),
+    CONSTRAINT ck_provider_exit_status_announcements_severity
+        CHECK (severity IN ('minor', 'major')),
+    CONSTRAINT ck_provider_exit_status_announcements_status
+        CHECK (announcement_status IN ('identified', 'monitoring')),
+    CONSTRAINT ck_provider_exit_status_announcements_user_count
+        CHECK (affected_user_count >= 0),
+    CONSTRAINT ck_provider_exit_status_announcements_voucher_count
+        CHECK (affected_voucher_count >= 0)
+);
+
+ALTER TABLE provider_exit_status_announcements
+    DROP CONSTRAINT IF EXISTS ck_provider_exit_status_announcements_id;
+ALTER TABLE provider_exit_status_announcements
+    ADD CONSTRAINT ck_provider_exit_status_announcements_id
+    CHECK (announcement_id ~ '^provider-exit-[a-z0-9][a-z0-9_.:-]{1,110}$');
+
+ALTER TABLE provider_exit_status_announcements
+    DROP CONSTRAINT IF EXISTS ck_provider_exit_status_announcements_provider_id;
+ALTER TABLE provider_exit_status_announcements
+    ADD CONSTRAINT ck_provider_exit_status_announcements_provider_id
+    CHECK (provider_id ~ '^[a-z0-9][a-z0-9_.:-]{1,94}$');
+
+ALTER TABLE provider_exit_status_announcements
+    DROP CONSTRAINT IF EXISTS ck_provider_exit_status_announcements_severity;
+ALTER TABLE provider_exit_status_announcements
+    ADD CONSTRAINT ck_provider_exit_status_announcements_severity
+    CHECK (severity IN ('minor', 'major'));
+
+ALTER TABLE provider_exit_status_announcements
+    DROP CONSTRAINT IF EXISTS ck_provider_exit_status_announcements_status;
+ALTER TABLE provider_exit_status_announcements
+    ADD CONSTRAINT ck_provider_exit_status_announcements_status
+    CHECK (announcement_status IN ('identified', 'monitoring'));
+
+ALTER TABLE provider_exit_status_announcements
+    DROP CONSTRAINT IF EXISTS ck_provider_exit_status_announcements_user_count;
+ALTER TABLE provider_exit_status_announcements
+    ADD CONSTRAINT ck_provider_exit_status_announcements_user_count
+    CHECK (affected_user_count >= 0);
+
+ALTER TABLE provider_exit_status_announcements
+    DROP CONSTRAINT IF EXISTS ck_provider_exit_status_announcements_voucher_count;
+ALTER TABLE provider_exit_status_announcements
+    ADD CONSTRAINT ck_provider_exit_status_announcements_voucher_count
+    CHECK (affected_voucher_count >= 0);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_provider_exit_status_announcements_plan
+    ON provider_exit_status_announcements(exit_plan_id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_provider_exit_status_announcements_announcement_id
+    ON provider_exit_status_announcements(announcement_id);
+
+DROP TRIGGER IF EXISTS trigger_provider_exit_plans_updated_at
+    ON provider_exit_plans;
+CREATE TRIGGER trigger_provider_exit_plans_updated_at
+    BEFORE UPDATE ON provider_exit_plans
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at();  -- defined in 01-schema.sql
+
+DROP TRIGGER IF EXISTS trigger_provider_exit_notification_requests_updated_at
+    ON provider_exit_notification_requests;
+CREATE TRIGGER trigger_provider_exit_notification_requests_updated_at
+    BEFORE UPDATE ON provider_exit_notification_requests
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at();  -- defined in 01-schema.sql
+
+DROP TRIGGER IF EXISTS trigger_provider_exit_status_announcements_updated_at
+    ON provider_exit_status_announcements;
+CREATE TRIGGER trigger_provider_exit_status_announcements_updated_at
+    BEFORE UPDATE ON provider_exit_status_announcements
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at();  -- defined in 01-schema.sql
+
 -- Story 3.2: prediction submissions.
 CREATE TABLE IF NOT EXISTS predictions (
     id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
