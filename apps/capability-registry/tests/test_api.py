@@ -97,6 +97,7 @@ async def clean_tables(engine: AsyncEngine) -> AsyncIterator[None]:
                 "provider_revenue_payout_entries, "
                 "revenue_share_hooks, revenue_share_policies, "
                 "provider_oauth_flows, capability_tags, capabilities, "
+                "capability_vocab_aliases, capability_vocab_terms, "
                 "capability_providers RESTART IDENTITY CASCADE"
             )
         )
@@ -157,10 +158,38 @@ def capability_payload(**overrides: Any) -> dict[str, Any]:
         "description_en": "Linear programming",
         "examples": [{"name": "hello"}],
         "metadata": {"source": "test"},
-        "tags": ["LP", "linear programming"],
+        "tags": [],
     }
     payload.update(overrides)
     return payload
+
+
+def vocab_term_payload(**overrides: Any) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "status": "active",
+        "task_type": "lp",
+        "label_zh": "线性规划",
+        "label_en": "Linear programming",
+        "description_zh": "线性规划能力词表项",
+        "description_en": "Canonical linear programming capability term",
+        "aliases": [{"alias": "linear programming"}],
+        "metadata": {"source": "test"},
+    }
+    payload.update(overrides)
+    return payload
+
+
+async def seed_lp_vocab(
+    client: AsyncClient,
+    *,
+    tenant_id: str | None = None,
+    headers: dict[str, str] | None = None,
+) -> None:
+    payload = vocab_term_payload()
+    if tenant_id is not None:
+        payload["tenant_id"] = tenant_id
+    response = await client.put("/v1/capability-vocab/terms/lp", json=payload, headers=headers)
+    assert response.status_code == 200, response.text
 
 
 def policy_payload(**overrides: Any) -> dict[str, Any]:
@@ -363,8 +392,13 @@ async def test_provider_upsert_read_cache_and_invalidation(
 
 
 async def test_capability_tenant_scope_and_global_fallback(client: AsyncClient) -> None:
+    vocab = await client.put("/v1/capability-vocab/terms/lp", json=vocab_term_payload())
+    assert vocab.status_code == 200, vocab.text
     await client.put("/v1/providers/highs", json=provider_payload())
-    await client.put("/v1/capabilities/highs-lp", json=capability_payload())
+    await client.put(
+        "/v1/capabilities/highs-lp",
+        json=capability_payload(tags=["LP", "linear programming"]),
+    )
 
     tenant_id = str(uuid.uuid4())
     fallback = await client.get(f"/v1/capabilities/highs-lp?tenant_id={tenant_id}")
@@ -376,11 +410,11 @@ async def test_capability_tenant_scope_and_global_fallback(client: AsyncClient) 
         "version": "1.7.0",
         "provider_url": "https://highs.dev/",
     }
-    assert fallback.json()["tags"] == ["linear_programming", "lp"]
+    assert fallback.json()["tags"] == ["lp"]
 
     tenant_cap = await client.put(
         "/v1/capabilities/highs-lp",
-        json=capability_payload(tenant_id=tenant_id, model_version="1.8.0"),
+        json=capability_payload(tenant_id=tenant_id, model_version="1.8.0", tags=["LP"]),
     )
     assert tenant_cap.status_code == 200, tenant_cap.text
     assert tenant_cap.json()["scope_source"] == "tenant"
@@ -388,6 +422,254 @@ async def test_capability_tenant_scope_and_global_fallback(client: AsyncClient) 
     tenant_read = await client.get(f"/v1/capabilities/highs-lp?tenant_id={tenant_id}")
     assert tenant_read.json()["scope_source"] == "tenant"
     assert tenant_read.json()["model_version"]["version"] == "1.8.0"
+
+
+async def test_capability_vocab_term_alias_and_capability_canonicalization(
+    client: AsyncClient,
+    engine: AsyncEngine,
+) -> None:
+    create = await client.put("/v1/capability-vocab/terms/lp", json=vocab_term_payload())
+    assert create.status_code == 200, create.text
+    body = create.json()
+    assert body["tag"] == "lp"
+    assert body["status"] == "active"
+    assert body["scope_source"] == "global"
+    assert body["aliases"] == [
+        {
+            "id": body["aliases"][0]["id"],
+            "tenant_id": None,
+            "alias": "linear_programming",
+            "canonical_tag": "lp",
+            "status": "active",
+            "metadata": {},
+            "created_at": body["aliases"][0]["created_at"],
+            "updated_at": body["aliases"][0]["updated_at"],
+        }
+    ]
+
+    detail = await client.get("/v1/capability-vocab/terms/lp")
+    assert detail.status_code == 200, detail.text
+    assert detail.json()["aliases"][0]["alias"] == "linear_programming"
+
+    listed = await client.get(
+        "/v1/capability-vocab/terms",
+        params={"status": "active", "task_type": "lp", "include_aliases": "true"},
+    )
+    assert listed.status_code == 200, listed.text
+    assert [item["tag"] for item in listed.json()] == ["lp"]
+    assert listed.json()[0]["aliases"][0]["canonical_tag"] == "lp"
+
+    await client.put("/v1/providers/highs", json=provider_payload())
+    capability = await client.put(
+        "/v1/capabilities/highs-lp",
+        json=capability_payload(tags=["LP", "linear programming"]),
+    )
+    assert capability.status_code == 200, capability.text
+    assert capability.json()["tags"] == ["lp"]
+
+    maker = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
+    async with maker() as session:
+        rows = (
+            (
+                await session.execute(
+                    text(
+                        "SELECT tag FROM capability_tags "
+                        "JOIN capabilities ON capabilities.id = capability_tags.capability_id "
+                        "WHERE capabilities.k_algo = 'highs-lp' ORDER BY tag"
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+    assert rows == ["lp"]
+
+
+async def test_capability_vocab_rejects_unknown_or_inactive_tags_without_mutation(
+    client: AsyncClient,
+    engine: AsyncEngine,
+) -> None:
+    await client.put("/v1/providers/highs", json=provider_payload())
+
+    missing = await client.put(
+        "/v1/capabilities/highs-lp",
+        json=capability_payload(tags=["unknown capability"]),
+    )
+    assert missing.status_code == 422
+
+    maker = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
+    async with maker() as session:
+        counts = (
+            (
+                await session.execute(
+                    text(
+                        "SELECT "
+                        "(SELECT count(*) FROM capabilities) AS capabilities, "
+                        "(SELECT count(*) FROM capability_tags) AS tags"
+                    )
+                )
+            )
+            .mappings()
+            .one()
+        )
+    assert counts == {"capabilities": 0, "tags": 0}
+
+    draft = await client.put(
+        "/v1/capability-vocab/terms/draft-term",
+        json=vocab_term_payload(
+            status="draft",
+            task_type="lp",
+            label_zh="草稿",
+            label_en="Draft",
+            description_zh="草稿词",
+            description_en="Draft term",
+            aliases=[],
+        ),
+    )
+    assert draft.status_code == 200, draft.text
+    inactive = await client.put(
+        "/v1/capabilities/highs-lp",
+        json=capability_payload(tags=["draft-term"]),
+    )
+    assert inactive.status_code == 422
+
+    active = await client.put("/v1/capability-vocab/terms/lp", json=vocab_term_payload())
+    assert active.status_code == 200, active.text
+    good = await client.put("/v1/capabilities/highs-lp", json=capability_payload(tags=["LP"]))
+    assert good.status_code == 200, good.text
+    assert good.json()["tags"] == ["lp"]
+
+    bad_update = await client.put(
+        "/v1/capabilities/highs-lp",
+        json=capability_payload(model_version="2.0.0", tags=["draft-term"]),
+    )
+    assert bad_update.status_code == 422
+    unchanged = await client.get("/v1/capabilities/highs-lp")
+    assert unchanged.status_code == 200, unchanged.text
+    assert unchanged.json()["model_version"]["version"] == "1.7.0"
+    assert unchanged.json()["tags"] == ["lp"]
+
+
+async def test_capability_vocab_tenant_scope_collision_and_self_reference(
+    client: AsyncClient,
+) -> None:
+    tenant_id = str(uuid.uuid4())
+    global_term = await client.put("/v1/capability-vocab/terms/lp", json=vocab_term_payload())
+    assert global_term.status_code == 200, global_term.text
+    tenant_term = await client.put(
+        "/v1/capability-vocab/terms/lp",
+        json=vocab_term_payload(
+            tenant_id=tenant_id,
+            label_zh="租户线性规划",
+            label_en="Tenant LP",
+            aliases=[{"alias": "tenant linear programming"}],
+        ),
+    )
+    assert tenant_term.status_code == 200, tenant_term.text
+
+    fallback = await client.get(f"/v1/capability-vocab/terms/lp?tenant_id={uuid.uuid4()}")
+    assert fallback.status_code == 200, fallback.text
+    assert fallback.json()["scope_source"] == "global_fallback"
+
+    tenant_read = await client.get(f"/v1/capability-vocab/terms/lp?tenant_id={tenant_id}")
+    assert tenant_read.status_code == 200, tenant_read.text
+    assert tenant_read.json()["scope_source"] == "tenant"
+    assert tenant_read.json()["label_en"] == "Tenant LP"
+
+    collision = await client.put(
+        "/v1/capability-vocab/terms/vrptw",
+        json=vocab_term_payload(
+            task_type="vrptw",
+            label_zh="带时间窗车辆路径",
+            label_en="VRPTW",
+            description_zh="VRPTW 能力词",
+            description_en="Vehicle routing with time windows",
+            aliases=[{"alias": "linear programming"}],
+        ),
+    )
+    assert collision.status_code == 422
+
+    self_parent = await client.put(
+        "/v1/capability-vocab/terms/self-parent",
+        json=vocab_term_payload(
+            task_type="lp",
+            label_zh="自引用",
+            label_en="Self parent",
+            description_zh="自引用词",
+            description_en="Self-referencing term",
+            parent_tag="self-parent",
+            aliases=[],
+        ),
+    )
+    assert self_parent.status_code == 422
+
+
+async def test_capability_vocab_tenant_alias_overrides_global_alias_fail_closed(
+    client: AsyncClient,
+) -> None:
+    tenant_id = str(uuid.uuid4())
+    global_term = await client.put(
+        "/v1/capability-vocab/terms/lp",
+        json=vocab_term_payload(aliases=[]),
+    )
+    assert global_term.status_code == 200, global_term.text
+    tenant_alias = await client.put(
+        "/v1/capability-vocab/terms/vrptw_with_time_windows",
+        json=vocab_term_payload(
+            tenant_id=tenant_id,
+            status="draft",
+            task_type="vrptw",
+            label_zh="租户草稿",
+            label_en="Tenant draft",
+            description_zh="租户草稿词",
+            description_en="Tenant draft term",
+            aliases=[{"alias": "linear programming"}],
+        ),
+    )
+    assert tenant_alias.status_code == 200, tenant_alias.text
+
+    await client.put(
+        "/v1/providers/highs",
+        json=provider_payload(tenant_id=tenant_id),
+    )
+    capability = await client.put(
+        "/v1/capabilities/highs-lp",
+        json=capability_payload(tenant_id=tenant_id, tags=["linear programming"]),
+    )
+    assert capability.status_code == 422
+    assert "not active" in capability.text
+
+
+async def test_capability_vocab_write_auth_and_cache_invalidation(
+    client: AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "capability_registry.routes.settings.internal_secret",
+        SecretStr("internal-test-secret"),
+    )
+
+    missing_auth = await client.put("/v1/capability-vocab/terms/lp", json=vocab_term_payload())
+    assert missing_auth.status_code == 401
+
+    create = await client.put(
+        "/v1/capability-vocab/terms/lp",
+        json=vocab_term_payload(),
+        headers={"X-Internal-Service-Auth": "internal-test-secret"},
+    )
+    assert create.status_code == 200, create.text
+
+    read = await client.get("/v1/capability-vocab/terms/lp")
+    assert read.status_code == 200, read.text
+    assert client.fake_cache.store  # type: ignore[attr-defined]
+
+    update = await client.put(
+        "/v1/capability-vocab/terms/lp",
+        json=vocab_term_payload(label_en="LP canonical"),
+        headers={"X-Internal-Service-Auth": "internal-test-secret"},
+    )
+    assert update.status_code == 200, update.text
+    assert client.fake_cache.store == {}  # type: ignore[attr-defined]
 
 
 async def test_schema_constraints_prevent_duplicate_global_rows(engine: AsyncEngine) -> None:

@@ -125,6 +125,146 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_capabilities_tenant_k_algo
 CREATE INDEX IF NOT EXISTS idx_capabilities_task_type_tier
     ON capabilities(task_type, tier);
 
+-- Story 6.C.3: canonical capability vocabulary governance.
+-- Terms and aliases are governed vocabulary; capability_tags stores only
+-- per-capability active canonical tags.
+
+CREATE TABLE IF NOT EXISTS capability_vocab_terms (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id           UUID NULL,
+    tag                 VARCHAR(64) NOT NULL,
+    status              VARCHAR(32) NOT NULL DEFAULT 'draft',
+    task_type           VARCHAR(64) NOT NULL DEFAULT '',
+    label_zh            TEXT NOT NULL DEFAULT '',
+    label_en            TEXT NOT NULL DEFAULT '',
+    description_zh      TEXT NOT NULL DEFAULT '',
+    description_en      TEXT NOT NULL DEFAULT '',
+    parent_tag          VARCHAR(64) NULL,
+    replaces_tag        VARCHAR(64) NULL,
+    metadata            JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE capability_vocab_terms
+    ADD COLUMN IF NOT EXISTS tenant_id UUID NULL,
+    ADD COLUMN IF NOT EXISTS task_type VARCHAR(64) NOT NULL DEFAULT '',
+    ADD COLUMN IF NOT EXISTS label_zh TEXT NOT NULL DEFAULT '',
+    ADD COLUMN IF NOT EXISTS label_en TEXT NOT NULL DEFAULT '',
+    ADD COLUMN IF NOT EXISTS description_zh TEXT NOT NULL DEFAULT '',
+    ADD COLUMN IF NOT EXISTS description_en TEXT NOT NULL DEFAULT '',
+    ADD COLUMN IF NOT EXISTS parent_tag VARCHAR(64) NULL,
+    ADD COLUMN IF NOT EXISTS replaces_tag VARCHAR(64) NULL,
+    ADD COLUMN IF NOT EXISTS metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+    ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
+ALTER TABLE capability_vocab_terms
+    DROP CONSTRAINT IF EXISTS ck_capability_vocab_terms_tag;
+ALTER TABLE capability_vocab_terms
+    ADD CONSTRAINT ck_capability_vocab_terms_tag
+    CHECK (tag ~ '^[a-z0-9][a-z0-9_-]{0,63}$');
+
+ALTER TABLE capability_vocab_terms
+    DROP CONSTRAINT IF EXISTS ck_capability_vocab_terms_status;
+ALTER TABLE capability_vocab_terms
+    ADD CONSTRAINT ck_capability_vocab_terms_status
+    CHECK (status IN ('draft', 'active', 'deprecated'));
+
+ALTER TABLE capability_vocab_terms
+    DROP CONSTRAINT IF EXISTS ck_capability_vocab_terms_refs;
+ALTER TABLE capability_vocab_terms
+    ADD CONSTRAINT ck_capability_vocab_terms_refs
+    CHECK (
+        (parent_tag IS NULL OR parent_tag ~ '^[a-z0-9][a-z0-9_-]{0,63}$')
+        AND (replaces_tag IS NULL OR replaces_tag ~ '^[a-z0-9][a-z0-9_-]{0,63}$')
+        AND (parent_tag IS NULL OR parent_tag <> tag)
+        AND (replaces_tag IS NULL OR replaces_tag <> tag)
+    );
+
+ALTER TABLE capability_vocab_terms
+    DROP CONSTRAINT IF EXISTS ck_capability_vocab_terms_active_fields;
+ALTER TABLE capability_vocab_terms
+    ADD CONSTRAINT ck_capability_vocab_terms_active_fields
+    CHECK (
+        status <> 'active'
+        OR (
+            length(btrim(task_type)) > 0
+            AND length(btrim(label_zh)) > 0
+            AND length(btrim(label_en)) > 0
+            AND length(btrim(description_zh)) > 0
+            AND length(btrim(description_en)) > 0
+        )
+    );
+
+ALTER TABLE capability_vocab_terms
+    DROP CONSTRAINT IF EXISTS ck_capability_vocab_terms_metadata_object;
+ALTER TABLE capability_vocab_terms
+    ADD CONSTRAINT ck_capability_vocab_terms_metadata_object
+    CHECK (jsonb_typeof(metadata) = 'object');
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_capability_vocab_terms_global_tag
+    ON capability_vocab_terms(tag)
+    WHERE tenant_id IS NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_capability_vocab_terms_tenant_tag
+    ON capability_vocab_terms(tenant_id, tag)
+    WHERE tenant_id IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_capability_vocab_terms_lookup
+    ON capability_vocab_terms(tenant_id, status, task_type, tag);
+
+CREATE TABLE IF NOT EXISTS capability_vocab_aliases (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id           UUID NULL,
+    alias               VARCHAR(64) NOT NULL,
+    canonical_tag       VARCHAR(64) NOT NULL,
+    status              VARCHAR(32) NOT NULL DEFAULT 'active',
+    metadata            JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE capability_vocab_aliases
+    ADD COLUMN IF NOT EXISTS tenant_id UUID NULL,
+    ADD COLUMN IF NOT EXISTS status VARCHAR(32) NOT NULL DEFAULT 'active',
+    ADD COLUMN IF NOT EXISTS metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+    ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
+ALTER TABLE capability_vocab_aliases
+    DROP CONSTRAINT IF EXISTS ck_capability_vocab_aliases_alias;
+ALTER TABLE capability_vocab_aliases
+    ADD CONSTRAINT ck_capability_vocab_aliases_alias
+    CHECK (alias ~ '^[a-z0-9][a-z0-9_-]{0,63}$');
+
+ALTER TABLE capability_vocab_aliases
+    DROP CONSTRAINT IF EXISTS ck_capability_vocab_aliases_canonical_tag;
+ALTER TABLE capability_vocab_aliases
+    ADD CONSTRAINT ck_capability_vocab_aliases_canonical_tag
+    CHECK (canonical_tag ~ '^[a-z0-9][a-z0-9_-]{0,63}$' AND alias <> canonical_tag);
+
+ALTER TABLE capability_vocab_aliases
+    DROP CONSTRAINT IF EXISTS ck_capability_vocab_aliases_status;
+ALTER TABLE capability_vocab_aliases
+    ADD CONSTRAINT ck_capability_vocab_aliases_status
+    CHECK (status IN ('active', 'deprecated'));
+
+ALTER TABLE capability_vocab_aliases
+    DROP CONSTRAINT IF EXISTS ck_capability_vocab_aliases_metadata_object;
+ALTER TABLE capability_vocab_aliases
+    ADD CONSTRAINT ck_capability_vocab_aliases_metadata_object
+    CHECK (jsonb_typeof(metadata) = 'object');
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_capability_vocab_aliases_global_alias
+    ON capability_vocab_aliases(alias)
+    WHERE tenant_id IS NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_capability_vocab_aliases_tenant_alias
+    ON capability_vocab_aliases(tenant_id, alias)
+    WHERE tenant_id IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_capability_vocab_aliases_canonical
+    ON capability_vocab_aliases(tenant_id, canonical_tag, status);
+
 CREATE TABLE IF NOT EXISTS capability_tags (
     id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     capability_id       UUID NOT NULL REFERENCES capabilities(id) ON DELETE CASCADE,

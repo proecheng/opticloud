@@ -245,6 +245,331 @@
         "title": "CapabilityUpsertRequest",
         "type": "object"
       },
+      "CapabilityVocabAliasResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "alias": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$",
+            "title": "Alias",
+            "type": "string"
+          },
+          "canonical_tag": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$",
+            "title": "Canonical Tag",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "status": {
+            "enum": [
+              "active",
+              "deprecated"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "tenant_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tenant Id"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "alias",
+          "canonical_tag",
+          "status",
+          "metadata",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "CapabilityVocabAliasResponse",
+        "type": "object"
+      },
+      "CapabilityVocabAliasUpsertRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "alias": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Alias",
+            "type": "string"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "status": {
+            "default": "active",
+            "enum": [
+              "active",
+              "deprecated"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "alias"
+        ],
+        "title": "CapabilityVocabAliasUpsertRequest",
+        "type": "object"
+      },
+      "CapabilityVocabTermResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "aliases": {
+            "items": {
+              "$ref": "#/components/schemas/CapabilityVocabAliasResponse"
+            },
+            "title": "Aliases",
+            "type": "array"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "description_en": {
+            "title": "Description En",
+            "type": "string"
+          },
+          "description_zh": {
+            "title": "Description Zh",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "label_en": {
+            "title": "Label En",
+            "type": "string"
+          },
+          "label_zh": {
+            "title": "Label Zh",
+            "type": "string"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "parent_tag": {
+            "anyOf": [
+              {
+                "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Tag"
+          },
+          "replaces_tag": {
+            "anyOf": [
+              {
+                "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Replaces Tag"
+          },
+          "scope_source": {
+            "enum": [
+              "global",
+              "tenant",
+              "global_fallback"
+            ],
+            "title": "Scope Source",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "draft",
+              "active",
+              "deprecated"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "tag": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$",
+            "title": "Tag",
+            "type": "string"
+          },
+          "task_type": {
+            "title": "Task Type",
+            "type": "string"
+          },
+          "tenant_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tenant Id"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "tag",
+          "status",
+          "task_type",
+          "label_zh",
+          "label_en",
+          "description_zh",
+          "description_en",
+          "metadata",
+          "scope_source",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "CapabilityVocabTermResponse",
+        "type": "object"
+      },
+      "CapabilityVocabTermUpsertRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "aliases": {
+            "items": {
+              "$ref": "#/components/schemas/CapabilityVocabAliasUpsertRequest"
+            },
+            "title": "Aliases",
+            "type": "array"
+          },
+          "description_en": {
+            "default": "",
+            "title": "Description En",
+            "type": "string"
+          },
+          "description_zh": {
+            "default": "",
+            "title": "Description Zh",
+            "type": "string"
+          },
+          "label_en": {
+            "default": "",
+            "title": "Label En",
+            "type": "string"
+          },
+          "label_zh": {
+            "default": "",
+            "title": "Label Zh",
+            "type": "string"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "parent_tag": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Tag"
+          },
+          "replaces_tag": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Replaces Tag"
+          },
+          "status": {
+            "default": "draft",
+            "enum": [
+              "draft",
+              "active",
+              "deprecated"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "tag": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tag"
+          },
+          "task_type": {
+            "default": "",
+            "maxLength": 64,
+            "title": "Task Type",
+            "type": "string"
+          },
+          "tenant_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tenant Id"
+          }
+        },
+        "title": "CapabilityVocabTermUpsertRequest",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -5177,6 +5502,244 @@
         "summary": "Upsert Capability",
         "tags": [
           "capabilities"
+        ]
+      }
+    },
+    "/v1/capability-vocab/terms": {
+      "get": {
+        "operationId": "list_capability_vocab_terms_v1_capability_vocab_terms_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "tenant_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tenant Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "draft",
+                    "active",
+                    "deprecated"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "task_type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Task Type"
+            }
+          },
+          {
+            "in": "query",
+            "name": "include_aliases",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Include Aliases",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CapabilityVocabTermResponse"
+                  },
+                  "title": "Response List Capability Vocab Terms V1 Capability Vocab Terms Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Capability Vocab Terms",
+        "tags": [
+          "capability-vocab"
+        ]
+      }
+    },
+    "/v1/capability-vocab/terms/{tag}": {
+      "get": {
+        "operationId": "get_capability_vocab_term_v1_capability_vocab_terms__tag__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tag",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$",
+              "title": "Tag",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "tenant_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tenant Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "include_aliases",
+            "required": false,
+            "schema": {
+              "default": true,
+              "title": "Include Aliases",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CapabilityVocabTermResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Capability Vocab Term",
+        "tags": [
+          "capability-vocab"
+        ]
+      },
+      "put": {
+        "operationId": "upsert_capability_vocab_term_v1_capability_vocab_terms__tag__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tag",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$",
+              "title": "Tag",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Internal-Service-Auth",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Internal-Service-Auth"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CapabilityVocabTermUpsertRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CapabilityVocabTermResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Upsert Capability Vocab Term",
+        "tags": [
+          "capability-vocab"
         ]
       }
     },
