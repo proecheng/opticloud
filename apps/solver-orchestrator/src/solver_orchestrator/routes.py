@@ -150,6 +150,8 @@ BATCH_COUNT_STATUSES = ("queued", "in_progress", "completed", "failed", "timeout
 TEACHING_GRADING_RUBRIC_VERSION = "teaching-grading-v1"
 TEACHING_GRADING_MAX_SCORE = Decimal("100.00")
 TEACHING_GRADING_CRITERION_POINTS = Decimal("25.00")
+ADMIN_ENDPOINTS_DISABLED_DETAIL = "admin endpoints disabled (ADMIN_SECRET not configured)"
+ADMIN_INVALID_HEADER_DETAIL = "missing or invalid X-Admin-Secret"
 
 
 def require_admin_secret(x_admin_secret: str | None = Header(default=None)) -> None:
@@ -157,12 +159,12 @@ def require_admin_secret(x_admin_secret: str | None = Header(default=None)) -> N
     if not settings.admin_secret:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="admin endpoints disabled (ADMIN_SECRET not configured)",
+            detail=ADMIN_ENDPOINTS_DISABLED_DETAIL,
         )
     if x_admin_secret is None or not secrets.compare_digest(x_admin_secret, settings.admin_secret):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="missing or invalid X-Admin-Secret",
+            detail=ADMIN_INVALID_HEADER_DETAIL,
         )
 
 

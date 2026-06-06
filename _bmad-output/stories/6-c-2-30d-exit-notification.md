@@ -30,8 +30,8 @@ Status: code-review
 
 ## Story
 
-**作为** 持有受 Provider 退出影响复现凭证的用户，  
-**我希望** 在 Provider 退出生效至少 30 天前收到邮件、站内信和公开状态页公告，  
+**作为** 持有受 Provider 退出影响复现凭证的用户，
+**我希望** 在 Provider 退出生效至少 30 天前收到邮件、站内信和公开状态页公告，
 **从而** 我能在 5 年 Repro SLA 仍可执行时看到退出计划、迁移路径和后续 rerun 预期，而不是等到 rerun 失败才发现 Provider 已退出。
 
 ## Context
