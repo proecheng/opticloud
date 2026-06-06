@@ -31,3 +31,4 @@ Items surfaced by code reviews / retrospectives that are real but not blockers f
 ## Deferred from: blocked items triage (2026-06-06)
 
 - **Epic 0 remains open only due to external/process blocked items** — `0-0-sprint0-calibration-week`, `m0-legal-1-license-deliverable`, `m0-legal-status-tracking`, and `m0-aigc-status-tracking` require owner/legal/PM evidence or an explicit waiver. See `_bmad-output/stories/blocked-items-triage-2026-06-06.md`.
+- **Owner/legal/PM decision package is pending** — decision request created at `_bmad-output/stories/blocked-items-decision-request-2026-06-06.md`; no status should change until external decisions are returned and processed through a full BMAD story lifecycle.
