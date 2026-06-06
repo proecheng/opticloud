@@ -150,14 +150,14 @@
       ]
     },
     "legacy_http_exception_register": {
-      "total_count": 170,
+      "total_count": 176,
       "by_file": {
         "apps/auth-service/src/auth_service/account_merge.py": 14,
         "apps/auth-service/src/auth_service/admin_routes.py": 2,
         "apps/auth-service/src/auth_service/frozen_appeals.py": 12,
         "apps/auth-service/src/auth_service/routes.py": 38,
         "apps/billing-service/src/billing_service/auth_dep.py": 9,
-        "apps/capability-registry/src/capability_registry/routes.py": 89,
+        "apps/capability-registry/src/capability_registry/routes.py": 95,
         "apps/chat-service/src/chat_service/main.py": 2,
         "apps/solver-orchestrator/src/solver_orchestrator/auth.py": 4
       }

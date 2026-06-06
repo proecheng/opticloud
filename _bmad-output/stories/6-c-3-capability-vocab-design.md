@@ -29,8 +29,8 @@ Status: code-review
 
 ## Story
 
-**作为** 平台 Provider 与 Repro 能力治理团队，  
-**我希望** capability-registry 维护一套可审计的 canonical capability vocab，并在 Provider capability 注册时把别名解析成 active canonical tags，  
+**作为** 平台 Provider 与 Repro 能力治理团队，
+**我希望** capability-registry 维护一套可审计的 canonical capability vocab，并在 Provider capability 注册时把别名解析成 active canonical tags，
 **从而** 后续 voucher rerun auto-migration 和 Story 6.C.4 equivalent matching 能基于稳定、高精度、可治理的能力标签，而不是自由文本或各 Provider 自定义词。
 
 ## Context
@@ -271,6 +271,7 @@ GPT-5 Codex
 - 2026-06-06 - Local validation passed: focused vocab tests `5 passed`; full capability-registry tests `60 passed`; ruff check/format passed; mypy passed; OpenAPI drift passed; `git diff --check` passed.
 - 2026-06-06 - Post-implementation adversarial code review found two patch findings: alias response lacked audit timestamps and blank `task_type` list filter shared the same cache key as no filter. Both were fixed, with tenant alias override regression added.
 - 2026-06-06 - Final local validation after review fixes passed: focused vocab tests `6 passed`; full capability-registry tests `61 passed`; ruff check/format passed; mypy passed; OpenAPI drift passed; `git diff --check` passed.
+- 2026-06-06 - CI remediation completed: fixed story trailing whitespace and synchronized the error-i18n audit legacy HTTPException register baseline for the new capability-registry routes. Validation passed: `uv run python scripts/validate_error_i18n_audit.py`; `uv tool run pre-commit run --all-files --show-diff-on-failure`; `git diff --check`.
 
 ### Completion Notes List
 
@@ -280,6 +281,7 @@ GPT-5 Codex
 - Capability upsert now resolves submitted tags through active canonical terms or active aliases before mutating rows, stores only sorted/de-duped canonical tags, and rejects unknown/draft/deprecated tags without partial writes.
 - Updated capability-registry API tests and OpenAPI spec; implementation is ready for post-implementation code review.
 - Post-implementation review completed; fixed alias response audit fields and normalized blank task_type filtering/cache keys.
+- PR CI remediation completed for lint trailing whitespace and error-i18n audit contract drift without marking the story done before merge/sync.
 
 ### File List
 
@@ -291,12 +293,14 @@ GPT-5 Codex
 - `apps/capability-registry/tests/test_api.py`
 - `infra/local-init/14-capability-registry.sql`
 - `packages/shared-ts/openapi/capability-registry.json`
+- `tools/error_i18n_audit/error_i18n_audit_contract.json`
 
 ## Change Log
 
 - 2026-06-06 - Created Story 6.C.3 and completed three pre-implementation adversarial review rounds.
 - 2026-06-06 - Implemented capability vocab governance and moved story to code-review after local validation.
 - 2026-06-06 - Completed post-implementation code review and fixed two patch findings.
+- 2026-06-06 - Fixed PR CI lint and error-i18n audit contract drift.
 
 ## Post-Implementation Code Review
 
