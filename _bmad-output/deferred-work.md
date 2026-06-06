@@ -17,3 +17,11 @@ Items surfaced by code reviews / retrospectives that are real but not blockers f
 - **Solver rerun does not yet consume capability-registry equivalent matching at runtime** — Story 6.C.1 intentionally kept a local deterministic rerun migration resolver, while Story 6.C.4 added a registry read contract. Promote when product requires solver runtime to select equivalents from live or exported registry data; decide explicitly between live registry call, exported snapshot, or continued local resolver ownership.
 - **Provider exit notification is not real delivery automation** — Story 6.C.2 creates provider exit plans, per-user notification request rows, and pointer-safe outbox/status announcement events. Real email delivery, in-app inbox rendering, live status page publishing, retry, bounce handling, and delivery status dashboards remain future integration work.
 - **Equivalent matching precision is metadata-derived, not telemetry-derived** — Story 6.C.4 reads safe precision fields from capability metadata. No benchmark pipeline, shadow-validation aggregation, or provider KPI telemetry writes precision back into the registry yet.
+
+---
+
+## Deferred from: retrospective of Epic 7.B Provider Marketplace v2 (2026-06-06)
+
+- **Planning text still says 7.B has 13 stories** — current implementation closes P1-P8 through 7.B.1-9, with 7.B.9 consolidating the planned 7.B.9-13 Provider Console grouped scope. Update planning docs later to avoid future duplicate 7.B.10-13 creation.
+- **Provider Marketplace contracts are not real external operations** — application intake, shadow validation, rollout, payout, monthly batch, and Provider Console are safe contracts/projections. Public provider auth, ownership enforcement, real provider execution, live routing mutation, and payment settlement remain future work.
+- **Academic Provider Handbook / onboarding tier 1-3 remains unimplemented as a separate workstream** — planning mentioned it inside the 7.B.9-13 group, but 7.B.9 intentionally scoped to Provider Console aggregation. Promote only if product explicitly requires academic Provider onboarding beyond existing academic stories.

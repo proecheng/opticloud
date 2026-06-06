@@ -216,7 +216,7 @@ development_status:
 
   # ===== Epic 7.A/B: Provider (15 stories) =====
   epic-7-a: in-progress
-  epic-7-b: in-progress
+  epic-7-b: done
 
   7-a-1-capability-registry-v1-schema: done
   7-a-2-revenue-share-hook-v2-reservation: done
