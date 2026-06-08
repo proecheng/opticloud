@@ -42,6 +42,7 @@ import {
   type ExportRequest,
   type ExportResultStatus,
 } from "@/lib/excel-export";
+import { ConsolePageHeader, ConsoleShell } from "@/components/ConsoleShell";
 
 const MAX_DATA_ROWS = 50_000;
 
@@ -69,6 +70,140 @@ type ExcelState =
     }
   | { kind: "parse_error"; file: File; message: string }
   | { kind: "rejected"; reason: ExcelRejectReason };
+
+const WORKFLOW_STAGES = [
+  {
+    key: "upload",
+    label: "上传",
+    detail: ".xlsx <=5 MB",
+  },
+  {
+    key: "detect",
+    label: "识别",
+    detail: "本地解析",
+  },
+  {
+    key: "preview",
+    label: "预览",
+    detail: "确认任务类型",
+  },
+  {
+    key: "result",
+    label: "结果/下载",
+    detail: "试跑或导出",
+  },
+] as const;
+
+type WorkflowStageKey = (typeof WORKFLOW_STAGES)[number]["key"];
+
+function stageForState(state: ExcelState): WorkflowStageKey {
+  if (state.kind === "idle" || state.kind === "rejected") return "upload";
+  if (state.kind === "received" || state.kind === "detected") return "detect";
+  if (
+    state.kind === "confirmed" ||
+    state.kind === "parse_error" ||
+    state.kind === "too_many_rows"
+  ) {
+    return "preview";
+  }
+  return "upload";
+}
+
+function headerStatusForState(state: ExcelState): string {
+  if ("file" in state) return state.file.name;
+  if (state.kind === "rejected") return "文件需重新选择";
+  return "等待上传";
+}
+
+function pillClass(tone: "primary" | "neutral" | "success" | "warning"): string {
+  const base =
+    "inline-flex min-h-touch items-center rounded-md border px-3 py-1.5 text-xs font-medium";
+  if (tone === "primary") return `${base} border-primary/30 bg-primary/10 text-primary`;
+  if (tone === "success") return `${base} border-success/30 bg-success/5 text-success`;
+  if (tone === "warning") return `${base} border-warning/30 bg-warning/5 text-warning`;
+  return `${base} border-border bg-background text-muted-foreground`;
+}
+
+function WorkflowStageRail({ active }: { active: WorkflowStageKey }): JSX.Element {
+  return (
+    <section
+      aria-label="Excel workflow stages"
+      className="grid gap-2 rounded-md border border-border bg-background p-2 sm:grid-cols-4"
+    >
+      {WORKFLOW_STAGES.map((stage, index) => {
+        const activeStage = stage.key === active;
+        return (
+          <div
+            key={stage.key}
+            className={[
+              "min-w-0 rounded-md border px-3 py-3",
+              activeStage ? "border-primary bg-primary/5" : "border-transparent bg-muted/30",
+            ].join(" ")}
+          >
+            <div className="flex min-w-0 items-center gap-2">
+              <span
+                className={[
+                  "flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-xs font-semibold",
+                  activeStage ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground",
+                ].join(" ")}
+              >
+                {index + 1}
+              </span>
+              <div className="min-w-0">
+                <div className="truncate text-sm font-semibold">{stage.label}</div>
+                <div className="truncate text-xs text-muted-foreground">{stage.detail}</div>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </section>
+  );
+}
+
+function WorkflowContextPanel(): JSX.Element {
+  return (
+    <aside className="space-y-4">
+      <section className="rounded-md border border-border bg-background p-4">
+        <h2 className="text-sm font-semibold">本地处理边界</h2>
+        <p className="mt-2 text-sm leading-6 text-muted-foreground">
+          上传后先在浏览器内解析表头和数据行，用于识别任务类型。确认试跑后，仅提交映射后的请求数据。
+        </p>
+      </section>
+
+      <section className="rounded-md border border-border bg-background p-4">
+        <h2 className="text-sm font-semibold">输入限制</h2>
+        <dl className="mt-3 grid gap-2 text-sm">
+          <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-3">
+            <dt className="text-muted-foreground">文件</dt>
+            <dd className="min-w-0 font-medium">{".xlsx <=5 MB"}</dd>
+          </div>
+          <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-3">
+            <dt className="text-muted-foreground">数据</dt>
+            <dd className="min-w-0 font-medium">最多 50,000 行</dd>
+          </div>
+          <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-3">
+            <dt className="text-muted-foreground">模板</dt>
+            <dd className="min-w-0 font-medium">VRPTW / 排班 / 库存预测</dd>
+          </div>
+        </dl>
+      </section>
+
+      <section className="rounded-md border border-border bg-background p-4">
+        <h2 className="text-sm font-semibold">输出</h2>
+        <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
+          <li>确认任务类型后展示 JSON 请求预览。</li>
+          <li>试跑完成或 demo 501 后可下载 Excel 结果。</li>
+          <li>
+            <Link href="/docs/excel-upload-faq" className="font-medium text-primary hover:underline">
+              查看 Excel 上传 FAQ
+            </Link>
+          </li>
+        </ul>
+      </section>
+    </aside>
+  );
+}
 
 function ReceivedCard({
   file,
@@ -1183,109 +1318,107 @@ export default function ConsoleExcelPage(): JSX.Element {
   const [state, setState] = useState<ExcelState>({ kind: "idle" });
 
   const reset = (): void => setState({ kind: "idle" });
+  const activeStage = stageForState(state);
 
   return (
-    <main className="min-h-screen bg-background">
-      <header className="border-b border-border bg-background">
-        <div className="mx-auto flex max-w-4xl items-center justify-between px-6 py-4">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="h-7 w-7 rounded bg-primary" />
-            <span className="font-semibold">OptiCloud</span>
-          </Link>
-          <nav className="flex items-center gap-4 text-sm">
-            <Link href="/algorithms" className="text-muted-foreground hover:text-foreground">
-              算法目录
-            </Link>
-            <Link
-              href="/auth/signup"
-              className="min-h-touch rounded-md bg-primary px-4 py-2 text-primary-foreground hover:bg-primary-600"
-            >
-              注册
-            </Link>
-          </nav>
-        </div>
-      </header>
-
-      <section className="bg-muted py-12">
-        <div className="mx-auto max-w-3xl px-6 text-center">
-          <h1 className="text-balance text-3xl font-bold">上传 Excel，自动求解</h1>
-          <p className="mt-2 text-balance text-muted-foreground">
-            适合 VRPTW 路线 / 排班调度 / 库存预测 - 不写代码，拖一下就行（≤5 MB / 50K 行）
-          </p>
-        </div>
-      </section>
-
-      <section className="mx-auto max-w-2xl px-6 py-8">
-        {state.kind === "idle" && (
-          <ExcelDropZone
-            onFile={(file) => setState({ kind: "received", file })}
-            onReject={(reason) => setState({ kind: "rejected", reason })}
-          />
-        )}
-
-        {state.kind === "received" && (
-          <ReceivedCard file={state.file} onParsed={setState} />
-        )}
-
-        {state.kind === "detected" && (
+    <ConsoleShell active="excel">
+      <ConsolePageHeader
+        eyebrow="Console / Excel workflow"
+        title="上传 Excel，自动求解"
+        description="适合 VRPTW 路线、排班调度和库存预测。先在浏览器内识别任务类型，再确认预览、试跑并下载结果 Excel。"
+        meta={
           <>
-            {/* Keep the received card visible behind the modal for context */}
-            <div className="space-y-3" data-testid="excel-received-card">
-              <StatusCard
-                variant="ok"
-                title="✅ 已收到您的 Excel 文件"
-                description={`${state.file.name} · ${(state.file.size / 1024 / 1024).toFixed(2)} MB · 本地解析完成，原始文件未上传`}
-                ariaLabel="console.excel.received"
-                icon="📊"
-              />
-            </div>
-            <DetectedModal
-              detection={state.detection}
-              onConfirm={(taskType) =>
-                setState({
-                  kind: "confirmed",
-                  file: state.file,
-                  summary: state.summary,
-                  taskType,
-                  overrodeFrom:
-                    taskType !== state.detection.taskType ? state.detection.taskType : null,
-                })
-              }
-              onCancel={reset}
-            />
+            <span className={pillClass("primary")}>当前：{headerStatusForState(state)}</span>
+            <span className={pillClass("neutral")}>{".xlsx <=5 MB"}</span>
+            <span className={pillClass("neutral")}>50K 行上限</span>
+            <span className={pillClass("success")}>本地解析</span>
           </>
-        )}
-
-        {state.kind === "confirmed" && (
-          <ConfirmedCard
-            file={state.file}
-            taskType={state.taskType}
-            overrodeFrom={state.overrodeFrom}
-            onReset={reset}
-          />
-        )}
-
-        {state.kind === "too_many_rows" && (
-          <TooManyRowsCard rowCount={state.rowCount} onReset={reset} />
-        )}
-
-        {state.kind === "parse_error" && (
-          <ParseErrorCard message={state.message} onReset={reset} />
-        )}
-
-        {state.kind === "rejected" && (
-          <RejectedCard reason={state.reason} onReset={reset} />
-        )}
-      </section>
-
-      <footer className="mt-12 border-t border-border bg-background py-6 text-center text-sm text-muted-foreground">
-        <p>
-          想用 cURL / Postman / SDK 直接调？{" "}
-          <Link href="/algorithms" className="text-primary hover:underline">
-            看算法目录 →
+        }
+        actions={
+          <Link
+            href="/algorithms"
+            className="inline-flex min-h-touch items-center rounded-md border border-border bg-background px-4 py-2 text-sm font-medium hover:bg-muted"
+          >
+            查看算法目录
           </Link>
-        </p>
-      </footer>
-    </main>
+        }
+      />
+
+      <section className="mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-6">
+        <WorkflowStageRail active={activeStage} />
+
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+          <section
+            aria-label="Excel workflow workspace"
+            className="min-w-0 space-y-5"
+          >
+            {state.kind === "idle" && (
+              <ExcelDropZone
+                onFile={(file) => setState({ kind: "received", file })}
+                onReject={(reason) => setState({ kind: "rejected", reason })}
+              />
+            )}
+
+            {state.kind === "received" && (
+              <ReceivedCard file={state.file} onParsed={setState} />
+            )}
+
+            {state.kind === "detected" && (
+              <>
+                {/* Keep the received card visible behind the modal for context */}
+                <div className="space-y-3" data-testid="excel-received-card">
+                  <StatusCard
+                    variant="ok"
+                    title="✅ 已收到您的 Excel 文件"
+                    description={`${state.file.name} · ${(state.file.size / 1024 / 1024).toFixed(2)} MB · 本地解析完成，原始文件未上传`}
+                    ariaLabel="console.excel.received"
+                    icon="📊"
+                  />
+                </div>
+                <DetectedModal
+                  detection={state.detection}
+                  onConfirm={(taskType) =>
+                    setState({
+                      kind: "confirmed",
+                      file: state.file,
+                      summary: state.summary,
+                      taskType,
+                      overrodeFrom:
+                        taskType !== state.detection.taskType
+                          ? state.detection.taskType
+                          : null,
+                    })
+                  }
+                  onCancel={reset}
+                />
+              </>
+            )}
+
+            {state.kind === "confirmed" && (
+              <ConfirmedCard
+                file={state.file}
+                taskType={state.taskType}
+                overrodeFrom={state.overrodeFrom}
+                onReset={reset}
+              />
+            )}
+
+            {state.kind === "too_many_rows" && (
+              <TooManyRowsCard rowCount={state.rowCount} onReset={reset} />
+            )}
+
+            {state.kind === "parse_error" && (
+              <ParseErrorCard message={state.message} onReset={reset} />
+            )}
+
+            {state.kind === "rejected" && (
+              <RejectedCard reason={state.reason} onReset={reset} />
+            )}
+          </section>
+
+          <WorkflowContextPanel />
+        </div>
+      </section>
+    </ConsoleShell>
   );
 }

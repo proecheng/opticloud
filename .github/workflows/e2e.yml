@@ -12,6 +12,7 @@ on:
       - 'packages/**'
       - 'e2e/**'
       - '.github/workflows/e2e.yml'
+      - '.python-version'
   pull_request:
     paths:
       - 'apps/web/**'
@@ -21,10 +22,14 @@ on:
       - 'apps/solver-orchestrator/**'
       - 'packages/**'
       - 'e2e/**'
+      - '.github/workflows/e2e.yml'
+      - '.python-version'
 
 env:
   CI: "true"
   PYTHON_VERSION: "3.12"
+  UV_PYTHON: "3.12"
+  UV_PYTHON_DOWNLOADS: "never"
   NODE_VERSION: "18"
   UV_VERSION: "0.5.4"
   PNPM_VERSION: "9.12.0"
