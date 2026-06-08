@@ -174,29 +174,34 @@ export function SecurityDisclosurePageView({
             </p>
           </div>
 
-          <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_420px]">
-            <section className="rounded-md border border-border bg-background p-4">
+          <div className="mt-6 grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1fr)_420px]">
+            <section className="min-w-0 rounded-md border border-border bg-background p-4">
               <h3 className="text-xl font-semibold">Flow stages</h3>
-              <div className="mt-4 grid gap-3 md:grid-cols-2">
+              <div className="mt-4 grid min-w-0 gap-3 md:grid-cols-2">
                 {J9_WHITEHAT_FLOW.nodes.map((node) => (
-                  <article key={node.id} className="rounded-md border border-border bg-muted p-3">
-                    <div className="flex flex-wrap items-start justify-between gap-2">
-                      <h4 className="font-semibold">{node.label}</h4>
-                      <span className="rounded-sm border border-border bg-background px-2 py-0.5 text-xs uppercase text-muted-foreground">
+                  <article
+                    key={node.id}
+                    className="min-w-0 rounded-md border border-border bg-muted p-3"
+                  >
+                    <div className="flex min-w-0 flex-wrap items-start justify-between gap-2">
+                      <h4 className="min-w-0 break-words font-semibold">{node.label}</h4>
+                      <span className="shrink-0 rounded-sm border border-border bg-background px-2 py-0.5 text-xs uppercase text-muted-foreground">
                         {node.status}
                       </span>
                     </div>
                     {node.description ? (
-                      <p className="mt-2 text-sm text-muted-foreground">{node.description}</p>
+                      <p className="mt-2 break-words text-sm text-muted-foreground">
+                        {node.description}
+                      </p>
                     ) : null}
                   </article>
                 ))}
               </div>
             </section>
 
-            <section className="rounded-md border border-border bg-background p-4">
+            <section className="min-w-0 rounded-md border border-border bg-background p-4">
               <h3 className="text-xl font-semibold">Mermaid flow source</h3>
-              <pre className="mt-4 max-h-[560px] overflow-auto rounded-md border border-border bg-muted p-4 text-xs leading-5 text-foreground">
+              <pre className="mt-4 max-h-[560px] max-w-full overflow-auto rounded-md border border-border bg-muted p-4 text-xs leading-5 text-foreground">
                 <code>
                   {j9MermaidSource.split("\n").map((line, index) => (
                     <span key={`${index}-${line}`} className="block whitespace-pre">
@@ -208,20 +213,23 @@ export function SecurityDisclosurePageView({
             </section>
           </div>
 
-          <div className="mt-6 grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
-            <section className="rounded-md border border-border bg-background p-4">
+          <div className="mt-6 grid min-w-0 gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
+            <section className="min-w-0 rounded-md border border-border bg-background p-4">
               <h3 className="text-xl font-semibold">SOP steps</h3>
               <ol aria-label="J9 SOP steps" className="mt-4 space-y-3 text-sm">
                 {J9_WHITEHAT_SOP_STEPS.map((step, index) => (
-                  <li key={step.id} className="rounded-md border border-border bg-muted p-3">
-                    <div className="flex items-center gap-2">
+                  <li
+                    key={step.id}
+                    className="min-w-0 rounded-md border border-border bg-muted p-3"
+                  >
+                    <div className="flex min-w-0 items-center gap-2">
                       <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-sm bg-primary text-xs font-semibold text-primary-foreground">
                         {index + 1}
                       </span>
-                      <h4 className="font-semibold">{step.title}</h4>
+                      <h4 className="min-w-0 break-words font-semibold">{step.title}</h4>
                     </div>
-                    <p className="mt-2 text-muted-foreground">{step.description}</p>
-                    <p className="mt-2 text-xs text-muted-foreground">
+                    <p className="mt-2 break-words text-muted-foreground">{step.description}</p>
+                    <p className="mt-2 break-words text-xs text-muted-foreground">
                       Owner: {step.owner}. Evidence: {step.evidence}
                     </p>
                   </li>
@@ -229,24 +237,27 @@ export function SecurityDisclosurePageView({
               </ol>
             </section>
 
-            <section className="rounded-md border border-border bg-background p-4">
+            <section className="min-w-0 rounded-md border border-border bg-background p-4">
               <h3 className="text-xl font-semibold">Hardening checklist</h3>
               <ul
                 aria-label="J9 hardening checklist"
-                className="mt-4 grid gap-3 text-sm md:grid-cols-2"
+                className="mt-4 grid min-w-0 gap-3 text-sm md:grid-cols-2"
               >
                 {J9_WHITEHAT_HARDENINGS.map((item) => (
-                  <li key={item.id} className="rounded-md border border-border bg-muted p-3">
-                    <div className="flex flex-wrap items-start justify-between gap-2">
-                      <h4 className="font-semibold">{item.title}</h4>
-                      <span className="rounded-sm border border-border bg-background px-2 py-0.5 text-xs uppercase text-muted-foreground">
+                  <li
+                    key={item.id}
+                    className="min-w-0 rounded-md border border-border bg-muted p-3"
+                  >
+                    <div className="flex min-w-0 flex-wrap items-start justify-between gap-2">
+                      <h4 className="min-w-0 break-words font-semibold">{item.title}</h4>
+                      <span className="shrink-0 rounded-sm border border-border bg-background px-2 py-0.5 text-xs uppercase text-muted-foreground">
                         {item.status}
                       </span>
                     </div>
-                    <p className="mt-1 text-xs text-muted-foreground">
+                    <p className="mt-1 break-words text-xs text-muted-foreground">
                       {item.id} · {item.stage} · {item.owner}
                     </p>
-                    <p className="mt-2 text-muted-foreground">{item.description}</p>
+                    <p className="mt-2 break-words text-muted-foreground">{item.description}</p>
                   </li>
                 ))}
               </ul>
