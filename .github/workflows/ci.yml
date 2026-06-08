@@ -12,6 +12,8 @@ on:
 
 env:
   PYTHON_VERSION: "3.12"
+  UV_PYTHON: "3.12"
+  UV_PYTHON_DOWNLOADS: "never"
   NODE_VERSION: "18"
   UV_VERSION: "0.5.4"
   PNPM_VERSION: "9.12.0"
@@ -374,6 +376,7 @@ jobs:
             # CI or root config — re-run everything
             ci_or_root:
               - '.github/workflows/**'
+              - '.python-version'
               - '.pre-commit-config.yaml'
               - 'docker-compose.yml'
 
