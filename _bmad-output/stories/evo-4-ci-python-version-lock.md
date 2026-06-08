@@ -1,6 +1,6 @@
 # Story EVO.4: CI Python version lock hardening
 
-Status: review
+Status: done
 
 ## Story
 
@@ -57,7 +57,7 @@ Out of scope:
 - [x] Implement minimal CI/runtime lock changes.
 - [x] Run local validation for changed files.
 - [x] Perform post-implementation code review.
-- [ ] Commit, push, and let GitHub CI re-run.
+- [x] Commit, push, and let GitHub CI re-run.
 
 ## Dev Notes
 
@@ -133,6 +133,7 @@ Revision after round 3:
 - The CI runtime lock now aligns with C6: repository lock, main CI env, and e2e env all point at Python 3.12.
 - uv automatic Python downloads are disabled in CI, so a future interpreter drift should fail fast instead of reaching GitHub-hosted CPython artifacts during `uv sync`.
 - No application or EVO.3 frontend files were changed.
+- GitHub PR #184 checks passed after push: `error-i18n-audit-validation` passed, `e2e` passed, and `build-and-sbom (auth-service)` passed after rerun of a separate Syft download 504.
 
 ### File List
 
@@ -167,3 +168,4 @@ Result:
 - 2026-06-08 - Initial story created for CI Python version lock hardening.
 - 2026-06-08 - Implemented CI Python 3.12 runtime lock hardening and local static validation.
 - 2026-06-08 - Completed post-implementation code review; removed unsupported uv hardening variable and approved the patch.
+- 2026-06-08 - GitHub PR #184 checks passed; story marked done.
