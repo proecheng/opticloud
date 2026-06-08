@@ -69,4 +69,15 @@ test.describe("public mobile overflow", () => {
 
     await expectNoDocumentHorizontalOverflow(page);
   });
+
+  test("console Excel workbench stays within mobile viewport", async ({ page }) => {
+    await page.goto("/console/excel", { waitUntil: "domcontentloaded" });
+
+    await expect(page.getByRole("heading", { name: /上传 Excel/ })).toBeVisible();
+    await expect(page.getByRole("navigation", { name: "Console navigation" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Excel workflow stages" })).toBeVisible();
+    await expect(page.getByTestId("excel-drop-zone")).toBeVisible();
+
+    await expectNoDocumentHorizontalOverflow(page);
+  });
 });

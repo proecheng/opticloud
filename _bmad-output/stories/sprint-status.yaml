@@ -280,7 +280,8 @@ development_status:
   epic-evolution-ux: in-progress
 
   evo-1-mobile-overflow-hardening: done # 2026-06-08 - Public mobile overflow hardening implemented, reviewed, verified, and prepared for GitHub sync
-  evo-2-public-shell-docs-algorithms: done # 2026-06-08 - PublicShell docs/algorithms IA shipped locally; review clean; GitHub sync pending
+  evo-2-public-shell-docs-algorithms: done # 2026-06-08 - PublicShell docs/algorithms IA shipped and synced via PR #183
+  evo-3-console-shell-excel: done # 2026-06-08 - ConsoleShell + Excel workflow IA implemented, reviewed, verified, and prepared for GitHub sync
 
 # ===== Statistics =====
 # Total stories: ~192 (per epics.md)
