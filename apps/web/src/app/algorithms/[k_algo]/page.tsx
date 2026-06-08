@@ -124,12 +124,12 @@ export default function AlgorithmDetailPage(): JSX.Element {
   return (
     <main className="min-h-screen bg-background">
       <header className="border-b border-border bg-background">
-        <div className="mx-auto flex max-w-4xl items-center justify-between px-6 py-4">
+        <div className="mx-auto flex max-w-4xl flex-wrap items-center justify-between gap-3 px-6 py-4">
           <Link href="/" className="flex items-center gap-2">
             <div className="h-7 w-7 rounded bg-primary" />
             <span className="font-semibold">OptiCloud</span>
           </Link>
-          <nav className="flex items-center gap-4 text-sm">
+          <nav className="flex flex-wrap items-center gap-4 text-sm">
             <Link href="/algorithms" className="text-muted-foreground hover:text-foreground">
               ← 算法目录
             </Link>
@@ -251,7 +251,7 @@ export default function AlgorithmDetailPage(): JSX.Element {
                     示例：<strong>{algo.examples[0].name}</strong> —{" "}
                     {algo.examples[0].description}
                   </p>
-                  <div className="grid gap-4 md:grid-cols-2">
+                  <div className="grid min-w-0 gap-4 md:grid-cols-2">
                     <CodeBlock
                       lang="python"
                       code={buildPythonSnippet(
@@ -273,7 +273,7 @@ export default function AlgorithmDetailPage(): JSX.Element {
                     ⚠ 示例载荷待补充（M2 内补齐其余 7 个 SKU）—
                     以下是基于 task_type 的占位载荷，结构仅供参考。
                   </p>
-                  <div className="grid gap-4 md:grid-cols-2">
+                  <div className="grid min-w-0 gap-4 md:grid-cols-2">
                     <CodeBlock
                       lang="python"
                       code={buildPythonSnippet(algo, {
@@ -460,7 +460,7 @@ export default function AlgorithmDetailPage(): JSX.Element {
             <section>
               <h2 className="mb-3 text-lg font-semibold">Example input JSON</h2>
               {algo.examples.length > 0 ? (
-                <pre className="overflow-x-auto rounded-md border border-border bg-muted/30 p-3 font-mono text-xs">
+                <pre className="max-w-full overflow-x-auto rounded-md border border-border bg-muted/30 p-3 font-mono text-xs">
                   {JSON.stringify(algo.examples[0].input, null, 2)}
                 </pre>
               ) : (

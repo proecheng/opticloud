@@ -45,21 +45,24 @@ export function CodeBlock({
   const computedAriaLabel = ariaLabel ?? `复制 ${computedLabel} 代码`;
 
   return (
-    <div className="relative rounded-md border border-border bg-muted/30" data-testid={testId}>
-      <div className="flex items-center justify-between border-b border-border px-3 py-1.5">
-        <span className="font-mono text-xs uppercase text-muted-foreground">
+    <div
+      className="relative min-w-0 max-w-full overflow-hidden rounded-md border border-border bg-muted/30"
+      data-testid={testId}
+    >
+      <div className="flex min-w-0 items-center justify-between gap-2 border-b border-border px-3 py-1.5">
+        <span className="min-w-0 truncate font-mono text-xs uppercase text-muted-foreground">
           {computedLabel}
         </span>
         <button
           type="button"
           onClick={() => void handleCopy()}
-          className="min-h-touch rounded px-2 py-1 text-xs text-primary hover:bg-primary/10"
+          className="min-h-touch shrink-0 rounded px-2 py-1 text-xs text-primary hover:bg-primary/10"
           aria-label={computedAriaLabel}
         >
           {copied ? "✅ 已复制" : "📋 复制"}
         </button>
       </div>
-      <pre className="overflow-x-auto p-3 font-mono text-xs leading-relaxed">{code}</pre>
+      <pre className="max-w-full overflow-x-auto p-3 font-mono text-xs leading-relaxed">{code}</pre>
     </div>
   );
 }

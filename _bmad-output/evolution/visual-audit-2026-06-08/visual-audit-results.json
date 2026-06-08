@@ -1,0 +1,3635 @@
+[
+  {
+    "route": "/",
+    "id": "landing",
+    "viewport": "desktop",
+    "status": 200,
+    "ms": 2066,
+    "gotoError": null,
+    "consoleErrors": [],
+    "pageErrors": [],
+    "failedRequests": [],
+    "screenshot": "D:\\优化预测网站\\e2e\\_bmad-output\\evolution\\visual-audit-2026-06-08\\screenshots\\landing-desktop.png",
+    "metrics": {
+      "title": "OptiCloud — 通用优化与预测云",
+      "bodyText": "OptiCloud 算法目录 学术合作 文档 定价 状态页 安全披露 立即注册 中文 English 让算法走出实验室 让懂业务的工程师 / 数据分析师 5 分钟用上 Gurobi / TimeGPT 级算法 76% 中型企业的工程师手里只有 Excel —— 算法用不起（Gurobi ≥¥5,000/月）、用不动。我们让他们用一行 API 跑通过去只有 Gurobi / DataRobot 能做的事。 月成本 ¥6 起。 立即注册 → 浏览算法目录 → 3 分钟跑通第一个 LP 求解 # 1. 注册（手机+邮箱双因素，3 分钟） curl -X POST https://api.opticloud.cn/v1/auth/signup \\ -d {\"phone\":\"+86138...\",\"email\":\"you@example.com\",\"age_years\":18} # 2. 拿到 sk-xxx API Key，立即可用： curl -X POST https://api.opticloud.cn/v1/optimizations \\ -H \"Authorization: Beare",
+      "documentWidth": 1440,
+      "viewportWidth": 1440,
+      "documentHeight": 1000,
+      "viewportHeight": 1000,
+      "horizontalOverflow": false,
+      "overflow": [],
+      "headings": [
+        {
+          "level": 1,
+          "text": "让算法走出实验室"
+        },
+        {
+          "level": 2,
+          "text": "3 分钟跑通第一个 LP 求解"
+        }
+      ],
+      "navLinks": [
+        "算法目录",
+        "学术合作",
+        "文档",
+        "定价",
+        "状态页",
+        "安全披露",
+        "立即注册"
+      ],
+      "linkCount": 9,
+      "buttonCount": 2,
+      "disabledButtonCount": 0,
+      "firstLinks": [
+        {
+          "text": "算法目录",
+          "href": "/algorithms"
+        },
+        {
+          "text": "学术合作",
+          "href": "/academic"
+        },
+        {
+          "text": "文档",
+          "href": "/docs"
+        },
+        {
+          "text": "定价",
+          "href": "/pricing"
+        },
+        {
+          "text": "状态页",
+          "href": "/status"
+        },
+        {
+          "text": "安全披露",
+          "href": "/security"
+        },
+        {
+          "text": "立即注册",
+          "href": "/auth/signup"
+        },
+        {
+          "text": "立即注册 →",
+          "href": "/auth/signup"
+        },
+        {
+          "text": "浏览算法目录 →",
+          "href": "/algorithms"
+        }
+      ],
+      "firstButtons": [
+        {
+          "text": "中文",
+          "disabled": false
+        },
+        {
+          "text": "English",
+          "disabled": false
+        }
+      ],
+      "cardLikeCount": 2,
+      "maxTextBlockLength": 108,
+      "mainCount": 1,
+      "navCount": 1,
+      "tableCount": 0,
+      "formControlCount": 0
+    }
+  },
+  {
+    "route": "/docs",
+    "id": "docs",
+    "viewport": "desktop",
+    "status": 200,
+    "ms": 2527,
+    "gotoError": null,
+    "consoleErrors": [],
+    "pageErrors": [],
+    "failedRequests": [],
+    "screenshot": "D:\\优化预测网站\\e2e\\_bmad-output\\evolution\\visual-audit-2026-06-08\\screenshots\\docs-desktop.png",
+    "metrics": {
+      "title": "OptiCloud — 通用优化与预测云",
+      "bodyText": "OptiCloud 立即注册 文档 选择当前产品内可打开的操作文档、FAQ 和支持页面。 快速开始 Hello World Quickstart 继续完成 API Key、Postman 和第一个 LP 求解。 Excel 上传常见问题 文件大小、格式和公式处理的当前 v1 边界。 学术合作 Academic Provider Handbook 学者 Provider onboarding、IP attribution 和课堂计划边界。 Academic Onboarding FAQ 面向学者的常见问题和人工 cohort 沟通口径。 产品与运营 定价说明 Free、Starter、Pro、Team、Enterprise 的当前包装假设。 状态页 公开服务状态、事件历史和订阅入口。 安全披露 白帽提交、响应边界和安全联系方式。",
+      "documentWidth": 1440,
+      "viewportWidth": 1440,
+      "documentHeight": 1000,
+      "viewportHeight": 1000,
+      "horizontalOverflow": false,
+      "overflow": [],
+      "headings": [
+        {
+          "level": 1,
+          "text": "文档"
+        },
+        {
+          "level": 2,
+          "text": "快速开始"
+        },
+        {
+          "level": 2,
+          "text": "学术合作"
+        },
+        {
+          "level": 2,
+          "text": "产品与运营"
+        }
+      ],
+      "navLinks": [],
+      "linkCount": 9,
+      "buttonCount": 0,
+      "disabledButtonCount": 0,
+      "firstLinks": [
+        {
+          "text": "OptiCloud",
+          "href": "/"
+        },
+        {
+          "text": "立即注册",
+          "href": "/auth/signup"
+        },
+        {
+          "text": "Hello World Quickstart继续完成 API Key、Postman 和第一个 LP 求解。",
+          "href": "/docs/quickstart"
+        },
+        {
+          "text": "Excel 上传常见问题文件大小、格式和公式处理的当前 v1 边界。",
+          "href": "/docs/excel-upload-faq"
+        },
+        {
+          "text": "Academic Provider Handbook学者 Provider onboarding、IP attribution 和课堂计划边界。",
+          "href": "/docs/academic-provider-handbook"
+        },
+        {
+          "text": "Academic Onboarding FAQ面向学者的常见问题和人工 cohort 沟通口径。",
+          "href": "/docs/customer-faqs/academic-onboarding-faq"
+        },
+        {
+          "text": "定价说明Free、Starter、Pro、Team、Enterprise 的当前包装假设。",
+          "href": "/pricing"
+        },
+        {
+          "text": "状态页公开服务状态、事件历史和订阅入口。",
+          "href": "/status"
+        },
+        {
+          "text": "安全披露白帽提交、响应边界和安全联系方式。",
+          "href": "/security"
+        }
+      ],
+      "firstButtons": [],
+      "cardLikeCount": 7,
+      "maxTextBlockLength": 26,
+      "mainCount": 1,
+      "navCount": 0,
+      "tableCount": 0,
+      "formControlCount": 0
+    }
+  },
+  {
+    "route": "/algorithms",
+    "id": "algorithms",
+    "viewport": "desktop",
+    "status": 200,
+    "ms": 2990,
+    "gotoError": null,
+    "consoleErrors": [],
+    "pageErrors": [],
+    "failedRequests": [],
+    "screenshot": "D:\\优化预测网站\\e2e\\_bmad-output\\evolution\\visual-audit-2026-06-08\\screenshots\\algorithms-desktop.png",
+    "metrics": {
+      "title": "OptiCloud — 通用优化与预测云",
+      "bodyText": "OptiCloud 首页 注册 算法目录 公开免鉴权 — `GET /v1/algorithms`（FR C1） · Provider 全透明（含 provider_url） 浏览经典算例库 优化 T1 T2 T3 T4 T5 T6 预测 P1 P2 P3 P4 P5 highs-lp T1 ✅ v1 上线 详情 → HiGHS 线性规划 (Linear Programming) — 全球最快开源 LP 求解器 (2024 MIT) HiGHS Linear Programming — fastest open-source LP solver task_type: lp Provider: highs · open_source · v1.7.0 ↗ https://highs.dev/ 📋 示例输入（Hello World LP） highs-milp T2 ✅ v1 上线 详情 → HiGHS 混合整数线性规划 (MILP) — 整数变量约束 HiGHS Mixed Integer Linear Programming task_type: milp Provider: hig",
+      "documentWidth": 1440,
+      "viewportWidth": 1440,
+      "documentHeight": 1983,
+      "viewportHeight": 1000,
+      "horizontalOverflow": false,
+      "overflow": [],
+      "headings": [
+        {
+          "level": 1,
+          "text": "算法目录"
+        }
+      ],
+      "navLinks": [
+        "首页",
+        "注册"
+      ],
+      "linkCount": 19,
+      "buttonCount": 11,
+      "disabledButtonCount": 0,
+      "firstLinks": [
+        {
+          "text": "OptiCloud",
+          "href": "/"
+        },
+        {
+          "text": "首页",
+          "href": "/"
+        },
+        {
+          "text": "注册",
+          "href": "/auth/signup"
+        },
+        {
+          "text": "浏览经典算例库",
+          "href": "/algorithms/benchmarks"
+        },
+        {
+          "text": "highs-lpT1✅ v1 上线详情 →HiGHS 线性规划 (Linear Programming) — 全球最快开源 LP 求解器 (2024 MIT)H",
+          "href": "/algorithms/highs-lp"
+        },
+        {
+          "text": "↗ https://highs.dev/",
+          "href": "https://highs.dev/"
+        },
+        {
+          "text": "highs-milpT2✅ v1 上线详情 →HiGHS 混合整数线性规划 (MILP) — 整数变量约束HiGHS Mixed Integer Linear ",
+          "href": "/algorithms/highs-milp"
+        },
+        {
+          "text": "↗ https://highs.dev/",
+          "href": "https://highs.dev/"
+        },
+        {
+          "text": "or-tools-vrptwT4✅ v1 上线详情 →OR-Tools 带时间窗的车辆路径规划 (VRPTW)OR-Tools Vehicle Routing ",
+          "href": "/algorithms/or-tools-vrptw"
+        },
+        {
+          "text": "↗ https://developers.google.com/optimization/routing",
+          "href": "https://developers.google.com/optimization/routing"
+        },
+        {
+          "text": "or-tools-cp-satT3✅ v1 上线详情 →OR-Tools CP-SAT — 约束规划求解器 (排班 / 调度)OR-Tools CP-SAT —",
+          "href": "/algorithms/or-tools-cp-sat"
+        },
+        {
+          "text": "↗ https://developers.google.com/optimization/cp/cp_solver",
+          "href": "https://developers.google.com/optimization/cp/cp_solver"
+        },
+        {
+          "text": "chronos-t5-forecastP2🟡 v1 末详情 →Chronos-T5 时序基础模型 — 销量 / 流量 / 风光出力预测Chronos-T5 t",
+          "href": "/algorithms/chronos-t5-forecast"
+        },
+        {
+          "text": "↗ https://github.com/amazon-science/chronos-forecasting",
+          "href": "https://github.com/amazon-science/chronos-forecasting"
+        },
+        {
+          "text": "arima-forecastP1✅ v1 上线详情 →ARIMA 时序预测 — 经典 P/D/Q 模型ARIMA classical time-series f",
+          "href": "/algorithms/arima-forecast"
+        },
+        {
+          "text": "↗ https://www.statsmodels.org/",
+          "href": "https://www.statsmodels.org/"
+        }
+      ],
+      "firstButtons": [
+        {
+          "text": "T1",
+          "disabled": false
+        },
+        {
+          "text": "T2",
+          "disabled": false
+        },
+        {
+          "text": "T3",
+          "disabled": false
+        },
+        {
+          "text": "T4",
+          "disabled": false
+        },
+        {
+          "text": "T5",
+          "disabled": false
+        },
+        {
+          "text": "T6",
+          "disabled": false
+        },
+        {
+          "text": "P1",
+          "disabled": false
+        },
+        {
+          "text": "P2",
+          "disabled": false
+        },
+        {
+          "text": "P3",
+          "disabled": false
+        },
+        {
+          "text": "P4",
+          "disabled": false
+        },
+        {
+          "text": "P5",
+          "disabled": false
+        }
+      ],
+      "cardLikeCount": 26,
+      "maxTextBlockLength": 428,
+      "mainCount": 1,
+      "navCount": 1,
+      "tableCount": 0,
+      "formControlCount": 0
+    }
+  },
+  {
+    "route": "/algorithms/highs-lp",
+    "id": "algorithm-detail",
+    "viewport": "desktop",
+    "status": 200,
+    "ms": 2692,
+    "gotoError": null,
+    "consoleErrors": [],
+    "pageErrors": [],
+    "failedRequests": [],
+    "screenshot": "D:\\优化预测网站\\e2e\\_bmad-output\\evolution\\visual-audit-2026-06-08\\screenshots\\algorithm-detail-desktop.png",
+    "metrics": {
+      "title": "OptiCloud — 通用优化与预测云",
+      "bodyText": "OptiCloud ← 算法目录 注册 highs-lp T1 ✅ v1 上线 task_type: lp L3 HiGHS 线性规划 (Linear Programming) — 全球最快开源 LP 求解器 (2024 MIT) HiGHS Linear Programming — fastest open-source LP solver Provider: highs · open_source · v1.7.0 · ↗ https://highs.dev/ IP Attribution L3 开源 Runner：遵守 MIT license 与论文引用，不声明学界 Provider 合作。 开源 Runner：遵守 MIT license 与论文引用，不声明学界 Provider 合作。 Contract anchor: docs/legal-templates.md Doc 1 / open-source license review Try it now 示例：Hello World LP — 最小化 x₁+x₂ 满足 x₁+x₂ ≤ 10, x ≥ 0 PYTHON 📋",
+      "documentWidth": 1440,
+      "viewportWidth": 1440,
+      "documentHeight": 3152,
+      "viewportHeight": 1000,
+      "horizontalOverflow": false,
+      "overflow": [],
+      "headings": [
+        {
+          "level": 1,
+          "text": "highs-lp"
+        },
+        {
+          "level": 2,
+          "text": "IP Attribution"
+        },
+        {
+          "level": 2,
+          "text": "Try it now"
+        },
+        {
+          "level": 2,
+          "text": "📚 引用本算法"
+        },
+        {
+          "level": 2,
+          "text": "Algorithm Provenance"
+        },
+        {
+          "level": 3,
+          "text": "求解器理论"
+        },
+        {
+          "level": 3,
+          "text": "Theory"
+        },
+        {
+          "level": 3,
+          "text": "配置参数"
+        },
+        {
+          "level": 3,
+          "text": "适用场景"
+        },
+        {
+          "level": 3,
+          "text": "限制说明"
+        },
+        {
+          "level": 3,
+          "text": "论文引用来源"
+        },
+        {
+          "level": 2,
+          "text": "Example input JSON"
+        }
+      ],
+      "navLinks": [
+        "← 算法目录",
+        "注册"
+      ],
+      "linkCount": 7,
+      "buttonCount": 3,
+      "disabledButtonCount": 0,
+      "firstLinks": [
+        {
+          "text": "OptiCloud",
+          "href": "/"
+        },
+        {
+          "text": "← 算法目录",
+          "href": "/algorithms"
+        },
+        {
+          "text": "注册",
+          "href": "/auth/signup"
+        },
+        {
+          "text": "↗ https://highs.dev/",
+          "href": "https://highs.dev/"
+        },
+        {
+          "text": "10.1007/s12532-017-0130-5",
+          "href": "https://doi.org/10.1007/s12532-017-0130-5"
+        },
+        {
+          "text": "3 分钟注册拿 API Key",
+          "href": "/auth/signup"
+        },
+        {
+          "text": "免登录试跑 ChargeModal (J1 路径)",
+          "href": "/demo/charge"
+        }
+      ],
+      "firstButtons": [
+        {
+          "text": "📋 复制",
+          "disabled": false
+        },
+        {
+          "text": "📋 复制",
+          "disabled": false
+        },
+        {
+          "text": "📋 复制",
+          "disabled": false
+        }
+      ],
+      "cardLikeCount": 15,
+      "maxTextBlockLength": 168,
+      "mainCount": 1,
+      "navCount": 1,
+      "tableCount": 0,
+      "formControlCount": 0
+    }
+  },
+  {
+    "route": "/academic",
+    "id": "academic",
+    "viewport": "desktop",
+    "status": 200,
+    "ms": 2781,
+    "gotoError": null,
+    "consoleErrors": [],
+    "pageErrors": [],
+    "failedRequests": [],
+    "screenshot": "D:\\优化预测网站\\e2e\\_bmad-output\\evolution\\visual-audit-2026-06-08\\screenshots\\academic-desktop.png",
+    "metrics": {
+      "title": "学术合作 — OptiCloud",
+      "bodyText": "OptiCloud 算法目录 立即注册 开放优化与预测，让学术研究可复现、可引用、可被发现 已发布算法都自带 BibTeX 引用 — 公开 SKU、3 个学派、1976 → 2025 的学术血统全公开 Apache 2.0 自研 + 顶刊算法 + 商用产品的混合栈，提交一次任务 = 拿到结果 + 当下最新的 citation.bibtex。 学生 / 博士 / 教师永久免费 ¥2,000 Starter / 月。 🎓 用 .edu / .ac.cn 邮箱注册 ↓ 跳到引用列表 学界变现飞轮 (Innovation #3) 第 1 步 学者免费 .edu / .ac.cn 邮箱注册自动激活教育版，永久 ¥2,000 Starter / 月。 Story 1.4 第 2 步 学者发论文 提交任务即拿到 citation.bibtex，一行 paste 进论文 References。 Story 6.A.1 ↑ ↓ 第 3 步 论文带来新学者 引用图谱上每多一个指向我们的节点，就有更多学者看见 OptiCloud。 Story 6.A.3 自动追踪 第 4 步 飞轮转起来 更多学者上车 →",
+      "documentWidth": 1440,
+      "viewportWidth": 1440,
+      "documentHeight": 3977,
+      "viewportHeight": 1000,
+      "horizontalOverflow": false,
+      "overflow": [],
+      "headings": [
+        {
+          "level": 1,
+          "text": "开放优化与预测，让学术研究可复现、可引用、可被发现"
+        },
+        {
+          "level": 2,
+          "text": "学界变现飞轮 (Innovation #3)"
+        },
+        {
+          "level": 2,
+          "text": "引用 7 个算法"
+        },
+        {
+          "level": 3,
+          "text": "highs-lp"
+        },
+        {
+          "level": 3,
+          "text": "highs-milp"
+        },
+        {
+          "level": 3,
+          "text": "or-tools-vrptw"
+        },
+        {
+          "level": 3,
+          "text": "or-tools-cp-sat"
+        },
+        {
+          "level": 3,
+          "text": "chronos-t5-forecast"
+        },
+        {
+          "level": 3,
+          "text": "arima-forecast"
+        },
+        {
+          "level": 3,
+          "text": "lstm-forecast"
+        },
+        {
+          "level": 2,
+          "text": "用 .edu / .ac.cn 邮箱注册，永久免费 ¥2,000 Starter / 月"
+        }
+      ],
+      "navLinks": [
+        "算法目录",
+        "立即注册"
+      ],
+      "linkCount": 20,
+      "buttonCount": 7,
+      "disabledButtonCount": 0,
+      "firstLinks": [
+        {
+          "text": "OptiCloud",
+          "href": "/"
+        },
+        {
+          "text": "算法目录",
+          "href": "/algorithms"
+        },
+        {
+          "text": "立即注册",
+          "href": "/auth/signup"
+        },
+        {
+          "text": "🎓 用 .edu / .ac.cn 邮箱注册",
+          "href": "/auth/signup"
+        },
+        {
+          "text": "↓ 跳到引用列表",
+          "href": "#citations"
+        },
+        {
+          "text": "10.1007/s12532-017-0130-5",
+          "href": "https://doi.org/10.1007/s12532-017-0130-5"
+        },
+        {
+          "text": "→ 查看算法详情",
+          "href": "/algorithms/highs-lp"
+        },
+        {
+          "text": "10.1007/s12532-017-0130-5",
+          "href": "https://doi.org/10.1007/s12532-017-0130-5"
+        },
+        {
+          "text": "→ 查看算法详情",
+          "href": "/algorithms/highs-milp"
+        },
+        {
+          "text": "↗ https://developers.google.com/optimization",
+          "href": "https://developers.google.com/optimization"
+        },
+        {
+          "text": "→ 查看算法详情",
+          "href": "/algorithms/or-tools-vrptw"
+        },
+        {
+          "text": "10.1007/978-3-642-23786-7_2",
+          "href": "https://doi.org/10.1007/978-3-642-23786-7_2"
+        },
+        {
+          "text": "→ 查看算法详情",
+          "href": "/algorithms/or-tools-cp-sat"
+        },
+        {
+          "text": "10.48550/arXiv.2403.07815",
+          "href": "https://doi.org/10.48550/arXiv.2403.07815"
+        },
+        {
+          "text": "→ 查看算法详情",
+          "href": "/algorithms/chronos-t5-forecast"
+        },
+        {
+          "text": "→ 查看算法详情",
+          "href": "/algorithms/arima-forecast"
+        }
+      ],
+      "firstButtons": [
+        {
+          "text": "📋 复制",
+          "disabled": false
+        },
+        {
+          "text": "📋 复制",
+          "disabled": false
+        },
+        {
+          "text": "📋 复制",
+          "disabled": false
+        },
+        {
+          "text": "📋 复制",
+          "disabled": false
+        },
+        {
+          "text": "📋 复制",
+          "disabled": false
+        },
+        {
+          "text": "📋 复制",
+          "disabled": false
+        },
+        {
+          "text": "📋 复制",
+          "disabled": false
+        }
+      ],
+      "cardLikeCount": 33,
+      "maxTextBlockLength": 203,
+      "mainCount": 1,
+      "navCount": 1,
+      "tableCount": 0,
+      "formControlCount": 0
+    }
+  },
+  {
+    "route": "/pricing",
+    "id": "pricing",
+    "viewport": "desktop",
+    "status": 200,
+    "ms": 2591,
+    "gotoError": null,
+    "consoleErrors": [],
+    "pageErrors": [],
+    "failedRequests": [],
+    "screenshot": "D:\\优化预测网站\\e2e\\_bmad-output\\evolution\\visual-audit-2026-06-08\\screenshots\\pricing-desktop.png",
+    "metrics": {
+      "title": "OptiCloud — 通用优化与预测云",
+      "bodyText": "OptiCloud 立即注册 中文 English 定价 M4.5 买方安全版定价说明：当前页面用于解释 Free、Starter、Pro、Team、Enterprise 的包装假设，实际计费以已上线的 Credits 与后续法务/账单策略为准。 当前运行时 Free 适合注册、Hello World、API Key 和第一个 LP / 预测任务；具体赠送额度遵循当前产品实现。 商业假设 Starter 面向轻量重复使用者，验证 Credits 是否能按任务解释清楚；最终价格待计费策略确认。 商业假设 Pro 面向个人专业用户和学术试用转化，强调更高月度用量与可复现结果。 商业假设 Team 面向小团队采购，重点解释共享使用、发票准备和 founder-led 支持流程。 需评审 Enterprise 面向采购、法务和技术评估流程；所有条款、SLA 和安全材料均需单独审查。 买方安全边界 商业套餐、企业条款、SLA、认证状态和退款规则仍需法务、财务与计费实现确认。本页不构成合同、生产 SLA、SOC 2 / ISO 27001 认证声明或客户案例证明。 立即注册 查看 quicksta",
+      "documentWidth": 1440,
+      "viewportWidth": 1440,
+      "documentHeight": 1000,
+      "viewportHeight": 1000,
+      "horizontalOverflow": false,
+      "overflow": [],
+      "headings": [
+        {
+          "level": 1,
+          "text": "定价"
+        },
+        {
+          "level": 2,
+          "text": "Free"
+        },
+        {
+          "level": 2,
+          "text": "Starter"
+        },
+        {
+          "level": 2,
+          "text": "Pro"
+        },
+        {
+          "level": 2,
+          "text": "Team"
+        },
+        {
+          "level": 2,
+          "text": "Enterprise"
+        },
+        {
+          "level": 2,
+          "text": "买方安全边界"
+        }
+      ],
+      "navLinks": [],
+      "linkCount": 4,
+      "buttonCount": 2,
+      "disabledButtonCount": 0,
+      "firstLinks": [
+        {
+          "text": "OptiCloud",
+          "href": "/"
+        },
+        {
+          "text": "立即注册",
+          "href": "/auth/signup"
+        },
+        {
+          "text": "立即注册",
+          "href": "/auth/signup"
+        },
+        {
+          "text": "查看 quickstart",
+          "href": "/docs/quickstart"
+        }
+      ],
+      "firstButtons": [
+        {
+          "text": "中文",
+          "disabled": false
+        },
+        {
+          "text": "English",
+          "disabled": false
+        }
+      ],
+      "cardLikeCount": 8,
+      "maxTextBlockLength": 94,
+      "mainCount": 1,
+      "navCount": 0,
+      "tableCount": 0,
+      "formControlCount": 0
+    }
+  },
+  {
+    "route": "/status",
+    "id": "status",
+    "viewport": "desktop",
+    "status": 200,
+    "ms": 2247,
+    "gotoError": null,
+    "consoleErrors": [],
+    "pageErrors": [],
+    "failedRequests": [],
+    "screenshot": "D:\\优化预测网站\\e2e\\_bmad-output\\evolution\\visual-audit-2026-06-08\\screenshots\\status-desktop.png",
+    "metrics": {
+      "title": "OptiCloud Status",
+      "bodyText": "OptiCloud Algorithms Academic Status Security Sign up Public operations surface OptiCloud Status Public status, component health, and incident history for OptiCloud services. This page is unauthenticated and does not require a Console session. Degraded performance Last updated Jun 2, 2026, 12:00 PM UTC. Public read model; automated status tooling is handled separately. Components Status is derived from component severities, not maintained separately. API Gateway Operational Public API ingress, r",
+      "documentWidth": 1440,
+      "viewportWidth": 1440,
+      "documentHeight": 1558,
+      "viewportHeight": 1000,
+      "horizontalOverflow": false,
+      "overflow": [],
+      "headings": [
+        {
+          "level": 1,
+          "text": "OptiCloud Status"
+        },
+        {
+          "level": 3,
+          "text": "Degraded performance"
+        },
+        {
+          "level": 2,
+          "text": "Components"
+        },
+        {
+          "level": 3,
+          "text": "API Gateway"
+        },
+        {
+          "level": 3,
+          "text": "Auth"
+        },
+        {
+          "level": 3,
+          "text": "Solver Orchestrator"
+        },
+        {
+          "level": 3,
+          "text": "Billing"
+        },
+        {
+          "level": 3,
+          "text": "Chat"
+        },
+        {
+          "level": 3,
+          "text": "Capability Registry"
+        },
+        {
+          "level": 2,
+          "text": "Incident History"
+        },
+        {
+          "level": 3,
+          "text": "Solver queue latency above target"
+        },
+        {
+          "level": 3,
+          "text": "Capability registry maintenance window"
+        },
+        {
+          "level": 3,
+          "text": "DeepSeek provider outage and emergency fallback"
+        },
+        {
+          "level": 2,
+          "text": "Current incidents"
+        },
+        {
+          "level": 2,
+          "text": "Subscriptions"
+        }
+      ],
+      "navLinks": [
+        "Algorithms",
+        "Academic",
+        "Status",
+        "Security",
+        "Sign up"
+      ],
+      "linkCount": 10,
+      "buttonCount": 0,
+      "disabledButtonCount": 0,
+      "firstLinks": [
+        {
+          "text": "OptiCloud",
+          "href": "/"
+        },
+        {
+          "text": "Algorithms",
+          "href": "/algorithms"
+        },
+        {
+          "text": "Academic",
+          "href": "/academic"
+        },
+        {
+          "text": "Status",
+          "href": "/status"
+        },
+        {
+          "text": "Security",
+          "href": "/security"
+        },
+        {
+          "text": "Sign up",
+          "href": "/auth/signup"
+        },
+        {
+          "text": "RSS feed",
+          "href": "/status/rss.xml"
+        },
+        {
+          "text": "Read postmortem",
+          "href": "/status/incidents/inc-2026-05-28-deepseek-provider-fallback"
+        },
+        {
+          "text": "RSS feed",
+          "href": "/status/rss.xml"
+        },
+        {
+          "text": "Manage incident subscriptions",
+          "href": "/auth/account#notification-preferences"
+        }
+      ],
+      "firstButtons": [],
+      "cardLikeCount": 23,
+      "maxTextBlockLength": 146,
+      "mainCount": 1,
+      "navCount": 1,
+      "tableCount": 0,
+      "formControlCount": 0
+    }
+  },
+  {
+    "route": "/security",
+    "id": "security",
+    "viewport": "desktop",
+    "status": 200,
+    "ms": 3053,
+    "gotoError": null,
+    "consoleErrors": [],
+    "pageErrors": [],
+    "failedRequests": [],
+    "screenshot": "D:\\优化预测网站\\e2e\\_bmad-output\\evolution\\visual-audit-2026-06-08\\screenshots\\security-desktop.png",
+    "metrics": {
+      "title": "Security Disclosure — OptiCloud",
+      "bodyText": "OptiCloud Algorithms Academic Status Security Sign up Responsible disclosure Security Disclosure Report security vulnerabilities affecting OptiCloud public APIs, product pages, or account flows. This public page is unauthenticated and does not require a Console session. Disclosure mailbox security@opticloud.cn security.txt updated Jun 3, 2026, 12:00 AM UTC; expires Dec 3, 2026, 12:00 AM UTC. What to include Affected endpoint or service Include the API path, page URL, account flow, or public serv",
+      "documentWidth": 1440,
+      "viewportWidth": 1440,
+      "documentHeight": 5015,
+      "viewportHeight": 1000,
+      "horizontalOverflow": false,
+      "overflow": [],
+      "headings": [
+        {
+          "level": 1,
+          "text": "Security Disclosure"
+        },
+        {
+          "level": 2,
+          "text": "Disclosure mailbox"
+        },
+        {
+          "level": 2,
+          "text": "What to include"
+        },
+        {
+          "level": 3,
+          "text": "Affected endpoint or service"
+        },
+        {
+          "level": 3,
+          "text": "Vulnerability class and impact"
+        },
+        {
+          "level": 3,
+          "text": "Reproduction steps or PoC"
+        },
+        {
+          "level": 3,
+          "text": "CVSS estimate"
+        },
+        {
+          "level": 3,
+          "text": "Reporter contact"
+        },
+        {
+          "level": 2,
+          "text": "Safe harbor boundaries"
+        },
+        {
+          "level": 3,
+          "text": "Stop after minimal proof"
+        },
+        {
+          "level": 3,
+          "text": "Do not exfiltrate customer or platform data"
+        },
+        {
+          "level": 3,
+          "text": "Do not perform destructive testing"
+        },
+        {
+          "level": 3,
+          "text": "Do not create persistence or backdoors"
+        },
+        {
+          "level": 3,
+          "text": "No social engineering"
+        },
+        {
+          "level": 3,
+          "text": "Do not perform DDoS or load testing"
+        },
+        {
+          "level": 3,
+          "text": "Use synthetic or researcher-owned test data"
+        },
+        {
+          "level": 2,
+          "text": "Response targets"
+        },
+        {
+          "level": 2,
+          "text": "Channel boundaries"
+        },
+        {
+          "level": 2,
+          "text": "Follow-up policy items"
+        },
+        {
+          "level": 2,
+          "text": "J9 Whitehat Vertical Slice"
+        },
+        {
+          "level": 3,
+          "text": "Flow stages"
+        },
+        {
+          "level": 3,
+          "text": "Mermaid flow source"
+        },
+        {
+          "level": 3,
+          "text": "SOP steps"
+        },
+        {
+          "level": 3,
+          "text": "Hardening checklist"
+        }
+      ],
+      "navLinks": [
+        "Algorithms",
+        "Academic",
+        "Status",
+        "Security",
+        "Sign up"
+      ],
+      "linkCount": 7,
+      "buttonCount": 0,
+      "disabledButtonCount": 0,
+      "firstLinks": [
+        {
+          "text": "OptiCloud",
+          "href": "/"
+        },
+        {
+          "text": "Algorithms",
+          "href": "/algorithms"
+        },
+        {
+          "text": "Academic",
+          "href": "/academic"
+        },
+        {
+          "text": "Status",
+          "href": "/status"
+        },
+        {
+          "text": "Security",
+          "href": "/security"
+        },
+        {
+          "text": "Sign up",
+          "href": "/auth/signup"
+        },
+        {
+          "text": "security@opticloud.cn",
+          "href": "mailto:security@opticloud.cn"
+        }
+      ],
+      "firstButtons": [],
+      "cardLikeCount": 117,
+      "maxTextBlockLength": 208,
+      "mainCount": 1,
+      "navCount": 1,
+      "tableCount": 0,
+      "formControlCount": 0
+    }
+  },
+  {
+    "route": "/auth/signup",
+    "id": "signup",
+    "viewport": "desktop",
+    "status": 200,
+    "ms": 2551,
+    "gotoError": null,
+    "consoleErrors": [],
+    "pageErrors": [],
+    "failedRequests": [],
+    "screenshot": "D:\\优化预测网站\\e2e\\_bmad-output\\evolution\\visual-audit-2026-06-08\\screenshots\\signup-desktop.png",
+    "metrics": {
+      "title": "OptiCloud — 通用优化与预测云",
+      "bodyText": "中文 English 5 步跑通 Hello World 先注册并完成验证，随后拿到 API Key、导入 Postman，并跑通第一个 LP。 继续引导 跳过引导 1 注册 当前步骤 2 验证 待完成 3 拿 API Key 待完成 4 Postman 导入 待完成 5 Hello World 跑通 待完成 注册 OptiCloud 3 分钟拿到 API Key，立即跑 Hello World 手机号* E.164 国际格式（+86 开头） 邮箱* .edu / .ac.cn 邮箱自动激活教育版 (Starter 2K/月 永久免费) 年龄* 仅填写周岁数字；未满 14 岁暂不能注册，14-17 岁需监护人确认。 立即注册 → 注册即同意 服务条款 + 隐私政策 (PIPL 合规)",
+      "documentWidth": 1440,
+      "viewportWidth": 1440,
+      "documentHeight": 1000,
+      "viewportHeight": 1000,
+      "horizontalOverflow": false,
+      "overflow": [],
+      "headings": [
+        {
+          "level": 2,
+          "text": "5 步跑通 Hello World"
+        },
+        {
+          "level": 1,
+          "text": "注册 OptiCloud"
+        }
+      ],
+      "navLinks": [],
+      "linkCount": 2,
+      "buttonCount": 5,
+      "disabledButtonCount": 1,
+      "firstLinks": [
+        {
+          "text": "服务条款",
+          "href": "/legal/tos"
+        },
+        {
+          "text": "隐私政策",
+          "href": "/legal/privacy"
+        }
+      ],
+      "firstButtons": [
+        {
+          "text": "中文",
+          "disabled": false
+        },
+        {
+          "text": "English",
+          "disabled": false
+        },
+        {
+          "text": "继续引导",
+          "disabled": false
+        },
+        {
+          "text": "跳过引导",
+          "disabled": false
+        },
+        {
+          "text": "立即注册 →",
+          "disabled": true
+        }
+      ],
+      "cardLikeCount": 13,
+      "maxTextBlockLength": 43,
+      "mainCount": 1,
+      "navCount": 0,
+      "tableCount": 0,
+      "formControlCount": 3
+    }
+  },
+  {
+    "route": "/welcome",
+    "id": "welcome",
+    "viewport": "desktop",
+    "status": 200,
+    "ms": 2964,
+    "gotoError": null,
+    "consoleErrors": [],
+    "pageErrors": [],
+    "failedRequests": [],
+    "screenshot": "D:\\优化预测网站\\e2e\\_bmad-output\\evolution\\visual-audit-2026-06-08\\screenshots\\welcome-desktop.png",
+    "metrics": {
+      "title": "OptiCloud — 通用优化与预测云",
+      "bodyText": "中文 English 5 步跑通 Hello World 先注册并完成验证，随后拿到 API Key、导入 Postman，并跑通第一个 LP。 继续引导 跳过引导 1 注册 当前步骤 2 验证 待完成 3 拿 API Key 待完成 4 Postman 导入 待完成 5 Hello World 跑通 待完成 注册 OptiCloud 3 分钟拿到 API Key，立即跑 Hello World 手机号* E.164 国际格式（+86 开头） 邮箱* .edu / .ac.cn 邮箱自动激活教育版 (Starter 2K/月 永久免费) 年龄* 仅填写周岁数字；未满 14 岁暂不能注册，14-17 岁需监护人确认。 立即注册 → 注册即同意 服务条款 + 隐私政策 (PIPL 合规)",
+      "documentWidth": 1440,
+      "viewportWidth": 1440,
+      "documentHeight": 1000,
+      "viewportHeight": 1000,
+      "horizontalOverflow": false,
+      "overflow": [],
+      "headings": [
+        {
+          "level": 2,
+          "text": "5 步跑通 Hello World"
+        },
+        {
+          "level": 1,
+          "text": "注册 OptiCloud"
+        }
+      ],
+      "navLinks": [],
+      "linkCount": 2,
+      "buttonCount": 5,
+      "disabledButtonCount": 1,
+      "firstLinks": [
+        {
+          "text": "服务条款",
+          "href": "/legal/tos"
+        },
+        {
+          "text": "隐私政策",
+          "href": "/legal/privacy"
+        }
+      ],
+      "firstButtons": [
+        {
+          "text": "中文",
+          "disabled": false
+        },
+        {
+          "text": "English",
+          "disabled": false
+        },
+        {
+          "text": "继续引导",
+          "disabled": false
+        },
+        {
+          "text": "跳过引导",
+          "disabled": false
+        },
+        {
+          "text": "立即注册 →",
+          "disabled": true
+        }
+      ],
+      "cardLikeCount": 13,
+      "maxTextBlockLength": 43,
+      "mainCount": 1,
+      "navCount": 0,
+      "tableCount": 0,
+      "formControlCount": 3
+    }
+  },
+  {
+    "route": "/console/excel",
+    "id": "console-excel",
+    "viewport": "desktop",
+    "status": 200,
+    "ms": 14401,
+    "gotoError": null,
+    "consoleErrors": [],
+    "pageErrors": [],
+    "failedRequests": [],
+    "screenshot": "D:\\优化预测网站\\e2e\\_bmad-output\\evolution\\visual-audit-2026-06-08\\screenshots\\console-excel-desktop.png",
+    "metrics": {
+      "title": "OptiCloud — 通用优化与预测云",
+      "bodyText": "OptiCloud 算法目录 注册 上传 Excel，自动求解 适合 VRPTW 路线 / 排班调度 / 库存预测 - 不写代码，拖一下就行（≤5 MB / 50K 行） 📊 把 .xlsx 拖到这里 ≤5 MB / 50K 行 · 本地识别 VRPTW / 排班 / 库存预测模板 📎 或点击选择文件 想用 cURL / Postman / SDK 直接调？ 看算法目录 →",
+      "documentWidth": 1440,
+      "viewportWidth": 1440,
+      "documentHeight": 1000,
+      "viewportHeight": 1000,
+      "horizontalOverflow": false,
+      "overflow": [],
+      "headings": [
+        {
+          "level": 1,
+          "text": "上传 Excel，自动求解"
+        }
+      ],
+      "navLinks": [
+        "算法目录",
+        "注册"
+      ],
+      "linkCount": 4,
+      "buttonCount": 0,
+      "disabledButtonCount": 0,
+      "firstLinks": [
+        {
+          "text": "OptiCloud",
+          "href": "/"
+        },
+        {
+          "text": "算法目录",
+          "href": "/algorithms"
+        },
+        {
+          "text": "注册",
+          "href": "/auth/signup"
+        },
+        {
+          "text": "看算法目录 →",
+          "href": "/algorithms"
+        }
+      ],
+      "firstButtons": [],
+      "cardLikeCount": 2,
+      "maxTextBlockLength": 53,
+      "mainCount": 1,
+      "navCount": 1,
+      "tableCount": 0,
+      "formControlCount": 1
+    }
+  },
+  {
+    "route": "/console/predictions",
+    "id": "console-predictions",
+    "viewport": "desktop",
+    "status": 200,
+    "ms": 5936,
+    "gotoError": null,
+    "consoleErrors": [],
+    "pageErrors": [],
+    "failedRequests": [],
+    "screenshot": "D:\\优化预测网站\\e2e\\_bmad-output\\evolution\\visual-audit-2026-06-08\\screenshots\\console-predictions-desktop.png",
+    "metrics": {
+      "title": "OptiCloud — 通用优化与预测云",
+      "bodyText": "OptiCloud Excel 算法目录 CSV 需求预测 上传销售 CSV，先在浏览器内校验和修复，再提交到现有预测 API。 选择 CSV 文件 支持 sku/SKU/商品、month/date/月份、value/sales/销量 等表头；单文件 ≤10 MB。 📎 选择 CSV 下载模板",
+      "documentWidth": 1440,
+      "viewportWidth": 1440,
+      "documentHeight": 1000,
+      "viewportHeight": 1000,
+      "horizontalOverflow": false,
+      "overflow": [],
+      "headings": [
+        {
+          "level": 1,
+          "text": "CSV 需求预测"
+        },
+        {
+          "level": 2,
+          "text": "选择 CSV 文件"
+        }
+      ],
+      "navLinks": [
+        "Excel",
+        "算法目录"
+      ],
+      "linkCount": 4,
+      "buttonCount": 0,
+      "disabledButtonCount": 0,
+      "firstLinks": [
+        {
+          "text": "OptiCloud",
+          "href": "/"
+        },
+        {
+          "text": "Excel",
+          "href": "/console/excel"
+        },
+        {
+          "text": "算法目录",
+          "href": "/algorithms"
+        },
+        {
+          "text": "下载模板",
+          "href": "data:text/csv;charset=utf-8,%E5%95%86%E5%93%81%E7%BC%96%E5%8F%B7%2C%E6%9C%88%E4%BB%BD%2C%E9%94%80%E9%87%8F%0ASKU-01%2C2026-01%2C120%0ASKU-01%2C2026-02%2C132%0ASKU-01%2C2026-03%2C141"
+        }
+      ],
+      "firstButtons": [],
+      "cardLikeCount": 3,
+      "maxTextBlockLength": 58,
+      "mainCount": 1,
+      "navCount": 1,
+      "tableCount": 0,
+      "formControlCount": 1
+    }
+  },
+  {
+    "route": "/console/chat",
+    "id": "console-chat",
+    "viewport": "desktop",
+    "status": 200,
+    "ms": 5863,
+    "gotoError": null,
+    "consoleErrors": [],
+    "pageErrors": [],
+    "failedRequests": [],
+    "screenshot": "D:\\优化预测网站\\e2e\\_bmad-output\\evolution\\visual-audit-2026-06-08\\screenshots\\console-chat-desktop.png",
+    "metrics": {
+      "title": "OptiCloud — 通用优化与预测云",
+      "bodyText": "OptiCloud 预测 Excel 数据导出 审计日志 Chat internal beta 仅连接受保护 internal beta Chat endpoint。 Tenant User Token Token 只保存在当前页面状态中；刷新后会丢失。 Internal beta Chat 仅限受信 internal beta 使用 清空历史 暂无对话 输入需求或附加 CSV / Excel / JSON 上下文后开始 internal beta 预览。 输入消息 📎 添加文件 发送",
+      "documentWidth": 1440,
+      "viewportWidth": 1440,
+      "documentHeight": 1000,
+      "viewportHeight": 1000,
+      "horizontalOverflow": false,
+      "overflow": [],
+      "headings": [
+        {
+          "level": 1,
+          "text": "Chat internal beta"
+        },
+        {
+          "level": 2,
+          "text": "Internal beta Chat"
+        },
+        {
+          "level": 3,
+          "text": "暂无对话"
+        }
+      ],
+      "navLinks": [
+        "预测",
+        "Excel",
+        "数据导出",
+        "审计日志"
+      ],
+      "linkCount": 5,
+      "buttonCount": 2,
+      "disabledButtonCount": 1,
+      "firstLinks": [
+        {
+          "text": "OptiCloud",
+          "href": "/"
+        },
+        {
+          "text": "预测",
+          "href": "/console/predictions"
+        },
+        {
+          "text": "Excel",
+          "href": "/console/excel"
+        },
+        {
+          "text": "数据导出",
+          "href": "/console/data-exports"
+        },
+        {
+          "text": "审计日志",
+          "href": "/console/audit-logs"
+        }
+      ],
+      "firstButtons": [
+        {
+          "text": "清空历史",
+          "disabled": false
+        },
+        {
+          "text": "发送",
+          "disabled": true
+        }
+      ],
+      "cardLikeCount": 9,
+      "maxTextBlockLength": 51,
+      "mainCount": 1,
+      "navCount": 1,
+      "tableCount": 0,
+      "formControlCount": 5
+    }
+  },
+  {
+    "route": "/console/providers",
+    "id": "console-providers",
+    "viewport": "desktop",
+    "status": 200,
+    "ms": 5211,
+    "gotoError": null,
+    "consoleErrors": [],
+    "pageErrors": [],
+    "failedRequests": [],
+    "screenshot": "D:\\优化预测网站\\e2e\\_bmad-output\\evolution\\visual-audit-2026-06-08\\screenshots\\console-providers-desktop.png",
+    "metrics": {
+      "title": "OptiCloud — 通用优化与预测云",
+      "bodyText": "登录 OptiCloud 手机 + 邮箱 OTP 双因素验证 (FR A1) 手机号 邮箱 发送 OTP → 没有账号？ 立即注册",
+      "documentWidth": 1440,
+      "viewportWidth": 1440,
+      "documentHeight": 1000,
+      "viewportHeight": 1000,
+      "horizontalOverflow": false,
+      "overflow": [],
+      "headings": [
+        {
+          "level": 1,
+          "text": "登录 OptiCloud"
+        }
+      ],
+      "navLinks": [],
+      "linkCount": 1,
+      "buttonCount": 1,
+      "disabledButtonCount": 1,
+      "firstLinks": [
+        {
+          "text": "立即注册",
+          "href": "/auth/signup"
+        }
+      ],
+      "firstButtons": [
+        {
+          "text": "发送 OTP →",
+          "disabled": true
+        }
+      ],
+      "cardLikeCount": 3,
+      "maxTextBlockLength": 25,
+      "mainCount": 1,
+      "navCount": 0,
+      "tableCount": 0,
+      "formControlCount": 2
+    }
+  },
+  {
+    "route": "/console/billing/invoices",
+    "id": "console-billing",
+    "viewport": "desktop",
+    "status": 200,
+    "ms": 3788,
+    "gotoError": null,
+    "consoleErrors": [],
+    "pageErrors": [],
+    "failedRequests": [],
+    "screenshot": "D:\\优化预测网站\\e2e\\_bmad-output\\evolution\\visual-audit-2026-06-08\\screenshots\\console-billing-desktop.png",
+    "metrics": {
+      "title": "OptiCloud — 通用优化与预测云",
+      "bodyText": "登录 OptiCloud 手机 + 邮箱 OTP 双因素验证 (FR A1) 手机号 邮箱 发送 OTP → 没有账号？ 立即注册",
+      "documentWidth": 1440,
+      "viewportWidth": 1440,
+      "documentHeight": 1000,
+      "viewportHeight": 1000,
+      "horizontalOverflow": false,
+      "overflow": [],
+      "headings": [
+        {
+          "level": 1,
+          "text": "登录 OptiCloud"
+        }
+      ],
+      "navLinks": [],
+      "linkCount": 1,
+      "buttonCount": 1,
+      "disabledButtonCount": 1,
+      "firstLinks": [
+        {
+          "text": "立即注册",
+          "href": "/auth/signup"
+        }
+      ],
+      "firstButtons": [
+        {
+          "text": "发送 OTP →",
+          "disabled": true
+        }
+      ],
+      "cardLikeCount": 3,
+      "maxTextBlockLength": 25,
+      "mainCount": 1,
+      "navCount": 0,
+      "tableCount": 0,
+      "formControlCount": 2
+    }
+  },
+  {
+    "route": "/console/audit-logs",
+    "id": "console-audit",
+    "viewport": "desktop",
+    "status": 200,
+    "ms": 3995,
+    "gotoError": null,
+    "consoleErrors": [],
+    "pageErrors": [],
+    "failedRequests": [
+      "GET http://127.0.0.1:3000/auth/login?_rsc=a0GP00eN6sWiyJkD net::ERR_ABORTED"
+    ],
+    "screenshot": "D:\\优化预测网站\\e2e\\_bmad-output\\evolution\\visual-audit-2026-06-08\\screenshots\\console-audit-desktop.png",
+    "metrics": {
+      "title": "OptiCloud — 通用优化与预测云",
+      "bodyText": "登录 OptiCloud 手机 + 邮箱 OTP 双因素验证 (FR A1) 手机号 邮箱 发送 OTP → 没有账号？ 立即注册",
+      "documentWidth": 1440,
+      "viewportWidth": 1440,
+      "documentHeight": 1000,
+      "viewportHeight": 1000,
+      "horizontalOverflow": false,
+      "overflow": [],
+      "headings": [
+        {
+          "level": 1,
+          "text": "登录 OptiCloud"
+        }
+      ],
+      "navLinks": [],
+      "linkCount": 1,
+      "buttonCount": 1,
+      "disabledButtonCount": 1,
+      "firstLinks": [
+        {
+          "text": "立即注册",
+          "href": "/auth/signup"
+        }
+      ],
+      "firstButtons": [
+        {
+          "text": "发送 OTP →",
+          "disabled": true
+        }
+      ],
+      "cardLikeCount": 3,
+      "maxTextBlockLength": 25,
+      "mainCount": 1,
+      "navCount": 0,
+      "tableCount": 0,
+      "formControlCount": 2
+    }
+  },
+  {
+    "route": "/console/classroom",
+    "id": "console-classroom",
+    "viewport": "desktop",
+    "status": 200,
+    "ms": 7187,
+    "gotoError": null,
+    "consoleErrors": [],
+    "pageErrors": [],
+    "failedRequests": [
+      "GET http://127.0.0.1:3000/auth/login?_rsc=_GpOzyvySDlueBHo net::ERR_ABORTED"
+    ],
+    "screenshot": "D:\\优化预测网站\\e2e\\_bmad-output\\evolution\\visual-audit-2026-06-08\\screenshots\\console-classroom-desktop.png",
+    "metrics": {
+      "title": "OptiCloud — 通用优化与预测云",
+      "bodyText": "登录 OptiCloud 手机 + 邮箱 OTP 双因素验证 (FR A1) 手机号 邮箱 发送 OTP → 没有账号？ 立即注册",
+      "documentWidth": 1440,
+      "viewportWidth": 1440,
+      "documentHeight": 1000,
+      "viewportHeight": 1000,
+      "horizontalOverflow": false,
+      "overflow": [],
+      "headings": [
+        {
+          "level": 1,
+          "text": "登录 OptiCloud"
+        }
+      ],
+      "navLinks": [],
+      "linkCount": 1,
+      "buttonCount": 1,
+      "disabledButtonCount": 1,
+      "firstLinks": [
+        {
+          "text": "立即注册",
+          "href": "/auth/signup"
+        }
+      ],
+      "firstButtons": [
+        {
+          "text": "发送 OTP →",
+          "disabled": true
+        }
+      ],
+      "cardLikeCount": 3,
+      "maxTextBlockLength": 25,
+      "mainCount": 1,
+      "navCount": 0,
+      "tableCount": 0,
+      "formControlCount": 2
+    }
+  },
+  {
+    "route": "/console/routing-history",
+    "id": "console-routing",
+    "viewport": "desktop",
+    "status": 200,
+    "ms": 8068,
+    "gotoError": null,
+    "consoleErrors": [],
+    "pageErrors": [],
+    "failedRequests": [],
+    "screenshot": "D:\\优化预测网站\\e2e\\_bmad-output\\evolution\\visual-audit-2026-06-08\\screenshots\\console-routing-desktop.png",
+    "metrics": {
+      "title": "OptiCloud — 通用优化与预测云",
+      "bodyText": "OptiCloud Excel Providers Routing History Legal Inquiry 审计日志 Provider Routing History 查询单个 optimization 的 primary route、executed route 和 fallback attempt history。 安全边界 本页只展示 public-safe routing 字段，不展示请求、账单、错误诊断或内部 metadata。 查询 API key Optimization ID 加载 routing history 凭据不持久化 API key 和 optimization ID 只保存在当前页面内存中。",
+      "documentWidth": 1440,
+      "viewportWidth": 1440,
+      "documentHeight": 1000,
+      "viewportHeight": 1000,
+      "horizontalOverflow": false,
+      "overflow": [],
+      "headings": [
+        {
+          "level": 1,
+          "text": "Provider Routing History"
+        },
+        {
+          "level": 3,
+          "text": "安全边界"
+        },
+        {
+          "level": 3,
+          "text": "凭据不持久化"
+        }
+      ],
+      "navLinks": [
+        "Excel",
+        "Providers",
+        "Routing History",
+        "Legal Inquiry",
+        "审计日志"
+      ],
+      "linkCount": 6,
+      "buttonCount": 1,
+      "disabledButtonCount": 0,
+      "firstLinks": [
+        {
+          "text": "OptiCloud",
+          "href": "/"
+        },
+        {
+          "text": "Excel",
+          "href": "/console/excel"
+        },
+        {
+          "text": "Providers",
+          "href": "/console/providers"
+        },
+        {
+          "text": "Routing History",
+          "href": "/console/routing-history"
+        },
+        {
+          "text": "Legal Inquiry",
+          "href": "/console/legal-inquiry"
+        },
+        {
+          "text": "审计日志",
+          "href": "/console/audit-logs"
+        }
+      ],
+      "firstButtons": [
+        {
+          "text": "加载 routing history",
+          "disabled": false
+        }
+      ],
+      "cardLikeCount": 5,
+      "maxTextBlockLength": 76,
+      "mainCount": 1,
+      "navCount": 1,
+      "tableCount": 0,
+      "formControlCount": 2
+    }
+  },
+  {
+    "route": "/console/legal-inquiry",
+    "id": "console-legal",
+    "viewport": "desktop",
+    "status": 200,
+    "ms": 4046,
+    "gotoError": null,
+    "consoleErrors": [],
+    "pageErrors": [],
+    "failedRequests": [],
+    "screenshot": "D:\\优化预测网站\\e2e\\_bmad-output\\evolution\\visual-audit-2026-06-08\\screenshots\\console-legal-desktop.png",
+    "metrics": {
+      "title": "OptiCloud — 通用优化与预测云",
+      "bodyText": "登录 OptiCloud 手机 + 邮箱 OTP 双因素验证 (FR A1) 手机号 邮箱 发送 OTP → 没有账号？ 立即注册",
+      "documentWidth": 1440,
+      "viewportWidth": 1440,
+      "documentHeight": 1000,
+      "viewportHeight": 1000,
+      "horizontalOverflow": false,
+      "overflow": [],
+      "headings": [
+        {
+          "level": 1,
+          "text": "登录 OptiCloud"
+        }
+      ],
+      "navLinks": [],
+      "linkCount": 1,
+      "buttonCount": 1,
+      "disabledButtonCount": 1,
+      "firstLinks": [
+        {
+          "text": "立即注册",
+          "href": "/auth/signup"
+        }
+      ],
+      "firstButtons": [
+        {
+          "text": "发送 OTP →",
+          "disabled": true
+        }
+      ],
+      "cardLikeCount": 3,
+      "maxTextBlockLength": 25,
+      "mainCount": 1,
+      "navCount": 0,
+      "tableCount": 0,
+      "formControlCount": 2
+    }
+  },
+  {
+    "route": "/",
+    "id": "landing",
+    "viewport": "mobile",
+    "status": 200,
+    "ms": 2212,
+    "gotoError": null,
+    "consoleErrors": [],
+    "pageErrors": [],
+    "failedRequests": [],
+    "screenshot": "D:\\优化预测网站\\e2e\\_bmad-output\\evolution\\visual-audit-2026-06-08\\screenshots\\landing-mobile.png",
+    "metrics": {
+      "title": "OptiCloud — 通用优化与预测云",
+      "bodyText": "OptiCloud 算法目录 学术合作 文档 定价 状态页 安全披露 立即注册 中文 English 让算法走出实验室 让懂业务的工程师 / 数据分析师 5 分钟用上 Gurobi / TimeGPT 级算法 76% 中型企业的工程师手里只有 Excel —— 算法用不起（Gurobi ≥¥5,000/月）、用不动。我们让他们用一行 API 跑通过去只有 Gurobi / DataRobot 能做的事。 月成本 ¥6 起。 立即注册 → 浏览算法目录 → 3 分钟跑通第一个 LP 求解 # 1. 注册（手机+邮箱双因素，3 分钟） curl -X POST https://api.opticloud.cn/v1/auth/signup \\ -d {\"phone\":\"+86138...\",\"email\":\"you@example.com\",\"age_years\":18} # 2. 拿到 sk-xxx API Key，立即可用： curl -X POST https://api.opticloud.cn/v1/optimizations \\ -H \"Authorization: Beare",
+      "documentWidth": 390,
+      "viewportWidth": 390,
+      "documentHeight": 1207,
+      "viewportHeight": 844,
+      "horizontalOverflow": false,
+      "overflow": [
+        {
+          "tag": "code",
+          "text": "# 1. 注册（手机+邮箱双因素，3 分钟） curl -X POST https://api.opticloud.cn/v1/auth/signup \\ -d",
+          "className": "",
+          "left": 40,
+          "right": 528,
+          "width": 488
+        }
+      ],
+      "headings": [
+        {
+          "level": 1,
+          "text": "让算法走出实验室"
+        },
+        {
+          "level": 2,
+          "text": "3 分钟跑通第一个 LP 求解"
+        }
+      ],
+      "navLinks": [
+        "算法目录",
+        "学术合作",
+        "文档",
+        "定价",
+        "状态页",
+        "安全披露",
+        "立即注册"
+      ],
+      "linkCount": 9,
+      "buttonCount": 2,
+      "disabledButtonCount": 0,
+      "firstLinks": [
+        {
+          "text": "算法目录",
+          "href": "/algorithms"
+        },
+        {
+          "text": "学术合作",
+          "href": "/academic"
+        },
+        {
+          "text": "文档",
+          "href": "/docs"
+        },
+        {
+          "text": "定价",
+          "href": "/pricing"
+        },
+        {
+          "text": "状态页",
+          "href": "/status"
+        },
+        {
+          "text": "安全披露",
+          "href": "/security"
+        },
+        {
+          "text": "立即注册",
+          "href": "/auth/signup"
+        },
+        {
+          "text": "立即注册 →",
+          "href": "/auth/signup"
+        },
+        {
+          "text": "浏览算法目录 →",
+          "href": "/algorithms"
+        }
+      ],
+      "firstButtons": [
+        {
+          "text": "中文",
+          "disabled": false
+        },
+        {
+          "text": "English",
+          "disabled": false
+        }
+      ],
+      "cardLikeCount": 2,
+      "maxTextBlockLength": 108,
+      "mainCount": 1,
+      "navCount": 1,
+      "tableCount": 0,
+      "formControlCount": 0
+    }
+  },
+  {
+    "route": "/docs",
+    "id": "docs",
+    "viewport": "mobile",
+    "status": 200,
+    "ms": 3377,
+    "gotoError": null,
+    "consoleErrors": [],
+    "pageErrors": [],
+    "failedRequests": [],
+    "screenshot": "D:\\优化预测网站\\e2e\\_bmad-output\\evolution\\visual-audit-2026-06-08\\screenshots\\docs-mobile.png",
+    "metrics": {
+      "title": "OptiCloud — 通用优化与预测云",
+      "bodyText": "OptiCloud 立即注册 文档 选择当前产品内可打开的操作文档、FAQ 和支持页面。 快速开始 Hello World Quickstart 继续完成 API Key、Postman 和第一个 LP 求解。 Excel 上传常见问题 文件大小、格式和公式处理的当前 v1 边界。 学术合作 Academic Provider Handbook 学者 Provider onboarding、IP attribution 和课堂计划边界。 Academic Onboarding FAQ 面向学者的常见问题和人工 cohort 沟通口径。 产品与运营 定价说明 Free、Starter、Pro、Team、Enterprise 的当前包装假设。 状态页 公开服务状态、事件历史和订阅入口。 安全披露 白帽提交、响应边界和安全联系方式。",
+      "documentWidth": 390,
+      "viewportWidth": 390,
+      "documentHeight": 1167,
+      "viewportHeight": 844,
+      "horizontalOverflow": false,
+      "overflow": [],
+      "headings": [
+        {
+          "level": 1,
+          "text": "文档"
+        },
+        {
+          "level": 2,
+          "text": "快速开始"
+        },
+        {
+          "level": 2,
+          "text": "学术合作"
+        },
+        {
+          "level": 2,
+          "text": "产品与运营"
+        }
+      ],
+      "navLinks": [],
+      "linkCount": 9,
+      "buttonCount": 0,
+      "disabledButtonCount": 0,
+      "firstLinks": [
+        {
+          "text": "OptiCloud",
+          "href": "/"
+        },
+        {
+          "text": "立即注册",
+          "href": "/auth/signup"
+        },
+        {
+          "text": "Hello World Quickstart继续完成 API Key、Postman 和第一个 LP 求解。",
+          "href": "/docs/quickstart"
+        },
+        {
+          "text": "Excel 上传常见问题文件大小、格式和公式处理的当前 v1 边界。",
+          "href": "/docs/excel-upload-faq"
+        },
+        {
+          "text": "Academic Provider Handbook学者 Provider onboarding、IP attribution 和课堂计划边界。",
+          "href": "/docs/academic-provider-handbook"
+        },
+        {
+          "text": "Academic Onboarding FAQ面向学者的常见问题和人工 cohort 沟通口径。",
+          "href": "/docs/customer-faqs/academic-onboarding-faq"
+        },
+        {
+          "text": "定价说明Free、Starter、Pro、Team、Enterprise 的当前包装假设。",
+          "href": "/pricing"
+        },
+        {
+          "text": "状态页公开服务状态、事件历史和订阅入口。",
+          "href": "/status"
+        },
+        {
+          "text": "安全披露白帽提交、响应边界和安全联系方式。",
+          "href": "/security"
+        }
+      ],
+      "firstButtons": [],
+      "cardLikeCount": 7,
+      "maxTextBlockLength": 26,
+      "mainCount": 1,
+      "navCount": 0,
+      "tableCount": 0,
+      "formControlCount": 0
+    }
+  },
+  {
+    "route": "/algorithms",
+    "id": "algorithms",
+    "viewport": "mobile",
+    "status": 200,
+    "ms": 2523,
+    "gotoError": null,
+    "consoleErrors": [],
+    "pageErrors": [],
+    "failedRequests": [],
+    "screenshot": "D:\\优化预测网站\\e2e\\_bmad-output\\evolution\\visual-audit-2026-06-08\\screenshots\\algorithms-mobile.png",
+    "metrics": {
+      "title": "OptiCloud — 通用优化与预测云",
+      "bodyText": "OptiCloud 首页 注册 算法目录 公开免鉴权 — `GET /v1/algorithms`（FR C1） · Provider 全透明（含 provider_url） 浏览经典算例库 优化 T1 T2 T3 T4 T5 T6 预测 P1 P2 P3 P4 P5 highs-lp T1 ✅ v1 上线 详情 → HiGHS 线性规划 (Linear Programming) — 全球最快开源 LP 求解器 (2024 MIT) HiGHS Linear Programming — fastest open-source LP solver task_type: lp Provider: highs · open_source · v1.7.0 ↗ https://highs.dev/ 📋 示例输入（Hello World LP） highs-milp T2 ✅ v1 上线 详情 → HiGHS 混合整数线性规划 (MILP) — 整数变量约束 HiGHS Mixed Integer Linear Programming task_type: milp Provider: hig",
+      "documentWidth": 390,
+      "viewportWidth": 390,
+      "documentHeight": 2711,
+      "viewportHeight": 844,
+      "horizontalOverflow": false,
+      "overflow": [],
+      "headings": [
+        {
+          "level": 1,
+          "text": "算法目录"
+        }
+      ],
+      "navLinks": [
+        "首页",
+        "注册"
+      ],
+      "linkCount": 19,
+      "buttonCount": 11,
+      "disabledButtonCount": 0,
+      "firstLinks": [
+        {
+          "text": "OptiCloud",
+          "href": "/"
+        },
+        {
+          "text": "首页",
+          "href": "/"
+        },
+        {
+          "text": "注册",
+          "href": "/auth/signup"
+        },
+        {
+          "text": "浏览经典算例库",
+          "href": "/algorithms/benchmarks"
+        },
+        {
+          "text": "highs-lpT1✅ v1 上线详情 →HiGHS 线性规划 (Linear Programming) — 全球最快开源 LP 求解器 (2024 MIT)H",
+          "href": "/algorithms/highs-lp"
+        },
+        {
+          "text": "↗ https://highs.dev/",
+          "href": "https://highs.dev/"
+        },
+        {
+          "text": "highs-milpT2✅ v1 上线详情 →HiGHS 混合整数线性规划 (MILP) — 整数变量约束HiGHS Mixed Integer Linear ",
+          "href": "/algorithms/highs-milp"
+        },
+        {
+          "text": "↗ https://highs.dev/",
+          "href": "https://highs.dev/"
+        },
+        {
+          "text": "or-tools-vrptwT4✅ v1 上线详情 →OR-Tools 带时间窗的车辆路径规划 (VRPTW)OR-Tools Vehicle Routing ",
+          "href": "/algorithms/or-tools-vrptw"
+        },
+        {
+          "text": "↗ https://developers.google.com/optimization/routing",
+          "href": "https://developers.google.com/optimization/routing"
+        },
+        {
+          "text": "or-tools-cp-satT3✅ v1 上线详情 →OR-Tools CP-SAT — 约束规划求解器 (排班 / 调度)OR-Tools CP-SAT —",
+          "href": "/algorithms/or-tools-cp-sat"
+        },
+        {
+          "text": "↗ https://developers.google.com/optimization/cp/cp_solver",
+          "href": "https://developers.google.com/optimization/cp/cp_solver"
+        },
+        {
+          "text": "chronos-t5-forecastP2🟡 v1 末详情 →Chronos-T5 时序基础模型 — 销量 / 流量 / 风光出力预测Chronos-T5 t",
+          "href": "/algorithms/chronos-t5-forecast"
+        },
+        {
+          "text": "↗ https://github.com/amazon-science/chronos-forecasting",
+          "href": "https://github.com/amazon-science/chronos-forecasting"
+        },
+        {
+          "text": "arima-forecastP1✅ v1 上线详情 →ARIMA 时序预测 — 经典 P/D/Q 模型ARIMA classical time-series f",
+          "href": "/algorithms/arima-forecast"
+        },
+        {
+          "text": "↗ https://www.statsmodels.org/",
+          "href": "https://www.statsmodels.org/"
+        }
+      ],
+      "firstButtons": [
+        {
+          "text": "T1",
+          "disabled": false
+        },
+        {
+          "text": "T2",
+          "disabled": false
+        },
+        {
+          "text": "T3",
+          "disabled": false
+        },
+        {
+          "text": "T4",
+          "disabled": false
+        },
+        {
+          "text": "T5",
+          "disabled": false
+        },
+        {
+          "text": "T6",
+          "disabled": false
+        },
+        {
+          "text": "P1",
+          "disabled": false
+        },
+        {
+          "text": "P2",
+          "disabled": false
+        },
+        {
+          "text": "P3",
+          "disabled": false
+        },
+        {
+          "text": "P4",
+          "disabled": false
+        },
+        {
+          "text": "P5",
+          "disabled": false
+        }
+      ],
+      "cardLikeCount": 26,
+      "maxTextBlockLength": 428,
+      "mainCount": 1,
+      "navCount": 1,
+      "tableCount": 0,
+      "formControlCount": 0
+    }
+  },
+  {
+    "route": "/algorithms/highs-lp",
+    "id": "algorithm-detail",
+    "viewport": "mobile",
+    "status": 200,
+    "ms": 1893,
+    "gotoError": null,
+    "consoleErrors": [],
+    "pageErrors": [],
+    "failedRequests": [],
+    "screenshot": "D:\\优化预测网站\\e2e\\_bmad-output\\evolution\\visual-audit-2026-06-08\\screenshots\\algorithm-detail-mobile.png",
+    "metrics": {
+      "title": "OptiCloud — 通用优化与预测云",
+      "bodyText": "OptiCloud ← 算法目录 注册 highs-lp T1 ✅ v1 上线 task_type: lp L3 HiGHS 线性规划 (Linear Programming) — 全球最快开源 LP 求解器 (2024 MIT) HiGHS Linear Programming — fastest open-source LP solver Provider: highs · open_source · v1.7.0 · ↗ https://highs.dev/ IP Attribution L3 开源 Runner：遵守 MIT license 与论文引用，不声明学界 Provider 合作。 开源 Runner：遵守 MIT license 与论文引用，不声明学界 Provider 合作。 Contract anchor: docs/legal-templates.md Doc 1 / open-source license review Try it now 示例：Hello World LP — 最小化 x₁+x₂ 满足 x₁+x₂ ≤ 10, x ≥ 0 PYTHON 📋",
+      "documentWidth": 551,
+      "viewportWidth": 390,
+      "documentHeight": 3912,
+      "viewportHeight": 844,
+      "horizontalOverflow": true,
+      "overflow": [
+        {
+          "tag": "div",
+          "text": "Python📋 复制import os import requests API_KEY = os.getenv(\"OPTICLOUD_API_KEY\", \"s",
+          "className": "relative rounded-md border border-border bg-muted/30",
+          "left": 24,
+          "right": 551,
+          "width": 527
+        },
+        {
+          "tag": "div",
+          "text": "Python📋 复制",
+          "className": "flex items-center justify-between border-b border-border px-3 py-1.5",
+          "left": 25,
+          "right": 550,
+          "width": 525
+        },
+        {
+          "tag": "button",
+          "text": "📋 复制",
+          "className": "min-h-touch rounded px-2 py-1 text-xs text-primary hover:bg-primary/10",
+          "left": 478,
+          "right": 538,
+          "width": 60
+        },
+        {
+          "tag": "pre",
+          "text": "import os import requests API_KEY = os.getenv(\"OPTICLOUD_API_KEY\", \"sk-...\") BAS",
+          "className": "overflow-x-auto p-3 font-mono text-xs leading-relaxed",
+          "left": 25,
+          "right": 550,
+          "width": 525
+        },
+        {
+          "tag": "div",
+          "text": "cURL📋 复制curl -X POST https://api.opticloud.cn/v1/optimizations \\ -H \"Authorizat",
+          "className": "relative rounded-md border border-border bg-muted/30",
+          "left": 24,
+          "right": 551,
+          "width": 527
+        },
+        {
+          "tag": "div",
+          "text": "cURL📋 复制",
+          "className": "flex items-center justify-between border-b border-border px-3 py-1.5",
+          "left": 25,
+          "right": 550,
+          "width": 525
+        },
+        {
+          "tag": "button",
+          "text": "📋 复制",
+          "className": "min-h-touch rounded px-2 py-1 text-xs text-primary hover:bg-primary/10",
+          "left": 478,
+          "right": 538,
+          "width": 60
+        },
+        {
+          "tag": "pre",
+          "text": "curl -X POST https://api.opticloud.cn/v1/optimizations \\ -H \"Authorization: Bear",
+          "className": "overflow-x-auto p-3 font-mono text-xs leading-relaxed",
+          "left": 25,
+          "right": 550,
+          "width": 525
+        }
+      ],
+      "headings": [
+        {
+          "level": 1,
+          "text": "highs-lp"
+        },
+        {
+          "level": 2,
+          "text": "IP Attribution"
+        },
+        {
+          "level": 2,
+          "text": "Try it now"
+        },
+        {
+          "level": 2,
+          "text": "📚 引用本算法"
+        },
+        {
+          "level": 2,
+          "text": "Algorithm Provenance"
+        },
+        {
+          "level": 3,
+          "text": "求解器理论"
+        },
+        {
+          "level": 3,
+          "text": "Theory"
+        },
+        {
+          "level": 3,
+          "text": "配置参数"
+        },
+        {
+          "level": 3,
+          "text": "适用场景"
+        },
+        {
+          "level": 3,
+          "text": "限制说明"
+        },
+        {
+          "level": 3,
+          "text": "论文引用来源"
+        },
+        {
+          "level": 2,
+          "text": "Example input JSON"
+        }
+      ],
+      "navLinks": [
+        "← 算法目录",
+        "注册"
+      ],
+      "linkCount": 7,
+      "buttonCount": 3,
+      "disabledButtonCount": 0,
+      "firstLinks": [
+        {
+          "text": "OptiCloud",
+          "href": "/"
+        },
+        {
+          "text": "← 算法目录",
+          "href": "/algorithms"
+        },
+        {
+          "text": "注册",
+          "href": "/auth/signup"
+        },
+        {
+          "text": "↗ https://highs.dev/",
+          "href": "https://highs.dev/"
+        },
+        {
+          "text": "10.1007/s12532-017-0130-5",
+          "href": "https://doi.org/10.1007/s12532-017-0130-5"
+        },
+        {
+          "text": "3 分钟注册拿 API Key",
+          "href": "/auth/signup"
+        },
+        {
+          "text": "免登录试跑 ChargeModal (J1 路径)",
+          "href": "/demo/charge"
+        }
+      ],
+      "firstButtons": [
+        {
+          "text": "📋 复制",
+          "disabled": false
+        },
+        {
+          "text": "📋 复制",
+          "disabled": false
+        },
+        {
+          "text": "📋 复制",
+          "disabled": false
+        }
+      ],
+      "cardLikeCount": 15,
+      "maxTextBlockLength": 168,
+      "mainCount": 1,
+      "navCount": 1,
+      "tableCount": 0,
+      "formControlCount": 0
+    }
+  },
+  {
+    "route": "/academic",
+    "id": "academic",
+    "viewport": "mobile",
+    "status": 200,
+    "ms": 1961,
+    "gotoError": null,
+    "consoleErrors": [],
+    "pageErrors": [],
+    "failedRequests": [],
+    "screenshot": "D:\\优化预测网站\\e2e\\_bmad-output\\evolution\\visual-audit-2026-06-08\\screenshots\\academic-mobile.png",
+    "metrics": {
+      "title": "学术合作 — OptiCloud",
+      "bodyText": "OptiCloud 算法目录 立即注册 开放优化与预测，让学术研究可复现、可引用、可被发现 已发布算法都自带 BibTeX 引用 — 公开 SKU、3 个学派、1976 → 2025 的学术血统全公开 Apache 2.0 自研 + 顶刊算法 + 商用产品的混合栈，提交一次任务 = 拿到结果 + 当下最新的 citation.bibtex。 学生 / 博士 / 教师永久免费 ¥2,000 Starter / 月。 🎓 用 .edu / .ac.cn 邮箱注册 ↓ 跳到引用列表 学界变现飞轮 (Innovation #3) 第 1 步 学者免费 .edu / .ac.cn 邮箱注册自动激活教育版，永久 ¥2,000 Starter / 月。 Story 1.4 第 2 步 学者发论文 提交任务即拿到 citation.bibtex，一行 paste 进论文 References。 Story 6.A.1 第 3 步 论文带来新学者 引用图谱上每多一个指向我们的节点，就有更多学者看见 OptiCloud。 Story 6.A.3 自动追踪 第 4 步 飞轮转起来 更多学者上车 → 更多论",
+      "documentWidth": 390,
+      "viewportWidth": 390,
+      "documentHeight": 6301,
+      "viewportHeight": 844,
+      "horizontalOverflow": false,
+      "overflow": [],
+      "headings": [
+        {
+          "level": 1,
+          "text": "开放优化与预测，让学术研究可复现、可引用、可被发现"
+        },
+        {
+          "level": 2,
+          "text": "学界变现飞轮 (Innovation #3)"
+        },
+        {
+          "level": 2,
+          "text": "引用 7 个算法"
+        },
+        {
+          "level": 3,
+          "text": "highs-lp"
+        },
+        {
+          "level": 3,
+          "text": "highs-milp"
+        },
+        {
+          "level": 3,
+          "text": "or-tools-vrptw"
+        },
+        {
+          "level": 3,
+          "text": "or-tools-cp-sat"
+        },
+        {
+          "level": 3,
+          "text": "chronos-t5-forecast"
+        },
+        {
+          "level": 3,
+          "text": "arima-forecast"
+        },
+        {
+          "level": 3,
+          "text": "lstm-forecast"
+        },
+        {
+          "level": 2,
+          "text": "用 .edu / .ac.cn 邮箱注册，永久免费 ¥2,000 Starter / 月"
+        }
+      ],
+      "navLinks": [
+        "算法目录",
+        "立即注册"
+      ],
+      "linkCount": 20,
+      "buttonCount": 7,
+      "disabledButtonCount": 0,
+      "firstLinks": [
+        {
+          "text": "OptiCloud",
+          "href": "/"
+        },
+        {
+          "text": "算法目录",
+          "href": "/algorithms"
+        },
+        {
+          "text": "立即注册",
+          "href": "/auth/signup"
+        },
+        {
+          "text": "🎓 用 .edu / .ac.cn 邮箱注册",
+          "href": "/auth/signup"
+        },
+        {
+          "text": "↓ 跳到引用列表",
+          "href": "#citations"
+        },
+        {
+          "text": "10.1007/s12532-017-0130-5",
+          "href": "https://doi.org/10.1007/s12532-017-0130-5"
+        },
+        {
+          "text": "→ 查看算法详情",
+          "href": "/algorithms/highs-lp"
+        },
+        {
+          "text": "10.1007/s12532-017-0130-5",
+          "href": "https://doi.org/10.1007/s12532-017-0130-5"
+        },
+        {
+          "text": "→ 查看算法详情",
+          "href": "/algorithms/highs-milp"
+        },
+        {
+          "text": "↗ https://developers.google.com/optimization",
+          "href": "https://developers.google.com/optimization"
+        },
+        {
+          "text": "→ 查看算法详情",
+          "href": "/algorithms/or-tools-vrptw"
+        },
+        {
+          "text": "10.1007/978-3-642-23786-7_2",
+          "href": "https://doi.org/10.1007/978-3-642-23786-7_2"
+        },
+        {
+          "text": "→ 查看算法详情",
+          "href": "/algorithms/or-tools-cp-sat"
+        },
+        {
+          "text": "10.48550/arXiv.2403.07815",
+          "href": "https://doi.org/10.48550/arXiv.2403.07815"
+        },
+        {
+          "text": "→ 查看算法详情",
+          "href": "/algorithms/chronos-t5-forecast"
+        },
+        {
+          "text": "→ 查看算法详情",
+          "href": "/algorithms/arima-forecast"
+        }
+      ],
+      "firstButtons": [
+        {
+          "text": "📋 复制",
+          "disabled": false
+        },
+        {
+          "text": "📋 复制",
+          "disabled": false
+        },
+        {
+          "text": "📋 复制",
+          "disabled": false
+        },
+        {
+          "text": "📋 复制",
+          "disabled": false
+        },
+        {
+          "text": "📋 复制",
+          "disabled": false
+        },
+        {
+          "text": "📋 复制",
+          "disabled": false
+        },
+        {
+          "text": "📋 复制",
+          "disabled": false
+        }
+      ],
+      "cardLikeCount": 33,
+      "maxTextBlockLength": 203,
+      "mainCount": 1,
+      "navCount": 1,
+      "tableCount": 0,
+      "formControlCount": 0
+    }
+  },
+  {
+    "route": "/pricing",
+    "id": "pricing",
+    "viewport": "mobile",
+    "status": 200,
+    "ms": 3328,
+    "gotoError": null,
+    "consoleErrors": [],
+    "pageErrors": [],
+    "failedRequests": [],
+    "screenshot": "D:\\优化预测网站\\e2e\\_bmad-output\\evolution\\visual-audit-2026-06-08\\screenshots\\pricing-mobile.png",
+    "metrics": {
+      "title": "OptiCloud — 通用优化与预测云",
+      "bodyText": "OptiCloud 立即注册 中文 English 定价 M4.5 买方安全版定价说明：当前页面用于解释 Free、Starter、Pro、Team、Enterprise 的包装假设，实际计费以已上线的 Credits 与后续法务/账单策略为准。 当前运行时 Free 适合注册、Hello World、API Key 和第一个 LP / 预测任务；具体赠送额度遵循当前产品实现。 商业假设 Starter 面向轻量重复使用者，验证 Credits 是否能按任务解释清楚；最终价格待计费策略确认。 商业假设 Pro 面向个人专业用户和学术试用转化，强调更高月度用量与可复现结果。 商业假设 Team 面向小团队采购，重点解释共享使用、发票准备和 founder-led 支持流程。 需评审 Enterprise 面向采购、法务和技术评估流程；所有条款、SLA 和安全材料均需单独审查。 买方安全边界 商业套餐、企业条款、SLA、认证状态和退款规则仍需法务、财务与计费实现确认。本页不构成合同、生产 SLA、SOC 2 / ISO 27001 认证声明或客户案例证明。 立即注册 查看 quicksta",
+      "documentWidth": 390,
+      "viewportWidth": 390,
+      "documentHeight": 1431,
+      "viewportHeight": 844,
+      "horizontalOverflow": false,
+      "overflow": [],
+      "headings": [
+        {
+          "level": 1,
+          "text": "定价"
+        },
+        {
+          "level": 2,
+          "text": "Free"
+        },
+        {
+          "level": 2,
+          "text": "Starter"
+        },
+        {
+          "level": 2,
+          "text": "Pro"
+        },
+        {
+          "level": 2,
+          "text": "Team"
+        },
+        {
+          "level": 2,
+          "text": "Enterprise"
+        },
+        {
+          "level": 2,
+          "text": "买方安全边界"
+        }
+      ],
+      "navLinks": [],
+      "linkCount": 4,
+      "buttonCount": 2,
+      "disabledButtonCount": 0,
+      "firstLinks": [
+        {
+          "text": "OptiCloud",
+          "href": "/"
+        },
+        {
+          "text": "立即注册",
+          "href": "/auth/signup"
+        },
+        {
+          "text": "立即注册",
+          "href": "/auth/signup"
+        },
+        {
+          "text": "查看 quickstart",
+          "href": "/docs/quickstart"
+        }
+      ],
+      "firstButtons": [
+        {
+          "text": "中文",
+          "disabled": false
+        },
+        {
+          "text": "English",
+          "disabled": false
+        }
+      ],
+      "cardLikeCount": 8,
+      "maxTextBlockLength": 94,
+      "mainCount": 1,
+      "navCount": 0,
+      "tableCount": 0,
+      "formControlCount": 0
+    }
+  },
+  {
+    "route": "/status",
+    "id": "status",
+    "viewport": "mobile",
+    "status": 200,
+    "ms": 3818,
+    "gotoError": null,
+    "consoleErrors": [],
+    "pageErrors": [],
+    "failedRequests": [],
+    "screenshot": "D:\\优化预测网站\\e2e\\_bmad-output\\evolution\\visual-audit-2026-06-08\\screenshots\\status-mobile.png",
+    "metrics": {
+      "title": "OptiCloud Status",
+      "bodyText": "OptiCloud Algorithms Academic Status Security Sign up Public operations surface OptiCloud Status Public status, component health, and incident history for OptiCloud services. This page is unauthenticated and does not require a Console session. Degraded performance Last updated Jun 2, 2026, 12:00 PM UTC. Public read model; automated status tooling is handled separately. Components Status is derived from component severities, not maintained separately. API Gateway Operational Public API ingress, r",
+      "documentWidth": 390,
+      "viewportWidth": 390,
+      "documentHeight": 3520,
+      "viewportHeight": 844,
+      "horizontalOverflow": false,
+      "overflow": [],
+      "headings": [
+        {
+          "level": 1,
+          "text": "OptiCloud Status"
+        },
+        {
+          "level": 3,
+          "text": "Degraded performance"
+        },
+        {
+          "level": 2,
+          "text": "Components"
+        },
+        {
+          "level": 3,
+          "text": "API Gateway"
+        },
+        {
+          "level": 3,
+          "text": "Auth"
+        },
+        {
+          "level": 3,
+          "text": "Solver Orchestrator"
+        },
+        {
+          "level": 3,
+          "text": "Billing"
+        },
+        {
+          "level": 3,
+          "text": "Chat"
+        },
+        {
+          "level": 3,
+          "text": "Capability Registry"
+        },
+        {
+          "level": 2,
+          "text": "Incident History"
+        },
+        {
+          "level": 3,
+          "text": "Solver queue latency above target"
+        },
+        {
+          "level": 3,
+          "text": "Capability registry maintenance window"
+        },
+        {
+          "level": 3,
+          "text": "DeepSeek provider outage and emergency fallback"
+        },
+        {
+          "level": 2,
+          "text": "Current incidents"
+        },
+        {
+          "level": 2,
+          "text": "Subscriptions"
+        }
+      ],
+      "navLinks": [
+        "Algorithms",
+        "Academic",
+        "Status",
+        "Security",
+        "Sign up"
+      ],
+      "linkCount": 10,
+      "buttonCount": 0,
+      "disabledButtonCount": 0,
+      "firstLinks": [
+        {
+          "text": "OptiCloud",
+          "href": "/"
+        },
+        {
+          "text": "Algorithms",
+          "href": "/algorithms"
+        },
+        {
+          "text": "Academic",
+          "href": "/academic"
+        },
+        {
+          "text": "Status",
+          "href": "/status"
+        },
+        {
+          "text": "Security",
+          "href": "/security"
+        },
+        {
+          "text": "Sign up",
+          "href": "/auth/signup"
+        },
+        {
+          "text": "RSS feed",
+          "href": "/status/rss.xml"
+        },
+        {
+          "text": "Read postmortem",
+          "href": "/status/incidents/inc-2026-05-28-deepseek-provider-fallback"
+        },
+        {
+          "text": "RSS feed",
+          "href": "/status/rss.xml"
+        },
+        {
+          "text": "Manage incident subscriptions",
+          "href": "/auth/account#notification-preferences"
+        }
+      ],
+      "firstButtons": [],
+      "cardLikeCount": 23,
+      "maxTextBlockLength": 146,
+      "mainCount": 1,
+      "navCount": 1,
+      "tableCount": 0,
+      "formControlCount": 0
+    }
+  },
+  {
+    "route": "/security",
+    "id": "security",
+    "viewport": "mobile",
+    "status": 200,
+    "ms": 6950,
+    "gotoError": null,
+    "consoleErrors": [],
+    "pageErrors": [],
+    "failedRequests": [],
+    "screenshot": "D:\\优化预测网站\\e2e\\_bmad-output\\evolution\\visual-audit-2026-06-08\\screenshots\\security-mobile.png",
+    "metrics": {
+      "title": "Security Disclosure — OptiCloud",
+      "bodyText": "OptiCloud Algorithms Academic Status Security Sign up Responsible disclosure Security Disclosure Report security vulnerabilities affecting OptiCloud public APIs, product pages, or account flows. This public page is unauthenticated and does not require a Console session. Disclosure mailbox security@opticloud.cn security.txt updated Jun 3, 2026, 12:00 AM UTC; expires Dec 3, 2026, 12:00 AM UTC. What to include Affected endpoint or service Include the API path, page URL, account flow, or public serv",
+      "documentWidth": 587,
+      "viewportWidth": 390,
+      "documentHeight": 11313,
+      "viewportHeight": 844,
+      "horizontalOverflow": true,
+      "overflow": [
+        {
+          "tag": "section",
+          "text": "Flow stagesResearcher scans API v1 surfaceactiveResearcher finds the public API ",
+          "className": "rounded-md border border-border bg-background p-4",
+          "left": 24,
+          "right": 587,
+          "width": 563
+        },
+        {
+          "tag": "h3",
+          "text": "Flow stages",
+          "className": "text-xl font-semibold",
+          "left": 41,
+          "right": 570,
+          "width": 529
+        },
+        {
+          "tag": "div",
+          "text": "Researcher scans API v1 surfaceactiveResearcher finds the public API surface and",
+          "className": "mt-4 grid gap-3 md:grid-cols-2",
+          "left": 41,
+          "right": 570,
+          "width": 529
+        },
+        {
+          "tag": "article",
+          "text": "Researcher scans API v1 surfaceactiveResearcher finds the public API surface and",
+          "className": "rounded-md border border-border bg-muted p-3",
+          "left": 41,
+          "right": 570,
+          "width": 529
+        },
+        {
+          "tag": "div",
+          "text": "Researcher scans API v1 surfaceactive",
+          "className": "flex flex-wrap items-start justify-between gap-2",
+          "left": 54,
+          "right": 557,
+          "width": 503
+        },
+        {
+          "tag": "span",
+          "text": "active",
+          "className": "rounded-sm border border-border bg-background px-2 py-0.5 text-xs uppercase text-muted-foreground",
+          "left": 497,
+          "right": 557,
+          "width": 59
+        },
+        {
+          "tag": "p",
+          "text": "Researcher finds the public API surface and starts from published discovery.",
+          "className": "mt-2 text-sm text-muted-foreground",
+          "left": 54,
+          "right": 557,
+          "width": 503
+        },
+        {
+          "tag": "article",
+          "text": "Read security.txtactiveResearcher reads the RFC 9116 discovery file.",
+          "className": "rounded-md border border-border bg-muted p-3",
+          "left": 41,
+          "right": 570,
+          "width": 529
+        },
+        {
+          "tag": "div",
+          "text": "Read security.txtactive",
+          "className": "flex flex-wrap items-start justify-between gap-2",
+          "left": 54,
+          "right": 557,
+          "width": 503
+        },
+        {
+          "tag": "span",
+          "text": "active",
+          "className": "rounded-sm border border-border bg-background px-2 py-0.5 text-xs uppercase text-muted-foreground",
+          "left": 497,
+          "right": 557,
+          "width": 59
+        }
+      ],
+      "headings": [
+        {
+          "level": 1,
+          "text": "Security Disclosure"
+        },
+        {
+          "level": 2,
+          "text": "Disclosure mailbox"
+        },
+        {
+          "level": 2,
+          "text": "What to include"
+        },
+        {
+          "level": 3,
+          "text": "Affected endpoint or service"
+        },
+        {
+          "level": 3,
+          "text": "Vulnerability class and impact"
+        },
+        {
+          "level": 3,
+          "text": "Reproduction steps or PoC"
+        },
+        {
+          "level": 3,
+          "text": "CVSS estimate"
+        },
+        {
+          "level": 3,
+          "text": "Reporter contact"
+        },
+        {
+          "level": 2,
+          "text": "Safe harbor boundaries"
+        },
+        {
+          "level": 3,
+          "text": "Stop after minimal proof"
+        },
+        {
+          "level": 3,
+          "text": "Do not exfiltrate customer or platform data"
+        },
+        {
+          "level": 3,
+          "text": "Do not perform destructive testing"
+        },
+        {
+          "level": 3,
+          "text": "Do not create persistence or backdoors"
+        },
+        {
+          "level": 3,
+          "text": "No social engineering"
+        },
+        {
+          "level": 3,
+          "text": "Do not perform DDoS or load testing"
+        },
+        {
+          "level": 3,
+          "text": "Use synthetic or researcher-owned test data"
+        },
+        {
+          "level": 2,
+          "text": "Response targets"
+        },
+        {
+          "level": 2,
+          "text": "Channel boundaries"
+        },
+        {
+          "level": 2,
+          "text": "Follow-up policy items"
+        },
+        {
+          "level": 2,
+          "text": "J9 Whitehat Vertical Slice"
+        },
+        {
+          "level": 3,
+          "text": "Flow stages"
+        },
+        {
+          "level": 3,
+          "text": "Mermaid flow source"
+        },
+        {
+          "level": 3,
+          "text": "SOP steps"
+        },
+        {
+          "level": 3,
+          "text": "Hardening checklist"
+        }
+      ],
+      "navLinks": [
+        "Algorithms",
+        "Academic",
+        "Status",
+        "Security",
+        "Sign up"
+      ],
+      "linkCount": 7,
+      "buttonCount": 0,
+      "disabledButtonCount": 0,
+      "firstLinks": [
+        {
+          "text": "OptiCloud",
+          "href": "/"
+        },
+        {
+          "text": "Algorithms",
+          "href": "/algorithms"
+        },
+        {
+          "text": "Academic",
+          "href": "/academic"
+        },
+        {
+          "text": "Status",
+          "href": "/status"
+        },
+        {
+          "text": "Security",
+          "href": "/security"
+        },
+        {
+          "text": "Sign up",
+          "href": "/auth/signup"
+        },
+        {
+          "text": "security@opticloud.cn",
+          "href": "mailto:security@opticloud.cn"
+        }
+      ],
+      "firstButtons": [],
+      "cardLikeCount": 117,
+      "maxTextBlockLength": 208,
+      "mainCount": 1,
+      "navCount": 1,
+      "tableCount": 0,
+      "formControlCount": 0
+    }
+  },
+  {
+    "route": "/auth/signup",
+    "id": "signup",
+    "viewport": "mobile",
+    "status": 200,
+    "ms": 5869,
+    "gotoError": null,
+    "consoleErrors": [],
+    "pageErrors": [],
+    "failedRequests": [],
+    "screenshot": "D:\\优化预测网站\\e2e\\_bmad-output\\evolution\\visual-audit-2026-06-08\\screenshots\\signup-mobile.png",
+    "metrics": {
+      "title": "OptiCloud — 通用优化与预测云",
+      "bodyText": "中文 English 5 步跑通 Hello World 先注册并完成验证，随后拿到 API Key、导入 Postman，并跑通第一个 LP。 继续引导 跳过引导 1 注册 当前步骤 2 验证 待完成 3 拿 API Key 待完成 4 Postman 导入 待完成 5 Hello World 跑通 待完成 注册 OptiCloud 3 分钟拿到 API Key，立即跑 Hello World 手机号* E.164 国际格式（+86 开头） 邮箱* .edu / .ac.cn 邮箱自动激活教育版 (Starter 2K/月 永久免费) 年龄* 仅填写周岁数字；未满 14 岁暂不能注册，14-17 岁需监护人确认。 立即注册 → 注册即同意 服务条款 + 隐私政策 (PIPL 合规)",
+      "documentWidth": 390,
+      "viewportWidth": 390,
+      "documentHeight": 1240,
+      "viewportHeight": 844,
+      "horizontalOverflow": false,
+      "overflow": [],
+      "headings": [
+        {
+          "level": 2,
+          "text": "5 步跑通 Hello World"
+        },
+        {
+          "level": 1,
+          "text": "注册 OptiCloud"
+        }
+      ],
+      "navLinks": [],
+      "linkCount": 2,
+      "buttonCount": 5,
+      "disabledButtonCount": 1,
+      "firstLinks": [
+        {
+          "text": "服务条款",
+          "href": "/legal/tos"
+        },
+        {
+          "text": "隐私政策",
+          "href": "/legal/privacy"
+        }
+      ],
+      "firstButtons": [
+        {
+          "text": "中文",
+          "disabled": false
+        },
+        {
+          "text": "English",
+          "disabled": false
+        },
+        {
+          "text": "继续引导",
+          "disabled": false
+        },
+        {
+          "text": "跳过引导",
+          "disabled": false
+        },
+        {
+          "text": "立即注册 →",
+          "disabled": true
+        }
+      ],
+      "cardLikeCount": 13,
+      "maxTextBlockLength": 43,
+      "mainCount": 1,
+      "navCount": 0,
+      "tableCount": 0,
+      "formControlCount": 3
+    }
+  },
+  {
+    "route": "/welcome",
+    "id": "welcome",
+    "viewport": "mobile",
+    "status": 200,
+    "ms": 2231,
+    "gotoError": null,
+    "consoleErrors": [],
+    "pageErrors": [],
+    "failedRequests": [],
+    "screenshot": "D:\\优化预测网站\\e2e\\_bmad-output\\evolution\\visual-audit-2026-06-08\\screenshots\\welcome-mobile.png",
+    "metrics": {
+      "title": "OptiCloud — 通用优化与预测云",
+      "bodyText": "中文 English 5 步跑通 Hello World 先注册并完成验证，随后拿到 API Key、导入 Postman，并跑通第一个 LP。 继续引导 跳过引导 1 注册 当前步骤 2 验证 待完成 3 拿 API Key 待完成 4 Postman 导入 待完成 5 Hello World 跑通 待完成 注册 OptiCloud 3 分钟拿到 API Key，立即跑 Hello World 手机号* E.164 国际格式（+86 开头） 邮箱* .edu / .ac.cn 邮箱自动激活教育版 (Starter 2K/月 永久免费) 年龄* 仅填写周岁数字；未满 14 岁暂不能注册，14-17 岁需监护人确认。 立即注册 → 注册即同意 服务条款 + 隐私政策 (PIPL 合规)",
+      "documentWidth": 390,
+      "viewportWidth": 390,
+      "documentHeight": 1240,
+      "viewportHeight": 844,
+      "horizontalOverflow": false,
+      "overflow": [],
+      "headings": [
+        {
+          "level": 2,
+          "text": "5 步跑通 Hello World"
+        },
+        {
+          "level": 1,
+          "text": "注册 OptiCloud"
+        }
+      ],
+      "navLinks": [],
+      "linkCount": 2,
+      "buttonCount": 5,
+      "disabledButtonCount": 1,
+      "firstLinks": [
+        {
+          "text": "服务条款",
+          "href": "/legal/tos"
+        },
+        {
+          "text": "隐私政策",
+          "href": "/legal/privacy"
+        }
+      ],
+      "firstButtons": [
+        {
+          "text": "中文",
+          "disabled": false
+        },
+        {
+          "text": "English",
+          "disabled": false
+        },
+        {
+          "text": "继续引导",
+          "disabled": false
+        },
+        {
+          "text": "跳过引导",
+          "disabled": false
+        },
+        {
+          "text": "立即注册 →",
+          "disabled": true
+        }
+      ],
+      "cardLikeCount": 13,
+      "maxTextBlockLength": 43,
+      "mainCount": 1,
+      "navCount": 0,
+      "tableCount": 0,
+      "formControlCount": 3
+    }
+  },
+  {
+    "route": "/console/excel",
+    "id": "console-excel",
+    "viewport": "mobile",
+    "status": 200,
+    "ms": 2205,
+    "gotoError": null,
+    "consoleErrors": [],
+    "pageErrors": [],
+    "failedRequests": [],
+    "screenshot": "D:\\优化预测网站\\e2e\\_bmad-output\\evolution\\visual-audit-2026-06-08\\screenshots\\console-excel-mobile.png",
+    "metrics": {
+      "title": "OptiCloud — 通用优化与预测云",
+      "bodyText": "OptiCloud 算法目录 注册 上传 Excel，自动求解 适合 VRPTW 路线 / 排班调度 / 库存预测 - 不写代码，拖一下就行（≤5 MB / 50K 行） 📊 把 .xlsx 拖到这里 ≤5 MB / 50K 行 · 本地识别 VRPTW / 排班 / 库存预测模板 📎 或点击选择文件 想用 cURL / Postman / SDK 直接调？ 看算法目录 →",
+      "documentWidth": 390,
+      "viewportWidth": 390,
+      "documentHeight": 844,
+      "viewportHeight": 844,
+      "horizontalOverflow": false,
+      "overflow": [],
+      "headings": [
+        {
+          "level": 1,
+          "text": "上传 Excel，自动求解"
+        }
+      ],
+      "navLinks": [
+        "算法目录",
+        "注册"
+      ],
+      "linkCount": 4,
+      "buttonCount": 0,
+      "disabledButtonCount": 0,
+      "firstLinks": [
+        {
+          "text": "OptiCloud",
+          "href": "/"
+        },
+        {
+          "text": "算法目录",
+          "href": "/algorithms"
+        },
+        {
+          "text": "注册",
+          "href": "/auth/signup"
+        },
+        {
+          "text": "看算法目录 →",
+          "href": "/algorithms"
+        }
+      ],
+      "firstButtons": [],
+      "cardLikeCount": 2,
+      "maxTextBlockLength": 53,
+      "mainCount": 1,
+      "navCount": 1,
+      "tableCount": 0,
+      "formControlCount": 1
+    }
+  },
+  {
+    "route": "/console/predictions",
+    "id": "console-predictions",
+    "viewport": "mobile",
+    "status": 200,
+    "ms": 2047,
+    "gotoError": null,
+    "consoleErrors": [],
+    "pageErrors": [],
+    "failedRequests": [],
+    "screenshot": "D:\\优化预测网站\\e2e\\_bmad-output\\evolution\\visual-audit-2026-06-08\\screenshots\\console-predictions-mobile.png",
+    "metrics": {
+      "title": "OptiCloud — 通用优化与预测云",
+      "bodyText": "OptiCloud Excel 算法目录 CSV 需求预测 上传销售 CSV，先在浏览器内校验和修复，再提交到现有预测 API。 选择 CSV 文件 支持 sku/SKU/商品、month/date/月份、value/sales/销量 等表头；单文件 ≤10 MB。 📎 选择 CSV 下载模板",
+      "documentWidth": 390,
+      "viewportWidth": 390,
+      "documentHeight": 844,
+      "viewportHeight": 844,
+      "horizontalOverflow": false,
+      "overflow": [],
+      "headings": [
+        {
+          "level": 1,
+          "text": "CSV 需求预测"
+        },
+        {
+          "level": 2,
+          "text": "选择 CSV 文件"
+        }
+      ],
+      "navLinks": [
+        "Excel",
+        "算法目录"
+      ],
+      "linkCount": 4,
+      "buttonCount": 0,
+      "disabledButtonCount": 0,
+      "firstLinks": [
+        {
+          "text": "OptiCloud",
+          "href": "/"
+        },
+        {
+          "text": "Excel",
+          "href": "/console/excel"
+        },
+        {
+          "text": "算法目录",
+          "href": "/algorithms"
+        },
+        {
+          "text": "下载模板",
+          "href": "data:text/csv;charset=utf-8,%E5%95%86%E5%93%81%E7%BC%96%E5%8F%B7%2C%E6%9C%88%E4%BB%BD%2C%E9%94%80%E9%87%8F%0ASKU-01%2C2026-01%2C120%0ASKU-01%2C2026-02%2C132%0ASKU-01%2C2026-03%2C141"
+        }
+      ],
+      "firstButtons": [],
+      "cardLikeCount": 3,
+      "maxTextBlockLength": 58,
+      "mainCount": 1,
+      "navCount": 1,
+      "tableCount": 0,
+      "formControlCount": 1
+    }
+  },
+  {
+    "route": "/console/chat",
+    "id": "console-chat",
+    "viewport": "mobile",
+    "status": 200,
+    "ms": 2237,
+    "gotoError": null,
+    "consoleErrors": [],
+    "pageErrors": [],
+    "failedRequests": [],
+    "screenshot": "D:\\优化预测网站\\e2e\\_bmad-output\\evolution\\visual-audit-2026-06-08\\screenshots\\console-chat-mobile.png",
+    "metrics": {
+      "title": "OptiCloud — 通用优化与预测云",
+      "bodyText": "OptiCloud 预测 Excel 数据导出 审计日志 Chat internal beta 仅连接受保护 internal beta Chat endpoint。 Tenant User Token Token 只保存在当前页面状态中；刷新后会丢失。 Internal beta Chat 仅限受信 internal beta 使用 清空历史 暂无对话 输入需求或附加 CSV / Excel / JSON 上下文后开始 internal beta 预览。 输入消息 📎 添加文件 发送",
+      "documentWidth": 390,
+      "viewportWidth": 390,
+      "documentHeight": 1147,
+      "viewportHeight": 844,
+      "horizontalOverflow": false,
+      "overflow": [],
+      "headings": [
+        {
+          "level": 1,
+          "text": "Chat internal beta"
+        },
+        {
+          "level": 2,
+          "text": "Internal beta Chat"
+        },
+        {
+          "level": 3,
+          "text": "暂无对话"
+        }
+      ],
+      "navLinks": [
+        "预测",
+        "Excel",
+        "数据导出",
+        "审计日志"
+      ],
+      "linkCount": 5,
+      "buttonCount": 2,
+      "disabledButtonCount": 1,
+      "firstLinks": [
+        {
+          "text": "OptiCloud",
+          "href": "/"
+        },
+        {
+          "text": "预测",
+          "href": "/console/predictions"
+        },
+        {
+          "text": "Excel",
+          "href": "/console/excel"
+        },
+        {
+          "text": "数据导出",
+          "href": "/console/data-exports"
+        },
+        {
+          "text": "审计日志",
+          "href": "/console/audit-logs"
+        }
+      ],
+      "firstButtons": [
+        {
+          "text": "清空历史",
+          "disabled": false
+        },
+        {
+          "text": "发送",
+          "disabled": true
+        }
+      ],
+      "cardLikeCount": 9,
+      "maxTextBlockLength": 51,
+      "mainCount": 1,
+      "navCount": 1,
+      "tableCount": 0,
+      "formControlCount": 5
+    }
+  },
+  {
+    "route": "/console/providers",
+    "id": "console-providers",
+    "viewport": "mobile",
+    "status": 200,
+    "ms": 2613,
+    "gotoError": null,
+    "consoleErrors": [],
+    "pageErrors": [],
+    "failedRequests": [],
+    "screenshot": "D:\\优化预测网站\\e2e\\_bmad-output\\evolution\\visual-audit-2026-06-08\\screenshots\\console-providers-mobile.png",
+    "metrics": {
+      "title": "OptiCloud — 通用优化与预测云",
+      "bodyText": "登录 OptiCloud 手机 + 邮箱 OTP 双因素验证 (FR A1) 手机号 邮箱 发送 OTP → 没有账号？ 立即注册",
+      "documentWidth": 390,
+      "viewportWidth": 390,
+      "documentHeight": 844,
+      "viewportHeight": 844,
+      "horizontalOverflow": false,
+      "overflow": [],
+      "headings": [
+        {
+          "level": 1,
+          "text": "登录 OptiCloud"
+        }
+      ],
+      "navLinks": [],
+      "linkCount": 1,
+      "buttonCount": 1,
+      "disabledButtonCount": 1,
+      "firstLinks": [
+        {
+          "text": "立即注册",
+          "href": "/auth/signup"
+        }
+      ],
+      "firstButtons": [
+        {
+          "text": "发送 OTP →",
+          "disabled": true
+        }
+      ],
+      "cardLikeCount": 3,
+      "maxTextBlockLength": 25,
+      "mainCount": 1,
+      "navCount": 0,
+      "tableCount": 0,
+      "formControlCount": 2
+    }
+  },
+  {
+    "route": "/console/billing/invoices",
+    "id": "console-billing",
+    "viewport": "mobile",
+    "status": 200,
+    "ms": 2334,
+    "gotoError": null,
+    "consoleErrors": [],
+    "pageErrors": [],
+    "failedRequests": [],
+    "screenshot": "D:\\优化预测网站\\e2e\\_bmad-output\\evolution\\visual-audit-2026-06-08\\screenshots\\console-billing-mobile.png",
+    "metrics": {
+      "title": "OptiCloud — 通用优化与预测云",
+      "bodyText": "登录 OptiCloud 手机 + 邮箱 OTP 双因素验证 (FR A1) 手机号 邮箱 发送 OTP → 没有账号？ 立即注册",
+      "documentWidth": 390,
+      "viewportWidth": 390,
+      "documentHeight": 844,
+      "viewportHeight": 844,
+      "horizontalOverflow": false,
+      "overflow": [],
+      "headings": [
+        {
+          "level": 1,
+          "text": "登录 OptiCloud"
+        }
+      ],
+      "navLinks": [],
+      "linkCount": 1,
+      "buttonCount": 1,
+      "disabledButtonCount": 1,
+      "firstLinks": [
+        {
+          "text": "立即注册",
+          "href": "/auth/signup"
+        }
+      ],
+      "firstButtons": [
+        {
+          "text": "发送 OTP →",
+          "disabled": true
+        }
+      ],
+      "cardLikeCount": 3,
+      "maxTextBlockLength": 25,
+      "mainCount": 1,
+      "navCount": 0,
+      "tableCount": 0,
+      "formControlCount": 2
+    }
+  },
+  {
+    "route": "/console/audit-logs",
+    "id": "console-audit",
+    "viewport": "mobile",
+    "status": 200,
+    "ms": 3820,
+    "gotoError": null,
+    "consoleErrors": [],
+    "pageErrors": [],
+    "failedRequests": [
+      "GET http://127.0.0.1:3000/auth/login?_rsc=a0GP00eN6sWiyJkD net::ERR_ABORTED"
+    ],
+    "screenshot": "D:\\优化预测网站\\e2e\\_bmad-output\\evolution\\visual-audit-2026-06-08\\screenshots\\console-audit-mobile.png",
+    "metrics": {
+      "title": "OptiCloud — 通用优化与预测云",
+      "bodyText": "登录 OptiCloud 手机 + 邮箱 OTP 双因素验证 (FR A1) 手机号 邮箱 发送 OTP → 没有账号？ 立即注册",
+      "documentWidth": 390,
+      "viewportWidth": 390,
+      "documentHeight": 844,
+      "viewportHeight": 844,
+      "horizontalOverflow": false,
+      "overflow": [],
+      "headings": [
+        {
+          "level": 1,
+          "text": "登录 OptiCloud"
+        }
+      ],
+      "navLinks": [],
+      "linkCount": 1,
+      "buttonCount": 1,
+      "disabledButtonCount": 1,
+      "firstLinks": [
+        {
+          "text": "立即注册",
+          "href": "/auth/signup"
+        }
+      ],
+      "firstButtons": [
+        {
+          "text": "发送 OTP →",
+          "disabled": true
+        }
+      ],
+      "cardLikeCount": 3,
+      "maxTextBlockLength": 25,
+      "mainCount": 1,
+      "navCount": 0,
+      "tableCount": 0,
+      "formControlCount": 2
+    }
+  },
+  {
+    "route": "/console/classroom",
+    "id": "console-classroom",
+    "viewport": "mobile",
+    "status": 200,
+    "ms": 2542,
+    "gotoError": null,
+    "consoleErrors": [],
+    "pageErrors": [],
+    "failedRequests": [],
+    "screenshot": "D:\\优化预测网站\\e2e\\_bmad-output\\evolution\\visual-audit-2026-06-08\\screenshots\\console-classroom-mobile.png",
+    "metrics": {
+      "title": "OptiCloud — 通用优化与预测云",
+      "bodyText": "登录 OptiCloud 手机 + 邮箱 OTP 双因素验证 (FR A1) 手机号 邮箱 发送 OTP → 没有账号？ 立即注册",
+      "documentWidth": 390,
+      "viewportWidth": 390,
+      "documentHeight": 844,
+      "viewportHeight": 844,
+      "horizontalOverflow": false,
+      "overflow": [],
+      "headings": [
+        {
+          "level": 1,
+          "text": "登录 OptiCloud"
+        }
+      ],
+      "navLinks": [],
+      "linkCount": 1,
+      "buttonCount": 1,
+      "disabledButtonCount": 1,
+      "firstLinks": [
+        {
+          "text": "立即注册",
+          "href": "/auth/signup"
+        }
+      ],
+      "firstButtons": [
+        {
+          "text": "发送 OTP →",
+          "disabled": true
+        }
+      ],
+      "cardLikeCount": 3,
+      "maxTextBlockLength": 25,
+      "mainCount": 1,
+      "navCount": 0,
+      "tableCount": 0,
+      "formControlCount": 2
+    }
+  },
+  {
+    "route": "/console/routing-history",
+    "id": "console-routing",
+    "viewport": "mobile",
+    "status": 200,
+    "ms": 2070,
+    "gotoError": null,
+    "consoleErrors": [],
+    "pageErrors": [],
+    "failedRequests": [],
+    "screenshot": "D:\\优化预测网站\\e2e\\_bmad-output\\evolution\\visual-audit-2026-06-08\\screenshots\\console-routing-mobile.png",
+    "metrics": {
+      "title": "OptiCloud — 通用优化与预测云",
+      "bodyText": "OptiCloud Excel Providers Routing History Legal Inquiry 审计日志 Provider Routing History 查询单个 optimization 的 primary route、executed route 和 fallback attempt history。 安全边界 本页只展示 public-safe routing 字段，不展示请求、账单、错误诊断或内部 metadata。 查询 API key Optimization ID 加载 routing history 凭据不持久化 API key 和 optimization ID 只保存在当前页面内存中。",
+      "documentWidth": 390,
+      "viewportWidth": 390,
+      "documentHeight": 844,
+      "viewportHeight": 844,
+      "horizontalOverflow": false,
+      "overflow": [],
+      "headings": [
+        {
+          "level": 1,
+          "text": "Provider Routing History"
+        },
+        {
+          "level": 3,
+          "text": "安全边界"
+        },
+        {
+          "level": 3,
+          "text": "凭据不持久化"
+        }
+      ],
+      "navLinks": [
+        "Excel",
+        "Providers",
+        "Routing History",
+        "Legal Inquiry",
+        "审计日志"
+      ],
+      "linkCount": 6,
+      "buttonCount": 1,
+      "disabledButtonCount": 0,
+      "firstLinks": [
+        {
+          "text": "OptiCloud",
+          "href": "/"
+        },
+        {
+          "text": "Excel",
+          "href": "/console/excel"
+        },
+        {
+          "text": "Providers",
+          "href": "/console/providers"
+        },
+        {
+          "text": "Routing History",
+          "href": "/console/routing-history"
+        },
+        {
+          "text": "Legal Inquiry",
+          "href": "/console/legal-inquiry"
+        },
+        {
+          "text": "审计日志",
+          "href": "/console/audit-logs"
+        }
+      ],
+      "firstButtons": [
+        {
+          "text": "加载 routing history",
+          "disabled": false
+        }
+      ],
+      "cardLikeCount": 5,
+      "maxTextBlockLength": 76,
+      "mainCount": 1,
+      "navCount": 1,
+      "tableCount": 0,
+      "formControlCount": 2
+    }
+  },
+  {
+    "route": "/console/legal-inquiry",
+    "id": "console-legal",
+    "viewport": "mobile",
+    "status": 200,
+    "ms": 2282,
+    "gotoError": null,
+    "consoleErrors": [],
+    "pageErrors": [],
+    "failedRequests": [
+      "GET http://127.0.0.1:3000/auth/login?_rsc=8nRoSaNYD8FBg0UA net::ERR_ABORTED"
+    ],
+    "screenshot": "D:\\优化预测网站\\e2e\\_bmad-output\\evolution\\visual-audit-2026-06-08\\screenshots\\console-legal-mobile.png",
+    "metrics": {
+      "title": "OptiCloud — 通用优化与预测云",
+      "bodyText": "登录 OptiCloud 手机 + 邮箱 OTP 双因素验证 (FR A1) 手机号 邮箱 发送 OTP → 没有账号？ 立即注册",
+      "documentWidth": 390,
+      "viewportWidth": 390,
+      "documentHeight": 844,
+      "viewportHeight": 844,
+      "horizontalOverflow": false,
+      "overflow": [],
+      "headings": [
+        {
+          "level": 1,
+          "text": "登录 OptiCloud"
+        }
+      ],
+      "navLinks": [],
+      "linkCount": 1,
+      "buttonCount": 1,
+      "disabledButtonCount": 1,
+      "firstLinks": [
+        {
+          "text": "立即注册",
+          "href": "/auth/signup"
+        }
+      ],
+      "firstButtons": [
+        {
+          "text": "发送 OTP →",
+          "disabled": true
+        }
+      ],
+      "cardLikeCount": 3,
+      "maxTextBlockLength": 25,
+      "mainCount": 1,
+      "navCount": 0,
+      "tableCount": 0,
+      "formControlCount": 2
+    }
+  }
+]
