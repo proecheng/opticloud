@@ -30,6 +30,26 @@ async function expectNoDocumentHorizontalOverflow(page: Page): Promise<void> {
 test.describe("public mobile overflow", () => {
   test.use({ viewport: MOBILE_VIEWPORT });
 
+  test("docs index stays within mobile viewport", async ({ page }) => {
+    await page.goto("/docs", { waitUntil: "domcontentloaded" });
+
+    await expect(page.getByRole("heading", { name: "文档" })).toBeVisible();
+    await expect(page.getByRole("navigation", { name: "Public navigation" })).toBeVisible();
+    await expect(page.getByRole("link", { name: /Hello World Quickstart/ })).toBeVisible();
+
+    await expectNoDocumentHorizontalOverflow(page);
+  });
+
+  test("algorithms catalog stays within mobile viewport", async ({ page }) => {
+    await page.goto("/algorithms", { waitUntil: "domcontentloaded" });
+
+    await expect(page.getByRole("heading", { name: "算法目录" })).toBeVisible();
+    await expect(page.getByRole("navigation", { name: "Public navigation" })).toBeVisible();
+    await expect(page.getByTestId("algorithm-card").first()).toBeVisible({ timeout: 10_000 });
+
+    await expectNoDocumentHorizontalOverflow(page);
+  });
+
   test("algorithm detail page stays within mobile viewport", async ({ page }) => {
     await page.goto("/algorithms/highs-lp");
 
