@@ -14,6 +14,7 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 
 import { EmptyState, LoadingShimmer, StatusCard } from "@opticloud/ui";
 
+import { PublicPageHeader, PublicShell } from "@/components/PublicShell";
 import { Algorithm, listAlgorithms } from "@/lib/api";
 
 const TIER_COLOR: Record<string, string> = {
@@ -87,13 +88,14 @@ function AlgorithmsContent(): JSX.Element {
     [],
   );
 
-  const [selectedTiers, setSelectedTiers] = useState<Set<string>>(initialTiers);
+  const [selectedTiers, setSelectedTiers] = useState<Set<string>>(() => new Set(initialTiers));
   const [algos, setAlgos] = useState<Algorithm[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     setAlgos(null);
+    setError(null);
     void (async () => {
       try {
         const data = await listAlgorithms({ tier: Array.from(selectedTiers) });
@@ -123,47 +125,50 @@ function AlgorithmsContent(): JSX.Element {
   };
 
   const clearTiers = (): void => setSelectedTiers(new Set());
+  const loadedCount = algos?.length ?? 0;
 
   return (
-    <main className="min-h-screen bg-background">
-      <header className="border-b border-border bg-background">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="h-7 w-7 rounded bg-primary" />
-            <span className="font-semibold">OptiCloud</span>
-          </Link>
-          <nav className="flex items-center gap-4 text-sm">
-            <Link href="/" className="text-muted-foreground hover:text-foreground">
-              首页
-            </Link>
-            <Link
-              href="/auth/signup"
-              className="min-h-touch rounded-md bg-primary px-4 py-2 text-primary-foreground hover:bg-primary-600"
-            >
-              注册
-            </Link>
-          </nav>
-        </div>
-      </header>
-
-      <section className="bg-muted py-12">
-        <div className="mx-auto max-w-4xl px-6 text-center">
-          <h1 className="text-balance text-3xl font-bold">算法目录</h1>
-          <p className="mt-2 text-balance text-muted-foreground">
-            公开免鉴权 — `GET /v1/algorithms`（FR C1） · Provider 全透明（含 provider_url）
-          </p>
-          <div className="mt-4">
+    <PublicShell active="algorithms">
+      <PublicPageHeader
+        eyebrow="Public catalog"
+        title="算法目录"
+        description="公开免鉴权浏览当前已发布算法。每个条目保留 tier、任务类型、Provider、版本和外部 provider_url，便于采购、复现和教学评估。"
+        actions={
+          <>
             <Link
               href="/algorithms/benchmarks"
               className="inline-flex min-h-touch items-center rounded-md border border-border bg-background px-4 py-2 text-sm font-medium hover:bg-muted"
             >
               浏览经典算例库
             </Link>
-          </div>
+            <Link
+              href="/docs/quickstart"
+              className="inline-flex min-h-touch items-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary-600"
+            >
+              查看 Quickstart
+            </Link>
+          </>
+        }
+        meta={
+          <>
+            <span className="rounded-md border border-border bg-background px-2.5 py-1 text-xs text-muted-foreground">
+              GET /v1/algorithms
+            </span>
+            <span className="rounded-md border border-border bg-background px-2.5 py-1 text-xs text-muted-foreground">
+              Provider transparent
+            </span>
+            <span className="rounded-md border border-border bg-background px-2.5 py-1 text-xs text-muted-foreground">
+              {selectedTiers.size > 0 ? `${selectedTiers.size} 个 tier 已筛选` : "全部 tier"}
+            </span>
+          </>
+        }
+      />
 
-          <div className="mt-6 space-y-3">
-            <div className="flex flex-wrap items-center justify-center gap-2">
-              <span className="text-xs font-medium text-muted-foreground">优化</span>
+      <section className="border-b border-border bg-background">
+        <div className="mx-auto grid max-w-6xl gap-4 px-4 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+          <div className="min-w-0 space-y-3" aria-label="Tier filters">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="w-12 text-xs font-semibold text-muted-foreground">优化</span>
               {OPTIMIZATION_TIERS.map((t) => (
                 <TierChip
                   key={t}
@@ -173,8 +178,8 @@ function AlgorithmsContent(): JSX.Element {
                 />
               ))}
             </div>
-            <div className="flex flex-wrap items-center justify-center gap-2">
-              <span className="text-xs font-medium text-muted-foreground">预测</span>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="w-12 text-xs font-semibold text-muted-foreground">预测</span>
               {PREDICTION_TIERS.map((t) => (
                 <TierChip
                   key={t}
@@ -184,23 +189,25 @@ function AlgorithmsContent(): JSX.Element {
                 />
               ))}
             </div>
+          </div>
+
+          <div className="flex min-w-0 flex-wrap items-center gap-3 text-sm text-muted-foreground lg:justify-end">
+            {algos && <span>{loadedCount} 个匹配算法</span>}
             {selectedTiers.size > 0 && (
-              <div>
-                <button
-                  type="button"
-                  onClick={clearTiers}
-                  data-testid="tier-clear-button"
-                  className="text-xs text-primary hover:underline"
-                >
-                  清除筛选 ({selectedTiers.size})
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={clearTiers}
+                data-testid="tier-clear-button"
+                className="text-primary hover:underline"
+              >
+                清除筛选 ({selectedTiers.size})
+              </button>
             )}
           </div>
         </div>
       </section>
 
-      <section className="mx-auto max-w-4xl px-6 py-8">
+      <section className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
         {error && (
           <StatusCard
             variant="error"
@@ -228,11 +235,11 @@ function AlgorithmsContent(): JSX.Element {
         )}
 
         {algos && algos.length > 0 && (
-          <ul className="space-y-3">
+          <ul className="grid gap-4 lg:grid-cols-2">
             {algos.map((algo) => (
               <li
                 key={algo.k_algo}
-                className="rounded-lg border border-border bg-background p-5"
+                className="min-w-0 rounded-lg border border-border bg-background p-5"
                 data-testid="algorithm-card"
               >
                 <Link
@@ -240,10 +247,10 @@ function AlgorithmsContent(): JSX.Element {
                   aria-label={`查看 ${algo.k_algo} 详情`}
                   className="block rounded transition hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-primary/40"
                 >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <code className="font-mono font-semibold">{algo.k_algo}</code>
+                  <div className="flex min-w-0 flex-col gap-4">
+                    <div className="min-w-0">
+                      <div className="flex min-w-0 flex-wrap items-center gap-2">
+                        <code className="break-all font-mono font-semibold">{algo.k_algo}</code>
                         <span
                           className={
                             "rounded-md border px-2 py-0.5 text-xs font-medium " +
@@ -257,19 +264,21 @@ function AlgorithmsContent(): JSX.Element {
                         </span>
                         <span className="ml-auto text-xs text-primary">详情 →</span>
                       </div>
-                      <p className="mt-2 text-sm">{algo.description_zh}</p>
-                      <p className="mt-1 text-xs text-muted-foreground">{algo.description_en}</p>
+                      <p className="mt-2 text-sm leading-6">{algo.description_zh}</p>
+                      <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                        {algo.description_en}
+                      </p>
                     </div>
-                    <div className="text-right text-xs">
-                      <span className="rounded bg-muted px-2 py-1 font-mono">
+                    <div className="text-xs">
+                      <span className="inline-flex max-w-full rounded bg-muted px-2 py-1 font-mono">
                         task_type: {algo.task_type}
                       </span>
                     </div>
                   </div>
 
-                  <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border pt-3 text-xs text-muted-foreground">
+                  <div className="mt-3 flex min-w-0 flex-wrap items-center gap-2 border-t border-border pt-3 text-xs text-muted-foreground">
                     <span className="font-medium">Provider:</span>
-                    <code className="font-mono">{algo.model_version.provider_id}</code>
+                    <code className="break-all font-mono">{algo.model_version.provider_id}</code>
                     <span>·</span>
                     <span>{algo.model_version.kind}</span>
                     <span>·</span>
@@ -277,26 +286,26 @@ function AlgorithmsContent(): JSX.Element {
                   </div>
                 </Link>
 
-                <div className="mt-2 text-xs">
+                <div className="mt-2 min-w-0 text-xs">
                   <a
                     href={algo.model_version.provider_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-primary hover:underline"
+                    className="break-all text-primary hover:underline"
                   >
                     ↗ {algo.model_version.provider_url}
                   </a>
                 </div>
 
                 {algo.examples.length > 0 && (
-                  <details className="mt-3 rounded bg-muted/50 p-3 text-xs">
+                  <details className="mt-3 min-w-0 rounded bg-muted/50 p-3 text-xs">
                     <summary className="cursor-pointer font-medium">
                       📋 示例输入（{algo.examples[0]?.name}）
                     </summary>
                     <p className="mt-2 text-muted-foreground">
                       {algo.examples[0]?.description}
                     </p>
-                    <pre className="mt-2 overflow-x-auto rounded bg-background p-2 font-mono">
+                    <pre className="mt-2 max-w-full overflow-x-auto rounded bg-background p-2 font-mono">
                       {JSON.stringify(algo.examples[0]?.input, null, 2)}
                     </pre>
                   </details>
@@ -306,17 +315,7 @@ function AlgorithmsContent(): JSX.Element {
           </ul>
         )}
       </section>
-
-      <footer className="mt-12 border-t border-border bg-background py-6 text-center text-sm text-muted-foreground">
-        <p>
-          想试跑？{" "}
-          <Link href="/auth/signup" className="text-primary hover:underline">
-            3 分钟注册拿 API Key
-          </Link>{" "}
-          · 免费 200 Credits
-        </p>
-      </footer>
-    </main>
+    </PublicShell>
   );
 }
 

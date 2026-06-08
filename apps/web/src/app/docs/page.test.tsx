@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -26,6 +26,19 @@ describe("DocsIndexPage", () => {
     render(<DocsIndexPage />);
 
     expect(screen.getByRole("heading", { name: "文档" })).toBeTruthy();
+    const primaryNav = screen.getByRole("navigation", { name: "Public navigation" });
+    expect(primaryNav).toBeTruthy();
+    expect(
+      within(primaryNav).getByRole("link", { name: "文档", current: "page" }).getAttribute("href"),
+    ).toBe("/docs");
+    expect(within(primaryNav).getByRole("link", { name: "算法" }).getAttribute("href")).toBe(
+      "/algorithms",
+    );
+    expect(screen.getByRole("link", { name: "立即注册" }).getAttribute("href")).toBe(
+      "/auth/signup",
+    );
+    expect(screen.getByRole("heading", { name: "开始接入" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "推荐阅读顺序" })).toBeTruthy();
     expect(screen.getByRole("link", { name: /Hello World Quickstart/ }).getAttribute("href")).toBe(
       "/docs/quickstart",
     );
