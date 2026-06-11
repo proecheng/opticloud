@@ -86,7 +86,10 @@ test.describe("Academic landing page (Epic 6.A.2)", () => {
 
   test('Landing page header "学术合作" 链接跳到 /academic', async ({ page }) => {
     await page.goto("/");
-    await page.getByRole("link", { name: "学术合作" }).click();
+    await page
+      .getByRole("navigation", { name: "Public navigation" })
+      .getByRole("link", { name: "学术合作" })
+      .click();
     await expect(page).toHaveURL(/\/academic$/);
     await expect(page.getByRole("heading", { level: 1 })).toContainText(
       "可复现、可引用、可被发现",

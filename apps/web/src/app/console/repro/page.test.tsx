@@ -1,9 +1,11 @@
 // @vitest-environment happy-dom
 /** Repro dashboard smoke tests. */
 
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
+import { renderWithIntl } from "@/test-utils/render-with-intl";
 
 const mocks = vi.hoisted(() => ({
   rerunMock: vi.fn(),
@@ -72,7 +74,7 @@ describe("ReproConsolePage", () => {
       },
     });
 
-    render(<ReproConsolePage />);
+    renderWithIntl(<ReproConsolePage />);
 
     fireEvent.change(screen.getByLabelText("API key"), { target: { value: "sk-test" } });
     fireEvent.click(screen.getByTestId("voucher-rerun"));

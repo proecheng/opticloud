@@ -1,8 +1,10 @@
 // @vitest-environment happy-dom
 
-import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
+import { renderWithIntl } from "@/test-utils/render-with-intl";
 
 const mocks = vi.hoisted(() => ({
   push: vi.fn(),
@@ -208,7 +210,7 @@ describe("BillingInvoicesPage", () => {
   });
 
   it("redirects unauthenticated users to login", () => {
-    render(<BillingInvoicesPage />);
+    renderWithIntl(<BillingInvoicesPage />);
 
     expect(mocks.push).toHaveBeenCalledWith("/auth/login");
   });
@@ -222,7 +224,7 @@ describe("BillingInvoicesPage", () => {
     });
     mocks.getBillingInvoice.mockResolvedValue(invoice);
 
-    render(<BillingInvoicesPage />);
+    renderWithIntl(<BillingInvoicesPage />);
 
     expect(await screen.findByText("OptiCloud 账单明细")).toBeTruthy();
     expect(screen.getByText("OptiCloud Billing Statement")).toBeTruthy();
@@ -253,7 +255,7 @@ describe("BillingInvoicesPage", () => {
       new Error("trend service unavailable"),
     );
 
-    render(<BillingInvoicesPage />);
+    renderWithIntl(<BillingInvoicesPage />);
 
     expect(await screen.findByText("OptiCloud 账单明细")).toBeTruthy();
     expect(screen.getByText(/用量趋势加载失败/)).toBeTruthy();
@@ -268,7 +270,7 @@ describe("BillingInvoicesPage", () => {
     mocks.getBillingInvoice.mockResolvedValue(invoice);
     mocks.getBillingBudget.mockRejectedValue(new Error("budget service unavailable"));
 
-    render(<BillingInvoicesPage />);
+    renderWithIntl(<BillingInvoicesPage />);
 
     expect(await screen.findByText("OptiCloud 账单明细")).toBeTruthy();
     expect(await screen.findByText("预算加载失败：budget service unavailable")).toBeTruthy();
@@ -282,7 +284,7 @@ describe("BillingInvoicesPage", () => {
     });
     mocks.getBillingInvoice.mockRejectedValue(new Error("invoice service unavailable"));
 
-    render(<BillingInvoicesPage />);
+    renderWithIntl(<BillingInvoicesPage />);
 
     expect(await screen.findByText("账单加载失败")).toBeTruthy();
     expect(await screen.findByTestId("budget-alert-card")).toBeTruthy();
@@ -312,7 +314,7 @@ describe("BillingInvoicesPage", () => {
         paused: false,
       });
 
-    render(<BillingInvoicesPage />);
+    renderWithIntl(<BillingInvoicesPage />);
     await screen.findByText("OptiCloud 账单明细");
 
     fireEvent.change(screen.getByLabelText("预算金额"), { target: { value: "80.00" } });
@@ -345,7 +347,7 @@ describe("BillingInvoicesPage", () => {
       net_credit_movement: "123.45",
     });
 
-    render(<BillingInvoicesPage />);
+    renderWithIntl(<BillingInvoicesPage />);
 
     await screen.findByText("OptiCloud 账单明细");
     fireEvent.change(screen.getByLabelText("账单月份"), { target: { value: "2026-04" } });
@@ -380,7 +382,7 @@ describe("BillingInvoicesPage", () => {
       return element;
     });
 
-    render(<BillingInvoicesPage />);
+    renderWithIntl(<BillingInvoicesPage />);
     await screen.findByText("OptiCloud 账单明细");
 
     await act(async () => {
@@ -401,12 +403,12 @@ describe("BillingInvoicesPage", () => {
     sessionStorage.setItem("jwt_access", "jwt-test");
     mocks.listBillingInvoices.mockResolvedValue({ items: [] });
 
-    render(<BillingInvoicesPage />);
+    renderWithIntl(<BillingInvoicesPage />);
 
     await screen.findByText("暂无账单");
-    const nav = screen.getByRole("navigation");
-    expect(within(nav).getByRole("link", { name: "账单" }).getAttribute("href")).toBe(
-      "/console/billing/invoices",
-    );
+    const nav = screen.getByRole("navigation", { name: "Console governance navigation" });
+    expect(
+      within(nav).getByRole("link", { name: "账单", current: "page" }).getAttribute("href"),
+    ).toBe("/console/billing/invoices");
   });
 });

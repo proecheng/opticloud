@@ -61,6 +61,7 @@ export default function SignupPage(): JSX.Element {
     guardianConsentToken: "",
   });
   const [loading, setLoading] = useState(false);
+  const [clientReady, setClientReady] = useState(false);
   const [error, setError] = useState<OptiCloudClientError | null>(null);
   const [wizardState, setWizardState] = useState(() =>
     createInitialOnboardingState(null),
@@ -73,6 +74,7 @@ export default function SignupPage(): JSX.Element {
   } | null>(null);
 
   useEffect(() => {
+    setClientReady(true);
     const loaded = loadOnboardingState(sessionStorage, null);
     setWizardState(loaded);
     saveOnboardingState(sessionStorage, loaded);
@@ -238,7 +240,7 @@ export default function SignupPage(): JSX.Element {
           )}
 
           <form onSubmit={handleSubmit} noValidate>
-            <fieldset className="mb-4" disabled={loading}>
+            <fieldset className="mb-4" disabled={loading || !clientReady}>
               <label htmlFor="phone" className="mb-1 block text-sm font-medium">
                 {t("form.phone")}
                 <span className="ml-1 text-danger" aria-hidden="true">
@@ -261,7 +263,7 @@ export default function SignupPage(): JSX.Element {
               </p>
             </fieldset>
 
-            <fieldset className="mb-4" disabled={loading}>
+            <fieldset className="mb-4" disabled={loading || !clientReady}>
               <label htmlFor="email" className="mb-1 block text-sm font-medium">
                 {t("form.email")}
                 <span className="ml-1 text-danger" aria-hidden="true">
@@ -284,7 +286,7 @@ export default function SignupPage(): JSX.Element {
               </p>
             </fieldset>
 
-            <fieldset className="mb-4" disabled={loading}>
+            <fieldset className="mb-4" disabled={loading || !clientReady}>
               <label htmlFor="age-years" className="mb-1 block text-sm font-medium">
                 {t("form.age")}
                 <span className="ml-1 text-danger" aria-hidden="true">
@@ -317,7 +319,7 @@ export default function SignupPage(): JSX.Element {
             </fieldset>
 
             {isMinorRequiringGuardian && (
-              <fieldset className="mb-4" disabled={loading}>
+              <fieldset className="mb-4" disabled={loading || !clientReady}>
                 <label
                   htmlFor="guardian-email"
                   className="mb-1 block text-sm font-medium"
@@ -388,6 +390,7 @@ export default function SignupPage(): JSX.Element {
               type="submit"
               disabled={
                 loading ||
+                !clientReady ||
                 !form.phone ||
                 !form.email ||
                 !form.ageYears ||

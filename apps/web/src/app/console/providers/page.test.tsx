@@ -1,8 +1,10 @@
 // @vitest-environment happy-dom
 
-import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
+import { renderWithIntl } from "@/test-utils/render-with-intl";
 
 const mocks = vi.hoisted(() => ({
   push: vi.fn(),
@@ -343,7 +345,7 @@ describe("ProviderConsolePage", () => {
   });
 
   it("redirects unauthenticated users to login", () => {
-    render(<ProviderConsolePage />);
+    renderWithIntl(<ProviderConsolePage />);
 
     expect(mocks.push).toHaveBeenCalledWith("/auth/login");
   });
@@ -352,7 +354,7 @@ describe("ProviderConsolePage", () => {
     sessionStorage.setItem("jwt_access", "jwt-test");
     mockSuccess();
 
-    render(<ProviderConsolePage />);
+    renderWithIntl(<ProviderConsolePage />);
     await submitFilters();
 
     expect(await screen.findByText("Alpha Solver Lab")).toBeTruthy();
@@ -402,7 +404,7 @@ describe("ProviderConsolePage", () => {
     mocks.getProviderRevenuePayoutDashboard.mockResolvedValue(revenue);
     mocks.listProviderMonthlyRevenueShareBatches.mockResolvedValue([monthlyBatch]);
 
-    render(<ProviderConsolePage />);
+    renderWithIntl(<ProviderConsolePage />);
     await submitFilters();
 
     expect(await screen.findByText("未找到 Provider application")).toBeTruthy();
@@ -417,7 +419,7 @@ describe("ProviderConsolePage", () => {
       new Error("revenue projection unavailable"),
     );
 
-    render(<ProviderConsolePage />);
+    renderWithIntl(<ProviderConsolePage />);
     await submitFilters();
 
     expect(await screen.findByText("Alpha Solver Lab")).toBeTruthy();
@@ -433,7 +435,7 @@ describe("ProviderConsolePage", () => {
     mockSuccess();
     const storageSet = vi.spyOn(Storage.prototype, "setItem");
 
-    render(<ProviderConsolePage />);
+    renderWithIntl(<ProviderConsolePage />);
     await submitFilters();
 
     await waitFor(() => expect(screen.getByText("Alpha Solver Lab")).toBeTruthy());
@@ -441,11 +443,16 @@ describe("ProviderConsolePage", () => {
       expect.stringMatching(/provider|tenant|application|dashboard|payout|batch/i),
       expect.any(String),
     );
-    const nav = screen.getByRole("navigation");
-    expect(within(nav).getByRole("link", { name: "Providers" }).getAttribute("href")).toBe(
-      "/console/providers",
-    );
-    expect(within(nav).getByRole("link", { name: "Classroom" }).getAttribute("href")).toBe(
+    const governanceNav = screen.getByRole("navigation", {
+      name: "Console governance navigation",
+    });
+    expect(
+      within(governanceNav).getByRole("link", { name: "Providers", current: "page" }).getAttribute(
+        "href",
+      ),
+    ).toBe("/console/providers");
+    const workflowNav = screen.getByRole("navigation", { name: "Console navigation" });
+    expect(within(workflowNav).getByRole("link", { name: "Classroom" }).getAttribute("href")).toBe(
       "/console/classroom",
     );
     expect(screen.getByRole("link", { name: "打开 Routing History" }).getAttribute("href")).not.toContain(
@@ -457,7 +464,7 @@ describe("ProviderConsolePage", () => {
     sessionStorage.setItem("jwt_access", "jwt-test");
     mockSuccess();
 
-    render(<ProviderConsolePage />);
+    renderWithIntl(<ProviderConsolePage />);
     await submitFilters("provider-alpha", {
       tenantId: "tenant 1",
       applicationId: "app/alpha",
@@ -479,7 +486,7 @@ describe("ProviderConsolePage", () => {
     sessionStorage.setItem("jwt_access", "jwt-test");
     mockSuccess();
 
-    render(<ProviderConsolePage />);
+    renderWithIntl(<ProviderConsolePage />);
     await submitFilters("provider-alpha");
     expect(await screen.findByText("Alpha Solver Lab")).toBeTruthy();
 
@@ -538,7 +545,7 @@ describe("ProviderConsolePage", () => {
     });
     mocks.listProviderMonthlyRevenueShareBatches.mockResolvedValue([]);
 
-    render(<ProviderConsolePage />);
+    renderWithIntl(<ProviderConsolePage />);
     await submitFilters();
 
     expect(await screen.findByText(/Application readiness: empty/)).toBeTruthy();

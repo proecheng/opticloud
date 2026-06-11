@@ -1,12 +1,12 @@
 "use client";
 /** /console/billing/invoices — bilingual billing statement console (Story 5.D.1). */
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { BudgetAlertCard, InvoiceCard, SparklineKPI, StatusCard } from "@opticloud/ui";
 
+import { ConsolePageHeader, ConsoleShell } from "@/components/ConsoleShell";
 import {
   type BillingBudgetStatusResponse,
   type BillingInvoiceListResponse,
@@ -330,51 +330,13 @@ export default function BillingInvoicesPage(): JSX.Element {
   const budget = state.budget;
 
   return (
-    <main className="min-h-screen bg-background">
-      <header className="border-b border-border bg-background">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-6 py-4">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="h-7 w-7 rounded bg-primary" />
-            <span className="font-semibold">OptiCloud</span>
-          </Link>
-          <nav className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
-            <Link href="/console/excel" className="text-muted-foreground hover:text-foreground">
-              Excel
-            </Link>
-            <Link
-              href="/console/data-exports"
-              className="text-muted-foreground hover:text-foreground"
-            >
-              数据导出
-            </Link>
-            <Link href="/console/providers" className="text-muted-foreground hover:text-foreground">
-              Providers
-            </Link>
-            <Link
-              href="/console/audit-logs"
-              className="text-muted-foreground hover:text-foreground"
-            >
-              审计日志
-            </Link>
-            <Link
-              href="/console/billing/invoices"
-              className="font-medium text-foreground hover:text-primary"
-            >
-              账单
-            </Link>
-          </nav>
-        </div>
-      </header>
-
-      <section className="border-b border-border bg-muted">
-        <div className="mx-auto flex max-w-6xl flex-col gap-4 px-6 py-6 md:flex-row md:items-end md:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold">双语账单</h1>
-            <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
-              查看月度 Credits 变动、实际用量支出和双语 PDF billing statement。
-            </p>
-          </div>
-          <div className="min-w-[180px]">
+    <ConsoleShell active="billing">
+      <ConsolePageHeader
+        eyebrow="Console / Billing"
+        title="双语账单"
+        description="查看月度 Credits 变动、实际用量支出和双语 PDF billing statement。"
+        actions={
+          <div className="w-full min-w-0 sm:w-[220px]">
             <label className="block text-sm font-medium" htmlFor="invoice-period">
               账单月份
             </label>
@@ -396,11 +358,11 @@ export default function BillingInvoicesPage(): JSX.Element {
               )}
             </select>
           </div>
-        </div>
-      </section>
+        }
+      />
 
       <section className="mx-auto grid max-w-6xl gap-6 px-6 py-8 lg:grid-cols-[300px_minmax(0,1fr)]">
-        <aside className="space-y-4">
+        <aside className="min-w-0 space-y-4">
           <StatusCard
             variant="info"
             title="账单性质"
@@ -446,7 +408,7 @@ export default function BillingInvoicesPage(): JSX.Element {
           </div>
         </aside>
 
-        <section className="space-y-5">
+        <section className="min-w-0 space-y-5">
           {state.error && (
             <StatusCard
               variant="error"
@@ -528,7 +490,7 @@ export default function BillingInvoicesPage(): JSX.Element {
           )}
         </section>
       </section>
-    </main>
+    </ConsoleShell>
   );
 }
 

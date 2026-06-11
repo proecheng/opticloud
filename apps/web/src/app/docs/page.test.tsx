@@ -1,8 +1,10 @@
 // @vitest-environment happy-dom
 
-import { render, screen, within } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
+
+import { renderWithIntl } from "@/test-utils/render-with-intl";
 
 vi.mock("next/link", () => ({
   default: ({
@@ -19,11 +21,15 @@ vi.mock("next/link", () => ({
   ),
 }));
 
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: vi.fn() }),
+}));
+
 import DocsIndexPage from "./page";
 
 describe("DocsIndexPage", () => {
   it("renders a real /docs index with current product documentation links", () => {
-    render(<DocsIndexPage />);
+    renderWithIntl(<DocsIndexPage />);
 
     expect(screen.getByRole("heading", { name: "文档" })).toBeTruthy();
     const primaryNav = screen.getByRole("navigation", { name: "Public navigation" });
@@ -31,7 +37,7 @@ describe("DocsIndexPage", () => {
     expect(
       within(primaryNav).getByRole("link", { name: "文档", current: "page" }).getAttribute("href"),
     ).toBe("/docs");
-    expect(within(primaryNav).getByRole("link", { name: "算法" }).getAttribute("href")).toBe(
+    expect(within(primaryNav).getByRole("link", { name: "算法目录" }).getAttribute("href")).toBe(
       "/algorithms",
     );
     expect(screen.getByRole("link", { name: "立即注册" }).getAttribute("href")).toBe(

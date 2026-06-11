@@ -1,12 +1,12 @@
 "use client";
 /** /console/routing-history — public-safe optimization provider routing history (Story 8.C.2). */
 
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 
 import { EmptyState, LoadingShimmer, StatusCard } from "@opticloud/ui";
 
+import { ConsolePageHeader, ConsoleShell } from "@/components/ConsoleShell";
 import {
   getOptimization,
   OptiCloudClientError,
@@ -199,58 +199,23 @@ function RoutingHistoryContent(): JSX.Element {
   const hasHandoffContext = Object.values(handoffContext).some((value) => value !== "");
 
   return (
-    <main className="min-h-screen bg-background">
-      <header className="border-b border-border bg-background">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-6 py-4">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="h-7 w-7 rounded bg-primary" />
-            <span className="font-semibold">OptiCloud</span>
-          </Link>
-          <nav className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
-            <Link href="/console/excel" className="text-muted-foreground hover:text-foreground">
-              Excel
-            </Link>
-            <Link href="/console/providers" className="text-muted-foreground hover:text-foreground">
-              Providers
-            </Link>
-            <Link href="/console/routing-history" className="font-medium text-foreground">
-              Routing History
-            </Link>
-            <Link
-              href="/console/legal-inquiry"
-              className="text-muted-foreground hover:text-foreground"
-            >
-              Legal Inquiry
-            </Link>
-            <Link
-              href="/console/audit-logs"
-              className="text-muted-foreground hover:text-foreground"
-            >
-              审计日志
-            </Link>
-          </nav>
-        </div>
-      </header>
-
-      <section className="border-b border-border bg-muted">
-        <div className="mx-auto flex max-w-6xl flex-col gap-4 px-6 py-6 md:flex-row md:items-end md:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold">Provider Routing History</h1>
-            <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
-              查询单个 optimization 的 primary route、executed route 和 fallback attempt history。
-            </p>
-          </div>
+    <ConsoleShell active="routing-history">
+      <ConsolePageHeader
+        eyebrow="Console / Provider governance"
+        title="Provider Routing History"
+        description="查询单个 optimization 的 primary route、executed route 和 fallback attempt history。"
+        actions={
           <StatusCard
             variant="info"
             title="安全边界"
             description="本页只展示 public-safe routing 字段，不展示请求、账单、错误诊断或内部 metadata。"
             ariaLabel="routing-history.scope"
           />
-        </div>
-      </section>
+        }
+      />
 
       <section className="mx-auto grid max-w-6xl gap-6 px-6 py-8 lg:grid-cols-[320px_minmax(0,1fr)]">
-        <aside className="space-y-4">
+        <aside className="min-w-0 space-y-4">
           <div className="rounded-md border border-border bg-background p-4">
             <div className="text-sm font-semibold">查询</div>
             <div className="mt-4 space-y-3">
@@ -314,7 +279,7 @@ function RoutingHistoryContent(): JSX.Element {
           )}
         </aside>
 
-        <section className="space-y-5">
+        <section className="min-w-0 space-y-5">
           {loading && <LoadingShimmer variant="card" />}
           {error && (
             <StatusCard
@@ -371,7 +336,7 @@ function RoutingHistoryContent(): JSX.Element {
           )}
         </section>
       </section>
-    </main>
+    </ConsoleShell>
   );
 }
 

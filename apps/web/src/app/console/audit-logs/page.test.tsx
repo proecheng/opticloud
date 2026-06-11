@@ -1,8 +1,10 @@
 // @vitest-environment happy-dom
 
-import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
+import { renderWithIntl } from "@/test-utils/render-with-intl";
 
 const mocks = vi.hoisted(() => ({
   push: vi.fn(),
@@ -93,7 +95,7 @@ describe("AuditLogsPage", () => {
   });
 
   it("redirects unauthenticated users to login", () => {
-    render(<AuditLogsPage />);
+    renderWithIntl(<AuditLogsPage />);
 
     expect(mocks.push).toHaveBeenCalledWith("/auth/login");
     expect(mocks.listMyAuditLogs).not.toHaveBeenCalled();
@@ -103,7 +105,7 @@ describe("AuditLogsPage", () => {
     sessionStorage.setItem("jwt_access", "jwt-test");
     mocks.listMyAuditLogs.mockResolvedValue(firstPage);
 
-    render(<AuditLogsPage />);
+    renderWithIntl(<AuditLogsPage />);
 
     expect(await screen.findByText("api_key.created")).toBeTruthy();
     expect(screen.getByText("生产环境 Key")).toBeTruthy();
@@ -115,7 +117,7 @@ describe("AuditLogsPage", () => {
     sessionStorage.setItem("jwt_access", "jwt-test");
     mocks.listMyAuditLogs.mockResolvedValue(firstPage);
 
-    render(<AuditLogsPage />);
+    renderWithIntl(<AuditLogsPage />);
     await screen.findByText("api_key.created");
 
     fireEvent.change(screen.getByLabelText("开始时间"), {
@@ -153,7 +155,7 @@ describe("AuditLogsPage", () => {
       .mockReturnValueOnce(initialPromise)
       .mockResolvedValueOnce(secondPage);
 
-    render(<AuditLogsPage />);
+    renderWithIntl(<AuditLogsPage />);
 
     fireEvent.change(screen.getByLabelText("开始时间"), {
       target: { value: "2026-06-01T09:00" },
@@ -176,7 +178,7 @@ describe("AuditLogsPage", () => {
     mocks.listMyAuditLogs.mockResolvedValueOnce(firstPage).mockResolvedValueOnce(secondPage);
     const storageSet = vi.spyOn(Storage.prototype, "setItem");
 
-    render(<AuditLogsPage />);
+    renderWithIntl(<AuditLogsPage />);
     await screen.findByText("api_key.created");
 
     await act(async () => {
@@ -202,7 +204,7 @@ describe("AuditLogsPage", () => {
       new Error("audit service unavailable"),
     );
 
-    render(<AuditLogsPage />);
+    renderWithIntl(<AuditLogsPage />);
 
     expect(await screen.findByText(/audit service unavailable/)).toBeTruthy();
     expect(screen.getByRole("heading", { level: 1, name: "审计日志" })).toBeTruthy();
@@ -212,13 +214,13 @@ describe("AuditLogsPage", () => {
     sessionStorage.setItem("jwt_access", "jwt-test");
     mocks.listMyAuditLogs.mockResolvedValue({ ...firstPage, items: [], next_cursor: null });
 
-    render(<AuditLogsPage />);
+    renderWithIntl(<AuditLogsPage />);
 
     await screen.findByText("暂无审计日志");
-    const nav = screen.getByRole("navigation");
-    expect(within(nav).getByRole("link", { name: "审计日志" }).getAttribute("href")).toBe(
-      "/console/audit-logs",
-    );
+    const nav = screen.getByRole("navigation", { name: "Console governance navigation" });
+    expect(
+      within(nav).getByRole("link", { name: "审计日志", current: "page" }).getAttribute("href"),
+    ).toBe("/console/audit-logs");
     expect(within(nav).getByRole("link", { name: "账单" }).getAttribute("href")).toBe(
       "/console/billing/invoices",
     );

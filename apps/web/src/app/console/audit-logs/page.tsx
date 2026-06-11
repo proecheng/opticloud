@@ -1,12 +1,12 @@
 "use client";
 /** /console/audit-logs — self-service user audit history (Story 8.A.5). */
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { AuditLogTable, StatusCard, type AuditLogTimeRange } from "@opticloud/ui";
 
+import { ConsolePageHeader, ConsoleShell } from "@/components/ConsoleShell";
 import {
   listMyAuditLogs,
   OptiCloudClientError,
@@ -120,61 +120,20 @@ export default function AuditLogsPage(): JSX.Element {
   };
 
   return (
-    <main className="min-h-screen bg-background">
-      <header className="border-b border-border bg-background">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-6 py-4">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="h-7 w-7 rounded bg-primary" />
-            <span className="font-semibold">OptiCloud</span>
-          </Link>
-          <nav className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
-            <Link href="/console/excel" className="text-muted-foreground hover:text-foreground">
-              Excel
-            </Link>
-            <Link href="/console/repro" className="text-muted-foreground hover:text-foreground">
-              Repro
-            </Link>
-            <Link
-              href="/console/data-exports"
-              className="text-muted-foreground hover:text-foreground"
-            >
-              数据导出
-            </Link>
-            <Link href="/console/providers" className="text-muted-foreground hover:text-foreground">
-              Providers
-            </Link>
-            <Link
-              href="/console/billing/invoices"
-              className="text-muted-foreground hover:text-foreground"
-            >
-              账单
-            </Link>
-            <Link
-              href="/console/audit-logs"
-              className="font-medium text-foreground hover:text-primary"
-            >
-              审计日志
-            </Link>
-          </nav>
-        </div>
-      </header>
-
-      <section className="border-b border-border bg-muted">
-        <div className="mx-auto flex max-w-6xl flex-col gap-4 px-6 py-6 md:flex-row md:items-end md:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold">审计日志</h1>
-            <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
-              查看当前账号的关键安全、API Key、数据导出和系统活动记录。
-            </p>
-          </div>
-          <div className="text-sm text-muted-foreground">
+    <ConsoleShell active="audit-logs">
+      <ConsolePageHeader
+        eyebrow="Console / Governance"
+        title="审计日志"
+        description="查看当前账号的关键安全、API Key、数据导出和系统活动记录。"
+        meta={
+          <span className="inline-flex min-h-touch items-center rounded-md border border-border bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground">
             {state.loading ? "正在同步..." : state.from && state.to ? "时间窗已同步" : "等待数据"}
-          </div>
-        </div>
-      </section>
+          </span>
+        }
+      />
 
       <section className="mx-auto grid max-w-6xl gap-6 px-6 py-8 lg:grid-cols-[280px_minmax(0,1fr)]">
-        <aside className="space-y-4">
+        <aside className="min-w-0 space-y-4">
           <StatusCard
             variant="info"
             title="数据边界"
@@ -189,18 +148,20 @@ export default function AuditLogsPage(): JSX.Element {
           </div>
         </aside>
 
-        <AuditLogTable
-          items={state.items}
-          nextCursor={state.nextCursor}
-          from={state.from}
-          to={state.to}
-          isLoading={state.loading}
-          error={state.error}
-          onApplyTimeRange={handleApplyTimeRange}
-          onLoadNext={handleLoadNext}
-          ariaLabel="console.audit_logs.table"
-        />
+        <div className="min-w-0">
+          <AuditLogTable
+            items={state.items}
+            nextCursor={state.nextCursor}
+            from={state.from}
+            to={state.to}
+            isLoading={state.loading}
+            error={state.error}
+            onApplyTimeRange={handleApplyTimeRange}
+            onLoadNext={handleLoadNext}
+            ariaLabel="console.audit_logs.table"
+          />
+        </div>
       </section>
-    </main>
+    </ConsoleShell>
   );
 }

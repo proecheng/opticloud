@@ -80,4 +80,41 @@ test.describe("public mobile overflow", () => {
 
     await expectNoDocumentHorizontalOverflow(page);
   });
+
+  test("authenticated provider console stays within mobile viewport", async ({ page }) => {
+    await page.addInitScript(() => {
+      window.sessionStorage.setItem("jwt_access", "e2e-layout-jwt");
+    });
+    await page.goto("/console/providers", { waitUntil: "domcontentloaded" });
+
+    await expect(page.getByRole("heading", { name: "Provider Console" })).toBeVisible();
+    await expect(page.getByRole("navigation", { name: "Console navigation" })).toBeVisible();
+    await expect(
+      page.getByRole("navigation", { name: "Console governance navigation mobile" }),
+    ).toBeVisible();
+    await expect(page.getByRole("button", { name: "加载 Provider Console" })).toBeVisible();
+
+    await expectNoDocumentHorizontalOverflow(page);
+  });
+
+  for (const route of [
+    "/console/predictions",
+    "/console/repro",
+    "/console/data-exports",
+    "/console/classroom",
+    "/console/routing-history",
+    "/console/legal-inquiry",
+    "/console/billing/invoices",
+    "/console/audit-logs",
+  ]) {
+    test(`console route ${route} stays within mobile viewport`, async ({ page }) => {
+      await page.addInitScript(() => {
+        window.sessionStorage.setItem("jwt_access", "e2e-layout-jwt");
+      });
+      await page.goto(route, { waitUntil: "domcontentloaded" });
+
+      await expect(page.getByRole("navigation", { name: "Console navigation" })).toBeVisible();
+      await expectNoDocumentHorizontalOverflow(page);
+    });
+  }
 });

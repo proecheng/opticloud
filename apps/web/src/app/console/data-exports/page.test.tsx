@@ -1,8 +1,10 @@
 // @vitest-environment happy-dom
 
-import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
+import { renderWithIntl } from "@/test-utils/render-with-intl";
 
 const mocks = vi.hoisted(() => ({
   push: vi.fn(),
@@ -105,7 +107,7 @@ describe("DataExportsConsolePage", () => {
   });
 
   it("redirects unauthenticated users to login", () => {
-    render(<DataExportsConsolePage />);
+    renderWithIntl(<DataExportsConsolePage />);
 
     expect(mocks.push).toHaveBeenCalledWith("/auth/login");
   });
@@ -116,7 +118,7 @@ describe("DataExportsConsolePage", () => {
     mocks.requestDataExport.mockResolvedValueOnce(queuedJson);
     mocks.getDataExportStatus.mockResolvedValueOnce(completedJson);
 
-    render(<DataExportsConsolePage />);
+    renderWithIntl(<DataExportsConsolePage />);
 
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "请求 JSON" }));
@@ -137,7 +139,7 @@ describe("DataExportsConsolePage", () => {
     sessionStorage.setItem("jwt_access", "jwt-test");
     mocks.requestDataExport.mockResolvedValueOnce(failedCsv);
 
-    render(<DataExportsConsolePage />);
+    renderWithIntl(<DataExportsConsolePage />);
 
     fireEvent.click(screen.getByRole("tab", { name: "CSV" }));
     fireEvent.click(screen.getByRole("button", { name: "请求 CSV" }));
@@ -154,7 +156,7 @@ describe("DataExportsConsolePage", () => {
     sessionStorage.setItem("jwt_access", "jwt-test");
     mocks.requestDataExport.mockResolvedValueOnce(expiredJson);
 
-    render(<DataExportsConsolePage />);
+    renderWithIntl(<DataExportsConsolePage />);
 
     fireEvent.click(screen.getByRole("button", { name: "请求 JSON" }));
 
@@ -175,7 +177,7 @@ describe("DataExportsConsolePage", () => {
     mocks.requestDataExport.mockResolvedValueOnce(newerJson);
     mocks.getDataExportStatus.mockResolvedValueOnce(staleCompletedJson);
 
-    render(<DataExportsConsolePage />);
+    renderWithIntl(<DataExportsConsolePage />);
 
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "请求 JSON" }));
@@ -210,7 +212,7 @@ describe("DataExportsConsolePage", () => {
       return element;
     });
 
-    render(<DataExportsConsolePage />);
+    renderWithIntl(<DataExportsConsolePage />);
 
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "请求 JSON" }));

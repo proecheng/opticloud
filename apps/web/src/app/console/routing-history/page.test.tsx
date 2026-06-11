@@ -1,8 +1,10 @@
 // @vitest-environment happy-dom
 
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
+import { renderWithIntl } from "@/test-utils/render-with-intl";
 
 const mocks = vi.hoisted(() => ({
   getOptimization: vi.fn(),
@@ -103,7 +105,7 @@ const routingHistory = {
 };
 
 function renderPage(): void {
-  render(<RoutingHistoryPage />);
+  renderWithIntl(<RoutingHistoryPage />);
 }
 
 describe("RoutingHistoryPage", () => {

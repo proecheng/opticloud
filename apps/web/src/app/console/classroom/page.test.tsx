@@ -1,8 +1,10 @@
 // @vitest-environment happy-dom
 
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
+import { renderWithIntl } from "@/test-utils/render-with-intl";
 
 const mocks = vi.hoisted(() => ({
   push: vi.fn(),
@@ -31,7 +33,7 @@ import ClassroomPage from "./page";
 
 function renderWithJwt(): void {
   sessionStorage.setItem("jwt_access", "jwt-classroom");
-  render(<ClassroomPage />);
+  renderWithIntl(<ClassroomPage />);
 }
 
 function fillValidForm(): void {
@@ -58,7 +60,7 @@ describe("ClassroomPage", () => {
   });
 
   it("redirects unauthenticated users to login", async () => {
-    render(<ClassroomPage />);
+    renderWithIntl(<ClassroomPage />);
 
     await waitFor(() => {
       expect(mocks.push).toHaveBeenCalledWith("/auth/login");

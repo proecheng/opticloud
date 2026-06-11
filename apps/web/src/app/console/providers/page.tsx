@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { EmptyState, LoadingShimmer, StatusCard } from "@opticloud/ui";
 
+import { ConsolePageHeader, ConsoleShell } from "@/components/ConsoleShell";
 import {
   getProviderKpiDashboard,
   getProviderRevenuePayoutDashboard,
@@ -135,8 +136,8 @@ function Section({
   children: React.ReactNode;
 }): JSX.Element {
   return (
-    <section className="space-y-3 rounded-md border border-border bg-background p-4">
-      <div>
+    <section className="min-w-0 space-y-3 rounded-md border border-border bg-background p-4">
+      <div className="min-w-0">
         <h2 className="text-lg font-semibold">{title}</h2>
         {subtitle && <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>}
       </div>
@@ -153,7 +154,7 @@ function SafeTable({
   rows: string[][];
 }): JSX.Element {
   return (
-    <div className="overflow-x-auto rounded-md border border-border">
+    <div className="min-w-0 max-w-full overflow-x-auto rounded-md border border-border">
       <table className="w-full min-w-[560px] text-sm">
         <thead className="bg-muted">
           <tr>
@@ -495,73 +496,38 @@ export default function ProviderConsolePage(): JSX.Element {
   const openIssues = issueBands(operationalBands);
 
   return (
-    <main className="min-h-screen bg-background">
-      <header className="border-b border-border bg-background">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-6 py-4">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="h-7 w-7 rounded bg-primary" />
-            <span className="font-semibold">OptiCloud</span>
-          </Link>
-          <nav className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
-            <Link href="/console/excel" className="text-muted-foreground hover:text-foreground">
-              Excel
-            </Link>
-            <Link href="/console/providers" className="font-medium text-foreground hover:text-primary">
-              Providers
-            </Link>
-            <Link
-              href="/console/classroom"
-              className="text-muted-foreground hover:text-foreground"
-            >
-              Classroom
-            </Link>
-            <Link
-              href="/console/routing-history"
-              className="text-muted-foreground hover:text-foreground"
-            >
-              Routing History
-            </Link>
-            <Link
-              href="/console/legal-inquiry"
-              className="text-muted-foreground hover:text-foreground"
-            >
-              Legal Inquiry
-            </Link>
-            <Link
-              href="/console/billing/invoices"
-              className="text-muted-foreground hover:text-foreground"
-            >
-              账单
-            </Link>
-            <Link
-              href="/console/audit-logs"
-              className="text-muted-foreground hover:text-foreground"
-            >
-              审计日志
-            </Link>
-          </nav>
-        </div>
-      </header>
-
-      <section className="border-b border-border bg-muted">
-        <div className="mx-auto flex max-w-6xl flex-col gap-4 px-6 py-6 md:flex-row md:items-end md:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold">Provider Console</h1>
-            <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
-              只读聚合 Provider Marketplace v2 合同：route-share、shadow KPI、收入/待结算、版本更新和月度分润批次。
-            </p>
+    <ConsoleShell active="providers">
+      <ConsolePageHeader
+        eyebrow="Console / Provider governance"
+        title="Provider Console"
+        description="只读聚合 Provider Marketplace v2 合同：route-share、shadow KPI、收入/待结算、版本更新和月度分润批次。"
+        meta={
+          <>
+            <span className="inline-flex min-h-touch items-center rounded-md border border-primary/30 bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary">
+              只读聚合
+            </span>
+            <span className="inline-flex min-h-touch items-center rounded-md border border-border bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground">
+              Provider ID 显式筛选
+            </span>
+            <span className="inline-flex min-h-touch items-center rounded-md border border-success/30 bg-success/5 px-3 py-1.5 text-xs font-medium text-success">
+              不写入浏览器存储
+            </span>
+          </>
+        }
+        actions={
+          <div className="max-w-sm">
+            <StatusCard
+              variant="info"
+              title="只读范围"
+              description="本页不执行上线、结算、审批、路由变更或 Provider 身份绑定。"
+              ariaLabel="provider-console.read-only-scope"
+            />
           </div>
-          <StatusCard
-            variant="info"
-            title="只读范围"
-            description="本页不执行上线、结算、审批、路由变更或 Provider 身份绑定。"
-            ariaLabel="provider-console.read-only-scope"
-          />
-        </div>
-      </section>
+        }
+      />
 
-      <section className="mx-auto grid max-w-6xl gap-6 px-6 py-8 lg:grid-cols-[320px_minmax(0,1fr)]">
-        <aside className="space-y-4">
+      <section className="mx-auto grid max-w-7xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[320px_minmax(0,1fr)]">
+        <aside className="min-w-0 space-y-4">
           <div className="rounded-md border border-border bg-background p-4">
             <div className="text-sm font-semibold">筛选</div>
             <div className="mt-4 space-y-3">
@@ -629,7 +595,7 @@ export default function ProviderConsolePage(): JSX.Element {
           />
         </aside>
 
-        <section className="space-y-5">
+        <section className="min-w-0 space-y-5">
           {loading && <LoadingShimmer variant="card" />}
 
           <Section
@@ -891,6 +857,6 @@ export default function ProviderConsolePage(): JSX.Element {
           </Section>
         </section>
       </section>
-    </main>
+    </ConsoleShell>
   );
 }
