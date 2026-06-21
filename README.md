@@ -1,102 +1,167 @@
 # OptiCloud — 通用优化与预测云
 
-> 让懂业务的工程师 / 数据分析师 5 分钟用上 Gurobi/TimeGPT 级算法
+> 让懂业务的工程师 / 数据分析师 5 分钟用上 Gurobi / TimeGPT 级算法。
 
-**Status:** 🚧 **Sprint 0 — Foundation building (M0 W0-10)**
-**Path:** B Balanced — 5 unlock node 序列
-**Readiness:** 97.5% READY FOR SPRINT 0 EXECUTION ([v3 report](_bmad-output/planning/implementation-readiness-report-2026-05-17-v3.md))
+## 当前状态
 
----
+**阶段:** v1 BMAD 工程账本已收口，进入 v2 产品化 / 部署验证准备。
 
-## 🏗️ Monorepo 结构
+**截至 2026-06-21:**
 
-```
+- `sprint-status.yaml` 跟踪 203 个 concrete stories。
+- 199 个 stories 已完成。
+- 4 个 Epic 0 外部流程项保持 `blocked`，owner / 法务 / PM 已决定 `KEEP_BLOCKED`。
+- 当前没有已立项的 actionable backlog / ready-for-dev / in-progress / review 工程 story。
+- UX evolution 已通过 PR #182-#185 收口，`main` 已同步。
+
+仍保持 `blocked` 的外部项：
+
+- `0-0-sprint0-calibration-week`
+- `m0-legal-1-license-deliverable`
+- `m0-legal-status-tracking`
+- `m0-aigc-status-tracking`
+
+这些不是代码缺口。除非后续提供外部证据或正式豁免，否则不应标记为 `done`。
+
+## 仓库结构
+
+```text
 opticloud/
 ├── apps/
-│   ├── api-gateway/            # FastAPI 网关 (M1)
-│   ├── auth-service/           # 注册 / API Key / JWT (M1, Story 0.6)
-│   ├── solver-orchestrator/    # 优化求解 (M1)
-│   ├── billing-service/        # Credits 双写 (M2)
-│   ├── chat-service/           # Chat / NL→Model (M3, AIGC gated)
-│   ├── critic-service/         # Critic Agent SaaS (M3)
-│   ├── sandbox-runner/         # gVisor 隔离 (M3)
-│   ├── capability-registry/    # Provider catalog (M3+)
-│   ├── repro-service/          # Voucher / 5y SLA (M5)
-│   └── web/                    # Next.js 15 (M1+)
+│   ├── api-gateway/            # API gateway placeholder / future ingress
+│   ├── auth-service/           # 注册 / 登录 / API Key / 风控
+│   ├── billing-service/        # Credits / 订阅 / 发票 / 对账
+│   ├── capability-registry/    # Provider catalog / 能力注册
+│   ├── chat-service/           # Chat / NL -> model / sandbox handoff
+│   ├── critic-service/         # Critic calibration config / future service
+│   ├── outbox-relayer/         # Outbox sidecar relay
+│   ├── repro-service/          # Repro service placeholder / voucher roadmap
+│   ├── sandbox-runner/         # 沙箱执行边界
+│   ├── solver-orchestrator/    # 优化 / 预测 / provider routing
+│   └── web/                    # Next.js 15 public site + console
 ├── packages/
-│   ├── shared-py/              # Python 共享 (cost_telemetry, aigc_filter, otel_setup)
-│   ├── shared-ts/              # TS types (OpenAPI codegen)
-│   └── ui/                     # Radix + shadcn/ui Components
+│   ├── i18n/                   # Error message single-source catalogs
+│   ├── node-sdk/               # Node SDK package scaffold
+│   ├── python-sdk/             # Python SDK alpha client
+│   ├── shared-py/              # Python shared libs
+│   ├── shared-ts/              # TypeScript shared contracts
+│   └── ui/                     # Shared UI components
 ├── infra/
-│   └── local-init/             # Postgres init schema
-├── docs/
-│   ├── runbooks/               # Day-2 ops SOPs
-│   ├── legal-templates.md      # 合同模板索引
-│   └── ...
-└── _bmad-output/planning/      # BMad workflow 输出（PRD + Arch + UX + Epics + Readiness）
+│   ├── docker/                 # Docker build docs
+│   ├── k8s/production/         # Production namespace / NetworkPolicy manifests
+│   └── local-init/             # Local Postgres init schema
+├── docs/                       # Runbooks, ADRs, academic/commercial docs
+├── e2e/                        # Playwright tests
+├── tests/                      # Python repo-level governance tests
+└── _bmad-output/               # Planning, stories, sprint ledger, reviews
 ```
 
----
-
-## 🚀 Quickstart
+## 快速开始
 
 ### 前置
 
-- **pnpm** 9+ (`npm install -g pnpm`)
-- **uv** (`curl -LsSf https://astral.sh/uv/install.sh | sh` or [uv docs](https://docs.astral.sh/uv/))
-- **Python** 3.12 (`uv python install 3.12`)
-- **Docker** + Docker Compose
-- **Node.js** 18+
+- Node.js 18+
+- pnpm 9+
+- Python 3.12
+- uv
+- Docker + Docker Compose
 
-### 启动本地栈
+### 安装依赖
 
-```bash
-# 1. Install Python + Node 依赖
-uv sync                          # Python (uv workspace)
-pnpm install                     # Node (pnpm workspace)
-
-# 2. 起本地 infra（Postgres + Redis + Vault + MinIO + LocalStack）
-cp .env.example .env             # 编辑 .env 设置开发密钥
-docker-compose up -d
-
-# 3. 跑 auth-service
-cd apps/auth-service
-uv run uvicorn main:app --reload --port 8001
-
-# 4. 测试 signup endpoint
-curl -X POST http://localhost:8001/v1/auth/signup \
-  -H "Content-Type: application/json" \
-  -d '{"phone":"+8613800138000","email":"test@example.com"}'
-
-# 5. OpenAPI docs at http://localhost:8001/docs
+```powershell
+cd D:\优化预测网站
+uv sync
+pnpm install
 ```
 
----
+### 启动本地基础设施
 
-## 📚 关键文档
+```powershell
+Copy-Item .env.example .env
+docker-compose up -d
+docker-compose ps
+```
+
+本地基础设施包括 Postgres、Redis、Vault dev、MinIO、LocalStack 和 outbox-relayer。
+
+### 启动 Web
+
+```powershell
+pnpm --dir apps/web dev
+```
+
+打开 http://localhost:3000。
+
+关键页面：
+
+- `/` — 公开首页
+- `/docs` — 文档入口
+- `/docs/user-guide` — 网站操作说明
+- `/algorithms` — 算法目录
+- `/console/excel` — Excel 工作流
+- `/status` — 状态页
+- `/security` — 安全披露
+
+### 启动后端服务示例
+
+```powershell
+uv run --directory apps/auth-service uvicorn auth_service.main:app --reload --port 8001
+uv run --directory apps/solver-orchestrator uvicorn solver_orchestrator.main:app --reload --port 8002
+```
+
+OpenAPI:
+
+- Auth service: http://localhost:8001/docs
+- Solver orchestrator: http://localhost:8002/docs
+
+更多面向非工程师的本地演示说明见 [HOWTO-local-demo.md](HOWTO-local-demo.md)。
+
+## 常用验证命令
+
+```powershell
+# Web typecheck
+pnpm --dir apps/web typecheck
+
+# Web tests
+pnpm --dir apps/web test
+
+# Public / console mobile overflow regression
+pnpm --dir e2e exec playwright test tests/public-mobile-overflow.spec.ts --project=chromium --workers=1
+
+# Python governance / service tests
+uv run pytest
+
+# Diff whitespace gate
+git diff --check
+```
+
+## 关键文档
 
 | 文档 | 用途 |
 |---|---|
-| [`_bmad-output/planning/epics.md`](_bmad-output/planning/epics.md) | 21 Epics / 192 Stories backlog（v1 主 entry doc）|
-| [`_bmad-output/planning/prd.md`](_bmad-output/planning/prd.md) | 78 FR Capability Contract (v1.1) |
-| [`_bmad-output/planning/architecture.md`](_bmad-output/planning/architecture.md) | 74 Patterns / 22 Constraints (v2.2) |
-| [`_bmad-output/planning/ux-design-specification.md`](_bmad-output/planning/ux-design-specification.md) | 29 Components / 6 a11y profile (v1) |
-| [`_bmad-output/planning/implementation-readiness-report-2026-05-17-v3.md`](_bmad-output/planning/implementation-readiness-report-2026-05-17-v3.md) | Final Readiness 97.5% |
-| [`网站方案.md`](网站方案.md) | 源文档 v0.5.1（22 章 + 5 附录）|
+| [_bmad-output/stories/sprint-status.yaml](_bmad-output/stories/sprint-status.yaml) | 当前 story / epic 账本 |
+| [_bmad-output/stories/m0-blocked-items-owner-decision-2026-06-21.md](_bmad-output/stories/m0-blocked-items-owner-decision-2026-06-21.md) | 4 个外部 blocked 项的 owner 决策记录 |
+| [_bmad-output/stories/evo-5-console-data-pages-user-guide.md](_bmad-output/stories/evo-5-console-data-pages-user-guide.md) | UX evolution 收口记录 |
+| [_bmad-output/planning/prd.md](_bmad-output/planning/prd.md) | PRD / capability contract |
+| [_bmad-output/planning/architecture.md](_bmad-output/planning/architecture.md) | 架构决策与约束 |
+| [_bmad-output/planning/ux-design-specification.md](_bmad-output/planning/ux-design-specification.md) | UX / component / a11y 规格 |
+| [_bmad-output/planning/epics.md](_bmad-output/planning/epics.md) | 原始 epic / story 拆解 |
+| [docs/adr/README.md](docs/adr/README.md) | ADR 索引 |
+| [docs/runbooks/](docs/runbooks/) | 运维、治理和审计 runbook |
 
----
+## 合规与许可证状态
 
-## 🛡️ 合规
+当前工程约束仍以 BMAD 账本为准：
 
-- **License (v1)**: MIT / Apache 2.0 / BSD 自由调用；EPL 仅调用不修改；GPL-3.0 limited-to ECOS（v2 法务签字后启用）
-- **C6**: Python 3.12 locked monorepo 内
-- **C9**: Postgres TDE 全环境启用 + Vault dev mode (CI)
-- **AIGC**: M3 备案 hard-gate（M0 启动中介 ¥3-8 万）
+- Python 运行时锁定为 3.12。
+- v1 允许 MIT / Apache 2.0 / BSD；EPL 仅调用不修改。
+- GPL / ECOS / Apache 2.0 自研算法签字仍属外部法务 blocked 项。
+- AIGC filing 状态追踪仍属外部 blocked 项。
 
-详 [`docs/legal-templates.md`](docs/legal-templates.md) + [`docs/runbooks/`](docs/runbooks/).
+仓库内代码和文档不能替代法务意见、备案证明或外部流程证据。
 
----
+## 下一步建议
 
-## 📝 License
-
-**MVP**: 待定（M0 wk1-2 法务签字 — Apache 2.0 主 / 自研算法）
+1. 真实部署验证：把当前 docker-compose / k8s / service health 从静态资产推进到可复跑的 staging verification 清单。
+2. v2 产品化：选择 Excel、预测、Classroom、Provider 或 billing 其中一条，把现有 stub / demo 能力升级为真实闭环。
+3. 商业化材料：整理试点客户 onboarding、采购包、价格说明和白皮书材料。
