@@ -35,7 +35,18 @@ test.describe("public mobile overflow", () => {
 
     await expect(page.getByRole("heading", { name: "文档" })).toBeVisible();
     await expect(page.getByRole("navigation", { name: "Public navigation" })).toBeVisible();
+    await expect(page.getByRole("link", { name: /网站操作说明/ }).first()).toBeVisible();
     await expect(page.getByRole("link", { name: /Hello World Quickstart/ })).toBeVisible();
+
+    await expectNoDocumentHorizontalOverflow(page);
+  });
+
+  test("user guide stays within mobile viewport", async ({ page }) => {
+    await page.goto("/docs/user-guide", { waitUntil: "domcontentloaded" });
+
+    await expect(page.getByRole("heading", { name: "网站操作说明" })).toBeVisible();
+    await expect(page.getByRole("navigation", { name: "操作说明目录" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "控制台入口" })).toBeVisible();
 
     await expectNoDocumentHorizontalOverflow(page);
   });

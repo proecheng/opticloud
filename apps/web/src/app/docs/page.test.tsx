@@ -45,6 +45,11 @@ describe("DocsIndexPage", () => {
     );
     expect(screen.getByRole("heading", { name: "开始接入" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "推荐阅读顺序" })).toBeTruthy();
+    expect(
+      screen
+        .getAllByRole("link", { name: /网站操作说明/ })
+        .some((link) => link.getAttribute("href") === "/docs/user-guide"),
+    ).toBe(true);
     expect(screen.getByRole("link", { name: /Hello World Quickstart/ }).getAttribute("href")).toBe(
       "/docs/quickstart",
     );
