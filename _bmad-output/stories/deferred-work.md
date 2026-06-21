@@ -4,6 +4,8 @@
 
 Source intent: after README / project status cleanup, continue with real deployment validation.
 
+Status: completed by `_bmad-output/stories/spec-staging-deployment-verification.md`.
+
 Deferred goal:
 
 - Create a lightweight, repeatable staging deployment verification path for the current repository.

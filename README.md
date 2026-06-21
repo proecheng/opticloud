@@ -148,6 +148,7 @@ git diff --check
 | [_bmad-output/planning/epics.md](_bmad-output/planning/epics.md) | 原始 epic / story 拆解 |
 | [docs/adr/README.md](docs/adr/README.md) | ADR 索引 |
 | [docs/runbooks/](docs/runbooks/) | 运维、治理和审计 runbook |
+| [docs/runbooks/staging-deployment-verification.md](docs/runbooks/staging-deployment-verification.md) | Staging deployment verification 清单 |
 
 ## 合规与许可证状态
 
@@ -162,6 +163,6 @@ git diff --check
 
 ## 下一步建议
 
-1. 真实部署验证：把当前 docker-compose / k8s / service health 从静态资产推进到可复跑的 staging verification 清单。
+1. Live staging smoke / staging verification：在真实 staging URL 存在后，按 `docs/runbooks/staging-deployment-verification.md` 跑 health smoke 并记录证据。
 2. v2 产品化：选择 Excel、预测、Classroom、Provider 或 billing 其中一条，把现有 stub / demo 能力升级为真实闭环。
 3. 商业化材料：整理试点客户 onboarding、采购包、价格说明和白皮书材料。

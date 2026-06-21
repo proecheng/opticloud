@@ -192,6 +192,11 @@ chat-service:
 
 ## 🟡 Routine Maintenance SOPs
 
+### Staging Deployment Verification
+
+- 📄 **[`runbooks/staging-deployment-verification.md`](staging-deployment-verification.md)** ✅ **READY**
+- 🎯 内容：本地 dependency smoke、blue/green 静态验证、Kubernetes manifest 静态验证、可选 live staging health smoke；明确禁止把静态验证误称为 production verified。
+
 ### 11. 密钥轮换日历（C10 配套）
 
 - 📄 **`runbooks/key-rotation-calendar.md`**
