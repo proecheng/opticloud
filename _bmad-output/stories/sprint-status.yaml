@@ -37,6 +37,7 @@ development_status:
   m0-legal-1-license-deliverable: blocked      # E9 legal signoff; user previously skipped; see blocked-items-triage-2026-06-06.md
   m0-legal-status-tracking: blocked            # RE2-8 legal process tracking; see blocked-items-triage-2026-06-06.md
   m0-aigc-status-tracking: blocked             # CM3 AIGC filing process; see blocked-items-triage-2026-06-06.md
+  m0-blocked-items-decision-followup: done      # 2026-06-21 - Current decision follow-up recorded; original four external blockers remain pending owner/legal/PM decision
   m2-0-saga-spike: done                        # RE6 — 2026-05-18 (ADR-0001 Hybrid Saga + ADR-0002 K8s sidecar; 8 state-machine tests; 33 total regression OK)
   m2-1-outbox-relayer: done                    # 2026-05-18 — sidecar relayer (asyncpg + Redis pub + LISTEN/NOTIFY); 8 integration tests; P95 lag < 500ms verified
   m2-2a-billing-critical-tests: done           # 2026-05-18 — 55 critical scenarios + S1 cross-tenant security fix; NFR-R4 v1.5 hard-gate evidence
@@ -286,8 +287,8 @@ development_status:
   evo-5-console-data-pages-user-guide: done # 2026-06-21 - Console data pages and /docs/user-guide closure shipped via PR #185; local main synced
 
 # ===== Statistics =====
-# Total tracked concrete stories: 201
-# Done: 197
+# Total tracked concrete stories: 202
+# Done: 198
 # Blocked: 4 (legal/AIGC/calibration — external owner decision required)
 # Actionable backlog/ready/in-progress/review stories: 0
 # Open epic: epic-0 only, because four external process/legal/AIGC blockers remain
