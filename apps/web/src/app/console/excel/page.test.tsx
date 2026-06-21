@@ -1,8 +1,10 @@
 // @vitest-environment happy-dom
 
-import { render, screen, within } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
+
+import { renderWithIntl } from "@/test-utils/render-with-intl";
 
 vi.mock("next/link", () => ({
   default: ({
@@ -23,18 +25,21 @@ import ConsoleExcelPage from "./page";
 
 describe("ConsoleExcelPage", () => {
   it("renders the console shell, workflow stages, and idle upload surface", () => {
-    render(<ConsoleExcelPage />);
+    renderWithIntl(<ConsoleExcelPage />);
 
     expect(screen.getByRole("heading", { name: "上传 Excel，自动求解" })).toBeTruthy();
 
-    const consoleNav = screen.getByRole("navigation", { name: "Console navigation" });
+    const workflowNav = screen.getByRole("navigation", { name: "Console navigation" });
     expect(
-      within(consoleNav).getByRole("link", { name: "Excel", current: "page" }).getAttribute("href"),
+      within(workflowNav).getByRole("link", { name: "Excel", current: "page" }).getAttribute("href"),
     ).toBe("/console/excel");
-    expect(within(consoleNav).getByRole("link", { name: "预测" }).getAttribute("href")).toBe(
+    expect(within(workflowNav).getByRole("link", { name: "预测" }).getAttribute("href")).toBe(
       "/console/predictions",
     );
-    expect(within(consoleNav).getByRole("link", { name: "账单" }).getAttribute("href")).toBe(
+    const governanceNav = screen.getByRole("navigation", {
+      name: "Console governance navigation",
+    });
+    expect(within(governanceNav).getByRole("link", { name: "账单" }).getAttribute("href")).toBe(
       "/console/billing/invoices",
     );
 
@@ -42,7 +47,7 @@ describe("ConsoleExcelPage", () => {
     expect(within(supportNav).getByRole("link", { name: "文档" }).getAttribute("href")).toBe(
       "/docs",
     );
-    expect(within(supportNav).getByRole("link", { name: "算法" }).getAttribute("href")).toBe(
+    expect(within(supportNav).getByRole("link", { name: "算法目录" }).getAttribute("href")).toBe(
       "/algorithms",
     );
 

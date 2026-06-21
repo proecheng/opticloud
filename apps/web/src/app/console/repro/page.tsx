@@ -1,10 +1,10 @@
 "use client";
 
-import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import { StatusCard, VoucherCard, type VoucherCardVoucher } from "@opticloud/ui";
 
+import { ConsolePageHeader, ConsoleShell } from "@/components/ConsoleShell";
 import {
   OptiCloudClientError,
   rerunReproductionVoucher,
@@ -123,57 +123,25 @@ export default function ReproConsolePage(): JSX.Element {
   };
 
   return (
-    <main className="min-h-screen bg-background">
-      <header className="border-b border-border bg-background">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-6 py-4">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="h-7 w-7 rounded bg-primary" />
-            <span className="font-semibold">OptiCloud</span>
-          </Link>
-          <nav className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
-            <Link href="/console/excel" className="text-muted-foreground hover:text-foreground">
-              Excel
-            </Link>
-            <Link
-              href="/console/academic-attribution"
-              className="text-muted-foreground hover:text-foreground"
-            >
-              Attribution
-            </Link>
-            <Link
-              href="/console/critic-annotation"
-              className="text-muted-foreground hover:text-foreground"
-            >
-              Critic
-            </Link>
-            <Link
-              href="/console/data-exports"
-              className="text-muted-foreground hover:text-foreground"
-            >
-              数据导出
-            </Link>
-            <Link
-              href="/console/audit-logs"
-              className="text-muted-foreground hover:text-foreground"
-            >
-              审计日志
-            </Link>
-          </nav>
-        </div>
-      </header>
-
-      <section className="border-b border-border bg-muted">
-        <div className="mx-auto max-w-6xl px-6 py-8">
-          <h1 className="text-2xl font-bold">Repro Dashboard</h1>
-          <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
-            Voucher fixtures, rerun state, and a session-only API key input for the existing
-            reproduction rerun client.
-          </p>
-        </div>
-      </section>
+    <ConsoleShell active="repro">
+      <ConsolePageHeader
+        eyebrow="Console / Reproducibility"
+        title="Repro Dashboard"
+        description="Voucher fixtures, rerun state, and a session-only API key input for the existing reproduction rerun client."
+        meta={
+          <>
+            <span className="inline-flex min-h-touch items-center rounded-md border border-primary/30 bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary">
+              Session-only API key
+            </span>
+            <span className="inline-flex min-h-touch items-center rounded-md border border-border bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground">
+              Fixture dashboard
+            </span>
+          </>
+        }
+      />
 
       <section className="mx-auto grid max-w-6xl gap-6 px-6 py-8 lg:grid-cols-[280px_minmax(0,1fr)]">
-        <aside className="space-y-4">
+        <aside className="min-w-0 space-y-4">
           <div className="rounded-md border border-border bg-background p-4">
             <label className="block text-sm font-medium text-foreground" htmlFor="repro-api-key">
               API key
@@ -221,7 +189,7 @@ export default function ReproConsolePage(): JSX.Element {
           />
         </aside>
 
-        <section className="space-y-4">
+        <section className="min-w-0 space-y-4">
           {sessionNote && (
             <StatusCard
               variant="ok"
@@ -266,6 +234,6 @@ export default function ReproConsolePage(): JSX.Element {
           />
         </section>
       </section>
-    </main>
+    </ConsoleShell>
   );
 }

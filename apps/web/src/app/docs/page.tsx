@@ -9,6 +9,12 @@ const DOC_GROUPS = [
     summary: "把 API Key、示例请求和 Excel 上传边界先跑通。",
     items: [
       {
+        href: "/docs/user-guide",
+        label: "网站操作说明",
+        task: "按步骤使用网站",
+        description: "注册、API、Excel、算法目录、控制台和排障的完整 HTML 操作手册。",
+      },
+      {
         href: "/docs/quickstart",
         label: "Hello World Quickstart",
         task: "5 分钟首个请求",
@@ -125,20 +131,26 @@ export default function DocsIndexPage(): JSX.Element {
             <h2 className="text-lg font-semibold">推荐阅读顺序</h2>
             <ol className="mt-4 space-y-3 text-sm">
               <li>
+                <Link href="/docs/user-guide" className="font-medium text-primary hover:underline">
+                  1. 阅读网站操作说明
+                </Link>
+                <p className="mt-1 text-muted-foreground">先了解注册、API、Excel 和控制台的整体路径。</p>
+              </li>
+              <li>
                 <Link href="/docs/quickstart" className="font-medium text-primary hover:underline">
-                  1. 跑通 Quickstart
+                  2. 跑通 Quickstart
                 </Link>
                 <p className="mt-1 text-muted-foreground">先确认 API Key 和首个 LP 请求路径。</p>
               </li>
               <li>
                 <Link href="/algorithms" className="font-medium text-primary hover:underline">
-                  2. 选择算法与 tier
+                  3. 选择算法与 tier
                 </Link>
                 <p className="mt-1 text-muted-foreground">从公开 catalog 查看 Provider 和适用任务。</p>
               </li>
               <li>
                 <Link href="/pricing" className="font-medium text-primary hover:underline">
-                  3. 评估套餐与上线风险
+                  4. 评估套餐与上线风险
                 </Link>
                 <p className="mt-1 text-muted-foreground">同步查看状态页和安全披露边界。</p>
               </li>

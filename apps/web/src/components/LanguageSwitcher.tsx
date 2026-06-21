@@ -1,7 +1,6 @@
 "use client";
 
 import { useLocale, useTranslations } from "next-intl";
-import { useRouter } from "next/navigation";
 
 import {
   type AppLocale,
@@ -12,13 +11,12 @@ import {
 const OPTIONS: AppLocale[] = ["zh-CN", "en-US"];
 
 export function LanguageSwitcher({ className = "" }: { className?: string }): JSX.Element {
-  const router = useRouter();
   const locale = normalizeLocale(useLocale()) ?? "zh-CN";
   const t = useTranslations("common.language");
 
   const switchLocale = (nextLocale: AppLocale): void => {
     document.cookie = buildLocaleCookie(nextLocale);
-    router.refresh();
+    window.location.reload();
   };
 
   return (

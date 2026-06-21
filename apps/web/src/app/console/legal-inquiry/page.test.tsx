@@ -1,8 +1,10 @@
 // @vitest-environment happy-dom
 
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
+import { renderWithIntl } from "@/test-utils/render-with-intl";
 
 const mocks = vi.hoisted(() => ({
   push: vi.fn(),
@@ -47,7 +49,7 @@ import LegalInquiryPage from "./page";
 
 function renderPageWithJwt(jwt = "jwt-team"): void {
   sessionStorage.setItem("jwt_access", jwt);
-  render(<LegalInquiryPage />);
+  renderWithIntl(<LegalInquiryPage />);
 }
 
 function fillValidForm(message = "Please review our DPA and data export terms."): void {
@@ -74,7 +76,7 @@ describe("LegalInquiryPage", () => {
   });
 
   it("redirects to login when jwt is missing", async () => {
-    render(<LegalInquiryPage />);
+    renderWithIntl(<LegalInquiryPage />);
 
     await waitFor(() => {
       expect(mocks.push).toHaveBeenCalledWith("/auth/login");

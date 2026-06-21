@@ -351,6 +351,7 @@ function DownloadResultCard({
   const handleDownload = async (): Promise<void> => {
     setGenState({ kind: "generating" });
     try {
+      await new Promise((resolve) => window.setTimeout(resolve, 150));
       const { blob, filename } = await buildResultWorkbook({
         source,
         payload,

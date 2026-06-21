@@ -1,8 +1,10 @@
 // @vitest-environment happy-dom
 
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
+import { renderWithIntl } from "@/test-utils/render-with-intl";
 
 const mocks = vi.hoisted(() => ({
   postPrediction: vi.fn(),
@@ -134,7 +136,7 @@ describe("ConsolePredictionsPage", () => {
   });
 
   it("opens recovery modal for row 847 and cancel does not submit", async () => {
-    render(<ConsolePredictionsPage />);
+    renderWithIntl(<ConsolePredictionsPage />);
 
     uploadCsv(buildCsv(1000, 847));
 
@@ -156,7 +158,7 @@ describe("ConsolePredictionsPage", () => {
 
   it("replaces only the invalid row, revalidates, and submits without file bytes", async () => {
     mocks.postPrediction.mockResolvedValue(successResponse);
-    render(<ConsolePredictionsPage />);
+    renderWithIntl(<ConsolePredictionsPage />);
 
     uploadCsv(buildCsv(1000, 847));
     expect(await screen.findByTestId("confirmation-modal")).toBeTruthy();
@@ -189,7 +191,7 @@ describe("ConsolePredictionsPage", () => {
   it("saves a completed prediction as a job template without resubmitting prediction or storing secrets", async () => {
     mocks.postPrediction.mockResolvedValue(successResponse);
     mocks.createJobTemplate.mockResolvedValue(savedTemplate);
-    render(<ConsolePredictionsPage />);
+    renderWithIntl(<ConsolePredictionsPage />);
 
     uploadCsv(buildCsv(12));
     expect(await screen.findByTestId("csv-ready-card")).toBeTruthy();
@@ -229,7 +231,7 @@ describe("ConsolePredictionsPage", () => {
         { ...versionTemplate, payload_json: undefined },
       ],
     });
-    render(<ConsolePredictionsPage />);
+    renderWithIntl(<ConsolePredictionsPage />);
 
     uploadCsv(buildCsv(12));
     expect(await screen.findByTestId("csv-ready-card")).toBeTruthy();
@@ -287,7 +289,7 @@ describe("ConsolePredictionsPage", () => {
         ],
       }),
     );
-    render(<ConsolePredictionsPage />);
+    renderWithIntl(<ConsolePredictionsPage />);
 
     uploadCsv(buildCsv(12));
     expect(await screen.findByTestId("csv-ready-card")).toBeTruthy();
@@ -338,7 +340,7 @@ describe("ConsolePredictionsPage", () => {
         { ...versionTemplate, payload_json: undefined },
       ],
     });
-    render(<ConsolePredictionsPage />);
+    renderWithIntl(<ConsolePredictionsPage />);
 
     uploadCsv(buildCsv(12));
     expect(await screen.findByTestId("csv-ready-card")).toBeTruthy();
@@ -390,7 +392,7 @@ describe("ConsolePredictionsPage", () => {
         ],
       }),
     );
-    render(<ConsolePredictionsPage />);
+    renderWithIntl(<ConsolePredictionsPage />);
 
     uploadCsv(buildCsv(12));
     expect(await screen.findByTestId("csv-ready-card")).toBeTruthy();
@@ -412,7 +414,7 @@ describe("ConsolePredictionsPage", () => {
 
   it("shows an auth error when saving a template without the API key", async () => {
     mocks.postPrediction.mockResolvedValue(successResponse);
-    render(<ConsolePredictionsPage />);
+    renderWithIntl(<ConsolePredictionsPage />);
 
     uploadCsv(buildCsv(12));
     expect(await screen.findByTestId("csv-ready-card")).toBeTruthy();
@@ -434,7 +436,7 @@ describe("ConsolePredictionsPage", () => {
   });
 
   it("clears state when the user chooses full retry", async () => {
-    render(<ConsolePredictionsPage />);
+    renderWithIntl(<ConsolePredictionsPage />);
 
     uploadCsv(buildCsv(1000, 847));
     expect(await screen.findByTestId("confirmation-modal")).toBeTruthy();
@@ -464,7 +466,7 @@ describe("ConsolePredictionsPage", () => {
         trace_id: "trace-def",
       }),
     );
-    render(<ConsolePredictionsPage />);
+    renderWithIntl(<ConsolePredictionsPage />);
 
     uploadCsv(buildCsv(12));
     expect(await screen.findByTestId("csv-ready-card")).toBeTruthy();

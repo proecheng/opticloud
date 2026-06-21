@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 
 import { StatusCard } from "@opticloud/ui";
 
+import { ConsolePageHeader, ConsoleShell } from "@/components/ConsoleShell";
 import {
   buildClassroomPlanDraft,
   type ClassroomLmsProvider,
@@ -28,43 +29,6 @@ function Field({ label, value }: { label: string; value: string }): JSX.Element 
       <dt className="text-xs text-muted-foreground">{label}</dt>
       <dd className="mt-1 break-words font-medium">{value}</dd>
     </div>
-  );
-}
-
-function ConsoleNav(): JSX.Element {
-  return (
-    <nav className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
-      <Link href="/console/excel" className="text-muted-foreground hover:text-foreground">
-        Excel
-      </Link>
-      <Link href="/console/providers" className="text-muted-foreground hover:text-foreground">
-        Providers
-      </Link>
-      <Link href="/console/classroom" className="font-medium text-foreground hover:text-primary">
-        Classroom
-      </Link>
-      <Link
-        href="/console/routing-history"
-        className="text-muted-foreground hover:text-foreground"
-      >
-        Routing History
-      </Link>
-      <Link
-        href="/console/legal-inquiry"
-        className="text-muted-foreground hover:text-foreground"
-      >
-        Legal Inquiry
-      </Link>
-      <Link
-        href="/console/billing/invoices"
-        className="text-muted-foreground hover:text-foreground"
-      >
-        账单
-      </Link>
-      <Link href="/console/audit-logs" className="text-muted-foreground hover:text-foreground">
-        审计日志
-      </Link>
-    </nav>
   );
 }
 
@@ -131,37 +95,23 @@ export default function ClassroomPage(): JSX.Element {
   };
 
   return (
-    <main className="min-h-screen bg-background">
-      <header className="border-b border-border bg-background">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-6 py-4">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="h-7 w-7 rounded bg-primary" />
-            <span className="font-semibold">OptiCloud</span>
-          </Link>
-          <ConsoleNav />
-        </div>
-      </header>
-
-      <section className="border-b border-border bg-muted">
-        <div className="mx-auto flex max-w-6xl flex-col gap-4 px-6 py-6 md:flex-row md:items-end md:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold">Classroom Plan v1 stub</h1>
-            <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
-              本页只生成本地 planning summary，用于人工 cohort 沟通；不创建账号、Credits、LMS
-              连接、作业或成绩。
-            </p>
-          </div>
+    <ConsoleShell active="classroom">
+      <ConsolePageHeader
+        eyebrow="Console / Education"
+        title="Classroom Plan v1 stub"
+        description="本页只生成本地 planning summary，用于人工 cohort 沟通；不创建账号、Credits、LMS 连接、作业或成绩。"
+        actions={
           <StatusCard
             variant="warning"
             title="Local stub only"
             description="Shared Credits 是 manual request / planning estimate，不是钱包余额、账本凭证、发票、赠款或实际分配。"
             ariaLabel="classroom.local-stub-boundary"
           />
-        </div>
-      </section>
+        }
+      />
 
       <section className="mx-auto grid max-w-6xl gap-6 px-6 py-8 lg:grid-cols-[360px_minmax(0,1fr)]">
-        <aside className="space-y-4">
+        <aside className="min-w-0 space-y-4">
           <StatusCard
             variant="info"
             title="v1 manual cohort"
@@ -176,7 +126,7 @@ export default function ClassroomPage(): JSX.Element {
           />
         </aside>
 
-        <section className="space-y-5">
+        <section className="min-w-0 space-y-5">
           <section className="rounded-md border border-border bg-background p-5">
             <div className="grid gap-4 md:grid-cols-2">
               <label className="block">
@@ -313,6 +263,6 @@ export default function ClassroomPage(): JSX.Element {
           </section>
         </section>
       </section>
-    </main>
+    </ConsoleShell>
   );
 }

@@ -12,6 +12,26 @@
       "signup": "Sign up",
       "register": "Register"
     },
+    "console": {
+      "excel": "Excel",
+      "predictions": "Predictions",
+      "repro": "Repro",
+      "providers": "Providers",
+      "routingHistory": "Routing history",
+      "legalInquiry": "Legal inquiry",
+      "classroom": "Classroom",
+      "dataExports": "Data exports",
+      "billing": "Billing",
+      "auditLogs": "Audit logs"
+    },
+    "a11y": {
+      "skipMain": "Skip to main content",
+      "skipConsole": "Skip to console content"
+    },
+    "footer": {
+      "summary": "Optimization and forecasting cloud · API, Excel workflows, and provider transparency.",
+      "linkPrefix": "Footer "
+    },
     "language": {
       "label": "Interface language",
       "zh": "中文",
@@ -38,14 +58,86 @@
       "title": "OptiCloud — Optimization and Forecasting Cloud",
       "description": "Production-grade optimization and forecasting APIs for business engineers"
     },
+    "eyebrow": "Optimization and forecasting cloud",
     "hero": {
       "title": "Optimization APIs for business engineers",
       "subtitle": "Run Gurobi- and TimeGPT-class workflows in minutes, without rebuilding research tooling",
       "body": "Most mid-market teams still run planning from spreadsheets. OptiCloud gives them a direct API path to optimization and forecasting workloads that used to require expensive specialist platforms.",
       "cost": "Plans start from ¥6 per month."
     },
+    "metrics": {
+      "api": {
+        "label": "API setup",
+        "value": "3 min",
+        "detail": "Signup, API key, and first LP request."
+      },
+      "excel": {
+        "label": "Excel workflow",
+        "value": "50K",
+        "detail": "Browser-side parsing limit; raw files stay local."
+      },
+      "trust": {
+        "label": "Transparency",
+        "value": "v1",
+        "detail": "Provider, version, and solver metadata are visible."
+      }
+    },
+    "preview": {
+      "aria": "OptiCloud live workflow preview",
+      "title": "Runnable capabilities",
+      "subtitle": "Algorithms, input sources, and provider status in one work surface.",
+      "status": "Public catalog ready",
+      "table": {
+        "task": "Task",
+        "input": "Input",
+        "provider": "Provider",
+        "state": "State"
+      },
+      "rows": {
+        "lp": {
+          "input": "API JSON / cURL",
+          "state": "Live"
+        },
+        "inventory": {
+          "input": "Inventory workbook",
+          "state": "Preview"
+        },
+        "routing": {
+          "input": "Routing workbook",
+          "state": "Shadow"
+        }
+      }
+    },
+    "summary": {
+      "title": "One workbench for engineering and business teams",
+      "body": "The landing page now exposes the three ways to validate the product: API, Excel, and the public algorithm catalog.",
+      "trustTitle": "Evidence buyers need during evaluation",
+      "trustOne": "The public catalog shows tier, provider, and version metadata.",
+      "trustTwo": "Console workflows preserve status, errors, and download exits.",
+      "trustThree": "Security disclosure, status, and pricing sit in the same navigation layer."
+    },
+    "workflows": {
+      "title": "Three primary paths",
+      "description": "Choose the entry point by the material the user already has: API systems, business spreadsheets, or evaluation workflows.",
+      "api": {
+        "title": "First API request",
+        "body": "Copy the Quickstart request and receive objective, solution, and provider metadata.",
+        "action": "Open Quickstart"
+      },
+      "excel": {
+        "title": "Excel recognition",
+        "body": "Upload an .xlsx file, detect VRPTW, scheduling, or inventory tasks locally, then preview and run.",
+        "action": "Open Excel console"
+      },
+      "provider": {
+        "title": "Algorithm evaluation",
+        "body": "Filter the public catalog by tier and inspect provider, version, examples, and task fit.",
+        "action": "Browse catalog"
+      }
+    },
     "hello": {
       "title": "Run your first LP solve in 3 minutes",
+      "description": "The Quickstart code remains copyable evidence, but it no longer has to carry the full product explanation above the fold.",
       "snippet": "# 1. Sign up with phone + email\ncurl -X POST https://api.opticloud.cn/v1/auth/signup \\\n  -d '{\"phone\":\"+86138...\",\"email\":\"you@example.com\",\"age_years\":18}'\n\n# 2. Use the generated sk-xxx API key:\ncurl -X POST https://api.opticloud.cn/v1/optimizations \\\n  -H \"Authorization: Bearer sk-xxx\" \\\n  -H \"Idempotency-Key: $(uuidgen)\" \\\n  -d '{\"task_type\":\"lp\",\"minimize\":{\"c\":[1,1]},\"st\":{\"A\":[[1,1]],\"b\":[10]}}'\n\n# Response includes the optimum and transparent model_version metadata.\n"
     },
     "footer": "OptiCloud · M0 Sprint 0 · J1 Vertical Slice (Story 1.1a + 1.1b)"

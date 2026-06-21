@@ -1,12 +1,12 @@
 "use client";
 /** /console/data-exports — PIPL self-service data export portal (Story 5.C.5). */
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { StatusCard } from "@opticloud/ui";
 
+import { ConsolePageHeader, ConsoleShell } from "@/components/ConsoleShell";
 import {
   type DataExportFormat,
   type DataExportStatusResponse,
@@ -209,54 +209,25 @@ export default function DataExportsConsolePage(): JSX.Element {
   };
 
   return (
-    <main className="min-h-screen bg-background">
-      <header className="border-b border-border bg-background">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-6 py-4">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="h-7 w-7 rounded bg-primary" />
-            <span className="font-semibold">OptiCloud</span>
-          </Link>
-          <nav className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
-            <Link href="/console/excel" className="text-muted-foreground hover:text-foreground">
-              Excel
-            </Link>
-            <Link href="/console/repro" className="text-muted-foreground hover:text-foreground">
-              Repro
-            </Link>
-            <Link
-              href="/console/data-exports"
-              className="font-medium text-foreground hover:text-primary"
-            >
-              数据导出
-            </Link>
-            <Link
-              href="/console/billing/invoices"
-              className="text-muted-foreground hover:text-foreground"
-            >
-              账单
-            </Link>
-            <Link
-              href="/console/audit-logs"
-              className="text-muted-foreground hover:text-foreground"
-            >
-              审计日志
-            </Link>
-          </nav>
-        </div>
-      </header>
-
-      <section className="border-b border-border bg-muted">
-        <div className="mx-auto max-w-6xl px-6 py-6">
-          <h1 className="text-2xl font-bold">PIPL 数据导出</h1>
-          <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
-            请求 JSON 或 CSV 数据副本、跟踪处理状态，并通过当前登录态下载已完成包。7 天是
-            OptiCloud 产品 SLA。
-          </p>
-        </div>
-      </section>
+    <ConsoleShell active="data-exports">
+      <ConsolePageHeader
+        eyebrow="Console / Data rights"
+        title="PIPL 数据导出"
+        description="请求 JSON 或 CSV 数据副本、跟踪处理状态，并通过当前登录态下载已完成包。7 天是 OptiCloud 产品 SLA。"
+        meta={
+          <>
+            <span className="inline-flex min-h-touch items-center rounded-md border border-primary/30 bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary">
+              JSON / CSV
+            </span>
+            <span className="inline-flex min-h-touch items-center rounded-md border border-border bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground">
+              7 天 SLA
+            </span>
+          </>
+        }
+      />
 
       <section className="mx-auto grid max-w-6xl gap-6 px-6 py-8 lg:grid-cols-[320px_minmax(0,1fr)]">
-        <aside className="space-y-4">
+        <aside className="min-w-0 space-y-4">
           <div className="rounded-md border border-border bg-background p-4">
             <div className="text-sm font-medium">导出格式</div>
             <div className="mt-3 grid grid-cols-2 gap-2" role="tablist" aria-label="导出格式">
@@ -291,7 +262,7 @@ export default function DataExportsConsolePage(): JSX.Element {
           />
         </aside>
 
-        <section className="space-y-5">
+        <section className="min-w-0 space-y-5">
           <div className="rounded-md border border-border bg-background p-5">
             <div className="flex flex-col gap-3 border-b border-border pb-4 md:flex-row md:items-start md:justify-between">
               <div>
@@ -345,7 +316,7 @@ export default function DataExportsConsolePage(): JSX.Element {
           </div>
         </section>
       </section>
-    </main>
+    </ConsoleShell>
   );
 }
 

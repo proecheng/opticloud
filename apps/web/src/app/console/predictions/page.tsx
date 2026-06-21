@@ -1,7 +1,6 @@
 "use client";
 /** /console/predictions — Lina CSV prediction recovery surface (Story 3.11). */
 
-import Link from "next/link";
 import { useRef, useState } from "react";
 
 import {
@@ -14,6 +13,7 @@ import {
   type RFC7807ErrorPayload,
 } from "@opticloud/ui";
 
+import { ConsolePageHeader, ConsoleShell } from "@/components/ConsoleShell";
 import {
   createJobTemplate,
   createJobTemplateVersion,
@@ -721,32 +721,22 @@ export default function ConsolePredictionsPage(): JSX.Element {
   };
 
   return (
-    <main className="min-h-screen bg-background">
-      <header className="border-b border-border bg-background">
-        <div className="mx-auto flex max-w-4xl items-center justify-between px-6 py-4">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="h-7 w-7 rounded bg-primary" />
-            <span className="font-semibold">OptiCloud</span>
-          </Link>
-          <nav className="flex items-center gap-4 text-sm">
-            <Link href="/console/excel" className="text-muted-foreground hover:text-foreground">
-              Excel
-            </Link>
-            <Link href="/algorithms" className="text-muted-foreground hover:text-foreground">
-              算法目录
-            </Link>
-          </nav>
-        </div>
-      </header>
-
-      <section className="bg-muted py-10">
-        <div className="mx-auto max-w-3xl px-6">
-          <h1 className="text-3xl font-bold">CSV 需求预测</h1>
-          <p className="mt-2 text-muted-foreground">
-            上传销售 CSV，先在浏览器内校验和修复，再提交到现有预测 API。
-          </p>
-        </div>
-      </section>
+    <ConsoleShell active="predictions">
+      <ConsolePageHeader
+        eyebrow="Console / Forecast workflow"
+        title="CSV 需求预测"
+        description="上传销售 CSV，先在浏览器内校验和修复，再提交到现有预测 API。"
+        meta={
+          <>
+            <span className="inline-flex min-h-touch items-center rounded-md border border-border bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground">
+              {"CSV <= 10 MB"}
+            </span>
+            <span className="inline-flex min-h-touch items-center rounded-md border border-primary/30 bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary">
+              浏览器内校验
+            </span>
+          </>
+        }
+      />
 
       <section className="mx-auto max-w-3xl space-y-6 px-6 py-8">
         {state.kind === "idle" && (
@@ -878,6 +868,6 @@ export default function ConsolePredictionsPage(): JSX.Element {
           </>
         )}
       </section>
-    </main>
+    </ConsoleShell>
   );
 }

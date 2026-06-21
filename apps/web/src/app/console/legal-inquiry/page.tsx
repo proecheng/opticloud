@@ -1,12 +1,12 @@
 "use client";
 /** /console/legal-inquiry — Team+ legal inquiry SLA submission (Story 8.C.3). */
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { StatusCard } from "@opticloud/ui";
 
+import { ConsolePageHeader, ConsoleShell } from "@/components/ConsoleShell";
 import {
   OptiCloudClientError,
   submitLegalInquiry,
@@ -145,65 +145,23 @@ export default function LegalInquiryPage(): JSX.Element {
   };
 
   return (
-    <main className="min-h-screen bg-background">
-      <header className="border-b border-border bg-background">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-6 py-4">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="h-7 w-7 rounded bg-primary" />
-            <span className="font-semibold">OptiCloud</span>
-          </Link>
-          <nav className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
-            <Link href="/console/excel" className="text-muted-foreground hover:text-foreground">
-              Excel
-            </Link>
-            <Link href="/console/providers" className="text-muted-foreground hover:text-foreground">
-              Providers
-            </Link>
-            <Link
-              href="/console/classroom"
-              className="text-muted-foreground hover:text-foreground"
-            >
-              Classroom
-            </Link>
-            <Link
-              href="/console/routing-history"
-              className="text-muted-foreground hover:text-foreground"
-            >
-              Routing History
-            </Link>
-            <Link href="/console/legal-inquiry" className="font-medium text-foreground">
-              Legal Inquiry
-            </Link>
-            <Link
-              href="/console/audit-logs"
-              className="text-muted-foreground hover:text-foreground"
-            >
-              审计日志
-            </Link>
-          </nav>
-        </div>
-      </header>
-
-      <section className="border-b border-border bg-muted">
-        <div className="mx-auto flex max-w-6xl flex-col gap-4 px-6 py-6 md:flex-row md:items-end md:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold">Team+ 法务问询</h1>
-            <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
-              Team 和 Enterprise 用户可提交采购、隐私、数据出境、DPA、许可或安全审查问题，并获得 24h
-              首次人工响应 SLA。
-            </p>
-          </div>
+    <ConsoleShell active="legal-inquiry">
+      <ConsolePageHeader
+        eyebrow="Console / Legal"
+        title="Team+ 法务问询"
+        description="Team 和 Enterprise 用户可提交采购、隐私、数据出境、DPA、许可或安全审查问题，并获得 24h 首次人工响应 SLA。"
+        actions={
           <StatusCard
             variant="info"
             title="Linear-ready"
             description="提交后生成内部 ticket reference；真实法务意见和外部工单处理由人工流程完成。"
             ariaLabel="legal-inquiry.linear-boundary"
           />
-        </div>
-      </section>
+        }
+      />
 
       <section className="mx-auto grid max-w-6xl gap-6 px-6 py-8 lg:grid-cols-[360px_minmax(0,1fr)]">
-        <aside className="space-y-4">
+        <aside className="min-w-0 space-y-4">
           <StatusCard
             variant="warning"
             title="Team+ 权限"
@@ -218,7 +176,7 @@ export default function LegalInquiryPage(): JSX.Element {
           />
         </aside>
 
-        <section className="space-y-5">
+        <section className="min-w-0 space-y-5">
           <div className="rounded-md border border-border bg-background p-5">
             <div className="grid gap-4 md:grid-cols-2">
               <label className="block">
@@ -331,6 +289,6 @@ export default function LegalInquiryPage(): JSX.Element {
           )}
         </section>
       </section>
-    </main>
+    </ConsoleShell>
   );
 }
