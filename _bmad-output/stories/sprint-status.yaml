@@ -277,16 +277,17 @@ development_status:
   9-8-graded-protection-evidence: done      # 2026-06-05 - Graded protection evidence contract shipped; PR #177 passed CI, merged to main, remote branch deleted, local main synced
 
   # ===== Evolution: Brownfield UX Improvements =====
-  epic-evolution-ux: in-progress
+  epic-evolution-ux: done
 
   evo-1-mobile-overflow-hardening: done # 2026-06-08 - Public mobile overflow hardening implemented, reviewed, verified, and prepared for GitHub sync
   evo-2-public-shell-docs-algorithms: done # 2026-06-08 - PublicShell docs/algorithms IA shipped and synced via PR #183
   evo-3-console-shell-excel: done # 2026-06-08 - ConsoleShell + Excel workflow IA implemented, reviewed, verified, and prepared for GitHub sync
   evo-4-ci-python-version-lock: done # 2026-06-08 - CI Python lock hardening shipped; PR #184 checks passed after external SBOM 504 rerun
+  evo-5-console-data-pages-user-guide: done # 2026-06-21 - Console data pages and /docs/user-guide closure shipped via PR #185; local main synced
 
 # ===== Statistics =====
-# Total stories: ~192 (per epics.md)
-# Done: 22 (J1 vert slice + Saga + Outbox loop + 55 critical scenarios)
-# Backlog: ~164
-# Blocked: 4 (legal/AIGC/calibration — user deferred)
-# Progress: ~11.5% — Saga engine proven to NFR-R4 v1.5 hard-gate level
+# Total tracked concrete stories: 201
+# Done: 197
+# Blocked: 4 (legal/AIGC/calibration — external owner decision required)
+# Actionable backlog/ready/in-progress/review stories: 0
+# Open epic: epic-0 only, because four external process/legal/AIGC blockers remain
